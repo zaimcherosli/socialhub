@@ -432,6 +432,8 @@ app-header {
     }
 
     .sidebar-wrapper {
+        position: static;
+        height: 100%;
         width: 100%;
         align-items: stretch;
         padding: 1.5rem 1rem;

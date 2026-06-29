@@ -8,6 +8,7 @@ import './components/ScheduleModal.js';
 import './components/PostComposer.js';
 import './components/ScheduledPostsTable.js';
 import './components/UpcomingPostsCard.js';
+import './components/BottomNav.js';
 import { authService } from './services/authService.js';
 
 function getInitials(name) {

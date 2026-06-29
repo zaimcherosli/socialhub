@@ -390,6 +390,25 @@
                         </div>
                     </div>
 
+                    <!-- Target Channels -->
+                    <div class="form-group" style="margin-top: 1.25rem;" id="targetChannelsGroup">
+                        <label class="form-label">Publish Channels</label>
+                        <div id="targetChannelsContainer" style="display: flex; flex-direction: column; gap: 0.5rem; margin-top: 0.5rem; background: var(--color-bg-accent); padding: 0.75rem 1rem; border-radius: var(--radius-xs); border: 1px solid var(--color-border);">
+                            <p style="font-size: 0.75rem; color: var(--color-text-tertiary); font-style: italic; margin: 0;">Loading connected channels...</p>
+                        </div>
+                    </div>
+
+                    <!-- Schedule Date & Time -->
+                    <div class="form-group" style="margin-top: 1.25rem; display: none;" id="scheduleTimeGroup">
+                        <label class="form-label" for="txtScheduleTime">Publish Date & Time (Local)</label>
+                        <input type="datetime-local" id="txtScheduleTime" class="form-input" style="width: 100%;" />
+                    </div>
+
+                    <!-- Immediate Manual Publish Button -->
+                    <div class="form-group" style="margin-top: 1.25rem; display: flex; gap: 0.75rem;">
+                        <button class="btn btn-secondary" id="btnPublishNow" style="flex: 1; justify-content: center; height: 42px;">⚡ Publish Now</button>
+                    </div>
+
                     <!-- Undo, Redo, Autosave status -->
                     <div class="editor-controls-row">
                         <div class="editor-history-buttons">
@@ -458,6 +477,10 @@
         import { mediaService } from './js/services/mediaService.js';
         import { uploadService } from './js/services/uploadService.js';
         import { imageService } from './js/services/imageService.js';
+        import { socialService } from './js/services/socialService.js';
+        import { scheduleService } from './js/services/scheduleService.js';
+        import { queueService } from './js/services/queueService.js';
+        import { timezoneService } from './js/services/timezoneService.js';
 
         const urlParams = new URLSearchParams(window.location.search);
         const postId = urlParams.get('id') || 'new';
@@ -468,6 +491,11 @@
         const statusSelect = document.getElementById('postStatus');
         const mediaContainer = document.getElementById('attachedMediaContainer');
         const pickerModal = document.getElementById('mediaPickerModal');
+        const targetChannelsContainer = document.getElementById('targetChannelsContainer');
+        const scheduleTimeGroup = document.getElementById('scheduleTimeGroup');
+        const txtScheduleTime = document.getElementById('txtScheduleTime');
+        const btnPublishNow = document.getElementById('btnPublishNow');
+        let connectedAccounts = [];
 
         let isDirty = false;
         let dbUpdatedAt = null;
@@ -480,6 +508,44 @@
                 document.getElementById('previewUserNameLabel').textContent = user.name;
                 const initials = user.name.trim().split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2);
                 document.getElementById('previewAvatarLetters').textContent = initials;
+            }
+        }
+
+        // Fetch connected channels
+        async function fetchConnectedAccounts() {
+            try {
+                connectedAccounts = await socialService.getAccounts();
+                targetChannelsContainer.innerHTML = '';
+                
+                if (connectedAccounts.length === 0) {
+                    targetChannelsContainer.innerHTML = `
+                        <p style="font-size: 0.75rem; color: var(--color-text-tertiary); font-style: italic; margin: 0;">
+                            No connected accounts. <a href="accounts.html" style="color:var(--color-primary); font-weight:500;">Link accounts here</a>
+                        </p>
+                    `;
+                    return;
+                }
+                
+                connectedAccounts.forEach(acc => {
+                    if (acc.status !== 'active') return;
+                    
+                    const label = document.createElement('label');
+                    label.style.display = 'flex';
+                    label.style.alignItems = 'center';
+                    label.style.gap = '0.5rem';
+                    label.style.fontSize = '0.875rem';
+                    label.style.cursor = 'pointer';
+                    label.style.color = 'var(--color-text-secondary)';
+                    
+                    label.innerHTML = `
+                        <input type="checkbox" class="channel-checkbox" value="${acc.platform}" data-id="${acc.id}" checked />
+                        <span style="text-transform: capitalize; font-weight: 500;">${acc.platform}</span>
+                        <span style="font-size: 0.75rem; color: var(--color-text-tertiary);">(${acc.account_name})</span>
+                    `;
+                    targetChannelsContainer.appendChild(label);
+                });
+            } catch (err) {
+                targetChannelsContainer.innerHTML = `<p style="font-size: 0.75rem; color: var(--color-danger); margin: 0;">Failed to load channels.</p>`;
             }
         }
 
@@ -613,6 +679,27 @@
 
             try {
                 let targetId = postId;
+
+                // If scheduled, validate date/time and channels selection first
+                let scheduledTimeUtc = null;
+                let userTimezone = 'UTC';
+                let selectedCheckboxes = [];
+
+                if (state.status === 'scheduled') {
+                    const scheduledTimeLocal = txtScheduleTime.value;
+                    if (!scheduledTimeLocal) {
+                        throw new Error('Please select a date and time for scheduling.');
+                    }
+                    scheduledTimeUtc = timezoneService.localToUtc(scheduledTimeLocal);
+                    userTimezone = timezoneService.getUserTimezone();
+                    
+                    selectedCheckboxes = document.querySelectorAll('.channel-checkbox:checked');
+                    if (selectedCheckboxes.length === 0) {
+                        throw new Error('Please select at least one channel to publish to.');
+                    }
+                    
+                    state.scheduled_at = scheduledTimeUtc;
+                }
                 
                 if (postId === 'new') {
                     const response = await postService.createPost(state);
@@ -622,22 +709,27 @@
                 }
 
                 // Sync junctions table post_media
-                // 1. Fetch current links from DB
                 const currentDBLinks = await mediaService.getPostMedia(targetId);
                 const currentDBIds = currentDBLinks.map(m => m.id);
                 const attachedIds = attachedMedia.map(m => m.id);
 
-                // 2. Attach any new media that is not yet linked
                 for (const mId of attachedIds) {
                     if (!currentDBIds.includes(mId)) {
                         await mediaService.attachMediaToPost(targetId, mId);
                     }
                 }
 
-                // 3. Detach any previously linked media that was removed in editor session
                 for (const mId of currentDBIds) {
                     if (!attachedIds.includes(mId)) {
                         await mediaService.detachMediaFromPost(targetId, mId);
+                    }
+                }
+
+                // Create schedule records if status is scheduled
+                if (state.status === 'scheduled') {
+                    for (const checkbox of selectedCheckboxes) {
+                        const platform = checkbox.value;
+                        await scheduleService.createSchedule(targetId, platform, scheduledTimeUtc, userTimezone);
                     }
                 }
 
@@ -645,17 +737,93 @@
                 isDirty = false;
                 window.location.replace(`posts.html`);
             } catch (err) {
-                alert(`Error saving post attachments: ${err.message}`);
+                alert(`Error saving post: ${err.message}`);
                 btnSave.disabled = false;
                 btnSave.textContent = 'Save Changes';
+            }
+        }
+
+        // Direct manual publish immediately
+        async function publishPostNow() {
+            const state = getEditorState();
+            
+            const report = validationService.validatePostForm(state.title, state.caption);
+            if (!report.isValid) {
+                alert(Object.values(report.errors).join('\n'));
+                return;
+            }
+
+            const selectedCheckboxes = document.querySelectorAll('.channel-checkbox:checked');
+            if (selectedCheckboxes.length === 0) {
+                alert('Please select at least one channel to publish to.');
+                return;
+            }
+
+            const btnPublish = document.getElementById('btnPublishNow');
+            btnPublish.disabled = true;
+            btnPublish.textContent = 'Publishing...';
+
+            try {
+                let targetId = postId;
+                
+                // Force status to scheduled before publishing
+                state.status = 'scheduled';
+                const nowUtc = new Date().toISOString();
+                state.scheduled_at = nowUtc;
+
+                if (postId === 'new') {
+                    const response = await postService.createPost(state);
+                    targetId = response.id;
+                } else {
+                    await postService.updatePost(postId, state);
+                }
+
+                // Sync media attachments
+                const currentDBLinks = await mediaService.getPostMedia(targetId);
+                const currentDBIds = currentDBLinks.map(m => m.id);
+                const attachedIds = attachedMedia.map(m => m.id);
+                for (const mId of attachedIds) {
+                    if (!currentDBIds.includes(mId)) {
+                        await mediaService.attachMediaToPost(targetId, mId);
+                    }
+                }
+                for (const mId of currentDBIds) {
+                    if (!attachedIds.includes(mId)) {
+                        await mediaService.detachMediaFromPost(targetId, mId);
+                    }
+                }
+
+                const userTimezone = timezoneService.getUserTimezone();
+                
+                for (const checkbox of selectedCheckboxes) {
+                    const platform = checkbox.value;
+                    const schedResult = await scheduleService.createSchedule(targetId, platform, nowUtc, userTimezone);
+                    if (schedResult && schedResult.id) {
+                        // Immediately execute manually
+                        const publishSuccess = await queueService.manualPublish(schedResult.id);
+                        if (!publishSuccess) {
+                            throw new Error('Manual dispatch execution failed in the publishing queue.');
+                        }
+                    }
+                }
+
+                draftService.clearBackup(postId);
+                isDirty = false;
+                alert('Successfully published to Threads!');
+                window.location.replace(`monitor.html`);
+            } catch (err) {
+                alert(`Publishing failed: ${err.message}`);
+                btnPublish.disabled = false;
+                btnPublish.textContent = '⚡ Publish Now';
             }
         }
 
         // Initialize editor loading
         async function initEditor() {
             await fetchUserPreviewMeta();
+            await fetchConnectedAccounts();
 
-            let initialState = { title: '', caption: '', visibility: 'public', status: 'draft', attachedMedia: [] };
+            let initialState = { title: '', caption: '', visibility: 'public', status: 'draft', scheduled_at: null, attachedMedia: [] };
 
             if (postId !== 'new') {
                 document.getElementById('pageTitleLabel').textContent = 'Edit Post';
@@ -668,6 +836,7 @@
                         caption: post.caption,
                         visibility: post.visibility,
                         status: post.status,
+                        scheduled_at: post.scheduled_at,
                         attachedMedia: media
                     };
                     dbUpdatedAt = post.updated_at;
@@ -680,6 +849,16 @@
 
             setEditorState(initialState);
             editorService.resetHistory(initialState);
+
+            // Handle initial schedule UI visibility
+            if (initialState.status === 'scheduled') {
+                scheduleTimeGroup.style.display = 'block';
+                if (initialState.scheduled_at) {
+                    txtScheduleTime.value = timezoneService.utcToLocalInputFormat(initialState.scheduled_at);
+                }
+            } else {
+                scheduleTimeGroup.style.display = 'none';
+            }
 
             if (draftService.hasNewerBackup(postId, dbUpdatedAt)) {
                 document.getElementById('recoveryBanner').style.display = 'flex';
@@ -706,7 +885,15 @@
         });
         titleInput.addEventListener('change', recordState);
         visibilitySelect.addEventListener('change', () => { isDirty = true; recordState(); });
-        statusSelect.addEventListener('change', () => { isDirty = true; recordState(); });
+        statusSelect.addEventListener('change', () => { 
+            isDirty = true; 
+            recordState(); 
+            if (statusSelect.value === 'scheduled') {
+                scheduleTimeGroup.style.display = 'block';
+            } else {
+                scheduleTimeGroup.style.display = 'none';
+            }
+        });
 
         // Emoji buttons triggers
         document.querySelectorAll('.emoji-btn').forEach(btn => {
@@ -846,6 +1033,7 @@
         });
 
         document.getElementById('btnSavePost').addEventListener('click', savePostData);
+        btnPublishNow.addEventListener('click', publishPostNow);
 
         // Unload warning guard
         window.addEventListener('beforeunload', (e) => {

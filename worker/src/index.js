@@ -898,5 +898,37 @@ export default {
             console.error(`Worker execution crash: ${error.message}`);
             return new Response(JSON.stringify({ error: 'Internal Server Error', details: error.message }), { status: 500, headers: corsHeaders });
         }
+    },
+
+    async scheduled(event, env, ctx) {
+        console.log("⏰ Cloudflare Worker Cron Trigger Fired");
+        const jwtSecret = env.JWT_SECRET || "socialhub-dev-super-secret-key-12345!@#";
+        const encryptionSecret = env.ENCRYPTION_KEY || jwtSecret;
+        
+        if (!env.DB) {
+            console.error("D1 database binding missing in Cron Trigger");
+            return;
+        }
+        
+        try {
+            const nowStr = new Date().toISOString();
+            const { results } = await env.DB.prepare(
+                "SELECT id, user_id FROM publish_queue WHERE status IN ('queued', 'retrying') AND scheduled_at <= ?"
+            ).bind(nowStr).all();
+            
+            if (results && results.length > 0) {
+                console.log(`Processing ${results.length} due publish queue items...`);
+                for (const item of results) {
+                    try {
+                        console.log(`Processing queue item ID: ${item.id}`);
+                        await PublishingEngine.publishQueueItem(env.DB, item.id, item.user_id, encryptionSecret);
+                    } catch (e) {
+                        console.error(`Error processing queue item ${item.id}:`, e.message);
+                    }
+                }
+            }
+        } catch (err) {
+            console.error("Failed to run scheduled publish queue runner:", err.message);
+        }
     }
 };

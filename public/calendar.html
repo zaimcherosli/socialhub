@@ -271,6 +271,23 @@
                 flex: 1;
                 text-align: center;
             }
+            .tab-container-row {
+                flex-direction: column;
+                gap: 0.5rem;
+                border-bottom: none !important;
+                padding-bottom: 0 !important;
+            }
+            .tab-btn {
+                width: 100%;
+                text-align: center;
+                justify-content: center;
+            }
+        }
+
+        .table-responsive {
+            overflow-x: auto;
+            -webkit-overflow-scrolling: touch;
+            width: 100%;
         }
     </style>
 </head>
@@ -292,7 +309,7 @@
             </div>
 
             <!-- Workspace Tabs -->
-            <div style="display: flex; gap: 1rem; margin-bottom: 1.5rem; border-bottom: 2px solid var(--color-border); padding-bottom: 0.5rem;">
+            <div class="tab-container-row" style="display: flex; gap: 1rem; margin-bottom: 1.5rem; border-bottom: 2px solid var(--color-border); padding-bottom: 0.5rem;">
                 <button class="btn btn-secondary tab-btn active" id="tabBtnCalendar" style="font-weight: 600; padding: 0.5rem 1.25rem;">📅 Calendar Workspace</button>
                 <button class="btn btn-secondary tab-btn" id="tabBtnQueue" style="font-weight: 600; padding: 0.5rem 1.25rem;">📋 Detailed Queue List</button>
             </div>

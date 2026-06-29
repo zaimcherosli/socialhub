@@ -180,7 +180,7 @@ function sanitizeFilename(name) {
 const OAuthProviders = {
     threads: {
         getAuthUrl(state, redirectUri, clientId) {
-            const url = new URL("https://threads.net/oauth/authorize");
+            const url = new URL("https://www.threads.net/oauth/authorize");
             url.searchParams.set("client_id", clientId);
             url.searchParams.set("redirect_uri", redirectUri);
             url.searchParams.set("scope", "threads_basic,threads_content_publish");

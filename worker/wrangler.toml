@@ -11,9 +11,6 @@ ENVIRONMENT = "development"
 [[d1_databases]]
 binding = "DB"
 database_name = "socialhub-db"
-database_id = "00000000-0000-0000-0000-000000000000" # Replace with wrangler d1 create command output uuid
+database_id = "f8054d30-59c2-4cdd-820c-ffe8eed91bf9"
 
-# R2 Buckets Binding (Asset storage bucket reference)
-[[r2_buckets]]
-binding = "BUCKET"
-bucket_name = "socialhub-assets"
+

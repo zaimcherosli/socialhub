@@ -422,16 +422,17 @@ app-header {
     app-sidebar {
         position: fixed;
         top: 0;
-        left: calc(-1 * var(--sidebar-width));
+        left: -260px;
         height: 100vh;
-        width: var(--sidebar-width);
-        transition: transform var(--transition-normal);
+        width: 260px;
+        transition: left var(--transition-normal);
         grid-area: unset;
         display: block;
+        z-index: 100;
     }
 
     .sidebar-wrapper {
-        width: var(--sidebar-width);
+        width: 100%;
         align-items: stretch;
         padding: 1.5rem 1rem;
     }
@@ -441,7 +442,7 @@ app-header {
     }
     
     app-sidebar.active {
-        transform: translateX(var(--sidebar-width));
+        left: 0;
     }
     
     .mobile-nav-toggle {

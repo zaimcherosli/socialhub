@@ -9,7 +9,7 @@ class Sidebar extends HTMLElement {
     }
 
     render() {
-        this.className = 'sidebar-element';
+        this.classList.add('sidebar-element');
         this.innerHTML = `
             <aside class="sidebar-wrapper">
                 <div class="sidebar-brand">

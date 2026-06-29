@@ -189,16 +189,6 @@ const OAuthProviders = {
             return url.toString();
         },
         async exchangeCode(code, redirectUri, clientId, clientSecret) {
-            if (!clientId || clientId === "placeholder" || !clientSecret || clientSecret === "placeholder") {
-                return {
-                    access_token: "mock-threads-access-token-122333",
-                    refresh_token: "mock-threads-refresh-token-44555",
-                    expires_in: 86400 * 60,
-                    account_name: `@zaim_dev`,
-                    account_id: "th-user-998822"
-                };
-            }
-
             const response = await fetch("https://graph.threads.net/oauth/access_token", {
                 method: "POST",
                 headers: { "Content-Type": "application/x-www-form-urlencoded" },
@@ -455,21 +445,27 @@ export default {
                     const provider = OAuthProviders[platform];
                     if (!provider) return new Response(JSON.stringify({ message: `Platform '${platform}' not supported` }), { status: 400, headers: corsHeaders });
 
+                    const clientIdKey = `${platform.toUpperCase()}_CLIENT_ID`;
+                    const clientId = env[clientIdKey];
+                    if (!clientId) {
+                        return new Response(JSON.stringify({ error: `Environment variable '${clientIdKey}' is missing or not configured on Cloudflare.` }), { status: 500, headers: corsHeaders });
+                    }
+
                     const stateToken = await signJWT({ sub: user.uuid, platform, exp: Math.floor(Date.now() / 1000) + 600 }, jwtSecret);
                     const redirectUri = platform === 'threads'
                         ? `${url.origin}/oauth/threads/callback`
                         : `${url.origin}/api/oauth/callback`;
-                    const clientId = env[`${platform.toUpperCase()}_CLIENT_ID`] || "placeholder";
 
                     const authUrl = provider.getAuthUrl(stateToken, redirectUri, clientId);
-                    if (platform === 'threads') {
-                        console.log({
-                            authUrl,
-                            client_id: clientId,
-                            redirect_uri: redirectUri,
-                            scope: 'threads_basic,threads_content_publish'
-                        });
-                    }
+                    
+                    console.log(`🔑 Initiating OAuth redirection for platform: ${platform}`);
+                    console.log({
+                        authUrl,
+                        client_id: clientId,
+                        redirect_uri: redirectUri,
+                        scope: platform === 'threads' ? 'threads_basic,threads_content_publish' : 'default'
+                    });
+
                     return new Response(JSON.stringify({ success: true, redirect_url: authUrl }), { status: 200, headers: corsHeaders });
                 }
 
@@ -493,11 +489,18 @@ export default {
                     const user = await env.DB.prepare("SELECT id FROM users WHERE uuid = ?").bind(userUuid).first();
                     if (!user) return new Response('User not found', { status: 404 });
 
+                    const clientIdKey = `${platform.toUpperCase()}_CLIENT_ID`;
+                    const clientSecretKey = `${platform.toUpperCase()}_CLIENT_SECRET`;
+                    const clientId = env[clientIdKey];
+                    const clientSecret = env[clientSecretKey];
+
+                    if (!clientId || !clientSecret) {
+                        return new Response(`OAuth Configuration Error: Missing '${clientIdKey}' or '${clientSecretKey}' environment variables on Cloudflare.`, { status: 500 });
+                    }
+
                     const redirectUri = platform === 'threads'
                         ? `${url.origin}/oauth/threads/callback`
                         : `${url.origin}/api/oauth/callback`;
-                    const clientId = env[`${platform.toUpperCase()}_CLIENT_ID`] || "placeholder";
-                    const clientSecret = env[`${platform.toUpperCase()}_CLIENT_SECRET`] || "placeholder";
 
                     let tokenData;
                     try {
@@ -798,21 +801,25 @@ export default {
                             const account = await env.DB.prepare("SELECT platform FROM social_accounts WHERE id = ? AND user_id = ?").bind(accountId, user.id).first();
                             if (!account) return new Response(JSON.stringify({ message: 'Account not found' }), { status: 404, headers: corsHeaders });
 
+                            const clientIdKey = `${account.platform.toUpperCase()}_CLIENT_ID`;
+                            const clientId = env[clientIdKey];
+                            if (!clientId) {
+                                return new Response(JSON.stringify({ error: `Environment variable '${clientIdKey}' is missing or not configured on Cloudflare.` }), { status: 500, headers: corsHeaders });
+                            }
+
                             const stateToken = await signJWT({ sub: user.uuid, platform: account.platform, exp: Math.floor(Date.now() / 1000) + 600 }, jwtSecret);
                             const redirectUri = account.platform === 'threads'
                                 ? `${url.origin}/oauth/threads/callback`
                                 : `${url.origin}/api/oauth/callback`;
-                            const clientId = env[`${account.platform.toUpperCase()}_CLIENT_ID`] || "placeholder";
                             const authUrl = OAuthProviders[account.platform].getAuthUrl(stateToken, redirectUri, clientId);
 
-                            if (account.platform === 'threads') {
-                                console.log({
-                                    authUrl,
-                                    client_id: clientId,
-                                    redirect_uri: redirectUri,
-                                    scope: 'threads_basic,threads_content_publish'
-                                });
-                            }
+                            console.log(`🔑 Re-initiating OAuth reconnection for platform: ${account.platform}`);
+                            console.log({
+                                authUrl,
+                                client_id: clientId,
+                                redirect_uri: redirectUri,
+                                scope: account.platform === 'threads' ? 'threads_basic,threads_content_publish' : 'default'
+                            });
 
                             return new Response(JSON.stringify({ success: true, redirect_url: authUrl }), { status: 200, headers: corsHeaders });
                         }

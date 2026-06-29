@@ -384,6 +384,104 @@ export default {
                     return new Response(JSON.stringify({ error: 'Method not allowed' }), { status: 405, headers: corsHeaders });
                 }
 
+                // ==================== REUSABLE SCHEDULER REST API ====================
+
+                case '/api/scheduled-posts': {
+                    const user = await getAuthUser();
+                    if (!user) return new Response(JSON.stringify({ message: 'Unauthorized session' }), { status: 401, headers: corsHeaders });
+                    if (!env.DB) return new Response(JSON.stringify({ message: 'Database missing' }), { status: 500, headers: corsHeaders });
+
+                    if (request.method === 'GET') {
+                        const { results } = await env.DB.prepare(
+                            `SELECT sp.*, sa.account_name 
+                             FROM scheduled_posts sp
+                             LEFT JOIN social_accounts sa ON sp.account_id = sa.id
+                             WHERE sp.user_id = ? 
+                             ORDER BY sp.publish_at ASC`
+                        ).bind(user.id).all();
+                        
+                        return new Response(JSON.stringify({ success: true, results }), { status: 200, headers: corsHeaders });
+                    }
+
+                    if (request.method === 'POST') {
+                        const { title, content, targets, publish_at, timezone } = await request.json();
+                        
+                        if (!content || !targets || !Array.isArray(targets) || targets.length === 0 || !publish_at) {
+                            return new Response(JSON.stringify({ message: 'Missing required parameters' }), { status: 400, headers: corsHeaders });
+                        }
+
+                        const insertedIds = [];
+                        
+                        for (const target of targets) {
+                            const result = await env.DB.prepare(
+                                `INSERT INTO scheduled_posts (user_id, account_id, platform, content, media_urls, status, publish_at, timezone) 
+                                 VALUES (?, ?, ?, ?, ?, 'scheduled', ?, ?)`
+                            ).bind(
+                                user.id, 
+                                target.accountId || null, 
+                                target.platform, 
+                                content, 
+                                JSON.stringify([]), 
+                                publish_at, 
+                                timezone || 'UTC'
+                            ).run();
+                            
+                            insertedIds.push(result.meta.last_row_id);
+                        }
+
+                        return new Response(JSON.stringify({
+                            success: true,
+                            message: 'Posts scheduled successfully',
+                            ids: insertedIds
+                        }), { status: 201, headers: corsHeaders });
+                    }
+
+                    return new Response(JSON.stringify({ error: 'Method not allowed' }), { status: 405, headers: corsHeaders });
+                }
+
+                case '/api/scheduled-posts/summary': {
+                    const user = await getAuthUser();
+                    if (!user) return new Response(JSON.stringify({ message: 'Unauthorized session' }), { status: 401, headers: corsHeaders });
+                    if (!env.DB) return new Response(JSON.stringify({ message: 'Database missing' }), { status: 500, headers: corsHeaders });
+
+                    if (request.method !== 'GET') {
+                        return new Response(JSON.stringify({ error: 'Method not allowed' }), { status: 405, headers: corsHeaders });
+                    }
+
+                    const counts = await env.DB.prepare(
+                        `SELECT status, COUNT(*) as count FROM scheduled_posts WHERE user_id = ? GROUP BY status`
+                    ).bind(user.id).all();
+
+                    const summary = {
+                        draft: 0,
+                        scheduled: 0,
+                        publishing: 0,
+                        published: 0,
+                        failed: 0,
+                        cancelled: 0,
+                        upcoming_today: 0
+                    };
+
+                    counts.results.forEach(row => {
+                        if (summary.hasOwnProperty(row.status)) {
+                            summary[row.status] = row.count;
+                        }
+                    });
+
+                    const now = new Date();
+                    const startOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate()).toISOString();
+                    const endOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate() + 1).toISOString();
+                    
+                    const upcomingTodayRes = await env.DB.prepare(
+                        `SELECT COUNT(*) as count FROM scheduled_posts 
+                         WHERE user_id = ? AND status = 'scheduled' AND publish_at >= ? AND publish_at <= ?`
+                    ).bind(user.id, startOfToday, endOfToday).first();
+
+                    summary.upcoming_today = upcomingTodayRes ? upcomingTodayRes.count : 0;
+
+                    return new Response(JSON.stringify({ success: true, summary }), { status: 200, headers: corsHeaders });
+                }
+
                 // ==================== MEDIA LIBRARY REST API ====================
 
                 case '/api/media': {
@@ -565,6 +663,128 @@ export default {
                 }
 
                 default: {
+                    // Match /api/scheduled-posts/:id/publish
+                    const spPublishMatch = url.pathname.match(/^\/api\/scheduled-posts\/(\d+)\/publish$/);
+                    if (spPublishMatch) {
+                        if (request.method !== 'POST') return new Response(JSON.stringify({ error: 'Method not allowed' }), { status: 405, headers: corsHeaders });
+                        const spId = parseInt(spPublishMatch[1]);
+                        const user = await getAuthUser();
+                        if (!user) return new Response(JSON.stringify({ message: 'Unauthorized session' }), { status: 401, headers: corsHeaders });
+                        if (!env.DB) return new Response(JSON.stringify({ message: 'Database missing' }), { status: 500, headers: corsHeaders });
+
+                        try {
+                            const scheduledPost = await env.DB.prepare(
+                                "SELECT * FROM scheduled_posts WHERE id = ? AND user_id = ?"
+                            ).bind(spId, user.id).first();
+
+                            if (!scheduledPost) {
+                                return new Response(JSON.stringify({ message: 'Scheduled post not found' }), { status: 404, headers: corsHeaders });
+                            }
+
+                            await env.DB.prepare("UPDATE scheduled_posts SET status = 'publishing' WHERE id = ?").bind(spId).run();
+
+                            const socialAccount = await env.DB.prepare(
+                                "SELECT * FROM social_accounts WHERE id = ? AND user_id = ?"
+                            ).bind(scheduledPost.account_id, user.id).first();
+
+                            if (!socialAccount) {
+                                throw new Error('Connected social account not found.');
+                            }
+
+                            const decryptedAccessToken = await decryptToken(socialAccount.access_token, encryptionSecret);
+                            const credentials = { access_token: decryptedAccessToken };
+
+                            const publisher = PublisherFactory.getPublisher(scheduledPost.platform);
+                            
+                            const postObj = {
+                                title: '',
+                                caption: scheduledPost.content,
+                                media: []
+                            };
+
+                            const result = await publisher.publish(postObj, credentials);
+
+                            if (result.success) {
+                                const nowStr = new Date().toISOString();
+                                await env.DB.prepare(
+                                    `UPDATE scheduled_posts 
+                                     SET status = 'published', published_at = ?, error_message = NULL 
+                                     WHERE id = ?`
+                                ).bind(nowStr, spId).run();
+
+                                await env.DB.prepare(
+                                    `INSERT INTO publish_logs (schedule_id, social_account_id, status, error_message, external_post_id, response_payload, published_at) 
+                                     VALUES (?, ?, 'success', NULL, ?, ?, ?)`
+                                ).bind(spId, socialAccount.id, result.provider_post_id, JSON.stringify(result), nowStr).run();
+
+                                return new Response(JSON.stringify({ success: true, message: 'Published successfully', result }), { status: 200, headers: corsHeaders });
+                            } else {
+                                await env.DB.prepare(
+                                    `UPDATE scheduled_posts 
+                                     SET status = 'failed', error_message = ? 
+                                     WHERE id = ?`
+                                ).bind(result.error_message, spId).run();
+
+                                return new Response(JSON.stringify({ success: false, message: result.error_message }), { status: 400, headers: corsHeaders });
+                            }
+                        } catch (err) {
+                            await env.DB.prepare("UPDATE scheduled_posts SET status = 'failed', error_message = ? WHERE id = ?").bind(err.message, spId).run();
+                            return new Response(JSON.stringify({ success: false, message: err.message }), { status: 500, headers: corsHeaders });
+                        }
+                    }
+
+                    // Match /api/scheduled-posts/:id
+                    const spMatch = url.pathname.match(/^\/api\/scheduled-posts\/(\d+)$/);
+                    if (spMatch) {
+                        const spId = parseInt(spMatch[1]);
+                        const user = await getAuthUser();
+                        if (!user) return new Response(JSON.stringify({ message: 'Unauthorized session' }), { status: 401, headers: corsHeaders });
+                        if (!env.DB) return new Response(JSON.stringify({ message: 'Database missing' }), { status: 500, headers: corsHeaders });
+
+                        if (request.method === 'PUT') {
+                            const { status, publish_at, timezone, content } = await request.json();
+                            
+                            const fields = [];
+                            const binds = [];
+                            
+                            if (status !== undefined) {
+                                fields.push("status = ?");
+                                binds.push(status);
+                            }
+                            if (publish_at !== undefined) {
+                                fields.push("publish_at = ?");
+                                binds.push(publish_at);
+                            }
+                            if (timezone !== undefined) {
+                                fields.push("timezone = ?");
+                                binds.push(timezone);
+                            }
+                            if (content !== undefined) {
+                                fields.push("content = ?");
+                                binds.push(content);
+                            }
+
+                            if (fields.length === 0) {
+                                return new Response(JSON.stringify({ message: 'No fields to update' }), { status: 400, headers: corsHeaders });
+                            }
+
+                            binds.push(spId, user.id);
+                            
+                            await env.DB.prepare(
+                                `UPDATE scheduled_posts SET ${fields.join(', ')}, updated_at = (datetime('now')) WHERE id = ? AND user_id = ?`
+                            ).bind(...binds).run();
+
+                            return new Response(JSON.stringify({ success: true, message: 'Scheduled post updated successfully' }), { status: 200, headers: corsHeaders });
+                        }
+
+                        if (request.method === 'DELETE') {
+                            await env.DB.prepare("DELETE FROM scheduled_posts WHERE id = ? AND user_id = ?").bind(spId, user.id).run();
+                            return new Response(JSON.stringify({ success: true, message: 'Scheduled post deleted successfully' }), { status: 200, headers: corsHeaders });
+                        }
+
+                        return new Response(JSON.stringify({ error: 'Method not allowed' }), { status: 405, headers: corsHeaders });
+                    }
+
                     // Match /api/queue/:id/publish (Immediate manual publish through PublishingEngine)
                     const queuePublishMatch = url.pathname.match(/^\/api\/queue\/(\d+)\/publish$/);
                     if (queuePublishMatch) {

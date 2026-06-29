@@ -58,44 +58,44 @@
             <!-- Metrics Highlight Cards -->
             <div class="dashboard-metrics-grid">
                 
-                <!-- Card 1: Social Channels Connected -->
-                <div class="card">
+                <!-- Card 1: Scheduled -->
+                <div class="card" id="cardScheduled">
                     <div class="card-header">
-                        <span class="card-subtitle">Active Channels</span>
-                        <span class="badge badge-info">linked</span>
+                        <span class="card-subtitle">Scheduled</span>
+                        <span class="badge badge-info" style="background: var(--color-primary-light); color: var(--color-primary);">queued</span>
                     </div>
-                    <h2 class="card-title" style="font-size: 2.25rem; font-weight: 700; font-family: var(--font-heading);">5 Accounts</h2>
-                    <p class="card-subtitle" style="margin-top: 0.5rem; font-size: 0.75rem;">Threads, FB, IG, LinkedIn, X</p>
+                    <h2 class="card-title" style="font-size: 2.25rem; font-weight: 700; font-family: var(--font-heading);" id="lblScheduledCount">0 Posts</h2>
+                    <p class="card-subtitle" style="margin-top: 0.5rem; font-size: 0.75rem;">Queued in pipeline</p>
                 </div>
 
-                <!-- Card 2: Pending Schedules -->
-                <div class="card">
+                <!-- Card 2: Upcoming Today -->
+                <div class="card" id="cardUpcomingToday">
                     <div class="card-header">
-                        <span class="card-subtitle">Schedules Queue</span>
-                        <span class="badge badge-warning">pending</span>
+                        <span class="card-subtitle">Upcoming Today</span>
+                        <span class="badge badge-success" style="background: #d1fae5; color: #059669;">today</span>
                     </div>
-                    <h2 class="card-title" style="font-size: 2.25rem; font-weight: 700; font-family: var(--font-heading);">12 Posts</h2>
-                    <p class="card-subtitle" style="margin-top: 0.5rem; font-size: 0.75rem;">Next execution in 24 mins</p>
+                    <h2 class="card-title" style="font-size: 2.25rem; font-weight: 700; font-family: var(--font-heading);" id="lblUpcomingCount">0 Posts</h2>
+                    <p class="card-subtitle" style="margin-top: 0.5rem; font-size: 0.75rem;">Due for dispatch today</p>
                 </div>
 
-                <!-- Card 3: Published Successfully -->
-                <div class="card">
+                <!-- Card 3: Publishing -->
+                <div class="card" id="cardPublishing">
                     <div class="card-header">
-                        <span class="card-subtitle">Published Items</span>
-                        <span class="badge badge-success">success</span>
+                        <span class="card-subtitle">Publishing</span>
+                        <span class="badge badge-warning" style="background: #fef3c7; color: #d97706;">active</span>
                     </div>
-                    <h2 class="card-title" style="font-size: 2.25rem; font-weight: 700; font-family: var(--font-heading);">148 Total</h2>
-                    <p class="card-subtitle" style="margin-top: 0.5rem; font-size: 0.75rem;">+28 posts successfully this week</p>
+                    <h2 class="card-title" style="font-size: 2.25rem; font-weight: 700; font-family: var(--font-heading);" id="lblPublishingCount">0 Posts</h2>
+                    <p class="card-subtitle" style="margin-top: 0.5rem; font-size: 0.75rem;">Actively processing dispatches</p>
                 </div>
 
-                <!-- Card 4: Worker Pipeline Heartbeat -->
-                <div class="card">
+                <!-- Card 4: Failed -->
+                <div class="card" id="cardFailed">
                     <div class="card-header">
-                        <span class="card-subtitle">Pipeline Status</span>
-                        <span class="badge badge-success">operational</span>
+                        <span class="card-subtitle">Failed</span>
+                        <span class="badge badge-danger" style="background: #fee2e2; color: #dc2626;">failed</span>
                     </div>
-                    <h2 class="card-title" style="font-size: 2.25rem; font-weight: 700; font-family: var(--font-heading);">100% Up</h2>
-                    <p class="card-subtitle" style="margin-top: 0.5rem; font-size: 0.75rem;">Cloudflare Workers & D1 online</p>
+                    <h2 class="card-title" style="font-size: 2.25rem; font-weight: 700; font-family: var(--font-heading);" id="lblFailedCount">0 Posts</h2>
+                    <p class="card-subtitle" style="margin-top: 0.5rem; font-size: 0.75rem;">Failed publications requiring attention</p>
                 </div>
 
             </div>
@@ -193,46 +193,8 @@
                     </div>
                 </div>
 
-                <!-- Right: Quick Composer Widget -->
-                <div class="card" style="padding: 1.75rem;">
-                    <h3 class="card-title">Quick Composer</h3>
-                    <p class="card-subtitle" style="margin-bottom: 1.25rem;">Draft content and publish instantly.</p>
-                    
-                    <form id="quickPostForm" onsubmit="event.preventDefault();">
-                        <div class="form-group">
-                            <label class="form-label" for="composerContent">Content</label>
-                            <textarea id="composerContent" class="form-textarea" placeholder="What would you like to schedule? Add hashtag #social..."></textarea>
-                        </div>
-                        
-                        <div class="form-group">
-                            <label class="form-label">Select Channels</label>
-                            <div style="display: flex; flex-wrap: wrap; gap: 0.5rem; margin-top: 0.25rem;">
-                                <label class="platform-pill linkedin" style="cursor: pointer; display: flex; align-items: center; gap: 0.35rem;">
-                                    <input type="checkbox" id="chkLI" checked style="accent-color: #fff;" /> LinkedIn
-                                </label>
-                                <label class="platform-pill twitter" style="cursor: pointer; display: flex; align-items: center; gap: 0.35rem;">
-                                    <input type="checkbox" id="chkTW" style="accent-color: #fff;" /> X
-                                </label>
-                                <label class="platform-pill instagram" style="cursor: pointer; display: flex; align-items: center; gap: 0.35rem;">
-                                    <input type="checkbox" id="chkIG" checked style="accent-color: #fff;" /> Instagram
-                                </label>
-                                <label class="platform-pill facebook" style="cursor: pointer; display: flex; align-items: center; gap: 0.35rem;">
-                                    <input type="checkbox" id="chkFB" style="accent-color: #fff;" /> Facebook
-                                </label>
-                            </div>
-                        </div>
-
-                        <div class="form-group">
-                            <label class="form-label" for="composerTime">Schedule Date & Time</label>
-                            <input type="datetime-local" id="composerTime" class="form-input" />
-                        </div>
-
-                        <div style="display: flex; gap: 0.5rem; margin-top: 1.5rem;">
-                            <button type="submit" class="btn btn-primary" style="flex: 1;">Schedule Post</button>
-                            <button type="button" class="btn btn-secondary" title="Save as Draft">Draft</button>
-                        </div>
-                    </form>
-                </div>
+                <!-- Right: Upcoming Posts Widget Card -->
+                <upcoming-posts-card id="upcomingPostsCard"></upcoming-posts-card>
 
             </div>
 
@@ -243,7 +205,23 @@
     <script type="module" src="js/app.js"></script>
     <script type="module">
         import { workerService } from './js/services/workerService.js';
+        import { schedulerService } from './js/services/schedulerService.js';
         
+        async function loadSummaryStats() {
+            try {
+                const res = await schedulerService.getScheduleStatusSummary();
+                if (res.success && res.summary) {
+                    const sum = res.summary;
+                    document.getElementById('lblScheduledCount').textContent = `${sum.scheduled} Posts`;
+                    document.getElementById('lblUpcomingCount').textContent = `${sum.upcoming_today} Posts`;
+                    document.getElementById('lblPublishingCount').textContent = `${sum.publishing} Posts`;
+                    document.getElementById('lblFailedCount').textContent = `${sum.failed} Posts`;
+                }
+            } catch (err) {
+                console.error('Failed to load scheduler summary status:', err);
+            }
+        }
+
         // Setup Sync Worker listener
         document.getElementById('btnSyncWorker').addEventListener('click', async () => {
             const btn = document.getElementById('btnSyncWorker');
@@ -253,6 +231,7 @@
             try {
                 const response = await workerService.triggerWorkerPublish();
                 alert(`Sync completed! Status: ${response.status}. Execution ID: ${response.execution_id}`);
+                loadSummaryStats();
             } catch (err) {
                 alert('Worker sync request failed.');
             } finally {
@@ -263,6 +242,9 @@
                     </svg> Sync Worker`;
             }
         });
+
+        // Initialize dashboard state
+        loadSummaryStats();
     </script>
     <style>
         @keyframes spin {

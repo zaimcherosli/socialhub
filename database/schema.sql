@@ -133,3 +133,25 @@ CREATE INDEX IF NOT EXISTS idx_publish_logs_account ON publish_logs(social_accou
 CREATE INDEX IF NOT EXISTS idx_settings_user ON settings(user_id);
 CREATE INDEX IF NOT EXISTS idx_publish_queue_scheduled ON publish_queue(scheduled_at, status);
 CREATE INDEX IF NOT EXISTS idx_publish_queue_user ON publish_queue(user_id);
+
+-- Scheduled Posts (Cross-platform reusable automation scheduler table)
+CREATE TABLE IF NOT EXISTS scheduled_posts (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    account_id INTEGER REFERENCES social_accounts(id) ON DELETE CASCADE,
+    platform TEXT NOT NULL CHECK(platform IN ('threads', 'facebook', 'instagram', 'linkedin', 'tiktok', 'twitter')),
+    content TEXT,
+    media_urls TEXT,
+    status TEXT CHECK(status IN ('draft', 'scheduled', 'publishing', 'published', 'failed', 'cancelled')) DEFAULT 'draft',
+    publish_at TEXT NOT NULL,
+    timezone TEXT NOT NULL DEFAULT 'UTC',
+    retry_count INTEGER DEFAULT 0,
+    published_at TEXT,
+    created_at TEXT NOT NULL DEFAULT (datetime('now')),
+    updated_at TEXT NOT NULL DEFAULT (datetime('now')),
+    error_message TEXT,
+    worker_job_id TEXT
+);
+
+CREATE INDEX IF NOT EXISTS idx_scheduled_posts_user ON scheduled_posts(user_id);
+CREATE INDEX IF NOT EXISTS idx_scheduled_posts_status_time ON scheduled_posts(status, publish_at);

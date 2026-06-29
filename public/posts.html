@@ -179,7 +179,7 @@
                     <p class="page-subtitle">Draft, organize, search, and manage your scheduled campaign posts.</p>
                 </div>
                 <div class="page-actions">
-                    <a href="post-editor.html" class="btn btn-primary" id="btnNewPost">
+                    <a href="#" class="btn btn-primary" id="btnNewPost">
                         <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
                             <line x1="12" y1="5" x2="12" y2="19"></line>
                             <line x1="5" y1="12" x2="19" y2="12"></line>
@@ -187,6 +187,16 @@
                         Create Post
                     </a>
                 </div>
+            </div>
+
+            <!-- New Post Composer Drawer (Collapsible) -->
+            <div id="composerDrawer" style="display: none; margin-bottom: 2rem; border-bottom: 1.5px dashed var(--color-border); padding-bottom: 2rem;">
+                <post-composer id="postsComposer"></post-composer>
+            </div>
+
+            <!-- Scheduled Publications Section -->
+            <div style="margin-bottom: 2.5rem;">
+                <scheduled-posts-table id="scheduledPostsTable"></scheduled-posts-table>
             </div>
 
             <!-- Search, Filter & Sort Bar -->
@@ -247,6 +257,9 @@
     <script type="module" src="js/app.js"></script>
     <script type="module">
         import { postService } from './js/services/postService.js';
+        import { schedulerService } from './js/services/schedulerService.js';
+        import { publishService } from './js/services/publishService.js';
+        import { notificationService } from './js/services/notificationService.js';
 
         let allPosts = [];
         let viewMode = 'grid'; // 'grid' or 'list'
@@ -432,6 +445,72 @@
 
         // Run
         fetchAndRenderPosts();
+
+        // Toggle composer drawer
+        const btnNewPost = document.getElementById('btnNewPost');
+        const composerDrawer = document.getElementById('composerDrawer');
+        btnNewPost.addEventListener('click', (e) => {
+            e.preventDefault();
+            if (composerDrawer.style.display === 'none') {
+                composerDrawer.style.display = 'block';
+            } else {
+                composerDrawer.style.display = 'none';
+            }
+        });
+
+        // Reusable Composer Event Listeners
+        const postsComposer = document.getElementById('postsComposer');
+        const scheduledPostsTable = document.getElementById('scheduledPostsTable');
+
+        postsComposer.addEventListener('publish-now', async (e) => {
+            const { title, content, targets } = e.detail;
+            try {
+                const nowUtc = new Date().toISOString();
+                const res = await schedulerService.createScheduledPost({
+                    title,
+                    content,
+                    targets,
+                    publish_at: nowUtc,
+                    timezone: 'UTC'
+                });
+
+                if (res.success && res.ids) {
+                    for (const id of res.ids) {
+                        await publishService.publishImmediately(id);
+                    }
+                    notificationService.success('Published successfully to channels!');
+                    postsComposer.querySelector('#composerContent').value = '';
+                    postsComposer.querySelector('#composerTitle').value = '';
+                    composerDrawer.style.display = 'none';
+                    scheduledPostsTable.loadData();
+                }
+            } catch (err) {
+                notificationService.error(`Publishing failed: ${err.message}`);
+            }
+        });
+
+        postsComposer.addEventListener('schedule', async (e) => {
+            const { title, content, targets, publish_at, timezone } = e.detail;
+            try {
+                const res = await schedulerService.createScheduledPost({
+                    title,
+                    content,
+                    targets,
+                    publish_at: new Date(publish_at).toISOString(),
+                    timezone
+                });
+
+                if (res.success) {
+                    notificationService.success('Publication scheduled successfully!');
+                    postsComposer.querySelector('#composerContent').value = '';
+                    postsComposer.querySelector('#composerTitle').value = '';
+                    composerDrawer.style.display = 'none';
+                    scheduledPostsTable.loadData();
+                }
+            } catch (err) {
+                notificationService.error(`Scheduling failed: ${err.message}`);
+            }
+        });
     </script>
 </body>
 </html>

@@ -3,6 +3,11 @@
 
 import './components/Sidebar.js';
 import './components/Header.js';
+import './components/PublishStatusBadge.js';
+import './components/ScheduleModal.js';
+import './components/PostComposer.js';
+import './components/ScheduledPostsTable.js';
+import './components/UpcomingPostsCard.js';
 import { authService } from './services/authService.js';
 
 function getInitials(name) {

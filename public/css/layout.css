@@ -134,6 +134,24 @@ app-header {
     margin-bottom: 2rem;
 }
 
+.mobile-close-btn {
+    display: none;
+    background: none;
+    border: none;
+    color: var(--color-text-secondary);
+    cursor: pointer;
+    padding: 0.35rem;
+    border-radius: var(--radius-xs);
+    align-items: center;
+    justify-content: center;
+    transition: all var(--transition-fast);
+}
+
+.mobile-close-btn:hover {
+    background-color: var(--color-bg-accent);
+    color: var(--color-text-primary);
+}
+
 .brand-logo {
     display: flex;
     align-items: center;
@@ -424,6 +442,10 @@ app-header {
     }
     
     .mobile-nav-toggle {
+        display: flex;
+    }
+
+    .mobile-close-btn {
         display: flex;
     }
 

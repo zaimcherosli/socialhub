@@ -5,6 +5,7 @@ class Sidebar extends HTMLElement {
     connectedCallback() {
         this.render();
         this.setActiveLink();
+        this.initCloseButton();
     }
 
     render() {
@@ -12,19 +13,27 @@ class Sidebar extends HTMLElement {
         this.innerHTML = `
             <aside class="sidebar-wrapper">
                 <div class="sidebar-brand">
-                    <div class="brand-logo">
-                        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-                            <rect x="2" y="2" width="20" height="20" rx="6" fill="url(#brandGrad)" />
-                            <path d="M12 7V17M7 12H17" stroke="white" stroke-width="2.5" stroke-linecap="round" />
-                            <defs>
-                                <linearGradient id="brandGrad" x1="2" y1="2" x2="22" y2="22" gradientUnits="userSpaceOnUse">
-                                    <stop stop-color="#3b82f6" />
-                                    <stop offset="1" stop-color="#1d4ed8" />
-                                </linearGradient>
-                            </defs>
-                        </svg>
+                    <div style="display: flex; align-items: center; gap: 0.75rem; flex: 1;">
+                        <div class="brand-logo">
+                            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                                <rect x="2" y="2" width="20" height="20" rx="6" fill="url(#brandGrad)" />
+                                <path d="M12 7V17M7 12H17" stroke="white" stroke-width="2.5" stroke-linecap="round" />
+                                <defs>
+                                    <linearGradient id="brandGrad" x1="2" y1="2" x2="22" y2="22" gradientUnits="userSpaceOnUse">
+                                        <stop stop-color="#3b82f6" />
+                                        <stop offset="1" stop-color="#1d4ed8" />
+                                    </linearGradient>
+                                </defs>
+                            </svg>
+                        </div>
+                        <span class="brand-name">SocialHub</span>
                     </div>
-                    <span class="brand-name">SocialHub</span>
+                    <button class="mobile-close-btn" id="mobileCloseBtn" aria-label="Close Navigation" style="display: none;">
+                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                            <line x1="18" y1="6" x2="6" y2="18"></line>
+                            <line x1="6" y1="6" x2="18" y2="18"></line>
+                        </svg>
+                    </button>
                 </div>
 
                 <nav class="sidebar-nav">
@@ -128,6 +137,26 @@ class Sidebar extends HTMLElement {
                 item.classList.remove('active');
             }
         });
+    }
+
+    initCloseButton() {
+        const closeBtn = this.querySelector('#mobileCloseBtn');
+        if (closeBtn) {
+            closeBtn.addEventListener('click', () => {
+                this.classList.remove('active');
+                
+                // Hide backdrop from header helper if defined
+                const header = document.querySelector('app-header');
+                if (header && typeof header.toggleBackdrop === 'function') {
+                    header.toggleBackdrop(false);
+                } else {
+                    const backdrop = document.querySelector('.sidebar-backdrop');
+                    if (backdrop) {
+                        backdrop.remove();
+                    }
+                }
+            });
+        }
     }
 }
 

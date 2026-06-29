@@ -98,6 +98,7 @@ class Header extends HTMLElement {
             const sidebar = document.querySelector('app-sidebar');
             if (sidebar) {
                 sidebar.classList.toggle('active');
+                this.toggleBackdrop(sidebar.classList.contains('active'));
             }
         });
 
@@ -108,9 +109,45 @@ class Header extends HTMLElement {
                 const isClickInside = sidebar.contains(e.target) || toggleBtn.contains(e.target);
                 if (!isClickInside) {
                     sidebar.classList.remove('active');
+                    this.toggleBackdrop(false);
                 }
             }
         });
+    }
+
+    toggleBackdrop(show) {
+        let backdrop = document.querySelector('.sidebar-backdrop');
+        if (show) {
+            if (!backdrop) {
+                backdrop = document.createElement('div');
+                backdrop.className = 'sidebar-backdrop';
+                Object.assign(backdrop.style, {
+                    position: 'fixed',
+                    top: '0',
+                    left: '0',
+                    width: '100vw',
+                    height: '100vh',
+                    background: 'rgba(0, 0, 0, 0.4)',
+                    backdropFilter: 'blur(3px)',
+                    webkitBackdropFilter: 'blur(3px)',
+                    zIndex: '95',
+                    display: 'block'
+                });
+                document.body.appendChild(backdrop);
+                
+                backdrop.addEventListener('click', () => {
+                    const sidebar = document.querySelector('app-sidebar');
+                    if (sidebar) {
+                        sidebar.classList.remove('active');
+                    }
+                    this.toggleBackdrop(false);
+                });
+            }
+        } else {
+            if (backdrop) {
+                backdrop.remove();
+            }
+        }
     }
 }
 

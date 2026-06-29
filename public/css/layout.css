@@ -140,11 +140,14 @@ app-header {
     border: none;
     color: var(--color-text-secondary);
     cursor: pointer;
-    padding: 0.35rem;
+    padding: 0.5rem;
     border-radius: var(--radius-xs);
     align-items: center;
     justify-content: center;
     transition: all var(--transition-fast);
+    width: 40px;
+    height: 40px;
+    z-index: 10;
 }
 
 .mobile-close-btn:hover {

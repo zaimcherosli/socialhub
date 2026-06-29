@@ -142,7 +142,11 @@ class Sidebar extends HTMLElement {
     initCloseButton() {
         const closeBtn = this.querySelector('#mobileCloseBtn');
         if (closeBtn) {
-            closeBtn.addEventListener('click', () => {
+            console.log('📱 Sidebar Close Button bound!');
+            closeBtn.addEventListener('click', (e) => {
+                console.log('📱 Sidebar Close Button clicked!');
+                e.preventDefault();
+                e.stopPropagation();
                 this.classList.remove('active');
                 
                 // Hide backdrop from header helper if defined
@@ -156,6 +160,8 @@ class Sidebar extends HTMLElement {
                     }
                 }
             });
+        } else {
+            console.warn('⚠️ Sidebar Close Button not found!');
         }
     }
 }

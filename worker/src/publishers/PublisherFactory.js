@@ -1,6 +1,6 @@
 /**
  * SocialHub Platform Publisher Resolver Factory
- * Resolves specific BasePublisher provider strategy patterns.
+ * Resolves specific PublisherInterface provider strategy patterns.
  */
 
 import { ThreadsPublisher } from './ThreadsPublisher.js';
@@ -23,7 +23,7 @@ export class PublisherFactory {
     /**
      * Resolve and return a platform publisher strategy instance
      * @param {string} platform Target platform key
-     * @returns {BasePublisher}
+     * @returns {PublisherInterface}
      */
     static getPublisher(platform) {
         const PlatformClass = PROVIDERS_MAP[platform.toLowerCase().trim()];

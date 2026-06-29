@@ -1,12 +1,20 @@
-import { BasePublisher } from './BasePublisher.js';
+import { PublisherInterface } from './PublisherInterface.js';
 
-export class TikTokPublisher extends BasePublisher {
+export class TikTokPublisher extends PublisherInterface {
     constructor() {
-        super('tiktok');
+        super();
+        this.platform = 'tiktok';
     }
-    async connect() { return true; }
-    async validate(post) { return { isValid: true, error: null }; }
-    async publish(post) {
+
+    async connect(credentials) { 
+        return true; 
+    }
+
+    async disconnect(credentials) { 
+        return true; 
+    }
+
+    async publish(post, credentials) {
         return {
             success: true,
             provider: 'tiktok',
@@ -17,9 +25,14 @@ export class TikTokPublisher extends BasePublisher {
             retryable: false
         };
     }
-    async delete() { return { success: true }; }
-    async refreshToken() { return { access_token: "refreshed-mock-tk-token", expires_in: 86400 }; }
-    async disconnect() { return true; }
-    async healthCheck() { return { status: 'healthy', latency_ms: 130 }; }
+
+    async validate(post) { 
+        return { isValid: true, error: null }; 
+    }
+
+    async refreshToken(token) { 
+        return { access_token: "refreshed-mock-tk-token", expires_in: 86400 }; 
+    }
 }
+
 export default TikTokPublisher;

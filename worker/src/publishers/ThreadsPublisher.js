@@ -3,11 +3,12 @@
  * Enforces Threads specific validation checks and returns standardized publication response payloads.
  */
 
-import { BasePublisher } from './BasePublisher.js';
+import { PublisherInterface } from './PublisherInterface.js';
 
-export class ThreadsPublisher extends BasePublisher {
+export class ThreadsPublisher extends PublisherInterface {
     constructor() {
-        super('threads');
+        super();
+        this.platform = 'threads';
     }
 
     async connect(credentials) {

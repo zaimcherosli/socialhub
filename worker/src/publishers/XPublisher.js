@@ -1,12 +1,20 @@
-import { BasePublisher } from './BasePublisher.js';
+import { PublisherInterface } from './PublisherInterface.js';
 
-export class XPublisher extends BasePublisher {
+export class XPublisher extends PublisherInterface {
     constructor() {
-        super('twitter');
+        super();
+        this.platform = 'twitter';
     }
-    async connect() { return true; }
-    async validate(post) { return { isValid: true, error: null }; }
-    async publish(post) {
+
+    async connect(credentials) { 
+        return true; 
+    }
+
+    async disconnect(credentials) { 
+        return true; 
+    }
+
+    async publish(post, credentials) {
         return {
             success: true,
             provider: 'twitter',
@@ -17,9 +25,14 @@ export class XPublisher extends BasePublisher {
             retryable: false
         };
     }
-    async delete() { return { success: true }; }
-    async refreshToken() { return { access_token: "refreshed-mock-x-token", expires_in: 86400 }; }
-    async disconnect() { return true; }
-    async healthCheck() { return { status: 'healthy', latency_ms: 70 }; }
+
+    async validate(post) { 
+        return { isValid: true, error: null }; 
+    }
+
+    async refreshToken(token) { 
+        return { access_token: "refreshed-mock-x-token", expires_in: 86400 }; 
+    }
 }
+
 export default XPublisher;

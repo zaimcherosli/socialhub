@@ -147,14 +147,20 @@ class Sidebar extends HTMLElement {
                 console.log('📱 Sidebar Close Button clicked!');
                 e.preventDefault();
                 e.stopPropagation();
+                console.log('Before removal - sidebar classes:', this.className, 'classList:', [...this.classList]);
                 this.classList.remove('active');
+                console.log('After removal - sidebar classes:', this.className, 'classList:', [...this.classList]);
                 
-                // Hide backdrop from header helper if defined
                 const header = document.querySelector('app-header');
+                console.log('Found app-header:', header);
+                if (header) {
+                    console.log('app-header toggleBackdrop type:', typeof header.toggleBackdrop);
+                }
                 if (header && typeof header.toggleBackdrop === 'function') {
                     header.toggleBackdrop(false);
                 } else {
                     const backdrop = document.querySelector('.sidebar-backdrop');
+                    console.log('Direct backdrop lookup:', backdrop);
                     if (backdrop) {
                         backdrop.remove();
                     }

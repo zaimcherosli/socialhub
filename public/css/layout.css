@@ -140,13 +140,13 @@ app-header {
     border: none;
     color: var(--color-text-secondary);
     cursor: pointer;
-    padding: 0.5rem;
-    border-radius: var(--radius-xs);
+    padding: 0;
+    border-radius: var(--radius-full);
     align-items: center;
     justify-content: center;
     transition: all var(--transition-fast);
-    width: 40px;
-    height: 40px;
+    width: 48px;
+    height: 48px;
     z-index: 10;
 }
 
@@ -288,9 +288,13 @@ app-header {
     border: none;
     color: var(--color-text-primary);
     cursor: pointer;
-    padding: 0.5rem;
-    border-radius: var(--radius-xs);
+    padding: 0;
+    border-radius: var(--radius-full);
     transition: background-color var(--transition-fast);
+    width: 48px;
+    height: 48px;
+    align-items: center;
+    justify-content: center;
 }
 
 .mobile-nav-toggle:hover {

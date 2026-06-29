@@ -147,6 +147,12 @@ class Sidebar extends HTMLElement {
                 console.log('📱 Sidebar Close Button clicked!');
                 e.preventDefault();
                 e.stopPropagation();
+                
+                console.log('DOM Sidebar count:', document.querySelectorAll('app-sidebar').length);
+                document.querySelectorAll('app-sidebar').forEach((el, idx) => {
+                    console.log(`Sidebar #${idx} classes:`, el.className, 'classList:', [...el.classList]);
+                });
+
                 console.log('Before removal - sidebar classes:', this.className, 'classList:', [...this.classList]);
                 this.classList.remove('active');
                 console.log('After removal - sidebar classes:', this.className, 'classList:', [...this.classList]);

@@ -247,3 +247,59 @@
 .animated-fade-in {
     animation: fadeIn var(--transition-normal) forwards;
 }
+
+/* ── Premium Stat Cards ─────────────────────────────────────── */
+.stat-card {
+    cursor: default;
+    animation: slide-up-fade 0.35s ease both;
+    border: 1px solid var(--color-border) !important;
+    border-radius: var(--radius-md) !important;
+}
+
+.stat-card:hover {
+    transform: translateY(-4px) scale(1.015);
+    box-shadow: var(--shadow-lg), 0 0 0 1px var(--color-border-hover) !important;
+}
+
+.stat-card:nth-child(1) { animation-delay: 0.05s; }
+.stat-card:nth-child(2) { animation-delay: 0.10s; }
+.stat-card:nth-child(3) { animation-delay: 0.15s; }
+.stat-card:nth-child(4) { animation-delay: 0.20s; }
+.stat-card:nth-child(5) { animation-delay: 0.25s; }
+
+/* ── Gradient Text Utility ──────────────────────────────────── */
+.text-gradient {
+    background: var(--gradient-hero);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+}
+
+/* ── Premium Navigation Active State ───────────────────────── */
+.nav-item.active {
+    background: var(--gradient-primary) !important;
+    color: #fff !important;
+    box-shadow: 0 4px 12px hsla(212, 100%, 48%, 0.3);
+}
+
+.nav-item.active svg {
+    stroke: #fff !important;
+}
+
+/* ── Bottom Nav Active with Glow Dot ───────────────────────── */
+.bottom-nav-item.active::before {
+    content: '';
+    position: absolute;
+    top: 3px;
+    left: 50%;
+    transform: translateX(-50%);
+    width: 5px;
+    height: 5px;
+    border-radius: 50%;
+    background: var(--color-primary);
+    box-shadow: 0 0 8px var(--color-primary);
+}
+
+.bottom-nav-item {
+    position: relative;
+}

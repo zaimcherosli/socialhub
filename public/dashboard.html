@@ -3,10 +3,10 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Dashboard | SocialHub - Platform Scheduler</title>
+    <title>Papan Pemuka | SocialHub - Penjadual Media Sosial</title>
     
     <!-- Meta tags for SEO -->
-    <meta name="description" content="Manage your unified social media scheduling calendar, analytics dashboard, and channel publisher for SocialHub.">
+    <meta name="description" content="Urus jadual media sosial, pantau penerbitan dan analitik saluran anda dengan SocialHub.">
     <meta name="author" content="SocialHub Team">
 
     <!-- Auth Route Guard: redirects to login.html instantly if user not authenticated -->
@@ -44,22 +44,23 @@
             <!-- Page Header Section -->
             <div class="page-header">
                 <div class="page-title-section">
-                    <h1 class="page-title">Dashboard Overview</h1>
-                    <p class="page-subtitle">Welcome back, John! Here's a summary of your automated social channels.</p>
+                    <h1 class="page-title">Papan Pemuka</h1>
+                    <p class="page-subtitle">Selamat kembali! Ini ringkasan saluran media sosial anda.</p>
                 </div>
                 <div class="page-actions">
-                    <button class="btn btn-secondary" id="btnSyncWorker" title="Force sync and dispatch schedules">
+                    <button class="btn btn-secondary" id="btnSyncWorker" title="Segerak jadual penerbitan">
                         <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                            <path d="M21.5 2v6h-6M21.34 15.57a10 10 0 1 1-.57-8.38l5.67-5.67"></path>
+                            <path d="M21.5 2v6h-6M21.34 15.57a10 10 0 1 1-.57-8.38l5.67-5.67">
+                            </path>
                         </svg>
-                        Sync Worker
+                        Segerak
                     </button>
                     <a href="posts.html" class="btn btn-primary">
                         <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
                             <line x1="12" y1="5" x2="12" y2="19"></line>
                             <line x1="5" y1="12" x2="19" y2="12"></line>
                         </svg>
-                        New Post
+                        Hantaran Baru
                     </a>
                 </div>
             </div>
@@ -67,54 +68,54 @@
             <!-- Metrics Highlight Cards -->
             <div class="dashboard-metrics-grid" style="grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));">
                 
-                <!-- Card 1: Upcoming Today -->
-                <div class="card" id="cardUpcomingToday">
+                <!-- Kad 1: Hari Ini -->
+                <div class="card stat-card" id="cardUpcomingToday" style="border-left: 4px solid var(--color-primary); background: linear-gradient(135deg, var(--color-bg-card) 0%, var(--color-primary-light) 100%);">
                     <div class="card-header">
-                        <span class="card-subtitle">Upcoming Today</span>
-                        <span class="badge badge-info" style="background: var(--color-primary-light); color: var(--color-primary);">today</span>
+                        <span class="card-subtitle" style="font-weight: 600;">📅 Hari Ini</span>
+                        <span class="badge" style="background: var(--color-primary-light); color: var(--color-primary); font-size: 0.7rem;">hari ini</span>
                     </div>
-                    <h2 class="card-title" style="font-size: 2.25rem; font-weight: 700; font-family: var(--font-heading);" id="lblUpcomingTodayCount">0 Posts</h2>
-                    <p class="card-subtitle" style="margin-top: 0.5rem; font-size: 0.75rem;">Queued for today</p>
+                    <h2 class="card-title" style="font-size: 2.25rem; font-weight: 700; font-family: var(--font-heading); color: var(--color-primary);" id="lblUpcomingTodayCount">0 Hantaran</h2>
+                    <p class="card-subtitle" style="margin-top: 0.5rem; font-size: 0.75rem;">Dijadualkan untuk hari ini</p>
                 </div>
 
-                <!-- Card 2: Upcoming Tomorrow -->
-                <div class="card" id="cardUpcomingTomorrow">
+                <!-- Kad 2: Esok -->
+                <div class="card stat-card" id="cardUpcomingTomorrow" style="border-left: 4px solid #0ea5e9; background: linear-gradient(135deg, var(--color-bg-card) 0%, rgba(14,165,233,0.07) 100%);">
                     <div class="card-header">
-                        <span class="card-subtitle">Upcoming Tomorrow</span>
-                        <span class="badge badge-info" style="background: #e0f2fe; color: #0369a1;">tomorrow</span>
+                        <span class="card-subtitle" style="font-weight: 600;">🌤️ Esok</span>
+                        <span class="badge" style="background: #e0f2fe; color: #0369a1; font-size: 0.7rem;">esok</span>
                     </div>
-                    <h2 class="card-title" style="font-size: 2.25rem; font-weight: 700; font-family: var(--font-heading);" id="lblUpcomingTomorrowCount">0 Posts</h2>
-                    <p class="card-subtitle" style="margin-top: 0.5rem; font-size: 0.75rem;">Queued for tomorrow</p>
+                    <h2 class="card-title" style="font-size: 2.25rem; font-weight: 700; font-family: var(--font-heading); color: #0ea5e9;" id="lblUpcomingTomorrowCount">0 Hantaran</h2>
+                    <p class="card-subtitle" style="margin-top: 0.5rem; font-size: 0.75rem;">Dijadualkan untuk esok</p>
                 </div>
 
-                <!-- Card 3: Next 7 Days -->
-                <div class="card" id="cardNext7Days">
+                <!-- Kad 3: 7 Hari -->
+                <div class="card stat-card" id="cardNext7Days" style="border-left: 4px solid #a855f7; background: linear-gradient(135deg, var(--color-bg-card) 0%, rgba(168,85,247,0.07) 100%);">
                     <div class="card-header">
-                        <span class="card-subtitle">Next 7 Days</span>
-                        <span class="badge badge-info" style="background: #f3e8ff; color: #6b21a8;">week</span>
+                        <span class="card-subtitle" style="font-weight: 600;">📆 7 Hari</span>
+                        <span class="badge" style="background: #f3e8ff; color: #6b21a8; font-size: 0.7rem;">minggu</span>
                     </div>
-                    <h2 class="card-title" style="font-size: 2.25rem; font-weight: 700; font-family: var(--font-heading);" id="lblNext7DaysCount">0 Posts</h2>
-                    <p class="card-subtitle" style="margin-top: 0.5rem; font-size: 0.75rem;">Queued for next 7 days</p>
+                    <h2 class="card-title" style="font-size: 2.25rem; font-weight: 700; font-family: var(--font-heading); color: #a855f7;" id="lblNext7DaysCount">0 Hantaran</h2>
+                    <p class="card-subtitle" style="margin-top: 0.5rem; font-size: 0.75rem;">Dijadualkan 7 hari akan datang</p>
                 </div>
 
-                <!-- Card 4: Published Today -->
-                <div class="card" id="cardPublishedToday">
+                <!-- Kad 4: Diterbitkan -->
+                <div class="card stat-card" id="cardPublishedToday" style="border-left: 4px solid var(--color-success); background: linear-gradient(135deg, var(--color-bg-card) 0%, var(--color-success-light) 100%);">
                     <div class="card-header">
-                        <span class="card-subtitle">Published Today</span>
-                        <span class="badge badge-success" style="background: #d1fae5; color: #059669;">success</span>
+                        <span class="card-subtitle" style="font-weight: 600;">✅ Diterbitkan</span>
+                        <span class="badge" style="background: #d1fae5; color: #059669; font-size: 0.7rem;">berjaya</span>
                     </div>
-                    <h2 class="card-title" style="font-size: 2.25rem; font-weight: 700; font-family: var(--font-heading);" id="lblPublishedTodayCount">0 Posts</h2>
-                    <p class="card-subtitle" style="margin-top: 0.5rem; font-size: 0.75rem;">Successfully posted today</p>
+                    <h2 class="card-title" style="font-size: 2.25rem; font-weight: 700; font-family: var(--font-heading); color: var(--color-success);" id="lblPublishedTodayCount">0 Hantaran</h2>
+                    <p class="card-subtitle" style="margin-top: 0.5rem; font-size: 0.75rem;">Berjaya diterbitkan hari ini</p>
                 </div>
 
-                <!-- Card 5: Failed -->
-                <div class="card" id="cardFailed">
+                <!-- Kad 5: Gagal -->
+                <div class="card stat-card" id="cardFailed" style="border-left: 4px solid var(--color-danger); background: linear-gradient(135deg, var(--color-bg-card) 0%, var(--color-danger-light) 100%);">
                     <div class="card-header">
-                        <span class="card-subtitle">Failed</span>
-                        <span class="badge badge-danger" style="background: #fee2e2; color: #dc2626;">failed</span>
+                        <span class="card-subtitle" style="font-weight: 600;">⚠️ Gagal</span>
+                        <span class="badge" style="background: #fee2e2; color: #dc2626; font-size: 0.7rem;">ralat</span>
                     </div>
-                    <h2 class="card-title" style="font-size: 2.25rem; font-weight: 700; font-family: var(--font-heading);" id="lblFailedCount">0 Posts</h2>
-                    <p class="card-subtitle" style="margin-top: 0.5rem; font-size: 0.75rem;">Requires retry attention</p>
+                    <h2 class="card-title" style="font-size: 2.25rem; font-weight: 700; font-family: var(--font-heading); color: var(--color-danger);" id="lblFailedCount">0 Hantaran</h2>
+                    <p class="card-subtitle" style="margin-top: 0.5rem; font-size: 0.75rem;">Perlu dicuba semula</p>
                 </div>
 
             </div>
@@ -122,23 +123,23 @@
             <!-- Main Dashboard Dynamic Content Area -->
             <div class="dashboard-main-grid">
                 
-                <!-- Left: Recent Queue and Outbox -->
+                <!-- Kiri: Aktiviti Terbaru -->
                 <div class="card" style="padding: 1.75rem;">
                     <div class="card-header">
                         <div>
-                            <h3 class="card-title">Recent Publishing Activity</h3>
-                            <p class="card-subtitle">Track your drafts, scheduled queues, and recent dispatches.</p>
+                            <h3 class="card-title">Aktiviti Penerbitan Terbaru</h3>
+                            <p class="card-subtitle">Pantau draf, giliran jadual dan penerbitan terkini anda.</p>
                         </div>
                     </div>
-                    <div class="table-container">
+                    <div class="table-container" style="overflow-x: auto;">
                         <table class="table" id="recentActivityTable">
                             <thead>
                                 <tr>
-                                    <th>Content Preview</th>
-                                    <th>Channels</th>
-                                    <th>Schedule Date</th>
+                                    <th>Pratonton Kandungan</th>
+                                    <th>Saluran</th>
+                                    <th>Tarikh Jadual</th>
                                     <th>Status</th>
-                                    <th style="text-align: right;">Action</th>
+                                    <th style="text-align: right;">Tindakan</th>
                                 </tr>
                             </thead>
                             <tbody>
@@ -152,7 +153,7 @@
                                             <span class="platform-pill twitter" style="font-size: 10px; padding: 0.15rem 0.4rem;">X</span>
                                         </div>
                                     </td>
-                                    <td style="color: var(--color-text-secondary); font-size: 0.8125rem;">Jun 29, 2026 10:00 AM</td>
+                                    <td style="color: var(--color-text-secondary); font-size: 0.8125rem;">29 Jun, 2026 10:00 PG</td>
                                     <td><span class="badge badge-success">published</span></td>
                                     <td style="text-align: right;">
                                         <button class="btn btn-secondary btn-icon" style="padding: 0.35rem;" title="View Post Details">
@@ -174,7 +175,7 @@
                                             <span class="platform-pill facebook" style="font-size: 10px; padding: 0.15rem 0.4rem;">FB</span>
                                         </div>
                                     </td>
-                                    <td style="color: var(--color-text-secondary); font-size: 0.8125rem;">Jun 30, 2026 03:30 PM</td>
+                                    <td style="color: var(--color-text-secondary); font-size: 0.8125rem;">30 Jun, 2026 03:30 PTG</td>
                                     <td><span class="badge badge-warning">scheduled</span></td>
                                     <td style="text-align: right;">
                                         <button class="btn btn-secondary btn-icon" style="padding: 0.35rem;" title="View Post Details">
@@ -195,7 +196,7 @@
                                             <span class="platform-pill threads" style="font-size: 10px; padding: 0.15rem 0.4rem;">TH</span>
                                         </div>
                                     </td>
-                                    <td style="color: var(--color-text-secondary); font-size: 0.8125rem;">Not Scheduled</td>
+                                    <td style="color: var(--color-text-secondary); font-size: 0.8125rem;">Belum Dijadualkan</td>
                                     <td><span class="badge badge-info">draft</span></td>
                                     <td style="text-align: right;">
                                         <button class="btn btn-secondary btn-icon" style="padding: 0.35rem;" title="View Post Details">
@@ -231,11 +232,11 @@
                 const res = await schedulerService.getScheduleStatusSummary();
                 if (res.success && res.summary) {
                     const sum = res.summary;
-                    document.getElementById('lblUpcomingTodayCount').textContent = `${sum.upcoming_today} Posts`;
-                    document.getElementById('lblUpcomingTomorrowCount').textContent = `${sum.upcoming_tomorrow} Posts`;
-                    document.getElementById('lblNext7DaysCount').textContent = `${sum.next_7_days} Posts`;
-                    document.getElementById('lblPublishedTodayCount').textContent = `${sum.published_today} Posts`;
-                    document.getElementById('lblFailedCount').textContent = `${sum.failed} Posts`;
+                    document.getElementById('lblUpcomingTodayCount').textContent = `${sum.upcoming_today} Hantaran`;
+                    document.getElementById('lblUpcomingTomorrowCount').textContent = `${sum.upcoming_tomorrow} Hantaran`;
+                    document.getElementById('lblNext7DaysCount').textContent = `${sum.next_7_days} Hantaran`;
+                    document.getElementById('lblPublishedTodayCount').textContent = `${sum.published_today} Hantaran`;
+                    document.getElementById('lblFailedCount').textContent = `${sum.failed} Hantaran`;
                 }
             } catch (err) {
                 console.error('Failed to load scheduler summary status:', err);
@@ -246,20 +247,20 @@
         document.getElementById('btnSyncWorker').addEventListener('click', async () => {
             const btn = document.getElementById('btnSyncWorker');
             btn.disabled = true;
-            btn.innerHTML = `<span style="display: inline-block; animation: spin 1s linear infinite; margin-right: 0.5rem;">⚙️</span>Syncing...`;
+            btn.innerHTML = `<span style="display: inline-block; animation: spin 1s linear infinite; margin-right: 0.5rem;">⚙️</span>Menyegerak...`;
             
             try {
                 const response = await workerService.triggerWorkerPublish();
-                alert(`Sync completed! Status: ${response.status}. Execution ID: ${response.execution_id}`);
+                alert(`Segerak selesai! Status: ${response.status}. ID Pelaksanaan: ${response.execution_id}`);
                 loadSummaryStats();
             } catch (err) {
-                alert('Worker sync request failed.');
+                alert('Permintaan segerak gagal. Sila cuba semula.');
             } finally {
                 btn.disabled = false;
                 btn.innerHTML = `
                     <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                         <path d="M21.5 2v6h-6M21.34 15.57a10 10 0 1 1-.57-8.38l5.67-5.67"></path>
-                    </svg> Sync Worker`;
+                    </svg> Segerak`;
             }
         });
 

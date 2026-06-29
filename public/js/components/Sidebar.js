@@ -46,7 +46,7 @@ class Sidebar extends HTMLElement {
                                     <rect x="14" y="12" width="7" height="9" rx="1" />
                                     <rect x="3" y="16" width="7" height="5" rx="1" />
                                 </svg>
-                                <span class="nav-label">Dashboard</span>
+                                <span class="nav-label">Papan Pemuka</span>
                             </a>
                         </li>
                         <li>
@@ -55,7 +55,7 @@ class Sidebar extends HTMLElement {
                                     <path d="M12 20h9" />
                                     <path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z" />
                                 </svg>
-                                <span class="nav-label">Posts</span>
+                                <span class="nav-label">Hantaran</span>
                             </a>
                         </li>
                         <li>
@@ -66,7 +66,7 @@ class Sidebar extends HTMLElement {
                                     <line x1="8" y1="2" x2="8" y2="6" />
                                     <line x1="3" y1="10" x2="21" y2="10" />
                                 </svg>
-                                <span class="nav-label">Schedule</span>
+                                <span class="nav-label">Jadual</span>
                             </a>
                         </li>
                         <li>
@@ -76,7 +76,7 @@ class Sidebar extends HTMLElement {
                                     <path d="m5 3 1 2.5L8.5 6 6 7 5 9.5 4 7 1.5 6 4 5.5 5 3Z" />
                                     <path d="m19 17 1 2.5 2.5.5-2.5 1-1 2.5-1-2.5-2.5-1 2.5-1 1-2.5Z" />
                                 </svg>
-                                <span class="nav-label">AI Generate</span>
+                                <span class="nav-label">Jana AI</span>
                             </a>
                         </li>
                         <li>
@@ -86,7 +86,7 @@ class Sidebar extends HTMLElement {
                                     <line x1="12" y1="20" x2="12" y2="4" />
                                     <line x1="6" y1="20" x2="6" y2="14" />
                                 </svg>
-                                <span class="nav-label">Analytics</span>
+                                <span class="nav-label">Analitik</span>
                             </a>
                         </li>
                         <li>
@@ -97,7 +97,7 @@ class Sidebar extends HTMLElement {
                                     <path d="M23 21v-2a4 4 0 0 0-3-3.87" />
                                     <path d="M16 3.13a4 4 0 0 1 0 7.75" />
                                 </svg>
-                                <span class="nav-label">Accounts</span>
+                                <span class="nav-label">Akaun</span>
                             </a>
                         </li>
                         <li>
@@ -106,7 +106,7 @@ class Sidebar extends HTMLElement {
                                     <circle cx="12" cy="12" r="3" />
                                     <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z" />
                                 </svg>
-                                <span class="nav-label">Settings</span>
+                                <span class="nav-label">Tetapan</span>
                             </a>
                         </li>
                     </ul>
@@ -119,9 +119,9 @@ class Sidebar extends HTMLElement {
                         </div>
                         <div class="user-info" style="flex: 1; min-width: 0;">
                             <span class="user-name" id="sidebarUserName">John Doe</span>
-                            <span class="user-plan">Pro Admin</span>
+                            <span class="user-plan">Admin Pro</span>
                         </div>
-                        <button class="header-action-btn" id="btnSidebarLogout" title="Log Out" style="padding: 0.35rem; color: var(--color-danger); background: none; border: none; cursor: pointer; display: flex; align-items: center; justify-content: center;">
+                        <button class="header-action-btn" id="btnSidebarLogout" title="Log Keluar" style="padding: 0.35rem; color: var(--color-danger); background: none; border: none; cursor: pointer; display: flex; align-items: center; justify-content: center;">
                             <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                                 <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"></path>
                                 <polyline points="16 17 21 12 16 7"></polyline>

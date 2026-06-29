@@ -70,6 +70,21 @@
     --glass-blur: blur(14px) saturate(180%);
     --glass-background: rgba(255, 255, 255, 0.65);
     --glass-border: 1px solid rgba(255, 255, 255, 0.4);
+
+    /* Gradient Accents */
+    --gradient-primary: linear-gradient(135deg, hsl(212,100%,55%) 0%, hsl(260,80%,60%) 100%);
+    --gradient-success: linear-gradient(135deg, hsl(145,63%,42%) 0%, hsl(170,70%,38%) 100%);
+    --gradient-hero: linear-gradient(135deg, hsl(212,100%,48%) 0%, hsl(280,80%,55%) 60%, hsl(330,80%,55%) 100%);
+}
+
+/* Entrance Animations */
+@keyframes slide-up-fade {
+    from { opacity: 0; transform: translateY(16px); }
+    to   { opacity: 1; transform: translateY(0); }
+}
+@keyframes scale-in {
+    from { opacity: 0; transform: scale(0.95); }
+    to   { opacity: 1; transform: scale(1); }
 }
 
 /* Dark Mode Variables - Triggers automatically OR via manual class/attribute */

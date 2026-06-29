@@ -14,20 +14,20 @@ class BottomNav extends HTMLElement {
                         <rect x="14" y="12" width="7" height="9" rx="1" />
                         <rect x="3" y="16" width="7" height="5" rx="1" />
                     </svg>
-                    <span class="bottom-nav-label">Home</span>
+                    <span class="bottom-nav-label">Utama</span>
                 </a>
                 <a href="posts.html" class="bottom-nav-item" data-route="posts">
                     <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                         <path d="M12 20h9" />
                         <path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z" />
                     </svg>
-                    <span class="bottom-nav-label">Posts</span>
+                    <span class="bottom-nav-label">Hantaran</span>
                 </a>
                 <a href="ai-generate.html" class="bottom-nav-item" data-route="ai-generate">
                     <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="color: var(--color-primary);">
                         <path d="m12 3-1.912 5.813a2 2 0 0 1-1.275 1.275L3 12l5.813 1.912a2 2 0 0 1 1.275 1.275L12 21l1.912-5.813a2 2 0 0 1 1.275-1.275L21 12l-5.813-1.912a2 2 0 0 1-1.275-1.275L12 3Z" />
                     </svg>
-                    <span class="bottom-nav-label" style="font-weight: 600; color: var(--color-primary);">AI Gen</span>
+                    <span class="bottom-nav-label" style="font-weight: 600; color: var(--color-primary);">Jana AI</span>
                 </a>
                 <a href="calendar.html" class="bottom-nav-item" data-route="calendar">
                     <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
@@ -36,14 +36,14 @@ class BottomNav extends HTMLElement {
                         <line x1="8" y1="2" x2="8" y2="6" />
                         <line x1="3" y1="10" x2="21" y2="10" />
                     </svg>
-                    <span class="bottom-nav-label">Schedule</span>
+                    <span class="bottom-nav-label">Jadual</span>
                 </a>
                 <a href="accounts.html" class="bottom-nav-item" data-route="accounts">
                     <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                         <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2" />
                         <circle cx="9" cy="7" r="4" />
                     </svg>
-                    <span class="bottom-nav-label">Accounts</span>
+                    <span class="bottom-nav-label">Akaun</span>
                 </a>
             </nav>
             <style>

@@ -44,7 +44,7 @@
             <!-- Page Header Section -->
             <div class="page-header">
                 <div class="page-title-section">
-                    <h1 class="page-title">Papan Pemuka</h1>
+                    <h1 class="page-title">Dashboard</h1>
                     <p class="page-subtitle">Selamat kembali! Ini ringkasan saluran media sosial anda.</p>
                 </div>
                 <div class="page-actions">
@@ -74,8 +74,8 @@
                         <span class="card-subtitle" style="font-weight: 600;">📅 Hari Ini</span>
                         <span class="badge" style="background: var(--color-primary-light); color: var(--color-primary); font-size: 0.7rem;">hari ini</span>
                     </div>
-                    <h2 class="card-title" style="font-size: 2.25rem; font-weight: 700; font-family: var(--font-heading); color: var(--color-primary);" id="lblUpcomingTodayCount">0 Hantaran</h2>
-                    <p class="card-subtitle" style="margin-top: 0.5rem; font-size: 0.75rem;">Dijadualkan untuk hari ini</p>
+                    <h2 class="card-title" style="font-size: 2.25rem; font-weight: 700; font-family: var(--font-heading); color: var(--color-primary);" id="lblUpcomingTodayCount">0 Post</h2>
+                    <p class="card-subtitle" style="margin-top: 0.5rem; font-size: 0.75rem;">Dijadualkan hari ini</p>
                 </div>
 
                 <!-- Kad 2: Esok -->
@@ -84,8 +84,8 @@
                         <span class="card-subtitle" style="font-weight: 600;">🌤️ Esok</span>
                         <span class="badge" style="background: #e0f2fe; color: #0369a1; font-size: 0.7rem;">esok</span>
                     </div>
-                    <h2 class="card-title" style="font-size: 2.25rem; font-weight: 700; font-family: var(--font-heading); color: #0ea5e9;" id="lblUpcomingTomorrowCount">0 Hantaran</h2>
-                    <p class="card-subtitle" style="margin-top: 0.5rem; font-size: 0.75rem;">Dijadualkan untuk esok</p>
+                    <h2 class="card-title" style="font-size: 2.25rem; font-weight: 700; font-family: var(--font-heading); color: #0ea5e9;" id="lblUpcomingTomorrowCount">0 Post</h2>
+                    <p class="card-subtitle" style="margin-top: 0.5rem; font-size: 0.75rem;">Dijadualkan esok</p>
                 </div>
 
                 <!-- Kad 3: 7 Hari -->
@@ -94,8 +94,8 @@
                         <span class="card-subtitle" style="font-weight: 600;">📆 7 Hari</span>
                         <span class="badge" style="background: #f3e8ff; color: #6b21a8; font-size: 0.7rem;">minggu</span>
                     </div>
-                    <h2 class="card-title" style="font-size: 2.25rem; font-weight: 700; font-family: var(--font-heading); color: #a855f7;" id="lblNext7DaysCount">0 Hantaran</h2>
-                    <p class="card-subtitle" style="margin-top: 0.5rem; font-size: 0.75rem;">Dijadualkan 7 hari akan datang</p>
+                    <h2 class="card-title" style="font-size: 2.25rem; font-weight: 700; font-family: var(--font-heading); color: #a855f7;" id="lblNext7DaysCount">0 Post</h2>
+                    <p class="card-subtitle" style="margin-top: 0.5rem; font-size: 0.75rem;">7 hari akan datang</p>
                 </div>
 
                 <!-- Kad 4: Diterbitkan -->
@@ -104,7 +104,7 @@
                         <span class="card-subtitle" style="font-weight: 600;">✅ Diterbitkan</span>
                         <span class="badge" style="background: #d1fae5; color: #059669; font-size: 0.7rem;">berjaya</span>
                     </div>
-                    <h2 class="card-title" style="font-size: 2.25rem; font-weight: 700; font-family: var(--font-heading); color: var(--color-success);" id="lblPublishedTodayCount">0 Hantaran</h2>
+                    <h2 class="card-title" style="font-size: 2.25rem; font-weight: 700; font-family: var(--font-heading); color: var(--color-success);" id="lblPublishedTodayCount">0 Post</h2>
                     <p class="card-subtitle" style="margin-top: 0.5rem; font-size: 0.75rem;">Berjaya diterbitkan hari ini</p>
                 </div>
 
@@ -114,7 +114,7 @@
                         <span class="card-subtitle" style="font-weight: 600;">⚠️ Gagal</span>
                         <span class="badge" style="background: #fee2e2; color: #dc2626; font-size: 0.7rem;">ralat</span>
                     </div>
-                    <h2 class="card-title" style="font-size: 2.25rem; font-weight: 700; font-family: var(--font-heading); color: var(--color-danger);" id="lblFailedCount">0 Hantaran</h2>
+                    <h2 class="card-title" style="font-size: 2.25rem; font-weight: 700; font-family: var(--font-heading); color: var(--color-danger);" id="lblFailedCount">0 Post</h2>
                     <p class="card-subtitle" style="margin-top: 0.5rem; font-size: 0.75rem;">Perlu dicuba semula</p>
                 </div>
 
@@ -232,11 +232,11 @@
                 const res = await schedulerService.getScheduleStatusSummary();
                 if (res.success && res.summary) {
                     const sum = res.summary;
-                    document.getElementById('lblUpcomingTodayCount').textContent = `${sum.upcoming_today} Hantaran`;
-                    document.getElementById('lblUpcomingTomorrowCount').textContent = `${sum.upcoming_tomorrow} Hantaran`;
-                    document.getElementById('lblNext7DaysCount').textContent = `${sum.next_7_days} Hantaran`;
-                    document.getElementById('lblPublishedTodayCount').textContent = `${sum.published_today} Hantaran`;
-                    document.getElementById('lblFailedCount').textContent = `${sum.failed} Hantaran`;
+                    document.getElementById('lblUpcomingTodayCount').textContent = `${sum.upcoming_today} Post`;
+                    document.getElementById('lblUpcomingTomorrowCount').textContent = `${sum.upcoming_tomorrow} Post`;
+                    document.getElementById('lblNext7DaysCount').textContent = `${sum.next_7_days} Post`;
+                    document.getElementById('lblPublishedTodayCount').textContent = `${sum.published_today} Post`;
+                    document.getElementById('lblFailedCount').textContent = `${sum.failed} Post`;
                 }
             } catch (err) {
                 console.error('Failed to load scheduler summary status:', err);

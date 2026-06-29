@@ -315,6 +315,81 @@ export default {
 
                 // ==================== SAAS MULTI-TENANT REST API ====================
 
+                // ── AI Settings: GET/POST model preference & API key per workspace ──
+                case '/api/ai/settings': {
+                    const user = await getAuthUser();
+                    if (!user) return new Response(JSON.stringify({ message: 'Unauthorized session' }), { status: 401, headers: corsHeaders });
+                    if (!env.DB) return new Response(JSON.stringify({ message: 'Database missing' }), { status: 500, headers: corsHeaders });
+
+                    const activeWorkspace = await getActiveWorkspace(user);
+                    if (!activeWorkspace) return new Response(JSON.stringify({ message: 'No active workspace found' }), { status: 404, headers: corsHeaders });
+
+                    // Ensure ai_model column exists (idempotent migration)
+                    try {
+                        await env.DB.prepare("ALTER TABLE workspaces ADD COLUMN ai_model TEXT DEFAULT 'meta-llama/llama-3-8b-instruct:free'").run();
+                    } catch (_) { /* column already exists */ }
+                    try {
+                        await env.DB.prepare("ALTER TABLE workspaces ADD COLUMN ai_api_key_enc TEXT").run();
+                    } catch (_) { /* column already exists */ }
+
+                    // GET: return current settings + usage
+                    if (request.method === 'GET') {
+                        const ws = await env.DB.prepare(
+                            "SELECT ai_model, ai_api_key_enc FROM workspaces WHERE id = ?"
+                        ).bind(activeWorkspace.workspace_id).first();
+
+                        const plan = activeWorkspace.subscription_plan;
+                        const maxCredits = PLANS[plan]?.ai_credits ?? 0;
+                        const startOfMonth = new Date(new Date().getFullYear(), new Date().getMonth(), 1).toISOString();
+                        const creditsRes = await env.DB.prepare(
+                            "SELECT COUNT(*) as count FROM audit_logs WHERE workspace_id = ? AND action = 'ai_generate' AND created_at >= ?"
+                        ).bind(activeWorkspace.workspace_id, startOfMonth).first();
+
+                        return new Response(JSON.stringify({
+                            success: true,
+                            model: ws?.ai_model || env.OPENROUTER_MODEL || 'meta-llama/llama-3-8b-instruct:free',
+                            has_api_key: !!(ws?.ai_api_key_enc),
+                            credits_used: creditsRes?.count || 0,
+                            credits_max: maxCredits
+                        }), { status: 200, headers: corsHeaders });
+                    }
+
+                    // POST: save model and/or API key
+                    if (request.method === 'POST') {
+                        if (activeWorkspace.role === 'viewer') {
+                            return new Response(JSON.stringify({ message: 'Forbidden: Viewers cannot change settings.' }), { status: 403, headers: corsHeaders });
+                        }
+                        const { model, api_key } = await request.json();
+                        if (!model) return new Response(JSON.stringify({ message: 'Model is required.' }), { status: 400, headers: corsHeaders });
+
+                        let encKey = null;
+                        if (api_key && api_key.trim() !== '') {
+                            // Encrypt using built-in encrypt function
+                            try {
+                                encKey = await encryptToken(api_key.trim(), env.TOKEN_SECRET);
+                            } catch (e) {
+                                encKey = api_key.trim(); // fallback plain if no encrypt func
+                            }
+                        }
+
+                        if (encKey) {
+                            await env.DB.prepare(
+                                "UPDATE workspaces SET ai_model = ?, ai_api_key_enc = ?, updated_at = (datetime('now')) WHERE id = ?"
+                            ).bind(model, encKey, activeWorkspace.workspace_id).run();
+                        } else {
+                            await env.DB.prepare(
+                                "UPDATE workspaces SET ai_model = ?, updated_at = (datetime('now')) WHERE id = ?"
+                            ).bind(model, activeWorkspace.workspace_id).run();
+                        }
+
+                        await logActivity(activeWorkspace.workspace_id, user.id, 'update_ai_settings', `AI model changed to: ${model}`);
+
+                        return new Response(JSON.stringify({ success: true, message: 'AI settings saved.' }), { status: 200, headers: corsHeaders });
+                    }
+
+                    return new Response(JSON.stringify({ error: 'Method not allowed' }), { status: 405, headers: corsHeaders });
+                }
+
                 case '/api/ai/generate': {
                     const user = await getAuthUser();
                     if (!user) return new Response(JSON.stringify({ message: 'Unauthorized session' }), { status: 401, headers: corsHeaders });
@@ -345,14 +420,34 @@ export default {
                             return new Response(JSON.stringify({ message: 'Business type and product/service are required.' }), { status: 400, headers: corsHeaders });
                         }
 
-                        const provider = AIFactory.getProvider(env);
+                        // Read workspace AI preferences from DB (model & optional custom API key)
+                        const wsAI = await env.DB.prepare(
+                            "SELECT ai_model, ai_api_key_enc FROM workspaces WHERE id = ?"
+                        ).bind(activeWorkspace.workspace_id).first().catch(() => null);
+
+                        // Build env-like object overriding with workspace preferences
+                        const aiEnv = { ...env };
+                        if (wsAI?.ai_model) {
+                            aiEnv.OPENROUTER_MODEL = wsAI.ai_model;
+                        }
+                        if (wsAI?.ai_api_key_enc) {
+                            try {
+                                // Attempt decrypt, fallback to raw value
+                                const decrypted = await decryptToken(wsAI.ai_api_key_enc, env.TOKEN_SECRET);
+                                if (decrypted) aiEnv.OPENROUTER_API_KEY = decrypted;
+                            } catch (_) {
+                                aiEnv.OPENROUTER_API_KEY = wsAI.ai_api_key_enc;
+                            }
+                        }
+
+                        const provider = AIFactory.getProvider(aiEnv);
                         const result = await provider.generateCaption({
                             businessType,
                             product,
                             targetAudience: targetAudience || 'General public',
                             goal: goal || 'Brand awareness',
                             tone: tone || 'Professional',
-                            language: language || 'English'
+                            language: language || 'Bahasa Melayu'
                         });
 
                         await logActivity(activeWorkspace.workspace_id, user.id, 'ai_generate', `Generated caption for business "${businessType}": ${product.substring(0, 30)}...`);
@@ -360,6 +455,7 @@ export default {
                         return new Response(JSON.stringify({
                             success: true,
                             result,
+                            model_used: aiEnv.OPENROUTER_MODEL,
                             credits_remaining: maxCredits - currentCreditsUsed - 1
                         }), { status: 200, headers: corsHeaders });
                     } catch (e) {

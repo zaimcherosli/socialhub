@@ -14,14 +14,14 @@ class BottomNav extends HTMLElement {
                         <rect x="14" y="12" width="7" height="9" rx="1" />
                         <rect x="3" y="16" width="7" height="5" rx="1" />
                     </svg>
-                    <span class="bottom-nav-label">Utama</span>
+                    <span class="bottom-nav-label">Dashboard</span>
                 </a>
                 <a href="posts.html" class="bottom-nav-item" data-route="posts">
                     <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                         <path d="M12 20h9" />
                         <path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z" />
                     </svg>
-                    <span class="bottom-nav-label">Hantaran</span>
+                    <span class="bottom-nav-label">Post</span>
                 </a>
                 <a href="ai-generate.html" class="bottom-nav-item" data-route="ai-generate">
                     <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="color: var(--color-primary);">

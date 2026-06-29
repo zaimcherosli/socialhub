@@ -46,7 +46,7 @@ class Sidebar extends HTMLElement {
                                     <rect x="14" y="12" width="7" height="9" rx="1" />
                                     <rect x="3" y="16" width="7" height="5" rx="1" />
                                 </svg>
-                                <span class="nav-label">Papan Pemuka</span>
+                                <span class="nav-label">Dashboard</span>
                             </a>
                         </li>
                         <li>
@@ -55,7 +55,7 @@ class Sidebar extends HTMLElement {
                                     <path d="M12 20h9" />
                                     <path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z" />
                                 </svg>
-                                <span class="nav-label">Hantaran</span>
+                                <span class="nav-label">Post</span>
                             </a>
                         </li>
                         <li>
@@ -86,7 +86,7 @@ class Sidebar extends HTMLElement {
                                     <line x1="12" y1="20" x2="12" y2="4" />
                                     <line x1="6" y1="20" x2="6" y2="14" />
                                 </svg>
-                                <span class="nav-label">Analitik</span>
+                                <span class="nav-label">Analytics</span>
                             </a>
                         </li>
                         <li>

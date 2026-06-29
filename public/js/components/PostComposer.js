@@ -10,7 +10,7 @@ class PostComposer extends HTMLElement {
 
     render() {
         this.innerHTML = `
-            <div style="display: grid; grid-template-columns: 3fr 2fr; gap: 2rem; width: 100%;">
+            <div class="composer-grid">
                 <!-- Left Column: Form -->
                 <div class="card" style="display: flex; flex-direction: column; gap: 1.25rem;">
                     <div class="form-group">
@@ -68,6 +68,26 @@ class PostComposer extends HTMLElement {
                 </div>
             </div>
             <schedule-modal id="composerScheduleModal"></schedule-modal>
+            
+            <style>
+                .composer-grid {
+                    display: grid;
+                    grid-template-columns: 3fr 2fr;
+                    gap: 2rem;
+                    width: 100%;
+                }
+                
+                @media (max-width: 992px) {
+                    .composer-grid {
+                        grid-template-columns: 1fr;
+                        gap: 1.5rem;
+                    }
+                    
+                    .composer-grid > .card {
+                        position: static !important;
+                    }
+                }
+            </style>
         `;
     }
 

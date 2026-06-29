@@ -2,7 +2,7 @@
    Handles file type constraints, size limits, and initiates XHR uploads to track percentages. */
 
 import { sessionService } from './sessionService.js';
-import { config } from '../config/config.js';
+import { CONFIG } from '../config/config.js';
 
 const ALLOWED_MIME_TYPES = [
     'image/jpeg', 'image/png', 'image/webp', 'image/gif',
@@ -53,7 +53,7 @@ export const uploadService = {
 
         return new Promise((resolve, reject) => {
             const xhr = new XMLHttpRequest();
-            const url = `${config.apiBaseUrl}/media/upload`;
+            const url = `${CONFIG.API_BASE_URL}/media/upload`;
             
             xhr.open('POST', url, true);
             

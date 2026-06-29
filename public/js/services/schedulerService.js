@@ -20,6 +20,14 @@ export const schedulerService = {
 
     async getScheduleStatusSummary() {
         return await apiClient.get('/scheduled-posts/summary');
+    },
+
+    async bulkDelete(ids) {
+        return Promise.all(ids.map(id => this.deleteScheduledPost(id)));
+    },
+
+    async bulkUpdate(ids, data) {
+        return Promise.all(ids.map(id => this.updateScheduledPost(id, data)));
     }
 };
 

@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Schedules Calendar | SocialHub - Scheduling Platform</title>
+    <title>Queue & Calendar | SocialHub - Scheduling Platform</title>
 
     <!-- Auth Route Guard: redirects to login.html instantly if user not authenticated -->
     <script type="module">
@@ -79,7 +79,7 @@
         .calendar-grid-body {
             display: grid;
             grid-template-columns: repeat(7, 1fr);
-            grid-auto-rows: 110px;
+            grid-auto-rows: 120px;
             gap: 1px;
             background: var(--color-border);
             border: 1px solid var(--color-border);
@@ -95,6 +95,12 @@
             justify-content: space-between;
             overflow: hidden;
             transition: background var(--transition-fast);
+            position: relative;
+        }
+
+        .calendar-cell.dragover {
+            background: var(--color-primary-light);
+            border: 2px dashed var(--color-primary);
         }
 
         .calendar-cell:hover {
@@ -111,55 +117,54 @@
             font-weight: 500;
             color: var(--color-text-secondary);
             align-self: flex-end;
+            margin-bottom: 0.25rem;
         }
 
         .cell-schedules-container {
             display: flex;
             flex-direction: column;
-            gap: 0.25rem;
+            gap: 0.35rem;
             flex-grow: 1;
             overflow-y: auto;
-            margin-top: 0.25rem;
+            max-height: 80px;
             padding-right: 2px;
         }
 
         /* Tiny schedule card */
         .tiny-schedule-badge {
             font-size: 0.7rem;
-            padding: 0.2rem 0.35rem;
+            padding: 0.25rem 0.45rem;
             border-radius: var(--radius-xs);
             border: 1px solid rgba(0,0,0,0.05);
             background: var(--color-primary-light);
             color: var(--color-primary);
-            cursor: pointer;
+            cursor: grab;
             white-space: nowrap;
             overflow: hidden;
             text-overflow: ellipsis;
             display: flex;
             align-items: center;
-            gap: 0.2rem;
+            gap: 0.25rem;
             transition: transform 0.1s ease;
         }
 
-        .tiny-schedule-badge:hover {
-            transform: scale(1.02);
-            box-shadow: var(--shadow-sm);
-        }
-
-        .tiny-schedule-badge.threads {
-            background: rgba(0,0,0,0.04);
-            color: #000000;
-            border-color: rgba(0,0,0,0.1);
+        .tiny-schedule-badge:active {
+            cursor: grabbing;
         }
 
         .tiny-schedule-badge.published {
-            background: var(--color-success-light);
-            color: var(--color-success);
+            background: #d1fae5;
+            color: #059669;
         }
 
         .tiny-schedule-badge.failed {
-            background: var(--color-danger-light);
-            color: var(--color-danger);
+            background: #fee2e2;
+            color: #dc2626;
+        }
+
+        .tiny-schedule-badge.publishing {
+            background: #fef3c7;
+            color: #d97706;
         }
 
         /* Popups and details drawers */
@@ -171,7 +176,7 @@
             width: 100%;
             height: 100%;
             background: rgba(0, 0, 0, 0.4);
-            z-index: 1001;
+            z-index: 1500;
             align-items: center;
             justify-content: center;
             backdrop-filter: blur(4px);
@@ -179,11 +184,14 @@
 
         .picker-modal-content {
             width: 90%;
-            max-width: 440px;
+            max-width: 460px;
             display: flex;
             flex-direction: column;
             gap: 1rem;
-            padding: 1.5rem;
+            padding: 1.75rem;
+            background: var(--color-bg-card);
+            border-radius: var(--radius-md);
+            box-shadow: var(--shadow-xl);
         }
 
         .meta-detail-row {
@@ -191,8 +199,46 @@
             justify-content: space-between;
             font-size: 0.8125rem;
             border-bottom: 1px solid var(--color-border);
-            padding-bottom: 0.35rem;
-            margin-bottom: 0.35rem;
+            padding-bottom: 0.45rem;
+            margin-bottom: 0.45rem;
+        }
+
+        .tab-btn.active {
+            background: var(--color-primary);
+            color: #fff;
+            border-color: var(--color-primary);
+        }
+
+        .bulk-actions-bar {
+            display: none;
+            background: var(--color-bg-card);
+            border: 1px solid var(--color-primary);
+            border-radius: var(--radius-sm);
+            padding: 0.75rem 1.25rem;
+            align-items: center;
+            justify-content: space-between;
+            margin-bottom: 1.5rem;
+            box-shadow: var(--shadow-md);
+            animation: slideInUp 0.2s ease-out forwards;
+        }
+
+        @keyframes slideInUp {
+            from { transform: translateY(15px); opacity: 0; }
+            to { transform: translateY(0); opacity: 1; }
+        }
+
+        .filters-grid {
+            display: grid;
+            grid-template-columns: 2fr 1fr 1fr 1fr 1fr;
+            gap: 1rem;
+            align-items: end;
+        }
+
+        @media (max-width: 768px) {
+            .filters-grid {
+                grid-template-columns: 1fr;
+                gap: 0.75rem;
+            }
         }
     </style>
 </head>
@@ -205,36 +251,93 @@
         <main class="main-content animated-fade-in">
             
             <!-- Page Header -->
-            <div class="page-header">
+            <div class="page-header" style="margin-bottom: 1.5rem;">
                 <div class="page-title-section">
-                    <h1 class="page-title">Schedules Calendar</h1>
-                    <p class="page-subtitle">Visual month calendar overview of queued and published postings.</p>
+                    <h1 class="page-title">Queue & Calendar</h1>
+                    <p class="page-subtitle">Schedule, drag-and-drop reschedule, filter, search, and manage bulk post queues.</p>
                 </div>
             </div>
 
-            <!-- Workspace -->
-            <div class="calendar-workspace">
-                
-                <!-- Navigation controls bar -->
-                <div class="calendar-nav-bar">
-                    <div style="display: flex; gap: 0.5rem; align-items: center;">
-                        <button class="btn btn-secondary" style="padding: 0.45rem 0.75rem;" id="btnPrevMonth">◀</button>
-                        <span class="calendar-nav-title" id="calendarTitle">June 2026</span>
-                        <button class="btn btn-secondary" style="padding: 0.45rem 0.75rem;" id="btnNextMonth">▶</button>
-                        <button class="btn btn-secondary" style="padding: 0.45rem 0.75rem; margin-left: 0.5rem;" id="btnToday">Today</button>
-                    </div>
+            <!-- Workspace Tabs -->
+            <div style="display: flex; gap: 1rem; margin-bottom: 1.5rem; border-bottom: 2px solid var(--color-border); padding-bottom: 0.5rem;">
+                <button class="btn btn-secondary tab-btn active" id="tabBtnCalendar" style="font-weight: 600; padding: 0.5rem 1.25rem;">📅 Calendar Workspace</button>
+                <button class="btn btn-secondary tab-btn" id="tabBtnQueue" style="font-weight: 600; padding: 0.5rem 1.25rem;">📋 Detailed Queue List</button>
+            </div>
 
-                    <div class="calendar-view-toggle">
-                        <button class="calendar-view-btn active" data-view="month">Month</button>
-                        <button class="calendar-view-btn" data-view="week" disabled title="Upcoming release">Week</button>
-                        <button class="calendar-view-btn" data-view="day" disabled title="Upcoming release">Day</button>
+            <!-- Global Search & Filters Panel -->
+            <div class="card" style="padding: 1.25rem; margin-bottom: 1.5rem; display: flex; flex-direction: column; gap: 1rem;">
+                <div class="filters-grid">
+                    <div class="form-group" style="margin: 0;">
+                        <label class="form-label" style="font-size: 0.75rem;">Search Caption / Keywords</label>
+                        <input type="text" id="filterSearch" class="form-input" placeholder="Type hashtag or text..." style="width: 100%;" />
+                    </div>
+                    <div class="form-group" style="margin: 0;">
+                        <label class="form-label" style="font-size: 0.75rem;">Platform</label>
+                        <select id="filterPlatform" class="form-select" style="width: 100%;">
+                            <option value="all">All Platforms</option>
+                            <option value="threads">Threads</option>
+                            <option value="facebook">Facebook</option>
+                            <option value="instagram">Instagram</option>
+                            <option value="linkedin">LinkedIn</option>
+                            <option value="tiktok">TikTok</option>
+                        </select>
+                    </div>
+                    <div class="form-group" style="margin: 0;">
+                        <label class="form-label" style="font-size: 0.75rem;">Status</label>
+                        <select id="filterStatus" class="form-select" style="width: 100%;">
+                            <option value="all">All Statuses</option>
+                            <option value="scheduled">Scheduled</option>
+                            <option value="publishing">Publishing</option>
+                            <option value="published">Published</option>
+                            <option value="failed">Failed</option>
+                            <option value="cancelled">Cancelled</option>
+                            <option value="draft">Draft</option>
+                        </select>
+                    </div>
+                    <div class="form-group" style="margin: 0;">
+                        <label class="form-label" style="font-size: 0.75rem;">Account</label>
+                        <select id="filterAccount" class="form-select" style="width: 100%;">
+                            <option value="all">All Accounts</option>
+                        </select>
+                    </div>
+                    <div class="form-group" style="margin: 0;">
+                        <button class="btn btn-secondary" id="btnResetFilters" style="width: 100%; height: 38px;">Clear Filters</button>
                     </div>
                 </div>
+            </div>
 
-                <!-- Monthly grid block -->
-                <div>
-                    <!-- Weekday headers -->
-                    <div class="calendar-grid-header">
+            <!-- Bulk Actions Toolbar -->
+            <div class="bulk-actions-bar" id="bulkActionsToolbar">
+                <span id="lblSelectedCount" style="font-size: 0.875rem; font-weight: 600; color: var(--color-primary);">0 posts selected</span>
+                <div style="display: flex; gap: 0.5rem;">
+                    <button class="btn btn-secondary btn-sm" id="btnBulkReschedule">Reschedule</button>
+                    <button class="btn btn-secondary btn-sm" id="btnBulkRetry">Retry</button>
+                    <button class="btn btn-danger btn-sm" id="btnBulkDelete">Delete</button>
+                </div>
+            </div>
+
+            <!-- Workspace Views -->
+            <div class="calendar-workspace">
+                
+                <!-- Tab 1: Calendar View Content -->
+                <div id="calendarViewContainer">
+                    <div class="calendar-nav-bar" style="margin-bottom: 1rem;">
+                        <div style="display: flex; gap: 0.5rem; align-items: center;">
+                            <button class="btn btn-secondary" style="padding: 0.45rem 0.75rem;" id="btnPrevMonth">◀</button>
+                            <span class="calendar-nav-title" id="calendarTitle">June 2026</span>
+                            <button class="btn btn-secondary" style="padding: 0.45rem 0.75rem;" id="btnNextMonth">▶</button>
+                            <button class="btn btn-secondary" style="padding: 0.45rem 0.75rem; margin-left: 0.5rem;" id="btnToday">Today</button>
+                        </div>
+
+                        <div class="calendar-view-toggle">
+                            <button class="calendar-view-btn active" data-view="month" id="btnViewMonth">Month</button>
+                            <button class="calendar-view-btn" data-view="week" id="btnViewWeek">Week</button>
+                            <button class="calendar-view-btn" data-view="day" id="btnViewDay">Day</button>
+                        </div>
+                    </div>
+
+                    <!-- Monthly Grid Header -->
+                    <div id="calendarGridHeader" class="calendar-grid-header">
                         <div>Sun</div>
                         <div>Mon</div>
                         <div>Tue</div>
@@ -244,9 +347,34 @@
                         <div>Sat</div>
                     </div>
                     
-                    <!-- Month Cells Body -->
+                    <!-- Calendar Body (Dynamically Switched Month/Week/Day) -->
                     <div class="calendar-grid-body" id="calendarGrid">
-                        <!-- Cells generated dynamically -->
+                        <!-- Generated Dynamically -->
+                    </div>
+                </div>
+
+                <!-- Tab 2: Queue Table View Content -->
+                <div id="queueViewContainer" style="display: none;">
+                    <div class="card" style="padding: 0;">
+                        <div class="table-responsive">
+                            <table style="width: 100%; border-collapse: collapse; text-align: left; font-size: 0.875rem;">
+                                <thead>
+                                    <tr style="border-bottom: 2px solid var(--color-border); color: var(--color-text-tertiary); font-weight: 600; background: var(--color-bg-accent);">
+                                        <th style="padding: 1rem;"><input type="checkbox" id="chkSelectAllQueue" /></th>
+                                        <th style="padding: 1rem;">Platform</th>
+                                        <th style="padding: 1rem;">Account</th>
+                                        <th style="padding: 1rem;">Caption Preview</th>
+                                        <th style="padding: 1rem;">Publish Time</th>
+                                        <th style="padding: 1rem;">Status</th>
+                                        <th style="padding: 1rem;">Retry</th>
+                                        <th style="padding: 1rem; text-align: right;">Action</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="queueTableBody">
+                                    <!-- Rendered dynamically -->
+                                </tbody>
+                            </table>
+                        </div>
                     </div>
                 </div>
 
@@ -255,11 +383,11 @@
         </main>
     </div>
 
-    <!-- Schedule Details Modal Popup Dialog -->
+    <!-- Post Details Modal Dialog -->
     <div class="picker-modal-backdrop" id="scheduleDetailModal">
         <div class="card picker-modal-content">
             <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid var(--color-border); padding-bottom: 0.75rem;">
-                <h3 class="card-title" style="margin-bottom: 0;">Schedule Details</h3>
+                <h3 class="card-title" style="margin-bottom: 0;">Publication Details</h3>
                 <button class="btn btn-secondary" style="padding: 0.25rem 0.5rem; font-size: 0.75rem;" id="btnCloseModal">Close</button>
             </div>
             
@@ -271,16 +399,31 @@
             <div id="rescheduleForm" style="display: none; border-top: 1px dashed var(--color-border); padding-top: 1rem; margin-top: 0.5rem;">
                 <div class="form-group">
                     <label class="form-label" for="rescheduleTimeInput">Choose New Date & Time</label>
-                    <input type="datetime-local" id="rescheduleTimeInput" class="form-input" />
+                    <input type="datetime-local" id="rescheduleTimeInput" class="form-input" style="width: 100%;" />
                 </div>
                 <button class="btn btn-primary" style="width: 100%; margin-top: 0.5rem;" id="btnSubmitReschedule">
                     Update Scheduled Time
                 </button>
             </div>
 
-            <div style="display: flex; gap: 0.5rem; margin-top: 0.5rem;">
+            <div style="display: flex; gap: 0.5rem; margin-top: 0.75rem;">
                 <button class="btn btn-secondary" style="flex: 1; font-size: 0.8125rem;" id="btnShowReschedule">Reschedule</button>
                 <button class="btn btn-danger" style="flex: 1; font-size: 0.8125rem;" id="btnCancelSchedule">Cancel Schedule</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Bulk Reschedule Modal -->
+    <div class="picker-modal-backdrop" id="bulkRescheduleModal">
+        <div class="card picker-modal-content">
+            <h3 class="card-title">Bulk Reschedule</h3>
+            <p style="font-size: 0.8125rem; color: var(--color-text-secondary); margin-bottom: 1rem;">Set a new publication date and time for all selected posts.</p>
+            <div class="form-group">
+                <input type="datetime-local" id="bulkRescheduleInput" class="form-input" style="width: 100%;" />
+            </div>
+            <div style="display: flex; gap: 0.5rem; justify-content: flex-end; margin-top: 1rem;">
+                <button class="btn btn-secondary" id="btnCancelBulkReschedule">Cancel</button>
+                <button class="btn btn-primary" id="btnConfirmBulkReschedule">Apply Reschedule</button>
             </div>
         </div>
     </div>
@@ -288,78 +431,277 @@
     <!-- Script imports -->
     <script type="module" src="js/app.js"></script>
     <script type="module">
-        import { scheduleService } from './js/services/scheduleService.js';
-        import { calendarService } from './js/services/calendarService.js';
+        import { schedulerService } from './js/services/schedulerService.js';
+        import { publishService } from './js/services/publishService.js';
         import { timezoneService } from './js/services/timezoneService.js';
+        import { notificationService } from './js/services/notificationService.js';
+        import { socialService } from './js/services/socialService.js';
 
-        let currentYear = 2026;
-        let currentMonth = 5; // 0-indexed: June = 5
-        let schedulesList = [];
+        let allSchedules = [];
+        let filteredSchedules = [];
         let selectedSchedule = null;
+        let checkedIds = new Set();
+
+        let currentYear = new Date().getFullYear();
+        let currentMonth = new Date().getMonth(); // 0-indexed
+        let currentDayDate = new Date(); // reference for day/week views
+        
+        let calendarView = 'month'; // 'month', 'week', 'day'
+        let activeTab = 'calendar'; // 'calendar', 'queue'
 
         const grid = document.getElementById('calendarGrid');
+        const gridHeader = document.getElementById('calendarGridHeader');
         const title = document.getElementById('calendarTitle');
         const detailModal = document.getElementById('scheduleDetailModal');
         const modalContent = document.getElementById('modalDetailsContent');
-        
         const rescheduleForm = document.getElementById('rescheduleForm');
         const rescheduleInput = document.getElementById('rescheduleTimeInput');
+
+        // Dragged element data storage
+        let draggedId = null;
+
+        // View and Tab Switchers
+        const tabBtnCalendar = document.getElementById('tabBtnCalendar');
+        const tabBtnQueue = document.getElementById('tabBtnQueue');
+        const calendarViewContainer = document.getElementById('calendarViewContainer');
+        const queueViewContainer = document.getElementById('queueViewContainer');
+
+        const btnViewMonth = document.getElementById('btnViewMonth');
+        const btnViewWeek = document.getElementById('btnViewWeek');
+        const btnViewDay = document.getElementById('btnViewDay');
+
+        // Filters and Search
+        const filterSearch = document.getElementById('filterSearch');
+        const filterPlatform = document.getElementById('filterPlatform');
+        const filterStatus = document.getElementById('filterStatus');
+        const filterAccount = document.getElementById('filterAccount');
+        const btnResetFilters = document.getElementById('btnResetFilters');
+
+        // Bulk operations
+        const bulkToolbar = document.getElementById('bulkActionsToolbar');
+        const lblSelectedCount = document.getElementById('lblSelectedCount');
+        const chkSelectAllQueue = document.getElementById('chkSelectAllQueue');
 
         const monthNames = [
             "January", "February", "March", "April", "May", "June", 
             "July", "August", "September", "October", "November", "December"
         ];
 
-        async function fetchSchedules() {
-            schedulesList = await scheduleService.getSchedules();
-            buildCalendarGrid();
+        async function init() {
+            bindTabEvents();
+            bindFilterEvents();
+            bindCalendarNav();
+            bindBulkActions();
+            await loadAccountsDropdown();
+            await fetchSchedules();
         }
 
-        function buildCalendarGrid() {
-            title.textContent = `${monthNames[currentMonth]} ${currentYear}`;
+        async function fetchSchedules() {
+            try {
+                const res = await schedulerService.getScheduledPosts();
+                allSchedules = res.results || [];
+                applyFiltersAndRender();
+            } catch (err) {
+                notificationService.error('Connection error loading scheduled queue.');
+            }
+        }
+
+        async function loadAccountsDropdown() {
+            try {
+                const accounts = await socialService.getAccounts();
+                filterAccount.innerHTML = '<option value="all">All Accounts</option>';
+                accounts.forEach(acc => {
+                    const opt = document.createElement('option');
+                    opt.value = acc.id;
+                    opt.textContent = `${acc.platform} (${acc.account_name})`;
+                    filterAccount.appendChild(opt);
+                });
+            } catch (err) {
+                console.error(err);
+            }
+        }
+
+        function applyFiltersAndRender() {
+            const query = filterSearch.value.toLowerCase().trim();
+            const platform = filterPlatform.value;
+            const status = filterStatus.value;
+            const accountId = filterAccount.value;
+
+            filteredSchedules = allSchedules.filter(item => {
+                const matchesSearch = !query || 
+                    (item.content && item.content.toLowerCase().includes(query)) ||
+                    (item.platform && item.platform.toLowerCase().includes(query));
+
+                const matchesPlatform = platform === 'all' || item.platform === platform;
+                const matchesStatus = status === 'all' || item.status === status;
+                const matchesAccount = accountId === 'all' || String(item.account_id) === accountId;
+
+                return matchesSearch && matchesPlatform && matchesStatus && matchesAccount;
+            });
+
+            renderActiveWorkspace();
+        }
+
+        function renderActiveWorkspace() {
+            updateBulkToolbarState();
+            if (activeTab === 'calendar') {
+                buildCalendarView();
+            } else {
+                buildQueueListView();
+            }
+        }
+
+        // ==================== CALENDAR RENDERING WORKFLOW ====================
+
+        function buildCalendarView() {
             grid.innerHTML = '';
+            
+            if (calendarView === 'month') {
+                gridHeader.style.display = 'grid';
+                grid.className = 'calendar-grid-body';
+                grid.style.gridTemplateColumns = 'repeat(7, 1fr)';
+                grid.style.gridAutoRows = '120px';
+                
+                buildMonthGrid();
+            } else if (calendarView === 'week') {
+                gridHeader.style.display = 'grid';
+                grid.className = 'calendar-grid-body';
+                grid.style.gridTemplateColumns = 'repeat(7, 1fr)';
+                grid.style.gridAutoRows = '240px';
+                
+                buildWeekGrid();
+            } else {
+                gridHeader.style.display = 'none';
+                grid.className = 'calendar-grid-body';
+                grid.style.gridTemplateColumns = '1fr';
+                grid.style.gridAutoRows = 'auto';
+                
+                buildDayGrid();
+            }
+        }
 
-            const dayGrid = calendarService.getMonthGridDays(currentYear, currentMonth);
-            const grouped = calendarService.groupSchedulesByDate(schedulesList);
+        // Helper: Get calendar days inside month grid
+        function getMonthGridDays(year, month) {
+            const firstDay = new Date(year, month, 1);
+            const startDay = firstDay.getDay();
+            const days = [];
+            
+            const prevMonth = new Date(year, month, 0);
+            const prevMonthLastDate = prevMonth.getDate();
+            for (let i = startDay - 1; i >= 0; i--) {
+                days.push({
+                    date: new Date(year, month - 1, prevMonthLastDate - i),
+                    isCurrentMonth: false
+                });
+            }
+            
+            const currentMonthLastDate = new Date(year, month + 1, 0).getDate();
+            for (let i = 1; i <= currentMonthLastDate; i++) {
+                days.push({
+                    date: new Date(year, month, i),
+                    isCurrentMonth: true
+                });
+            }
+            
+            const totalCells = 42;
+            const remainingCells = totalCells - days.length;
+            for (let i = 1; i <= remainingCells; i++) {
+                days.push({
+                    date: new Date(year, month + 1, i),
+                    isCurrentMonth: false
+                });
+            }
+            
+            return days;
+        }
 
-            dayGrid.forEach(cell => {
+        function buildMonthGrid() {
+            title.textContent = `${monthNames[currentMonth]} ${currentYear}`;
+            
+            const days = getMonthGridDays(currentYear, currentMonth);
+            
+            days.forEach(cell => {
                 const cellDiv = document.createElement('div');
                 cellDiv.className = 'calendar-cell';
                 if (!cell.isCurrentMonth) {
                     cellDiv.classList.add('different-month');
                 }
 
-                // Append Day Num
+                const yyyy = cell.date.getFullYear();
+                const mm = String(cell.date.getMonth() + 1).padStart(2, '0');
+                const dd = String(cell.date.getDate()).padStart(2, '0');
+                const dateKey = `${yyyy}-${mm}-${dd}`;
+                cellDiv.dataset.date = dateKey;
+
+                // Bind HTML5 drag zone drop events
+                cellDiv.addEventListener('dragover', (e) => {
+                    e.preventDefault();
+                    cellDiv.classList.add('dragover');
+                });
+
+                cellDiv.addEventListener('dragleave', () => {
+                    cellDiv.classList.remove('dragover');
+                });
+
+                cellDiv.addEventListener('drop', async (e) => {
+                    e.preventDefault();
+                    cellDiv.classList.remove('dragover');
+                    if (draggedId) {
+                        // Calculate target time: keep original hours, update date
+                        const targetDate = cellDiv.dataset.date;
+                        const originalPost = allSchedules.find(p => String(p.id) === String(draggedId));
+                        if (originalPost) {
+                            const origTime = new Date(originalPost.publish_at);
+                            const hh = String(origTime.getHours()).padStart(2, '0');
+                            const min = String(origTime.getMinutes()).padStart(2, '0');
+                            const targetDateTime = new Date(`${targetDate}T${hh}:${min}:00`).toISOString();
+                            
+                            try {
+                                await schedulerService.updateScheduledPost(draggedId, { publish_at: targetDateTime, status: 'scheduled' });
+                                notificationService.success('Publication rescheduled.');
+                                fetchSchedules();
+                            } catch (err) {
+                                notificationService.error('Failed to reschedule post.');
+                            }
+                        }
+                    }
+                });
+
                 const dayNumSpan = document.createElement('span');
                 dayNumSpan.className = 'cell-day-num';
                 dayNumSpan.textContent = cell.date.getDate();
                 cellDiv.appendChild(dayNumSpan);
 
-                // Append Schedules
                 const container = document.createElement('div');
                 container.className = 'cell-schedules-container';
-                
-                const yyyy = cell.date.getFullYear();
-                const mm = String(cell.date.getMonth() + 1).padStart(2, '0');
-                const dd = String(cell.date.getDate()).padStart(2, '0');
-                const dateKey = `${yyyy}-${mm}-${dd}`;
 
-                const daySchedules = grouped[dateKey] || [];
+                const daySchedules = filteredSchedules.filter(item => {
+                    const postDate = new Date(item.publish_at);
+                    const pyyyy = postDate.getFullYear();
+                    const pmm = String(postDate.getMonth() + 1).padStart(2, '0');
+                    const pdd = String(postDate.getDate()).padStart(2, '0');
+                    return `${pyyyy}-${pmm}-${pdd}` === dateKey;
+                });
+
                 daySchedules.forEach(item => {
                     const badge = document.createElement('div');
                     badge.className = `tiny-schedule-badge ${item.platform} ${item.status}`;
+                    badge.draggable = true;
+                    badge.dataset.id = item.id;
                     
-                    const timeLabel = new Date(item.scheduled_at).toLocaleTimeString(undefined, { 
-                        hour: '2-digit', 
-                        minute: '2-digit', 
-                        hour12: false 
+                    const timeLabel = new Date(item.publish_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: false });
+                    badge.innerHTML = `<span>💬</span> <span>${timeLabel}</span> <span>${item.content.substring(0, 8)}...</span>`;
+                    
+                    badge.addEventListener('dragstart', (e) => {
+                        draggedId = item.id;
+                        e.dataTransfer.setData('text/plain', item.id);
                     });
 
-                    badge.innerHTML = `<span>[${item.platform[0].toUpperCase()}]</span> <span>${timeLabel}</span>`;
                     badge.addEventListener('click', (e) => {
                         e.stopPropagation();
                         openDetailsModal(item);
                     });
+
                     container.appendChild(badge);
                 });
 
@@ -368,49 +710,250 @@
             });
         }
 
+        function getWeekDays(referenceDate) {
+            const dayOfWeek = referenceDate.getDay();
+            const sunday = new Date(referenceDate);
+            sunday.setDate(referenceDate.getDate() - dayOfWeek);
+            
+            const days = [];
+            for (let i = 0; i < 7; i++) {
+                const day = new Date(sunday);
+                day.setDate(sunday.getDate() + i);
+                days.push(day);
+            }
+            return days;
+        }
+
+        function buildWeekGrid() {
+            const days = getWeekDays(currentDayDate);
+            const startStr = `${monthNames[days[0].getMonth()]} ${days[0].getDate()}`;
+            const endStr = `${monthNames[days[6].getMonth()]} ${days[6].getDate()}, ${days[6].getFullYear()}`;
+            title.textContent = `Week: ${startStr} - ${endStr}`;
+
+            days.forEach((cellDate, index) => {
+                const cellDiv = document.createElement('div');
+                cellDiv.className = 'calendar-cell';
+                cellDiv.style.minHeight = '240px';
+
+                const yyyy = cellDate.getFullYear();
+                const mm = String(cellDate.getMonth() + 1).padStart(2, '0');
+                const dd = String(cellDate.getDate()).padStart(2, '0');
+                const dateKey = `${yyyy}-${mm}-${dd}`;
+                cellDiv.dataset.date = dateKey;
+
+                cellDiv.addEventListener('dragover', (e) => {
+                    e.preventDefault();
+                    cellDiv.classList.add('dragover');
+                });
+                cellDiv.addEventListener('dragleave', () => cellDiv.classList.remove('dragover'));
+                cellDiv.addEventListener('drop', async (e) => {
+                    e.preventDefault();
+                    cellDiv.classList.remove('dragover');
+                    if (draggedId) {
+                        const targetDate = cellDiv.dataset.date;
+                        const originalPost = allSchedules.find(p => String(p.id) === String(draggedId));
+                        if (originalPost) {
+                            const origTime = new Date(originalPost.publish_at);
+                            const targetDateTime = new Date(`${targetDate}T${String(origTime.getHours()).padStart(2, '0')}:${String(origTime.getMinutes()).padStart(2, '0')}:00`).toISOString();
+                            await schedulerService.updateScheduledPost(draggedId, { publish_at: targetDateTime, status: 'scheduled' });
+                            notificationService.success('Publication rescheduled.');
+                            fetchSchedules();
+                        }
+                    }
+                });
+
+                const dayLabel = document.createElement('span');
+                dayLabel.className = 'cell-day-num';
+                dayLabel.style.alignSelf = 'center';
+                dayLabel.style.fontWeight = '600';
+                dayLabel.textContent = `${cellDate.toLocaleDateString([], { weekday: 'short' })} ${cellDate.getDate()}`;
+                cellDiv.appendChild(dayLabel);
+
+                const container = document.createElement('div');
+                container.className = 'cell-schedules-container';
+                container.style.maxHeight = '180px';
+
+                const daySchedules = filteredSchedules.filter(item => {
+                    const postDate = new Date(item.publish_at);
+                    return `${postDate.getFullYear()}-${String(postDate.getMonth()+1).padStart(2, '0')}-${String(postDate.getDate()).padStart(2, '0')}` === dateKey;
+                });
+
+                daySchedules.forEach(item => {
+                    const badge = document.createElement('div');
+                    badge.className = `tiny-schedule-badge ${item.platform} ${item.status}`;
+                    badge.draggable = true;
+                    
+                    const timeLabel = new Date(item.publish_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: false });
+                    badge.innerHTML = `<span>💬</span> <span>${timeLabel}</span> <span>${item.content.substring(0, 15)}...</span>`;
+                    
+                    badge.addEventListener('dragstart', () => { draggedId = item.id; });
+                    badge.addEventListener('click', (e) => { e.stopPropagation(); openDetailsModal(item); });
+                    container.appendChild(badge);
+                });
+
+                cellDiv.appendChild(container);
+                grid.appendChild(cellDiv);
+            });
+        }
+
+        function buildDayGrid() {
+            const yyyy = currentDayDate.getFullYear();
+            const mm = String(currentDayDate.getMonth() + 1).padStart(2, '0');
+            const dd = String(currentDayDate.getDate()).padStart(2, '0');
+            const dateKey = `${yyyy}-${mm}-${dd}`;
+            
+            title.textContent = `Day: ${currentDayDate.toLocaleDateString([], { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}`;
+
+            const containerCard = document.createElement('div');
+            containerCard.className = 'card';
+            containerCard.style.padding = '1.5rem';
+            
+            const listTitle = document.createElement('h3');
+            listTitle.className = 'card-title';
+            listTitle.textContent = 'Publications Timeline';
+            listTitle.style.marginBottom = '1.25rem';
+            containerCard.appendChild(listTitle);
+
+            const daySchedules = filteredSchedules.filter(item => {
+                const postDate = new Date(item.publish_at);
+                return `${postDate.getFullYear()}-${String(postDate.getMonth()+1).padStart(2, '0')}-${String(postDate.getDate()).padStart(2, '0')}` === dateKey;
+            });
+
+            if (daySchedules.length === 0) {
+                containerCard.innerHTML += `<p style="font-size:0.875rem; color:var(--color-text-tertiary); font-style:italic;">No publications scheduled for this day.</p>`;
+            } else {
+                daySchedules.forEach(item => {
+                    const itemRow = document.createElement('div');
+                    itemRow.style.display = 'flex';
+                    itemRow.style.alignItems = 'center';
+                    itemRow.style.justifyContent = 'space-between';
+                    itemRow.style.padding = '0.75rem 1rem';
+                    itemRow.style.borderBottom = '1px solid var(--color-border)';
+                    
+                    const timeLabel = new Date(item.publish_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+                    
+                    itemRow.innerHTML = `
+                        <div style="display:flex; align-items:center; gap:1rem;">
+                            <span style="font-weight:600; color:var(--color-primary);">${timeLabel}</span>
+                            <span style="text-transform:capitalize; font-size:0.75rem; padding:0.15rem 0.5rem; border-radius:4px; background:var(--color-bg-accent);">${item.platform}</span>
+                            <span style="font-size:0.875rem;">${item.content}</span>
+                        </div>
+                        <div style="display:flex; align-items:center; gap:0.5rem;">
+                            <publish-status-badge status="${item.status}"></publish-status-badge>
+                            <button class="btn btn-secondary btn-sm btn-item-open" data-id="${item.id}" style="padding:0.25rem 0.5rem;">Open</button>
+                        </div>
+                    `;
+                    itemRow.querySelector('.btn-item-open').addEventListener('click', () => openDetailsModal(item));
+                    containerCard.appendChild(itemRow);
+                });
+            }
+
+            grid.appendChild(containerCard);
+        }
+
+        // ==================== QUEUE TABLE RENDERING WORKFLOW ====================
+
+        function buildQueueListView() {
+            const tbody = document.getElementById('queueTableBody');
+            tbody.innerHTML = '';
+
+            if (filteredSchedules.length === 0) {
+                tbody.innerHTML = `
+                    <tr>
+                        <td colspan="8" style="text-align: center; padding: 3rem; color: var(--color-text-tertiary); font-style: italic;">
+                            No publications found matching filters.
+                        </td>
+                    </tr>
+                `;
+                return;
+            }
+
+            filteredSchedules.forEach(item => {
+                const tr = document.createElement('tr');
+                tr.style.borderBottom = '1px solid var(--color-border)';
+
+                const localTime = timezoneService.formatUtcToLocal(item.publish_at);
+                const captionText = item.content ? (item.content.length > 50 ? item.content.substring(0, 50) + '...' : item.content) : '(No text)';
+                const platformIcon = item.platform === 'threads' ? '💬' : '📱';
+                const isChecked = checkedIds.has(item.id) ? 'checked' : '';
+
+                tr.innerHTML = `
+                    <td style="padding: 1rem;"><input type="checkbox" class="chk-queue-select" data-id="${item.id}" ${isChecked} /></td>
+                    <td style="padding: 1rem; font-weight: 500;">
+                        <span style="font-size: 1.1rem; margin-right: 0.35rem;">${platformIcon}</span>
+                        <span style="text-transform: capitalize;">${item.platform}</span>
+                    </td>
+                    <td style="padding: 1rem; color: var(--color-text-secondary); font-size: 0.8125rem;">
+                        ${item.account_name || '@connected'}
+                    </td>
+                    <td style="padding: 1rem; max-width: 250px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">
+                        ${captionText}
+                    </td>
+                    <td style="padding: 1rem; color: var(--color-text-secondary); font-size: 0.8125rem;">
+                        ${localTime}
+                    </td>
+                    <td style="padding: 1rem;">
+                        <publish-status-badge status="${item.status}"></publish-status-badge>
+                    </td>
+                    <td style="padding: 1rem; font-weight: 600;">
+                        ${item.retry_count || 0} / 3
+                    </td>
+                    <td style="padding: 1rem; text-align: right;">
+                        <button class="btn btn-secondary btn-sm btn-row-open" style="padding: 0.25rem 0.5rem; font-size: 0.75rem;">Open</button>
+                    </td>
+                `;
+
+                tr.querySelector('.btn-row-open').addEventListener('click', () => openDetailsModal(item));
+                
+                // Bind check event
+                tr.querySelector('.chk-queue-select').addEventListener('change', (e) => {
+                    if (e.target.checked) {
+                        checkedIds.add(item.id);
+                    } else {
+                        checkedIds.delete(item.id);
+                    }
+                    updateBulkToolbarState();
+                });
+
+                tbody.appendChild(tr);
+            });
+        }
+
+        // ==================== WORKSPACE DETAILS MODAL ====================
+
         function openDetailsModal(item) {
             selectedSchedule = item;
             rescheduleForm.style.display = 'none';
 
-            const localTimeStr = timezoneService.formatUtcToLocal(item.scheduled_at);
-            const statusBadgeMap = {
-                queued: '<span class="badge badge-info">queued</span>',
-                publishing: '<span class="badge badge-warning">publishing</span>',
-                published: '<span class="badge badge-success">published</span>',
-                failed: '<span class="badge badge-danger">failed</span>',
-                cancelled: '<span class="badge">cancelled</span>',
-                retrying: '<span class="badge badge-warning">retrying</span>'
-            };
-
-            const badge = statusBadgeMap[item.status] || '<span class="badge">unknown</span>';
-            const displayTitle = item.title || 'Untitled Scheduled Draft';
-            const displayCaption = item.caption || '(No caption provided)';
+            const localTimeStr = timezoneService.formatUtcToLocal(item.publish_at);
+            const displayTitle = item.title || 'Untitled Publication';
+            const displayCaption = item.content || '(No caption provided)';
 
             modalContent.innerHTML = `
                 <div style="margin-bottom: 1rem;">
-                    <h4 style="font-size: 0.9375rem; font-weight:600; color:var(--color-text-primary);">${displayTitle}</h4>
-                    <p style="font-size:0.8125rem; color:var(--color-text-secondary); margin-top:0.25rem;">"${displayCaption}"</p>
+                    <h4 style="font-size: 0.9375rem; font-weight: 600; color: var(--color-text-primary);">${displayTitle}</h4>
+                    <p style="font-size: 0.8125rem; color: var(--color-text-secondary); margin-top: 0.25rem;">"${displayCaption}"</p>
                 </div>
                 
                 <div class="meta-detail-row">
                     <span>Platform Target:</span>
-                    <span style="font-weight:600; text-transform:capitalize;">${item.platform}</span>
+                    <span style="font-weight: 600; text-transform: capitalize;">${item.platform}</span>
                 </div>
                 <div class="meta-detail-row">
                     <span>Scheduled Time:</span>
-                    <span style="font-weight:500;">${localTimeStr}</span>
+                    <span style="font-weight: 500;">${localTimeStr}</span>
                 </div>
                 <div class="meta-detail-row">
                     <span>Target Timezone:</span>
-                    <span>${item.timezone}</span>
+                    <span>${item.timezone || 'UTC'}</span>
                 </div>
                 <div class="meta-detail-row">
-                    <span>Attempt Count:</span>
-                    <span>${item.attempt_count} / 3</span>
+                    <span>Retry Attemps:</span>
+                    <span>${item.retry_count || 0} / 3</span>
                 </div>
                 <div class="meta-detail-row">
                     <span>Publish Status:</span>
-                    <span>${badge}</span>
+                    <publish-status-badge status="${item.status}"></publish-status-badge>
                 </div>
             `;
 
@@ -419,11 +962,14 @@
 
         // Cancel schedule
         document.getElementById('btnCancelSchedule').addEventListener('click', async () => {
-            if (selectedSchedule && confirm("Are you sure you want to cancel this scheduled posting?")) {
-                const success = await scheduleService.cancelSchedule(selectedSchedule.id);
-                if (success) {
+            if (selectedSchedule && confirm("Are you sure you want to permanently cancel and delete this scheduled posting?")) {
+                try {
+                    await schedulerService.deleteScheduledPost(selectedSchedule.id);
+                    notificationService.success('Publication deleted.');
                     detailModal.style.display = 'none';
                     fetchSchedules();
+                } catch (err) {
+                    notificationService.error('Failed to cancel schedule.');
                 }
             }
         });
@@ -431,8 +977,7 @@
         // Reschedule toggler
         document.getElementById('btnShowReschedule').addEventListener('click', () => {
             rescheduleForm.style.display = 'block';
-            // Set current time as input default value in local format
-            rescheduleInput.value = timezoneService.utcToLocalInputFormat(selectedSchedule.scheduled_at);
+            rescheduleInput.value = new Date(selectedSchedule.publish_at).toISOString().slice(0, 16);
         });
 
         // Submit reschedule
@@ -440,53 +985,221 @@
             const localVal = rescheduleInput.value;
             if (!localVal) return;
 
-            const utcVal = timezoneService.localToUtc(localVal);
-            const userTimezone = timezoneService.getUserTimezone();
+            const utcVal = new Date(localVal).toISOString();
 
-            const success = await scheduleService.updateSchedule(selectedSchedule.id, {
-                scheduled_at: utcVal,
-                timezone: userTimezone,
-                status: 'queued' // reset to queued state
-            });
-
-            if (success) {
+            try {
+                await schedulerService.updateScheduledPost(selectedSchedule.id, {
+                    publish_at: utcVal,
+                    status: 'scheduled' // reset
+                });
+                notificationService.success('Reschedule updated successfully!');
                 detailModal.style.display = 'none';
                 fetchSchedules();
+            } catch (err) {
+                notificationService.error('Failed to reschedule post.');
             }
         });
 
-        // Navigation listeners
-        document.getElementById('btnPrevMonth').addEventListener('click', () => {
-            currentMonth--;
-            if (currentMonth < 0) {
-                currentMonth = 11;
-                currentYear--;
+        // ==================== CALENDAR NAVIGATION WORKFLOW ====================
+
+        function bindCalendarNav() {
+            document.getElementById('btnPrevMonth').addEventListener('click', () => {
+                if (calendarView === 'month') {
+                    currentMonth--;
+                    if (currentMonth < 0) {
+                        currentMonth = 11;
+                        currentYear--;
+                    }
+                } else if (calendarView === 'week') {
+                    currentDayDate.setDate(currentDayDate.getDate() - 7);
+                } else {
+                    currentDayDate.setDate(currentDayDate.getDate() - 1);
+                }
+                buildCalendarView();
+            });
+
+            document.getElementById('btnNextMonth').addEventListener('click', () => {
+                if (calendarView === 'month') {
+                    currentMonth++;
+                    if (currentMonth > 11) {
+                        currentMonth = 0;
+                        currentYear++;
+                    }
+                } else if (calendarView === 'week') {
+                    currentDayDate.setDate(currentDayDate.getDate() + 7);
+                } else {
+                    currentDayDate.setDate(currentDayDate.getDate() + 1);
+                }
+                buildCalendarView();
+            });
+
+            document.getElementById('btnToday').addEventListener('click', () => {
+                const now = new Date();
+                currentYear = now.getFullYear();
+                currentMonth = now.getMonth();
+                currentDayDate = new Date();
+                buildCalendarView();
+            });
+
+            btnViewMonth.addEventListener('click', () => {
+                calendarView = 'month';
+                setActiveViewBtn(btnViewMonth);
+                buildCalendarView();
+            });
+            btnViewWeek.addEventListener('click', () => {
+                calendarView = 'week';
+                setActiveViewBtn(btnViewWeek);
+                buildCalendarView();
+            });
+            btnViewDay.addEventListener('click', () => {
+                calendarView = 'day';
+                setActiveViewBtn(btnViewDay);
+                buildCalendarView();
+            });
+        }
+
+        function setActiveViewBtn(activeBtn) {
+            [btnViewMonth, btnViewWeek, btnViewDay].forEach(btn => btn.classList.remove('active'));
+            activeBtn.classList.add('active');
+        }
+
+        // ==================== WORKSPACE TABS SWITCHER ====================
+
+        function bindTabEvents() {
+            tabBtnCalendar.addEventListener('click', () => {
+                activeTab = 'calendar';
+                tabBtnCalendar.classList.add('active');
+                tabBtnQueue.classList.remove('active');
+                calendarViewContainer.style.display = 'block';
+                queueViewContainer.style.display = 'none';
+                applyFiltersAndRender();
+            });
+
+            tabBtnQueue.addEventListener('click', () => {
+                activeTab = 'queue';
+                tabBtnQueue.classList.add('active');
+                tabBtnCalendar.classList.remove('active');
+                calendarViewContainer.style.display = 'none';
+                queueViewContainer.style.display = 'block';
+                applyFiltersAndRender();
+            });
+
+            document.getElementById('btnCloseModal').addEventListener('click', () => {
+                detailModal.style.display = 'none';
+            });
+        }
+
+        // ==================== FILTERS AND SEARCH ====================
+
+        function bindFilterEvents() {
+            filterSearch.addEventListener('input', applyFiltersAndRender);
+            filterPlatform.addEventListener('change', applyFiltersAndRender);
+            filterStatus.addEventListener('change', applyFiltersAndRender);
+            filterAccount.addEventListener('change', applyFiltersAndRender);
+
+            btnResetFilters.addEventListener('click', () => {
+                filterSearch.value = '';
+                filterPlatform.value = 'all';
+                filterStatus.value = 'all';
+                filterAccount.value = 'all';
+                applyFiltersAndRender();
+            });
+        }
+
+        // ==================== BULK OPERATIONS ====================
+
+        function updateBulkToolbarState() {
+            if (checkedIds.size > 0) {
+                bulkToolbar.style.display = 'flex';
+                lblSelectedCount.textContent = `${checkedIds.size} post(s) selected`;
+            } else {
+                bulkToolbar.style.display = 'none';
             }
-            buildCalendarGrid();
-        });
+        }
 
-        document.getElementById('btnNextMonth').addEventListener('click', () => {
-            currentMonth++;
-            if (currentMonth > 11) {
-                currentMonth = 0;
-                currentYear++;
-            }
-            buildCalendarGrid();
-        });
+        function bindBulkActions() {
+            chkSelectAllQueue.addEventListener('change', (e) => {
+                const checkBoxes = document.querySelectorAll('.chk-queue-select');
+                if (e.target.checked) {
+                    checkBoxes.forEach(cb => {
+                        cb.checked = true;
+                        checkedIds.add(parseInt(cb.dataset.id));
+                    });
+                } else {
+                    checkBoxes.forEach(cb => {
+                        cb.checked = false;
+                        checkedIds.delete(parseInt(cb.dataset.id));
+                    });
+                }
+                updateBulkToolbarState();
+            });
 
-        document.getElementById('btnToday').addEventListener('click', () => {
-            const now = new Date();
-            currentYear = now.getFullYear();
-            currentMonth = now.getMonth();
-            buildCalendarGrid();
-        });
+            // Bulk Delete
+            document.getElementById('btnBulkDelete').addEventListener('click', async () => {
+                if (!confirm(`Are you sure you want to permanently delete the ${checkedIds.size} selected posts?`)) return;
+                try {
+                    await schedulerService.bulkDelete(Array.from(checkedIds));
+                    notificationService.success('Bulk deletion completed.');
+                    checkedIds.clear();
+                    chkSelectAllQueue.checked = false;
+                    fetchSchedules();
+                } catch (err) {
+                    notificationService.error('Failed to complete bulk deletion.');
+                }
+            });
 
-        document.getElementById('btnCloseModal').addEventListener('click', () => {
-            detailModal.style.display = 'none';
-        });
+            // Bulk Retry
+            document.getElementById('btnBulkRetry').addEventListener('click', async () => {
+                try {
+                    await schedulerService.bulkUpdate(Array.from(checkedIds), {
+                        status: 'scheduled',
+                        retry_count: 0
+                    });
+                    notificationService.success('Selected posts rescheduled for publication retry.');
+                    checkedIds.clear();
+                    chkSelectAllQueue.checked = false;
+                    fetchSchedules();
+                } catch (err) {
+                    notificationService.error('Failed to retry selected posts.');
+                }
+            });
 
-        // Run
-        fetchSchedules();
+            // Bulk Reschedule Modal Toggles
+            const bulkResModal = document.getElementById('bulkRescheduleModal');
+            const bulkResInput = document.getElementById('bulkRescheduleInput');
+
+            document.getElementById('btnBulkReschedule').addEventListener('click', () => {
+                bulkResModal.style.display = 'flex';
+                bulkResInput.value = new Date().toISOString().slice(0,16);
+            });
+
+            document.getElementById('btnCancelBulkReschedule').addEventListener('click', () => {
+                bulkResModal.style.display = 'none';
+            });
+
+            document.getElementById('btnConfirmBulkReschedule').addEventListener('click', async () => {
+                const val = bulkResInput.value;
+                if (!val) return;
+                const utcVal = new Date(val).toISOString();
+
+                try {
+                    await schedulerService.bulkUpdate(Array.from(checkedIds), {
+                        publish_at: utcVal,
+                        status: 'scheduled'
+                    });
+                    notificationService.success('Bulk reschedule completed.');
+                    bulkResModal.style.display = 'none';
+                    checkedIds.clear();
+                    chkSelectAllQueue.checked = false;
+                    fetchSchedules();
+                } catch (err) {
+                    notificationService.error('Bulk reschedule failed.');
+                }
+            });
+        }
+
+        // Run Page Initializer
+        init();
     </script>
 </body>
 </html>

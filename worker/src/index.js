@@ -471,36 +471,59 @@ export default {
                         return new Response(JSON.stringify({ error: 'Method not allowed' }), { status: 405, headers: corsHeaders });
                     }
 
+                    const now = new Date();
+                    
+                    const startOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate()).toISOString();
+                    const endOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 23, 59, 59, 999).toISOString();
+                    
+                    const startOfTomorrow = new Date(now.getFullYear(), now.getMonth(), now.getDate() + 1).toISOString();
+                    const endOfTomorrow = new Date(now.getFullYear(), now.getMonth(), now.getDate() + 1, 23, 59, 59, 999).toISOString();
+                    
+                    const endOf7Days = new Date(now.getFullYear(), now.getMonth(), now.getDate() + 7, 23, 59, 59, 999).toISOString();
+
+                    const summary = {
+                        scheduled: 0,
+                        publishing: 0,
+                        failed: 0,
+                        upcoming_today: 0,
+                        upcoming_tomorrow: 0,
+                        next_7_days: 0,
+                        published_today: 0
+                    };
+
                     const counts = await env.DB.prepare(
                         `SELECT status, COUNT(*) as count FROM scheduled_posts WHERE user_id = ? GROUP BY status`
                     ).bind(user.id).all();
 
-                    const summary = {
-                        draft: 0,
-                        scheduled: 0,
-                        publishing: 0,
-                        published: 0,
-                        failed: 0,
-                        cancelled: 0,
-                        upcoming_today: 0
-                    };
-
                     counts.results.forEach(row => {
-                        if (summary.hasOwnProperty(row.status)) {
-                            summary[row.status] = row.count;
-                        }
+                        if (row.status === 'scheduled') summary.scheduled = row.count;
+                        if (row.status === 'publishing') summary.publishing = row.count;
+                        if (row.status === 'failed') summary.failed = row.count;
                     });
 
-                    const now = new Date();
-                    const startOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate()).toISOString();
-                    const endOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate() + 1).toISOString();
-                    
                     const upcomingTodayRes = await env.DB.prepare(
                         `SELECT COUNT(*) as count FROM scheduled_posts 
                          WHERE user_id = ? AND status = 'scheduled' AND publish_at >= ? AND publish_at <= ?`
                     ).bind(user.id, startOfToday, endOfToday).first();
+                    summary.upcoming_today = upcomingTodayRes ? upcomingTodayRes.count : 0;
 
-                        summary.upcoming_today = upcomingTodayRes ? upcomingTodayRes.count : 0;
+                    const upcomingTomorrowRes = await env.DB.prepare(
+                        `SELECT COUNT(*) as count FROM scheduled_posts 
+                         WHERE user_id = ? AND status = 'scheduled' AND publish_at >= ? AND publish_at <= ?`
+                    ).bind(user.id, startOfTomorrow, endOfTomorrow).first();
+                    summary.upcoming_tomorrow = upcomingTomorrowRes ? upcomingTomorrowRes.count : 0;
+
+                    const next7DaysRes = await env.DB.prepare(
+                        `SELECT COUNT(*) as count FROM scheduled_posts 
+                         WHERE user_id = ? AND status = 'scheduled' AND publish_at >= ? AND publish_at <= ?`
+                    ).bind(user.id, startOfToday, endOf7Days).first();
+                    summary.next_7_days = next7DaysRes ? next7DaysRes.count : 0;
+
+                    const publishedTodayRes = await env.DB.prepare(
+                        `SELECT COUNT(*) as count FROM scheduled_posts 
+                         WHERE user_id = ? AND status = 'published' AND published_at >= ? AND published_at <= ?`
+                    ).bind(user.id, startOfToday, endOfToday).first();
+                    summary.published_today = publishedTodayRes ? publishedTodayRes.count : 0;
 
                     return new Response(JSON.stringify({ success: true, summary }), { status: 200, headers: corsHeaders });
                 }

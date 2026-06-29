@@ -56,46 +56,56 @@
             </div>
 
             <!-- Metrics Highlight Cards -->
-            <div class="dashboard-metrics-grid">
+            <div class="dashboard-metrics-grid" style="grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));">
                 
-                <!-- Card 1: Scheduled -->
-                <div class="card" id="cardScheduled">
-                    <div class="card-header">
-                        <span class="card-subtitle">Scheduled</span>
-                        <span class="badge badge-info" style="background: var(--color-primary-light); color: var(--color-primary);">queued</span>
-                    </div>
-                    <h2 class="card-title" style="font-size: 2.25rem; font-weight: 700; font-family: var(--font-heading);" id="lblScheduledCount">0 Posts</h2>
-                    <p class="card-subtitle" style="margin-top: 0.5rem; font-size: 0.75rem;">Queued in pipeline</p>
-                </div>
-
-                <!-- Card 2: Upcoming Today -->
+                <!-- Card 1: Upcoming Today -->
                 <div class="card" id="cardUpcomingToday">
                     <div class="card-header">
                         <span class="card-subtitle">Upcoming Today</span>
-                        <span class="badge badge-success" style="background: #d1fae5; color: #059669;">today</span>
+                        <span class="badge badge-info" style="background: var(--color-primary-light); color: var(--color-primary);">today</span>
                     </div>
-                    <h2 class="card-title" style="font-size: 2.25rem; font-weight: 700; font-family: var(--font-heading);" id="lblUpcomingCount">0 Posts</h2>
-                    <p class="card-subtitle" style="margin-top: 0.5rem; font-size: 0.75rem;">Due for dispatch today</p>
+                    <h2 class="card-title" style="font-size: 2.25rem; font-weight: 700; font-family: var(--font-heading);" id="lblUpcomingTodayCount">0 Posts</h2>
+                    <p class="card-subtitle" style="margin-top: 0.5rem; font-size: 0.75rem;">Queued for today</p>
                 </div>
 
-                <!-- Card 3: Publishing -->
-                <div class="card" id="cardPublishing">
+                <!-- Card 2: Upcoming Tomorrow -->
+                <div class="card" id="cardUpcomingTomorrow">
                     <div class="card-header">
-                        <span class="card-subtitle">Publishing</span>
-                        <span class="badge badge-warning" style="background: #fef3c7; color: #d97706;">active</span>
+                        <span class="card-subtitle">Upcoming Tomorrow</span>
+                        <span class="badge badge-info" style="background: #e0f2fe; color: #0369a1;">tomorrow</span>
                     </div>
-                    <h2 class="card-title" style="font-size: 2.25rem; font-weight: 700; font-family: var(--font-heading);" id="lblPublishingCount">0 Posts</h2>
-                    <p class="card-subtitle" style="margin-top: 0.5rem; font-size: 0.75rem;">Actively processing dispatches</p>
+                    <h2 class="card-title" style="font-size: 2.25rem; font-weight: 700; font-family: var(--font-heading);" id="lblUpcomingTomorrowCount">0 Posts</h2>
+                    <p class="card-subtitle" style="margin-top: 0.5rem; font-size: 0.75rem;">Queued for tomorrow</p>
                 </div>
 
-                <!-- Card 4: Failed -->
+                <!-- Card 3: Next 7 Days -->
+                <div class="card" id="cardNext7Days">
+                    <div class="card-header">
+                        <span class="card-subtitle">Next 7 Days</span>
+                        <span class="badge badge-info" style="background: #f3e8ff; color: #6b21a8;">week</span>
+                    </div>
+                    <h2 class="card-title" style="font-size: 2.25rem; font-weight: 700; font-family: var(--font-heading);" id="lblNext7DaysCount">0 Posts</h2>
+                    <p class="card-subtitle" style="margin-top: 0.5rem; font-size: 0.75rem;">Queued for next 7 days</p>
+                </div>
+
+                <!-- Card 4: Published Today -->
+                <div class="card" id="cardPublishedToday">
+                    <div class="card-header">
+                        <span class="card-subtitle">Published Today</span>
+                        <span class="badge badge-success" style="background: #d1fae5; color: #059669;">success</span>
+                    </div>
+                    <h2 class="card-title" style="font-size: 2.25rem; font-weight: 700; font-family: var(--font-heading);" id="lblPublishedTodayCount">0 Posts</h2>
+                    <p class="card-subtitle" style="margin-top: 0.5rem; font-size: 0.75rem;">Successfully posted today</p>
+                </div>
+
+                <!-- Card 5: Failed -->
                 <div class="card" id="cardFailed">
                     <div class="card-header">
                         <span class="card-subtitle">Failed</span>
                         <span class="badge badge-danger" style="background: #fee2e2; color: #dc2626;">failed</span>
                     </div>
                     <h2 class="card-title" style="font-size: 2.25rem; font-weight: 700; font-family: var(--font-heading);" id="lblFailedCount">0 Posts</h2>
-                    <p class="card-subtitle" style="margin-top: 0.5rem; font-size: 0.75rem;">Failed publications requiring attention</p>
+                    <p class="card-subtitle" style="margin-top: 0.5rem; font-size: 0.75rem;">Requires retry attention</p>
                 </div>
 
             </div>
@@ -212,9 +222,10 @@
                 const res = await schedulerService.getScheduleStatusSummary();
                 if (res.success && res.summary) {
                     const sum = res.summary;
-                    document.getElementById('lblScheduledCount').textContent = `${sum.scheduled} Posts`;
-                    document.getElementById('lblUpcomingCount').textContent = `${sum.upcoming_today} Posts`;
-                    document.getElementById('lblPublishingCount').textContent = `${sum.publishing} Posts`;
+                    document.getElementById('lblUpcomingTodayCount').textContent = `${sum.upcoming_today} Posts`;
+                    document.getElementById('lblUpcomingTomorrowCount').textContent = `${sum.upcoming_tomorrow} Posts`;
+                    document.getElementById('lblNext7DaysCount').textContent = `${sum.next_7_days} Posts`;
+                    document.getElementById('lblPublishedTodayCount').textContent = `${sum.published_today} Posts`;
                     document.getElementById('lblFailedCount').textContent = `${sum.failed} Posts`;
                 }
             } catch (err) {

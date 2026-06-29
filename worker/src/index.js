@@ -453,18 +453,22 @@ export default {
 
                     const stateToken = await signJWT({ sub: user.uuid, platform, exp: Math.floor(Date.now() / 1000) + 600 }, jwtSecret);
                     const redirectUri = platform === 'threads'
-                        ? `${url.origin}/oauth/threads/callback`
+                        ? 'https://api.socialhub.zaimrosli.my/oauth/threads/callback'
                         : `${url.origin}/api/oauth/callback`;
 
                     const authUrl = provider.getAuthUrl(stateToken, redirectUri, clientId);
                     
-                    console.log(`🔑 Initiating OAuth redirection for platform: ${platform}`);
-                    console.log({
-                        authUrl,
-                        client_id: clientId,
-                        redirect_uri: redirectUri,
-                        scope: platform === 'threads' ? 'threads_basic,threads_content_publish' : 'default'
-                    });
+                    if (platform === 'threads') {
+                        console.log('📢 Threads OAuth Debug Log:');
+                        console.log({
+                            authorizeUrl: authUrl,
+                            client_id: clientId,
+                            redirect_uri: redirectUri,
+                            scope: 'threads_basic,threads_content_publish',
+                            response_type: 'code',
+                            state: stateToken
+                        });
+                    }
 
                     return new Response(JSON.stringify({ success: true, redirect_url: authUrl }), { status: 200, headers: corsHeaders });
                 }
@@ -499,7 +503,7 @@ export default {
                     }
 
                     const redirectUri = platform === 'threads'
-                        ? `${url.origin}/oauth/threads/callback`
+                        ? 'https://api.socialhub.zaimrosli.my/oauth/threads/callback'
                         : `${url.origin}/api/oauth/callback`;
 
                     let tokenData;
@@ -809,17 +813,21 @@ export default {
 
                             const stateToken = await signJWT({ sub: user.uuid, platform: account.platform, exp: Math.floor(Date.now() / 1000) + 600 }, jwtSecret);
                             const redirectUri = account.platform === 'threads'
-                                ? `${url.origin}/oauth/threads/callback`
+                                ? 'https://api.socialhub.zaimrosli.my/oauth/threads/callback'
                                 : `${url.origin}/api/oauth/callback`;
                             const authUrl = OAuthProviders[account.platform].getAuthUrl(stateToken, redirectUri, clientId);
 
-                            console.log(`🔑 Re-initiating OAuth reconnection for platform: ${account.platform}`);
-                            console.log({
-                                authUrl,
-                                client_id: clientId,
-                                redirect_uri: redirectUri,
-                                scope: account.platform === 'threads' ? 'threads_basic,threads_content_publish' : 'default'
-                            });
+                            if (account.platform === 'threads') {
+                                console.log('📢 Threads OAuth Reconnect Debug Log:');
+                                console.log({
+                                    authorizeUrl: authUrl,
+                                    client_id: clientId,
+                                    redirect_uri: redirectUri,
+                                    scope: 'threads_basic,threads_content_publish',
+                                    response_type: 'code',
+                                    state: stateToken
+                                });
+                            }
 
                             return new Response(JSON.stringify({ success: true, redirect_url: authUrl }), { status: 200, headers: corsHeaders });
                         }

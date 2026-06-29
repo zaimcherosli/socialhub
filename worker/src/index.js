@@ -183,7 +183,7 @@ const OAuthProviders = {
             const url = new URL("https://threads.net/oauth/authorize");
             url.searchParams.set("client_id", clientId);
             url.searchParams.set("redirect_uri", redirectUri);
-            url.searchParams.set("scope", "threads_basic,threads_publish");
+            url.searchParams.set("scope", "threads_basic,threads_content_publish");
             url.searchParams.set("response_type", "code");
             url.searchParams.set("state", state);
             return url.toString();
@@ -456,13 +456,24 @@ export default {
                     if (!provider) return new Response(JSON.stringify({ message: `Platform '${platform}' not supported` }), { status: 400, headers: corsHeaders });
 
                     const stateToken = await signJWT({ sub: user.uuid, platform, exp: Math.floor(Date.now() / 1000) + 600 }, jwtSecret);
-                    const redirectUri = `${url.origin}/api/oauth/callback`;
+                    const redirectUri = platform === 'threads'
+                        ? `${url.origin}/oauth/threads/callback`
+                        : `${url.origin}/api/oauth/callback`;
                     const clientId = env[`${platform.toUpperCase()}_CLIENT_ID`] || "placeholder";
 
                     const authUrl = provider.getAuthUrl(stateToken, redirectUri, clientId);
+                    if (platform === 'threads') {
+                        console.log({
+                            authUrl,
+                            client_id: clientId,
+                            redirect_uri: redirectUri,
+                            scope: 'threads_basic,threads_content_publish'
+                        });
+                    }
                     return new Response(JSON.stringify({ success: true, redirect_url: authUrl }), { status: 200, headers: corsHeaders });
                 }
 
+                case '/oauth/threads/callback':
                 case '/api/oauth/callback': {
                     if (request.method !== 'GET') return new Response('Method not allowed', { status: 405 });
 
@@ -482,7 +493,9 @@ export default {
                     const user = await env.DB.prepare("SELECT id FROM users WHERE uuid = ?").bind(userUuid).first();
                     if (!user) return new Response('User not found', { status: 404 });
 
-                    const redirectUri = `${url.origin}/api/oauth/callback`;
+                    const redirectUri = platform === 'threads'
+                        ? `${url.origin}/oauth/threads/callback`
+                        : `${url.origin}/api/oauth/callback`;
                     const clientId = env[`${platform.toUpperCase()}_CLIENT_ID`] || "placeholder";
                     const clientSecret = env[`${platform.toUpperCase()}_CLIENT_SECRET`] || "placeholder";
 
@@ -786,9 +799,20 @@ export default {
                             if (!account) return new Response(JSON.stringify({ message: 'Account not found' }), { status: 404, headers: corsHeaders });
 
                             const stateToken = await signJWT({ sub: user.uuid, platform: account.platform, exp: Math.floor(Date.now() / 1000) + 600 }, jwtSecret);
-                            const redirectUri = `${url.origin}/api/oauth/callback`;
+                            const redirectUri = account.platform === 'threads'
+                                ? `${url.origin}/oauth/threads/callback`
+                                : `${url.origin}/api/oauth/callback`;
                             const clientId = env[`${account.platform.toUpperCase()}_CLIENT_ID`] || "placeholder";
                             const authUrl = OAuthProviders[account.platform].getAuthUrl(stateToken, redirectUri, clientId);
+
+                            if (account.platform === 'threads') {
+                                console.log({
+                                    authUrl,
+                                    client_id: clientId,
+                                    redirect_uri: redirectUri,
+                                    scope: 'threads_basic,threads_content_publish'
+                                });
+                            }
 
                             return new Response(JSON.stringify({ success: true, redirect_url: authUrl }), { status: 200, headers: corsHeaders });
                         }

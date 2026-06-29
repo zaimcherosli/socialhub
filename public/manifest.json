@@ -1,0 +1,18 @@
+{
+  "name": "SocialHub Scheduling Platform",
+  "short_name": "SocialHub",
+  "description": "Unified social media scheduling calendar, analytics dashboard, and automated publisher.",
+  "start_url": "/dashboard.html",
+  "display": "standalone",
+  "background_color": "#ffffff",
+  "theme_color": "#2563eb",
+  "orientation": "portrait",
+  "icons": [
+    {
+      "src": "socialhub_pwa_icon.png",
+      "type": "image/png",
+      "sizes": "512x512",
+      "purpose": "any maskable"
+    }
+  ]
+}

@@ -6,6 +6,7 @@
  */
 
 import { PublishingEngine } from './publishers/PublishingEngine.js';
+import { PublisherFactory } from './publishers/PublisherFactory.js';
 
 const encoder = new TextEncoder();
 const decoder = new TextDecoder();
@@ -168,6 +169,28 @@ async function encryptToken(text, secret) {
     const ivHex = Array.from(iv).map(b => b.toString(16).padStart(2, '0')).join('');
     const cipherHex = Array.from(new Uint8Array(encrypted)).map(b => b.toString(16).padStart(2, '0')).join('');
     return `${ivHex}:${cipherHex}`;
+}
+
+async function decryptToken(encryptedStr, secret) {
+    if (!encryptedStr) return null;
+    try {
+        const parts = encryptedStr.split(':');
+        if (parts.length !== 2) return null;
+        const [ivHex, cipherHex] = parts;
+        
+        const key = await getEncryptionKey(secret);
+        const iv = new Uint8Array(ivHex.match(/.{1,2}/g).map(byte => parseInt(byte, 16)));
+        const ciphertext = new Uint8Array(cipherHex.match(/.{1,2}/g).map(byte => parseInt(byte, 16)));
+        
+        const decrypted = await crypto.subtle.decrypt(
+            { name: "AES-GCM", iv },
+            key,
+            ciphertext
+        );
+        return new TextDecoder().decode(decrypted);
+    } catch (e) {
+        return null;
+    }
 }
 
 // Filename sanitizer
@@ -477,9 +500,104 @@ export default {
                          WHERE user_id = ? AND status = 'scheduled' AND publish_at >= ? AND publish_at <= ?`
                     ).bind(user.id, startOfToday, endOfToday).first();
 
-                    summary.upcoming_today = upcomingTodayRes ? upcomingTodayRes.count : 0;
+                        summary.upcoming_today = upcomingTodayRes ? upcomingTodayRes.count : 0;
 
                     return new Response(JSON.stringify({ success: true, summary }), { status: 200, headers: corsHeaders });
+                }
+
+                case '/api/cron/sync': {
+                    const user = await getAuthUser();
+                    if (!user) return new Response(JSON.stringify({ message: 'Unauthorized session' }), { status: 401, headers: corsHeaders });
+                    if (!env.DB) return new Response(JSON.stringify({ message: 'Database missing' }), { status: 500, headers: corsHeaders });
+
+                    if (request.method !== 'POST') {
+                        return new Response(JSON.stringify({ error: 'Method not allowed' }), { status: 405, headers: corsHeaders });
+                    }
+
+                    try {
+                        const nowStr = new Date().toISOString();
+                        const jwtSecret = env.JWT_SECRET || "socialhub-dev-super-secret-key-12345!@#";
+                        const encryptionSecret = env.ENCRYPTION_KEY || jwtSecret;
+
+                        const duePosts = await env.DB.prepare(
+                            `SELECT * FROM scheduled_posts 
+                             WHERE status = 'scheduled' AND publish_at <= ? 
+                             ORDER BY publish_at ASC 
+                             LIMIT 20`
+                        ).bind(nowStr).all();
+
+                        let processedCount = 0;
+                        let successCount = 0;
+
+                        if (duePosts.results && duePosts.results.length > 0) {
+                            for (const post of duePosts.results) {
+                                processedCount++;
+                                const lockResult = await env.DB.prepare(
+                                    "UPDATE scheduled_posts SET status = 'publishing', updated_at = (datetime('now')) WHERE id = ? AND status = 'scheduled'"
+                                ).bind(post.id).run();
+
+                                if (lockResult.meta.changes !== 1) continue;
+
+                                try {
+                                    const socialAccount = await env.DB.prepare(
+                                        "SELECT * FROM social_accounts WHERE id = ? AND user_id = ?"
+                                    ).bind(post.account_id, post.user_id).first();
+
+                                    if (!socialAccount) throw new Error('Social account not found');
+
+                                    const decryptedAccessToken = await decryptToken(socialAccount.access_token, encryptionSecret);
+                                    const credentials = { access_token: decryptedAccessToken };
+
+                                    const publisher = PublisherFactory.getPublisher(post.platform);
+                                    const postObj = { title: '', caption: post.content, media: [] };
+
+                                    const result = await publisher.publish(postObj, credentials);
+
+                                    if (result.success) {
+                                        successCount++;
+                                        const completedAt = new Date().toISOString();
+                                        await env.DB.prepare(
+                                            `UPDATE scheduled_posts 
+                                             SET status = 'published', published_at = ?, error_message = NULL, updated_at = (datetime('now'))
+                                             WHERE id = ?`
+                                        ).bind(completedAt, post.id).run();
+
+                                        await env.DB.prepare(
+                                            `INSERT INTO publish_logs (schedule_id, social_account_id, status, error_message, external_post_id, response_payload, published_at) 
+                                             VALUES (?, ?, 'success', NULL, ?, ?, ?)`
+                                        ).bind(post.id, socialAccount.id, result.provider_post_id, JSON.stringify(result), completedAt).run();
+                                    } else {
+                                        throw new Error(result.error_message);
+                                    }
+                                } catch (err) {
+                                    const newRetryCount = (post.retry_count || 0) + 1;
+                                    if (newRetryCount >= 3) {
+                                        await env.DB.prepare("UPDATE scheduled_posts SET status = 'failed', retry_count = ?, error_message = ?, updated_at = (datetime('now')) WHERE id = ?").bind(newRetryCount, err.message, post.id).run();
+                                    } else {
+                                        let delayMin = 5;
+                                        if (newRetryCount === 2) delayMin = 15;
+                                        const retryTime = new Date();
+                                        retryTime.setMinutes(retryTime.getMinutes() + delayMin);
+                                        await env.DB.prepare("UPDATE scheduled_posts SET status = 'scheduled', publish_at = ?, retry_count = ?, error_message = ?, updated_at = (datetime('now')) WHERE id = ?").bind(retryTime.toISOString(), newRetryCount, err.message, post.id).run();
+                                    }
+
+                                    await env.DB.prepare("INSERT INTO publish_logs (schedule_id, social_account_id, status, error_message, response_payload, published_at) VALUES (?, ?, 'failure', ?, ?, (datetime('now')))")
+                                        .bind(post.id, post.account_id, err.message, JSON.stringify({ error: err.message }))
+                                        .run();
+                                }
+                            }
+                        }
+
+                        return new Response(JSON.stringify({
+                            success: true,
+                            status: 'sync_completed',
+                            processed: processedCount,
+                            succeeded: successCount,
+                            execution_id: `sync_${Date.now()}`
+                        }), { status: 200, headers: corsHeaders });
+                    } catch (err) {
+                        return new Response(JSON.stringify({ success: false, message: err.message }), { status: 500, headers: corsHeaders });
+                    }
                 }
 
                 // ==================== MEDIA LIBRARY REST API ====================
@@ -1130,8 +1248,10 @@ export default {
             return;
         }
         
+        const nowStr = new Date().toISOString();
+
+        // 1. Process legacy publish_queue (if any exist)
         try {
-            const nowStr = new Date().toISOString();
             const { results } = await env.DB.prepare(
                 "SELECT id, user_id FROM publish_queue WHERE status IN ('queued', 'retrying') AND scheduled_at <= ?"
             ).bind(nowStr).all();
@@ -1148,7 +1268,120 @@ export default {
                 }
             }
         } catch (err) {
-            console.error("Failed to run scheduled publish queue runner:", err.message);
+            console.error("Failed to run legacy publish queue runner:", err.message);
+        }
+
+        // 2. Process new scheduled_posts table
+        try {
+            console.log("[Cron] Running Scheduled Posts Queue Check...");
+            
+            const duePosts = await env.DB.prepare(
+                `SELECT * FROM scheduled_posts 
+                 WHERE status = 'scheduled' AND publish_at <= ? 
+                 ORDER BY publish_at ASC 
+                 LIMIT 20`
+            ).bind(nowStr).all();
+
+            if (duePosts.results && duePosts.results.length > 0) {
+                console.log(`[Cron] Found ${duePosts.results.length} due scheduled posts.`);
+                
+                for (const post of duePosts.results) {
+                    const startTime = Date.now();
+                    console.log(`[Cron] Attempting to publish scheduled post ID: ${post.id}`);
+
+                    // Optimistic locking
+                    const lockResult = await env.DB.prepare(
+                        "UPDATE scheduled_posts SET status = 'publishing', updated_at = (datetime('now')) WHERE id = ? AND status = 'scheduled'"
+                    ).bind(post.id).run();
+
+                    if (lockResult.meta.changes !== 1) {
+                        console.warn(`[Cron] Post ID: ${post.id} was already locked or state changed, skipping.`);
+                        continue;
+                    }
+
+                    try {
+                        const socialAccount = await env.DB.prepare(
+                            "SELECT * FROM social_accounts WHERE id = ? AND user_id = ?"
+                        ).bind(post.account_id, post.user_id).first();
+
+                        if (!socialAccount) {
+                            throw new Error('Connected social account not found.');
+                        }
+
+                        const decryptedAccessToken = await decryptToken(socialAccount.access_token, encryptionSecret);
+                        const credentials = { access_token: decryptedAccessToken };
+
+                        const publisher = PublisherFactory.getPublisher(post.platform);
+                        
+                        const postObj = {
+                            title: '',
+                            caption: post.content,
+                            media: []
+                        };
+
+                        const result = await publisher.publish(postObj, credentials);
+
+                        const duration = Date.now() - startTime;
+
+                        if (result.success) {
+                            const completedAt = new Date().toISOString();
+                            await env.DB.prepare(
+                                `UPDATE scheduled_posts 
+                                 SET status = 'published', published_at = ?, error_message = NULL, updated_at = (datetime('now'))
+                                 WHERE id = ?`
+                            ).bind(completedAt, post.id).run();
+
+                            // Audit Log
+                            await env.DB.prepare(
+                                `INSERT INTO publish_logs (schedule_id, social_account_id, status, error_message, external_post_id, response_payload, published_at) 
+                                 VALUES (?, ?, 'success', NULL, ?, ?, ?)`
+                            ).bind(post.id, socialAccount.id, result.provider_post_id, JSON.stringify(result), completedAt).run();
+
+                            console.log(`[Cron] Post ID: ${post.id} successfully published in ${duration}ms.`);
+                        } else {
+                            throw new Error(result.error_message || 'API Response Error');
+                        }
+                    } catch (err) {
+                        const duration = Date.now() - startTime;
+                        console.error(`[Cron] Post ID: ${post.id} failed to publish: ${err.message}`);
+                        
+                        const newRetryCount = (post.retry_count || 0) + 1;
+                        
+                        if (newRetryCount >= 3) {
+                            await env.DB.prepare(
+                                `UPDATE scheduled_posts 
+                                 SET status = 'failed', retry_count = ?, error_message = ?, updated_at = (datetime('now'))
+                                 WHERE id = ?`
+                            ).bind(newRetryCount, err.message, post.id).run();
+
+                            console.error(`[Cron] Post ID: ${post.id} reached maximum retries (3) and failed permanently.`);
+                        } else {
+                            let delayMin = 5;
+                            if (newRetryCount === 2) delayMin = 15;
+                            else if (newRetryCount === 3) delayMin = 30;
+
+                            const retryTime = new Date();
+                            retryTime.setMinutes(retryTime.getMinutes() + delayMin);
+                            const retryTimeStr = retryTime.toISOString();
+
+                            await env.DB.prepare(
+                                `UPDATE scheduled_posts 
+                                 SET status = 'scheduled', publish_at = ?, retry_count = ?, error_message = ?, updated_at = (datetime('now'))
+                                 WHERE id = ?`
+                            ).bind(retryTimeStr, newRetryCount, err.message, post.id).run();
+
+                            console.log(`[Cron] Post ID: ${post.id} rescheduled for retry at ${retryTimeStr} (Attempt ${newRetryCount} of 3)`);
+                        }
+
+                        await env.DB.prepare(
+                            `INSERT INTO publish_logs (schedule_id, social_account_id, status, error_message, response_payload, published_at) 
+                             VALUES (?, ?, 'failure', ?, ?, (datetime('now')))`
+                        ).bind(post.id, post.account_id, err.message, JSON.stringify({ error: err.message, duration_ms: duration })).run();
+                    }
+                }
+            }
+        } catch (err) {
+            console.error("Failed to run scheduled posts automation engine:", err.message);
         }
     }
 };

@@ -1,0 +1,14 @@
+# Dependency directories
+node_modules/
+
+# Cloudflare wrangler state
+.wrangler/
+.dev.vars
+
+# Production bundles
+dist/
+
+# Logs and OS files
+*.log
+.DS_Store
+Thumbs.db

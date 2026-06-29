@@ -1,0 +1,431 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Queue Timeline | SocialHub - Scheduling Platform</title>
+
+    <!-- Auth Route Guard: redirects to login.html instantly if user not authenticated -->
+    <script type="module">
+        import { sessionService } from './js/services/sessionService.js';
+        sessionService.requireAuth();
+    </script>
+
+    <!-- CSS Stylesheets -->
+    <link rel="stylesheet" href="css/variables.css">
+    <link rel="stylesheet" href="css/layout.css">
+    <link rel="stylesheet" href="css/components.css">
+    <style>
+        .queue-layout {
+            display: grid;
+            grid-template-columns: 3fr 1fr;
+            gap: 2rem;
+            align-items: start;
+        }
+
+        .timeline-container {
+            display: flex;
+            flex-direction: column;
+            gap: 1.25rem;
+        }
+
+        .bulk-actions-bar {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            background: var(--color-bg-card);
+            border: 1px solid var(--color-border);
+            border-radius: var(--radius-sm);
+            padding: 0.875rem 1.25rem;
+            margin-bottom: 1rem;
+            animation: fadeIn var(--transition-fast);
+        }
+
+        .queue-card-item {
+            display: flex;
+            gap: 1rem;
+            align-items: flex-start;
+            padding: 1.25rem 1.5rem;
+        }
+
+        .checkbox-wrapper {
+            margin-top: 0.25rem;
+        }
+
+        .queue-card-content {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            gap: 0.35rem;
+        }
+
+        .queue-card-footer {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            border-top: 1px solid var(--color-border);
+            padding-top: 0.75rem;
+            margin-top: 0.75rem;
+            font-size: 0.75rem;
+            color: var(--color-text-secondary);
+        }
+
+        .sidebar-filters-card {
+            position: sticky;
+            top: calc(var(--header-height) + 2rem);
+            padding: 1.5rem;
+            display: flex;
+            flex-direction: column;
+            gap: 1.25rem;
+        }
+
+        .filter-section-title {
+            font-size: 0.8125rem;
+            font-weight: 600;
+            text-transform: uppercase;
+            color: var(--color-text-tertiary);
+            letter-spacing: 0.05em;
+            margin-bottom: 0.5rem;
+        }
+
+        .filter-option-checkbox {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            font-size: 0.875rem;
+            margin-bottom: 0.35rem;
+            color: var(--color-text-secondary);
+            cursor: pointer;
+        }
+
+        .empty-queue-state {
+            text-align: center;
+            padding: 5rem 2rem;
+            background: var(--color-bg-card);
+            border: 1.5px dashed var(--color-border);
+            border-radius: var(--radius-md);
+            color: var(--color-text-secondary);
+        }
+
+        @media (max-width: 1024px) {
+            .queue-layout {
+                grid-template-columns: 1fr;
+            }
+            .sidebar-filters-card {
+                position: relative;
+                top: 0;
+            }
+        }
+    </style>
+</head>
+<body>
+
+    <div class="app-container">
+        <app-sidebar></app-sidebar>
+        <app-header></app-header>
+
+        <main class="main-content animated-fade-in">
+            
+            <!-- Page Header -->
+            <div class="page-header">
+                <div class="page-title-section">
+                    <h1 class="page-title">Publish Queue</h1>
+                    <p class="page-subtitle">Timeline view of scheduled postings. Manually dispatch or cancel queue jobs.</p>
+                </div>
+            </div>
+
+            <!-- Queue workspace -->
+            <div class="queue-layout">
+                
+                <!-- Left: Timeline list -->
+                <div>
+                    <!-- Bulk actions bar (shows when checkboxes checked) -->
+                    <div class="bulk-actions-bar" id="bulkActionsBar" style="display: none;">
+                        <span id="bulkSelectionCount" style="font-size: 0.875rem; font-weight: 500; color: var(--color-text-secondary);">
+                            0 schedules selected
+                        </span>
+                        <button class="btn btn-danger" style="padding: 0.45rem 0.875rem; font-size: 0.8125rem;" id="btnBulkCancel">
+                            Cancel Selected
+                        </button>
+                    </div>
+
+                    <div class="timeline-container" id="timelineContainer">
+                        <div class="empty-queue-state" id="queueLoading">
+                            <span style="display: inline-block; width: 24px; height: 24px; border: 2px solid var(--color-primary); border-top-color: transparent; border-radius: 50%; animation: spin 0.8s linear infinite; margin-bottom: 0.5rem;"></span>
+                            <p>Loading publishing timeline...</p>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Right: Filters sidebar -->
+                <div class="card sidebar-filters-card">
+                    
+                    <div>
+                        <h3 class="card-title" style="margin-bottom: 0.25rem;">Timeline Filters</h3>
+                        <p class="card-subtitle">Narrow down schedule view.</p>
+                    </div>
+
+                    <!-- Search -->
+                    <div class="form-group" style="margin-bottom: 0;">
+                        <label class="form-label" for="queueSearchInput">Search content</label>
+                        <input type="text" id="queueSearchInput" class="form-input" placeholder="Type keywords..." />
+                    </div>
+
+                    <!-- Platform Filters -->
+                    <div>
+                        <div class="filter-section-title">Platforms</div>
+                        <label class="filter-option-checkbox">
+                            <input type="checkbox" class="platformFilter" value="threads" checked />
+                            <span>Threads</span>
+                        </label>
+                        <label class="filter-option-checkbox">
+                            <input type="checkbox" class="platformFilter" value="facebook" checked />
+                            <span>Facebook</span>
+                        </label>
+                        <label class="filter-option-checkbox">
+                            <input type="checkbox" class="platformFilter" value="instagram" checked />
+                            <span>Instagram</span>
+                        </label>
+                        <label class="filter-option-checkbox">
+                            <input type="checkbox" class="platformFilter" value="linkedin" checked />
+                            <span>LinkedIn</span>
+                        </label>
+                        <label class="filter-option-checkbox">
+                            <input type="checkbox" class="platformFilter" value="twitter" checked />
+                            <span>X (Twitter)</span>
+                        </label>
+                    </div>
+
+                    <!-- Status Filters -->
+                    <div>
+                        <div class="filter-section-title">Job Status</div>
+                        <label class="filter-option-checkbox">
+                            <input type="checkbox" class="statusFilter" value="queued" checked />
+                            <span>Queued</span>
+                        </label>
+                        <label class="filter-option-checkbox">
+                            <input type="checkbox" class="statusFilter" value="publishing" checked />
+                            <span>Publishing</span>
+                        </label>
+                        <label class="filter-option-checkbox">
+                            <input type="checkbox" class="statusFilter" value="published" checked />
+                            <span>Published</span>
+                        </label>
+                        <label class="filter-option-checkbox">
+                            <input type="checkbox" class="statusFilter" value="failed" checked />
+                            <span>Failed</span>
+                        </label>
+                        <label class="filter-option-checkbox">
+                            <input type="checkbox" class="statusFilter" value="retrying" checked />
+                            <span>Retrying</span>
+                        </label>
+                    </div>
+
+                </div>
+
+            </div>
+
+        </main>
+    </div>
+
+    <!-- Script imports -->
+    <script type="module" src="js/app.js"></script>
+    <script type="module">
+        import { scheduleService } from './js/services/scheduleService.js';
+        import { queueService } from './js/services/queueService.js';
+        import { timezoneService } from './js/services/timezoneService.js';
+
+        let queueList = [];
+        let selectedIds = [];
+
+        const timeline = document.getElementById('timelineContainer');
+        const searchInput = document.getElementById('queueSearchInput');
+        
+        const bulkBar = document.getElementById('bulkActionsBar');
+        const bulkCountText = document.getElementById('bulkSelectionCount');
+
+        async function fetchQueue() {
+            try {
+                queueList = await scheduleService.getSchedules();
+                renderQueue();
+            } catch (err) {
+                console.error(err);
+                timeline.innerHTML = `
+                    <div class="empty-queue-state" style="color: var(--color-danger); border-color: var(--color-danger-light);">
+                        <p style="font-weight: 600;">Connection error loading timeline</p>
+                        <p style="font-size: 0.8125rem;">Verify wrangler worker API is running.</p>
+                    </div>
+                `;
+            }
+        }
+
+        function renderQueue() {
+            const query = searchInput.value.toLowerCase().trim();
+            
+            // Gather checkboxes values
+            const platformsChecked = Array.from(document.querySelectorAll('.platformFilter:checked')).map(cb => cb.value);
+            const statusesChecked = Array.from(document.querySelectorAll('.statusFilter:checked')).map(cb => cb.value);
+
+            // 1. Filter
+            let filtered = queueList.filter(item => {
+                const matchesSearch = (item.title && item.title.toLowerCase().includes(query)) ||
+                                      (item.caption && item.caption.toLowerCase().includes(query));
+                
+                const matchesPlatform = platformsChecked.includes(item.platform);
+                const matchesStatus = statusesChecked.includes(item.status);
+
+                return matchesSearch && matchesPlatform && matchesStatus;
+            });
+
+            timeline.innerHTML = '';
+            
+            if (filtered.length === 0) {
+                timeline.innerHTML = `
+                    <div class="empty-queue-state">
+                        <p style="font-weight: 500; margin-bottom: 0.25rem;">No active schedules in queue</p>
+                        <p style="font-size: 0.8125rem; color: var(--color-text-tertiary);">Adjust filters or schedule a post in the composer workspace.</p>
+                    </div>
+                `;
+                return;
+            }
+
+            filtered.forEach(item => {
+                const card = document.createElement('div');
+                card.className = 'card queue-card-item';
+
+                const statusBadgeMap = {
+                    queued: '<span class="badge badge-info">queued</span>',
+                    publishing: '<span class="badge badge-warning">publishing</span>',
+                    published: '<span class="badge badge-success">published</span>',
+                    failed: '<span class="badge badge-danger">failed</span>',
+                    cancelled: '<span class="badge">cancelled</span>',
+                    retrying: '<span class="badge badge-warning">retrying</span>'
+                };
+                
+                const badge = statusBadgeMap[item.status] || '<span class="badge">unknown</span>';
+                const scheduledLocalTime = timezoneService.formatUtcToLocal(item.scheduled_at);
+                const displayTitle = item.title || 'Untitled Draft';
+                const displayCaption = item.caption || '(No caption content)';
+
+                const isChecked = selectedIds.includes(item.id) ? 'checked' : '';
+
+                // Show retry buttons only for failed items
+                const retryBtn = item.status === 'failed' 
+                    ? `<button class="btn btn-secondary btnRetry" data-id="${item.id}" style="padding: 0.35rem 0.65rem; font-size: 0.75rem;">Retry Now</button>`
+                    : '';
+
+                // Show manual publish only for queued/retrying/failed items
+                const publishBtn = ['queued', 'retrying', 'failed'].includes(item.status)
+                    ? `<button class="btn btn-primary btnPublish" data-id="${item.id}" style="padding: 0.35rem 0.65rem; font-size: 0.75rem;">Manual Publish</button>`
+                    : '';
+
+                card.innerHTML = `
+                    <div class="checkbox-wrapper">
+                        <input type="checkbox" class="queueItemCheckbox" data-id="${item.id}" ${isChecked} />
+                    </div>
+                    <div class="queue-card-content">
+                        <div style="display:flex; justify-content:space-between; align-items:center;">
+                            <h3 class="card-title" style="font-size:0.9375rem; margin-bottom:0;">${displayTitle}</h3>
+                            ${badge}
+                        </div>
+                        <p style="font-size:0.8125rem; color:var(--color-text-secondary); margin-top:0.25rem;">"${displayCaption}"</p>
+                        
+                        <div class="queue-card-footer">
+                            <div>
+                                <span style="font-weight:600; text-transform:uppercase; margin-right:0.5rem; color:var(--color-primary);">${item.platform}</span>
+                                <span>Time: ${scheduledLocalTime} (${item.timezone})</span>
+                            </div>
+                            <div style="display:flex; gap:0.5rem; align-items:center;">
+                                ${retryBtn}
+                                ${publishBtn}
+                                <button class="btn btn-danger btnCancel" data-id="${item.id}" style="padding: 0.35rem 0.65rem; font-size: 0.75rem;">Cancel</button>
+                            </div>
+                        </div>
+                    </div>
+                `;
+                timeline.appendChild(card);
+            });
+
+            // Bind actions listeners
+            document.querySelectorAll('.queueItemCheckbox').forEach(cb => {
+                cb.addEventListener('change', (e) => {
+                    const id = parseInt(e.target.getAttribute('data-id'));
+                    if (e.target.checked) {
+                        if (!selectedIds.includes(id)) selectedIds.push(id);
+                    } else {
+                        selectedIds = selectedIds.filter(selectedId => selectedId !== id);
+                    }
+                    updateBulkBar();
+                });
+            });
+
+            document.querySelectorAll('.btnPublish').forEach(btn => {
+                btn.addEventListener('click', async (e) => {
+                    const id = e.currentTarget.getAttribute('data-id');
+                    const success = await queueService.manualPublish(id);
+                    if (success) {
+                        fetchQueue();
+                    }
+                });
+            });
+
+            document.querySelectorAll('.btnRetry').forEach(btn => {
+                btn.addEventListener('click', async (e) => {
+                    const id = e.currentTarget.getAttribute('data-id');
+                    const success = await queueService.retryJob(id);
+                    if (success) {
+                        fetchQueue();
+                    }
+                });
+            });
+
+            document.querySelectorAll('.btnCancel').forEach(btn => {
+                btn.addEventListener('click', async (e) => {
+                    const id = e.currentTarget.getAttribute('data-id');
+                    if (confirm("Are you sure you want to cancel this scheduled posting?")) {
+                        const success = await scheduleService.cancelSchedule(id);
+                        if (success) {
+                            fetchQueue();
+                        }
+                    }
+                });
+            });
+        }
+
+        function updateBulkBar() {
+            if (selectedIds.length > 0) {
+                bulkBar.style.display = 'flex';
+                bulkCountText.textContent = `${selectedIds.length} schedules selected`;
+            } else {
+                bulkBar.style.display = 'none';
+            }
+        }
+
+        // Bulk cancel execution
+        document.getElementById('btnBulkCancel').addEventListener('click', async () => {
+            if (selectedIds.length > 0 && confirm(`Are you sure you want to cancel all ${selectedIds.length} checked schedules?`)) {
+                const success = await queueService.bulkCancel(selectedIds);
+                if (success) {
+                    selectedIds = [];
+                    updateBulkBar();
+                    fetchQueue();
+                }
+            }
+        });
+
+        // Filter triggers
+        searchInput.addEventListener('input', renderQueue);
+        document.querySelectorAll('.platformFilter, .statusFilter').forEach(cb => {
+            cb.addEventListener('change', renderQueue);
+        });
+
+        // Run
+        fetchQueue();
+    </script>
+    <style>
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+    </style>
+</body>
+</html>

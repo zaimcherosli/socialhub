@@ -1,0 +1,189 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Schedule Calendar | SocialHub - Platform Scheduler</title>
+    
+    <!-- Meta tags for SEO -->
+    <meta name="description" content="View weekly post publish queue timelines, change schedule time blocks, and coordinate social dispatches in SocialHub.">
+    <meta name="author" content="SocialHub Team">
+
+    <!-- Auth Route Guard: redirects to login.html instantly if user not authenticated -->
+    <script type="module">
+        import { sessionService } from './js/services/sessionService.js';
+        sessionService.requireAuth();
+    </script>
+
+    <!-- CSS Stylesheets -->
+    <link rel="stylesheet" href="css/variables.css">
+    <link rel="stylesheet" href="css/layout.css">
+    <link rel="stylesheet" href="css/components.css">
+    <style>
+        .calendar-week-grid {
+            display: grid;
+            grid-template-columns: repeat(7, 1fr);
+            gap: 0.75rem;
+            width: 100%;
+        }
+
+        .calendar-day-col {
+            background: var(--color-bg-card);
+            border: 1px solid var(--color-border);
+            border-radius: var(--radius-sm);
+            padding: 0.75rem;
+            min-height: 400px;
+            display: flex;
+            flex-direction: column;
+            gap: 0.5rem;
+        }
+
+        .calendar-day-header {
+            font-size: 0.8125rem;
+            font-weight: 600;
+            color: var(--color-text-secondary);
+            text-align: center;
+            padding-bottom: 0.5rem;
+            border-bottom: 1px solid var(--color-border);
+            margin-bottom: 0.5rem;
+        }
+
+        .calendar-day-header.today {
+            color: var(--color-primary);
+            border-bottom-color: var(--color-primary);
+        }
+
+        .calendar-post-block {
+            background: var(--color-bg-accent);
+            border-radius: var(--radius-xs);
+            padding: 0.5rem;
+            font-size: 0.75rem;
+            cursor: pointer;
+            border: 1px solid transparent;
+            transition: all var(--transition-fast);
+        }
+
+        .calendar-post-block:hover {
+            border-color: var(--color-primary);
+            background: var(--color-bg-card);
+            box-shadow: var(--shadow-sm);
+        }
+
+        .calendar-post-time {
+            font-size: 0.65rem;
+            color: var(--color-text-tertiary);
+            font-weight: 500;
+            display: block;
+            margin-bottom: 0.25rem;
+        }
+
+        @media (max-width: 1024px) {
+            .calendar-week-grid {
+                grid-template-columns: repeat(3, 1fr);
+            }
+        }
+
+        @media (max-width: 600px) {
+            .calendar-week-grid {
+                grid-template-columns: 1fr;
+            }
+            .calendar-day-col {
+                min-height: auto;
+            }
+        }
+    </style>
+</head>
+<body>
+
+    <div class="app-container">
+        <app-sidebar></app-sidebar>
+        <app-header></app-header>
+
+        <main class="main-content animated-fade-in">
+            
+            <!-- Page Header -->
+            <div class="page-header">
+                <div class="page-title-section">
+                    <h1 class="page-title">Schedule Calendar</h1>
+                    <p class="page-subtitle">Track and configure publishing time slots across your pipeline.</p>
+                </div>
+                <div class="page-actions">
+                    <button class="btn btn-secondary">Previous Week</button>
+                    <button class="btn btn-secondary">Next Week</button>
+                    <button class="btn btn-primary">Add Time Slot</button>
+                </div>
+            </div>
+
+            <!-- Calendar Container Card -->
+            <div class="card" style="padding: 1.5rem;">
+                <div class="card-header" style="margin-bottom: 1.5rem;">
+                    <div>
+                        <h3 class="card-title">Weekly Queue View</h3>
+                        <p class="card-subtitle">June 29, 2026 - July 05, 2026</p>
+                    </div>
+                </div>
+
+                <!-- 7 Day Calendar Grid -->
+                <div class="calendar-week-grid">
+                    
+                    <!-- Monday (Today) -->
+                    <div class="calendar-day-col">
+                        <div class="calendar-day-header today">Mon 29</div>
+                        <div class="calendar-post-block">
+                            <span class="calendar-post-time">10:00 AM • LI, X</span>
+                            <span style="font-weight: 500;">Announcing our new features...</span>
+                        </div>
+                    </div>
+
+                    <!-- Tuesday -->
+                    <div class="calendar-day-col">
+                        <div class="calendar-day-header">Tue 30</div>
+                        <div class="calendar-post-block">
+                            <span class="calendar-post-time">03:30 PM • IG, FB</span>
+                            <span style="font-weight: 500;">Design aesthetics are key...</span>
+                        </div>
+                    </div>
+
+                    <!-- Wednesday -->
+                    <div class="calendar-day-col">
+                        <div class="calendar-day-header">Wed 01</div>
+                        <!-- Empty slot placeholder -->
+                        <div style="flex: 1; border: 1.5px dashed var(--color-border); border-radius: var(--radius-xs); display: flex; align-items: center; justify-content: center; min-height: 100px; color: var(--color-text-tertiary); font-size: 0.75rem; cursor: pointer;">
+                            + Add Post
+                        </div>
+                    </div>
+
+                    <!-- Thursday -->
+                    <div class="calendar-day-col">
+                        <div class="calendar-day-header">Thu 02</div>
+                    </div>
+
+                    <!-- Friday -->
+                    <div class="calendar-day-col">
+                        <div class="calendar-day-header">Fri 03</div>
+                        <div class="calendar-post-block">
+                            <span class="calendar-post-time">09:00 AM • LI</span>
+                            <span style="font-weight: 500;">Why Serverless is the future...</span>
+                        </div>
+                    </div>
+
+                    <!-- Saturday -->
+                    <div class="calendar-day-col">
+                        <div class="calendar-day-header">Sat 04</div>
+                    </div>
+
+                    <!-- Sunday -->
+                    <div class="calendar-day-col">
+                        <div class="calendar-day-header">Sun 05</div>
+                    </div>
+
+                </div>
+            </div>
+
+        </main>
+    </div>
+
+    <!-- ES Module Javascript Boilerplate -->
+    <script type="module" src="js/app.js"></script>
+</body>
+</html>

@@ -1,0 +1,257 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Log In | SocialHub - Scheduling Platform</title>
+    
+    <!-- Meta tags for SEO -->
+    <meta name="description" content="Access your unified social media scheduling dashboard on SocialHub. Secure credentials log in.">
+    
+    <!-- CSS Stylesheets -->
+    <link rel="stylesheet" href="css/variables.css">
+    <link rel="stylesheet" href="css/layout.css">
+    <link rel="stylesheet" href="css/components.css">
+
+    <!-- Guest Route Guard: redirects to dashboard instantly if user already authenticated -->
+    <script type="module">
+        import { sessionService } from './js/services/sessionService.js';
+        sessionService.requireGuest();
+    </script>
+
+    <style>
+        .auth-page-wrapper {
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 1.5rem;
+            background: radial-gradient(circle at 50% 50%, rgba(59, 130, 246, 0.05) 0%, var(--color-bg-base) 100%);
+        }
+
+        .auth-card {
+            width: 100%;
+            max-width: 400px;
+            padding: 2.5rem 2rem;
+            animation: authFadeIn var(--transition-normal) forwards;
+        }
+
+        .auth-header {
+            text-align: center;
+            margin-bottom: 2rem;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 0.75rem;
+        }
+
+        .auth-logo {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin-bottom: 0.5rem;
+        }
+
+        .auth-title {
+            font-family: var(--font-heading);
+            font-size: 1.5rem;
+            font-weight: 700;
+            color: var(--color-text-primary);
+            letter-spacing: -0.025em;
+        }
+
+        .auth-subtitle {
+            font-size: 0.875rem;
+            color: var(--color-text-secondary);
+        }
+
+        .auth-alert {
+            display: none;
+            padding: 0.75rem 1rem;
+            border-radius: var(--radius-xs);
+            font-size: 0.8125rem;
+            margin-bottom: 1.25rem;
+            font-weight: 500;
+        }
+
+        .auth-alert.error {
+            background-color: var(--color-danger-light);
+            color: var(--color-danger);
+            border: 1px solid rgba(220, 53, 69, 0.15);
+        }
+
+        .auth-alert.success {
+            background-color: var(--color-success-light);
+            color: var(--color-success);
+            border: 1px solid rgba(40, 167, 69, 0.15);
+        }
+
+        .auth-footer {
+            margin-top: 1.75rem;
+            text-align: center;
+            font-size: 0.8125rem;
+            color: var(--color-text-secondary);
+        }
+
+        .auth-link {
+            color: var(--color-primary);
+            text-decoration: none;
+            font-weight: 500;
+            transition: color var(--transition-fast);
+        }
+
+        .auth-link:hover {
+            color: var(--color-primary-hover);
+        }
+
+        .form-checkbox-row {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            font-size: 0.8125rem;
+            margin-top: 0.25rem;
+            margin-bottom: 1.5rem;
+        }
+
+        .form-checkbox-label {
+            display: flex;
+            align-items: center;
+            gap: 0.35rem;
+            color: var(--color-text-secondary);
+            cursor: pointer;
+            user-select: none;
+        }
+
+        .form-checkbox-input {
+            accent-color: var(--color-primary);
+            cursor: pointer;
+        }
+
+        @keyframes authFadeIn {
+            from { opacity: 0; transform: translateY(12px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+    </style>
+</head>
+<body>
+
+    <div class="auth-page-wrapper">
+        <div class="card auth-card">
+            
+            <div class="auth-header">
+                <div class="auth-logo">
+                    <svg width="32" height="32" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                        <rect x="2" y="2" width="20" height="20" rx="6" fill="url(#brandGrad)" />
+                        <path d="M12 7V17M7 12H17" stroke="white" stroke-width="2.5" stroke-linecap="round" />
+                        <defs>
+                            <linearGradient id="brandGrad" x1="2" y1="2" x2="22" y2="22" gradientUnits="userSpaceOnUse">
+                                <stop stop-color="#3b82f6" />
+                                <stop offset="1" stop-color="#1d4ed8" />
+                            </linearGradient>
+                        </defs>
+                    </svg>
+                </div>
+                <h1 class="auth-title">Welcome back</h1>
+                <p class="auth-subtitle">Log in to manage your publishing pipeline</p>
+            </div>
+
+            <!-- Notification Alerts -->
+            <div class="auth-alert" id="authAlertBox"></div>
+
+            <!-- Login Form -->
+            <form id="loginForm">
+                <div class="form-group">
+                    <label class="form-label" for="loginEmail">Email Address</label>
+                    <input type="email" id="loginEmail" class="form-input" placeholder="name@company.com" required autocomplete="username" />
+                </div>
+
+                <div class="form-group" style="margin-bottom: 0.5rem;">
+                    <label class="form-label" for="loginPassword">Password</label>
+                    <input type="password" id="loginPassword" class="form-input" placeholder="••••••••" required autocomplete="current-password" />
+                </div>
+
+                <div class="form-checkbox-row">
+                    <label class="form-checkbox-label">
+                        <input type="checkbox" id="loginRememberMe" class="form-checkbox-input" />
+                        <span>Remember me</span>
+                    </label>
+                    <a href="forgot-password.html" class="auth-link">Forgot password?</a>
+                </div>
+
+                <button type="submit" class="btn btn-primary" id="btnLoginSubmit" style="width: 100%; height: 42px;">
+                    Log In
+                </button>
+            </form>
+
+            <div class="auth-footer">
+                Don't have an account? <a href="register.html" class="auth-link">Register here</a>
+            </div>
+
+        </div>
+    </div>
+
+    <!-- Script handlers -->
+    <script type="module">
+        import { authService } from './js/services/authService.js';
+
+        // Check if registration success message passed in URL query
+        const urlParams = new URLSearchParams(window.location.search);
+        const alertBox = document.getElementById('authAlertBox');
+        
+        if (urlParams.has('registered')) {
+            alertBox.innerText = 'Registration successful! You can now log in.';
+            alertBox.className = 'auth-alert success';
+            alertBox.style.display = 'block';
+        }
+
+        document.getElementById('loginForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            
+            const email = document.getElementById('loginEmail').value.trim();
+            const password = document.getElementById('loginPassword').value;
+            const rememberMe = document.getElementById('loginRememberMe').checked;
+            const btnSubmit = document.getElementById('btnLoginSubmit');
+
+            // Client side validation
+            if (!email || !password) {
+                showAlert('Please fill in all required fields.', 'error');
+                return;
+            }
+
+            // Trigger loading state
+            btnSubmit.disabled = true;
+            btnSubmit.innerHTML = `<span style="display: inline-block; width: 14px; height: 14px; border: 2px solid #fff; border-top-color: transparent; border-radius: 50%; animation: spin 0.8s linear infinite; margin-right: 0.5rem; vertical-align: middle;"></span>Logging in...`;
+            alertBox.style.display = 'none';
+
+            try {
+                const response = await authService.login(email, password, rememberMe);
+                if (response && response.success) {
+                    showAlert('Success! Redirecting...', 'success');
+                    setTimeout(() => {
+                        window.location.replace('dashboard.html');
+                    }, 500);
+                } else {
+                    showAlert(response.message || 'Verification failed. Try again.', 'error');
+                    btnSubmit.disabled = false;
+                    btnSubmit.innerText = 'Log In';
+                }
+            } catch (err) {
+                showAlert(err.message || 'Connection server error. Please try again.', 'error');
+                btnSubmit.disabled = false;
+                btnSubmit.innerText = 'Log In';
+            }
+        });
+
+        function showAlert(msg, type) {
+            alertBox.innerText = msg;
+            alertBox.className = `auth-alert ${type}`;
+            alertBox.style.display = 'block';
+        }
+    </script>
+    <style>
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+    </style>
+</body>
+</html>

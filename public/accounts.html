@@ -1,0 +1,397 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Social Accounts | SocialHub - Platform Scheduler</title>
+    
+    <!-- Meta tags for SEO -->
+    <meta name="description" content="Add or disconnect Facebook, Instagram, LinkedIn, TikTok, X (Twitter), and Threads accounts for SocialHub scheduling.">
+    <meta name="author" content="SocialHub Team">
+
+    <!-- Auth Route Guard: redirects to login.html instantly if user not authenticated -->
+    <script type="module">
+        import { sessionService } from './js/services/sessionService.js';
+        sessionService.requireAuth();
+    </script>
+
+    <!-- CSS Stylesheets -->
+    <link rel="stylesheet" href="css/variables.css">
+    <link rel="stylesheet" href="css/layout.css">
+    <link rel="stylesheet" href="css/components.css">
+    <style>
+        .accounts-container-layout {
+            display: flex;
+            flex-direction: column;
+            gap: 2rem;
+        }
+
+        .section-title {
+            font-family: var(--font-heading);
+            font-size: 1.25rem;
+            font-weight: 600;
+            color: var(--color-text-primary);
+            margin-bottom: 1rem;
+            border-bottom: 1px solid var(--color-border);
+            padding-bottom: 0.5rem;
+        }
+
+        .accounts-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+            gap: 1.5rem;
+            width: 100%;
+        }
+
+        .account-card {
+            display: flex;
+            flex-direction: column;
+            justify-content: space-between;
+            min-height: 220px;
+        }
+
+        .platform-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            margin-bottom: 1rem;
+        }
+
+        .platform-badge-logo {
+            width: 44px;
+            height: 44px;
+            border-radius: var(--radius-sm);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: #fff;
+            font-size: 1.25rem;
+            font-weight: 700;
+        }
+
+        .platform-badge-logo.threads { background-color: #000000; }
+        .platform-badge-logo.facebook { background-color: #1877f2; }
+        .platform-badge-logo.instagram { background: linear-gradient(45deg, #f09433 0%, #e6683c 25%, #dc2743 50%, #cc2366 75%, #bc1888 100%); }
+        .platform-badge-logo.linkedin { background-color: #0077b5; }
+        .platform-badge-logo.tiktok { background-color: #010101; }
+        .platform-badge-logo.twitter { background-color: #010101; }
+
+        .account-details-list {
+            margin-top: 0.75rem;
+            font-size: 0.8125rem;
+            color: var(--color-text-secondary);
+            display: flex;
+            flex-direction: column;
+            gap: 0.35rem;
+        }
+
+        .detail-item {
+            display: flex;
+            justify-content: space-between;
+        }
+
+        .detail-value {
+            font-weight: 500;
+            color: var(--color-text-primary);
+        }
+
+        .empty-state {
+            grid-column: 1 / -1;
+            padding: 3rem;
+            text-align: center;
+            background: var(--color-bg-card);
+            border: 1.5px dashed var(--color-border);
+            border-radius: var(--radius-md);
+            color: var(--color-text-secondary);
+        }
+
+        .toast-notification {
+            position: fixed;
+            bottom: 2rem;
+            right: 2rem;
+            background: var(--color-success);
+            color: #fff;
+            padding: 1rem 1.5rem;
+            border-radius: var(--radius-sm);
+            box-shadow: var(--shadow-lg);
+            font-size: 0.875rem;
+            font-weight: 500;
+            animation: slideUp var(--transition-normal) forwards;
+            display: none;
+            z-index: 1000;
+        }
+
+        @keyframes slideUp {
+            from { transform: translateY(20px); opacity: 0; }
+            to { transform: translateY(0); opacity: 1; }
+        }
+    </style>
+</head>
+<body>
+
+    <div class="app-container">
+        <app-sidebar></app-sidebar>
+        <app-header></app-header>
+
+        <main class="main-content animated-fade-in">
+            
+            <!-- Page Header -->
+            <div class="page-header">
+                <div class="page-title-section">
+                    <h1 class="page-title">Social Accounts</h1>
+                    <p class="page-subtitle">Link and manage your active social media channels</p>
+                </div>
+            </div>
+
+            <!-- Main Layout Grid -->
+            <div class="accounts-container-layout">
+                
+                <!-- Section: Connected accounts -->
+                <div>
+                    <h2 class="section-title">Connected Accounts</h2>
+                    <div class="accounts-grid" id="connectedAccountsGrid">
+                        <!-- Dynamically generated connected accounts here -->
+                        <div class="empty-state" id="accountsLoading">
+                            <span style="display: inline-block; width: 20px; height: 20px; border: 2px solid var(--color-primary); border-top-color: transparent; border-radius: 50%; animation: spin 0.8s linear infinite; margin-bottom: 0.5rem;"></span>
+                            <p>Loading linked social channels...</p>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Section: Connect new platforms -->
+                <div>
+                    <h2 class="section-title">Available Integrations</h2>
+                    <div class="accounts-grid">
+                        
+                        <!-- Threads integration Card -->
+                        <div class="card account-card">
+                            <div>
+                                <div class="platform-header">
+                                    <div class="platform-badge-logo threads">@</div>
+                                    <span class="badge badge-info">active</span>
+                                </div>
+                                <h3 class="card-title">Threads</h3>
+                                <p class="card-subtitle">Publish content directly to Meta's Threads network.</p>
+                            </div>
+                            <div style="margin-top: 1.5rem;">
+                                <button class="btn btn-primary" style="width: 100%;" id="btnConnectThreads">
+                                    Connect Threads
+                                </button>
+                            </div>
+                        </div>
+
+                        <!-- Facebook Card (Upcoming) -->
+                        <div class="card account-card" style="opacity: 0.75;">
+                            <div>
+                                <div class="platform-header">
+                                    <div class="platform-badge-logo facebook">f</div>
+                                    <span class="badge badge-info" style="background: rgba(0,0,0,0.04); color: var(--color-text-secondary);">upcoming</span>
+                                </div>
+                                <h3 class="card-title">Facebook</h3>
+                                <p class="card-subtitle">Link Pages and Groups to manage community outreach.</p>
+                            </div>
+                            <div style="margin-top: 1.5rem;">
+                                <button class="btn btn-secondary" style="width: 100%;" disabled>Facebook Connect</button>
+                            </div>
+                        </div>
+
+                        <!-- Instagram Card (Upcoming) -->
+                        <div class="card account-card" style="opacity: 0.75;">
+                            <div>
+                                <div class="platform-header">
+                                    <div class="platform-badge-logo instagram">IG</div>
+                                    <span class="badge badge-info" style="background: rgba(0,0,0,0.04); color: var(--color-text-secondary);">upcoming</span>
+                                </div>
+                                <h3 class="card-title">Instagram</h3>
+                                <p class="card-subtitle">Automate business visual assets feed dispatches.</p>
+                            </div>
+                            <div style="margin-top: 1.5rem;">
+                                <button class="btn btn-secondary" style="width: 100%;" disabled>Instagram Connect</button>
+                            </div>
+                        </div>
+
+                        <!-- LinkedIn Card (Upcoming) -->
+                        <div class="card account-card" style="opacity: 0.75;">
+                            <div>
+                                <div class="platform-header">
+                                    <div class="platform-badge-logo linkedin">in</div>
+                                    <span class="badge badge-info" style="background: rgba(0,0,0,0.04); color: var(--color-text-secondary);">upcoming</span>
+                                </div>
+                                <h3 class="card-title">LinkedIn</h3>
+                                <p class="card-subtitle">Connect professional profiles and organization pages.</p>
+                            </div>
+                            <div style="margin-top: 1.5rem;">
+                                <button class="btn btn-secondary" style="width: 100%;" disabled>LinkedIn Connect</button>
+                            </div>
+                        </div>
+
+                        <!-- X Card (Upcoming) -->
+                        <div class="card account-card" style="opacity: 0.75;">
+                            <div>
+                                <div class="platform-header">
+                                    <div class="platform-badge-logo twitter">X</div>
+                                    <span class="badge badge-info" style="background: rgba(0,0,0,0.04); color: var(--color-text-secondary);">upcoming</span>
+                                </div>
+                                <h3 class="card-title">X (Twitter)</h3>
+                                <p class="card-subtitle">Post micro-blog threads and real-time updates.</p>
+                            </div>
+                            <div style="margin-top: 1.5rem;">
+                                <button class="btn btn-secondary" style="width: 100%;" disabled>X Connect</button>
+                            </div>
+                        </div>
+
+                    </div>
+                </div>
+
+            </div>
+
+        </main>
+    </div>
+
+    <!-- Toast Notification Banner -->
+    <div class="toast-notification" id="successToast">
+        🎉 Social account linked successfully!
+    </div>
+
+    <!-- Script imports -->
+    <script type="module" src="js/app.js"></script>
+    <script type="module">
+        import { socialService } from './js/services/socialService.js';
+        import { oauthService } from './js/services/oauthService.js';
+        import { tokenService } from './js/services/tokenService.js';
+
+        // Load connected accounts dynamically on DOM render
+        async function loadConnectedAccounts() {
+            const grid = document.getElementById('connectedAccountsGrid');
+            try {
+                const accounts = await socialService.getAccounts();
+                grid.innerHTML = ''; // Clear loading state
+
+                if (accounts.length === 0) {
+                    grid.innerHTML = `
+                        <div class="empty-state">
+                            <p style="font-weight: 500; margin-bottom: 0.25rem;">No connected accounts</p>
+                            <p style="font-size: 0.8125rem; color: var(--color-text-tertiary);">Link your Threads profile below to start scheduling posts.</p>
+                        </div>
+                    `;
+                    return;
+                }
+
+                accounts.forEach(account => {
+                    const card = document.createElement('div');
+                    card.className = 'card account-card';
+                    
+                    const isExpired = tokenService.isTokenExpired(account.expires_at);
+                    const statusBadge = isExpired 
+                        ? '<span class="badge badge-danger">expired</span>' 
+                        : (account.status === 'active' ? '<span class="badge badge-success">connected</span>' : `<span class="badge badge-warning">${account.status}</span>`);
+
+                    const expiresText = tokenService.formatExpiration(account.expires_at);
+                    const connectedDate = new Date(account.created_at).toLocaleDateString(undefined, { year: 'numeric', month: 'short', day: 'numeric' });
+
+                    card.innerHTML = `
+                        <div>
+                            <div class="platform-header">
+                                <div class="platform-badge-logo ${account.platform}">
+                                    ${account.platform === 'threads' ? '@' : account.platform[0].toUpperCase()}
+                                </div>
+                                ${statusBadge}
+                            </div>
+                            <h3 class="card-title" style="text-transform: capitalize;">${account.platform}</h3>
+                            <p class="card-subtitle">${account.account_name}</p>
+                            
+                            <div class="account-details-list">
+                                <div class="detail-item">
+                                    <span>Account ID:</span>
+                                    <span class="detail-value">${account.account_id}</span>
+                                </div>
+                                <div class="detail-item">
+                                    <span>Connected Date:</span>
+                                    <span class="detail-value">${connectedDate}</span>
+                                </div>
+                                <div class="detail-item">
+                                    <span>Token Expiry:</span>
+                                    <span class="detail-value" style="color: ${isExpired ? 'var(--color-danger)' : 'inherit'};">${expiresText}</span>
+                                </div>
+                            </div>
+                        </div>
+                        <div style="display: flex; gap: 0.5rem; margin-top: 1.5rem;">
+                            <button class="btn btn-secondary btnReconnect" data-id="${account.id}" style="flex: 1; font-size: 0.75rem;">Reconnect</button>
+                            <button class="btn btn-danger btn-icon btnDisconnect" data-id="${account.id}" title="Disconnect Account">
+                                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                    <polyline points="3 6 5 6 21 6"></polyline>
+                                    <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path>
+                                </svg>
+                            </button>
+                        </div>
+                    `;
+                    grid.appendChild(card);
+                });
+
+                // Attach button event listeners dynamically
+                document.querySelectorAll('.btnDisconnect').forEach(btn => {
+                    btn.addEventListener('click', async (e) => {
+                        const id = e.currentTarget.getAttribute('data-id');
+                        if (confirm("Are you sure you want to disconnect this social channel? This will remove token configurations.")) {
+                            const success = await socialService.disconnectAccount(id);
+                            if (success) {
+                                showToast('Channel disconnected successfully!');
+                                loadConnectedAccounts();
+                            } else {
+                                alert("Failed to sever channel credentials.");
+                            }
+                        }
+                    });
+                });
+
+                document.querySelectorAll('.btnReconnect').forEach(btn => {
+                    btn.addEventListener('click', async (e) => {
+                        const id = e.currentTarget.getAttribute('data-id');
+                        await oauthService.initiateReconnect(id);
+                    });
+                });
+
+            } catch (err) {
+                console.error(err);
+                grid.innerHTML = `
+                    <div class="empty-state" style="color: var(--color-danger); border-color: var(--color-danger-light);">
+                        <p style="font-weight: 600;">Failed to load connected channels</p>
+                        <p style="font-size: 0.8125rem;">Ensure the local backend server is running and accessible.</p>
+                    </div>
+                `;
+            }
+        }
+
+        // Bind Link Channel actions
+        document.getElementById('btnConnectThreads').addEventListener('click', async () => {
+            await oauthService.initiateConnect('threads');
+        });
+
+        // Toast controller
+        function showToast(message) {
+            const toast = document.getElementById('successToast');
+            toast.textContent = message;
+            toast.style.display = 'block';
+            setTimeout(() => {
+                toast.style.display = 'none';
+            }, 3000);
+        }
+
+        // Check if redirect success parameter present in URL
+        const urlParams = new URLSearchParams(window.location.search);
+        if (urlParams.get('success') === 'true') {
+            showToast('🎉 Social account linked successfully!');
+            // Remove success parameter to avoid annoying popups on refresh
+            window.history.replaceState({}, document.title, window.location.pathname);
+        }
+
+        // Initialize grid on document load
+        loadConnectedAccounts();
+    </script>
+    <style>
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+    </style>
+</body>
+</html>

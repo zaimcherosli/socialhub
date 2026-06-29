@@ -1,0 +1,393 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Posts | SocialHub - Scheduling Platform</title>
+    
+    <!-- Meta tags for SEO -->
+    <meta name="description" content="View, filter, sort, search, and manage your drafted, scheduled, and published social media posts on SocialHub.">
+    <meta name="author" content="SocialHub Team">
+
+    <!-- Auth Route Guard: redirects to login.html instantly if user not authenticated -->
+    <script type="module">
+        import { sessionService } from './js/services/sessionService.js';
+        sessionService.requireAuth();
+    </script>
+
+    <!-- CSS Stylesheets -->
+    <link rel="stylesheet" href="css/variables.css">
+    <link rel="stylesheet" href="css/layout.css">
+    <link rel="stylesheet" href="css/components.css">
+    <style>
+        .filter-bar {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 1rem;
+            flex-wrap: wrap;
+            padding: 1rem 1.5rem;
+            background: var(--color-bg-card);
+            border: 1px solid var(--color-border);
+            border-radius: var(--radius-sm);
+            margin-bottom: 1.5rem;
+        }
+
+        .filter-group {
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+        }
+
+        .posts-layout-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+            gap: 1.5rem;
+            width: 100%;
+        }
+
+        .posts-layout-list {
+            display: flex;
+            flex-direction: column;
+            gap: 1rem;
+            width: 100%;
+        }
+
+        .post-card-item {
+            display: flex;
+            flex-direction: column;
+            justify-content: space-between;
+            min-height: 200px;
+        }
+
+        .posts-layout-list .post-card-item {
+            flex-direction: row;
+            align-items: center;
+            min-height: auto;
+            padding: 1.25rem 1.5rem;
+        }
+
+        .post-card-body {
+            flex: 1;
+        }
+
+        .posts-layout-list .post-card-body {
+            display: grid;
+            grid-template-columns: 2fr 3fr 1fr 1fr;
+            align-items: center;
+            gap: 1.5rem;
+        }
+
+        .post-card-actions {
+            display: flex;
+            gap: 0.5rem;
+            justify-content: flex-end;
+            margin-top: 1.5rem;
+        }
+
+        .posts-layout-list .post-card-actions {
+            margin-top: 0;
+        }
+
+        .view-toggle-btn {
+            background: none;
+            border: 1px solid var(--color-border);
+            border-radius: var(--radius-xs);
+            padding: 0.5rem;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: var(--color-text-secondary);
+            transition: all var(--transition-fast);
+        }
+
+        .view-toggle-btn.active {
+            background: var(--color-primary-light);
+            color: var(--color-primary);
+            border-color: var(--color-primary);
+        }
+
+        .empty-posts-state {
+            text-align: center;
+            padding: 4rem 2rem;
+            background: var(--color-bg-card);
+            border: 1.5px dashed var(--color-border);
+            border-radius: var(--radius-md);
+            color: var(--color-text-secondary);
+            grid-column: 1 / -1;
+            width: 100%;
+        }
+    </style>
+</head>
+<body>
+
+    <div class="app-container">
+        <app-sidebar></app-sidebar>
+        <app-header></app-header>
+
+        <main class="main-content animated-fade-in">
+            
+            <!-- Page Header -->
+            <div class="page-header">
+                <div class="page-title-section">
+                    <h1 class="page-title">Posts Manager</h1>
+                    <p class="page-subtitle">Draft, organize, search, and manage your scheduled campaign posts.</p>
+                </div>
+                <div class="page-actions">
+                    <a href="post-editor.html" class="btn btn-primary" id="btnNewPost">
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                            <line x1="12" y1="5" x2="12" y2="19"></line>
+                            <line x1="5" y1="12" x2="19" y2="12"></line>
+                        </svg>
+                        Create Post
+                    </a>
+                </div>
+            </div>
+
+            <!-- Search, Filter & Sort Bar -->
+            <div class="filter-bar">
+                <div class="filter-group">
+                    <input type="text" id="postSearchInput" class="form-input" placeholder="Search caption or title..." style="width: 260px;" />
+                    
+                    <select id="postStatusFilter" class="form-select" style="width: 140px;">
+                        <option value="all">All Statuses</option>
+                        <option value="draft">Draft</option>
+                        <option value="scheduled">Scheduled</option>
+                        <option value="published">Published</option>
+                        <option value="failed">Failed</option>
+                    </select>
+
+                    <select id="postSortFilter" class="form-select" style="width: 140px;">
+                        <option value="newest">Newest First</option>
+                        <option value="oldest">Oldest First</option>
+                        <option value="title">Title A-Z</option>
+                    </select>
+                </div>
+
+                <div class="filter-group">
+                    <!-- Grid/List Switcher -->
+                    <button class="view-toggle-btn active" id="btnGridView" title="Grid View">
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                            <rect x="3" y="3" width="7" height="7"></rect>
+                            <rect x="14" y="3" width="7" height="7"></rect>
+                            <rect x="14" y="14" width="7" height="7"></rect>
+                            <rect x="3" y="14" width="7" height="7"></rect>
+                        </svg>
+                    </button>
+                    <button class="view-toggle-btn" id="btnListView" title="List View">
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                            <line x1="8" y1="6" x2="21" y2="6"></line>
+                            <line x1="8" y1="12" x2="21" y2="12"></line>
+                            <line x1="8" y1="18" x2="21" y2="18"></line>
+                            <line x1="3" y1="6" x2="3.01" y2="6"></line>
+                            <line x1="3" y1="12" x2="3.01" y2="12"></line>
+                            <line x1="3" y1="18" x2="3.01" y2="18"></line>
+                        </svg>
+                    </button>
+                </div>
+            </div>
+
+            <!-- List Grid/List Container -->
+            <div class="posts-layout-grid" id="postsContainer">
+                <div class="empty-posts-state" id="postsLoading">
+                    <span style="display: inline-block; width: 24px; height: 24px; border: 2px solid var(--color-primary); border-top-color: transparent; border-radius: 50%; animation: spin 0.8s linear infinite; margin-bottom: 0.5rem;"></span>
+                    <p>Loading posts library...</p>
+                </div>
+            </div>
+
+        </main>
+    </div>
+
+    <!-- Script imports -->
+    <script type="module" src="js/app.js"></script>
+    <script type="module">
+        import { postService } from './js/services/postService.js';
+
+        let allPosts = [];
+        let viewMode = 'grid'; // 'grid' or 'list'
+
+        const container = document.getElementById('postsContainer');
+        const searchInput = document.getElementById('postSearchInput');
+        const statusFilter = document.getElementById('postStatusFilter');
+        const sortFilter = document.getElementById('postSortFilter');
+
+        async function fetchAndRenderPosts() {
+            try {
+                allPosts = await postService.getPosts();
+                renderFilteredPosts();
+            } catch (err) {
+                console.error(err);
+                container.innerHTML = `
+                    <div class="empty-posts-state" style="color: var(--color-danger); border-color: var(--color-danger-light);">
+                        <p style="font-weight: 600;">Connection error loading posts</p>
+                        <p style="font-size: 0.8125rem;">Verify wrangler worker API port binds are running.</p>
+                    </div>
+                `;
+            }
+        }
+
+        function renderFilteredPosts() {
+            const query = searchInput.value.toLowerCase().trim();
+            const statusVal = statusFilter.value;
+            const sortVal = sortFilter.value;
+
+            // 1. Filter
+            let filtered = allPosts.filter(post => {
+                const matchesSearch = (post.title && post.title.toLowerCase().includes(query)) || 
+                                      (post.caption && post.caption.toLowerCase().includes(query));
+                
+                const matchesStatus = statusVal === 'all' || post.status === statusVal;
+                
+                return matchesSearch && matchesStatus;
+            });
+
+            // 2. Sort
+            filtered.sort((a, b) => {
+                if (sortVal === 'newest') {
+                    return new Date(b.created_at) - new Date(a.created_at);
+                } else if (sortVal === 'oldest') {
+                    return new Date(a.created_at) - new Date(b.created_at);
+                } else if (sortVal === 'title') {
+                    return (a.title || '').localeCompare(b.title || '');
+                }
+                return 0;
+            });
+
+            // 3. Render
+            container.innerHTML = '';
+            container.className = viewMode === 'grid' ? 'posts-layout-grid' : 'posts-layout-list';
+
+            if (filtered.length === 0) {
+                container.innerHTML = `
+                    <div class="empty-posts-state">
+                        <p style="font-weight: 500; margin-bottom: 0.25rem;">No posts match your filters</p>
+                        <p style="font-size: 0.8125rem; color: var(--color-text-tertiary);">Clear your search query or create a new draft.</p>
+                    </div>
+                `;
+                return;
+            }
+
+            filtered.forEach(post => {
+                const card = document.createElement('div');
+                card.className = 'card post-card-item';
+
+                const statusBadgeMap = {
+                    draft: '<span class="badge badge-info">draft</span>',
+                    scheduled: '<span class="badge badge-warning">scheduled</span>',
+                    published: '<span class="badge badge-success">published</span>',
+                    failed: '<span class="badge badge-danger">failed</span>'
+                };
+                
+                const badge = statusBadgeMap[post.status] || '<span class="badge">unknown</span>';
+                const createdDate = new Date(post.created_at).toLocaleDateString(undefined, { year: 'numeric', month: 'short', day: 'numeric' });
+                
+                const displayTitle = post.title || 'Untitled Draft';
+                const displayCaption = post.caption || '<span style="color: var(--color-text-tertiary); font-style: italic;">No caption provided.</span>';
+
+                if (viewMode === 'grid') {
+                    card.innerHTML = `
+                        <div class="post-card-body">
+                            <div class="platform-header">
+                                <h3 class="card-title" style="font-size: 1rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">${displayTitle}</h3>
+                                ${badge}
+                            </div>
+                            <p style="font-size: 0.875rem; color: var(--color-text-secondary); line-height: 1.4; display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden; height: 3.6em; margin-bottom: 1rem;">
+                                ${displayCaption}
+                            </p>
+                            <div style="font-size: 0.75rem; color: var(--color-text-tertiary);">
+                                <span>Created: ${createdDate}</span>
+                            </div>
+                        </div>
+                        <div class="post-card-actions">
+                            <a href="post-editor.html?id=${post.id}" class="btn btn-secondary" style="padding: 0.4rem 0.75rem; font-size: 0.75rem;">Edit</a>
+                            <button class="btn btn-secondary btnDuplicate" data-id="${post.id}" style="padding: 0.4rem 0.75rem; font-size: 0.75rem;">Copy</button>
+                            <button class="btn btn-danger btn-icon btnDelete" data-id="${post.id}" style="padding: 0.4rem;" title="Delete Post">
+                                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                    <polyline points="3 6 5 6 21 6"></polyline>
+                                    <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path>
+                                </svg>
+                            </button>
+                        </div>
+                    `;
+                } else {
+                    // List view
+                    card.innerHTML = `
+                        <div class="post-card-body">
+                            <h3 class="card-title" style="font-size: 0.875rem; margin-bottom: 0;">${displayTitle}</h3>
+                            <p style="font-size: 0.8125rem; color: var(--color-text-secondary); margin-bottom: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; padding-right: 2rem;">
+                                ${displayCaption}
+                            </p>
+                            <div style="font-size: 0.75rem; color: var(--color-text-tertiary);">${createdDate}</div>
+                            <div>${badge}</div>
+                        </div>
+                        <div class="post-card-actions">
+                            <a href="post-editor.html?id=${post.id}" class="btn btn-secondary" style="padding: 0.4rem 0.75rem; font-size: 0.75rem;">Edit</a>
+                            <button class="btn btn-secondary btnDuplicate" data-id="${post.id}" style="padding: 0.4rem 0.75rem; font-size: 0.75rem;">Copy</button>
+                            <button class="btn btn-danger btn-icon btnDelete" data-id="${post.id}" style="padding: 0.4rem;" title="Delete Post">
+                                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                    <polyline points="3 6 5 6 21 6"></polyline>
+                                    <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path>
+                                </svg>
+                            </button>
+                        </div>
+                    `;
+                }
+                container.appendChild(card);
+            });
+
+            // Attach dynamic listeners
+            document.querySelectorAll('.btnDuplicate').forEach(btn => {
+                btn.addEventListener('click', async (e) => {
+                    const id = e.currentTarget.getAttribute('data-id');
+                    try {
+                        const response = await postService.duplicatePost(id);
+                        if (response.success) {
+                            fetchAndRenderPosts();
+                        }
+                    } catch (err) {
+                        alert("Duplication failed.");
+                    }
+                });
+            });
+
+            document.querySelectorAll('.btnDelete').forEach(btn => {
+                btn.addEventListener('click', async (e) => {
+                    const id = e.currentTarget.getAttribute('data-id');
+                    if (confirm("Are you sure you want to permanently delete this post draft?")) {
+                        const success = await postService.deletePost(id);
+                        if (success) {
+                            fetchAndRenderPosts();
+                        } else {
+                            alert("Deletion failed.");
+                        }
+                    }
+                });
+            });
+        }
+
+        // View Mode triggers
+        document.getElementById('btnGridView').addEventListener('click', () => {
+            viewMode = 'grid';
+            document.getElementById('btnGridView').classList.add('active');
+            document.getElementById('btnListView').classList.remove('active');
+            renderFilteredPosts();
+        });
+
+        document.getElementById('btnListView').addEventListener('click', () => {
+            viewMode = 'list';
+            document.getElementById('btnListView').classList.add('active');
+            document.getElementById('btnGridView').classList.remove('active');
+            renderFilteredPosts();
+        });
+
+        // Search & Filter listeners
+        searchInput.addEventListener('input', renderFilteredPosts);
+        statusFilter.addEventListener('change', renderFilteredPosts);
+        sortFilter.addEventListener('change', renderFilteredPosts);
+
+        // Run
+        fetchAndRenderPosts();
+    </script>
+</body>
+</html>

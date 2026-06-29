@@ -1,0 +1,599 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Media Library | SocialHub - Scheduling Platform</title>
+
+    <!-- Auth Route Guard: redirects to login.html instantly if user not authenticated -->
+    <script type="module">
+        import { sessionService } from './js/services/sessionService.js';
+        sessionService.requireAuth();
+    </script>
+
+    <!-- CSS Stylesheets -->
+    <link rel="stylesheet" href="css/variables.css">
+    <link rel="stylesheet" href="css/layout.css">
+    <link rel="stylesheet" href="css/components.css">
+    <style>
+        .media-workspace {
+            display: flex;
+            flex-direction: column;
+            gap: 2rem;
+        }
+
+        .upload-dropzone-card {
+            border: 2.5px dashed var(--color-border);
+            border-radius: var(--radius-md);
+            padding: 3rem 2rem;
+            text-align: center;
+            background: var(--color-bg-card);
+            cursor: pointer;
+            transition: all var(--transition-normal);
+            position: relative;
+        }
+
+        .upload-dropzone-card:hover, .upload-dropzone-card.dragover {
+            border-color: var(--color-primary);
+            background: var(--color-primary-glow);
+        }
+
+        .upload-icon-circle {
+            width: 56px;
+            height: 56px;
+            border-radius: 50%;
+            background: var(--color-bg-accent);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin: 0 auto 1rem auto;
+            color: var(--color-text-secondary);
+            font-size: 1.5rem;
+        }
+
+        .progress-bar-container {
+            width: 100%;
+            max-width: 320px;
+            background: var(--color-bg-input);
+            border-radius: var(--radius-xs);
+            height: 6px;
+            margin: 1rem auto 0 auto;
+            overflow: hidden;
+            display: none;
+        }
+
+        .progress-bar-fill {
+            background: var(--color-primary);
+            height: 100%;
+            width: 0%;
+            transition: width 0.1s linear;
+        }
+
+        /* Filter header tabs */
+        .gallery-controls {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            flex-wrap: wrap;
+            gap: 1rem;
+            border-bottom: 1px solid var(--color-border);
+            padding-bottom: 1rem;
+            margin-bottom: 1.5rem;
+        }
+
+        .gallery-tab-group {
+            display: flex;
+            gap: 0.5rem;
+        }
+
+        .gallery-tab {
+            background: none;
+            border: none;
+            padding: 0.5rem 1rem;
+            font-size: 0.875rem;
+            font-weight: 500;
+            color: var(--color-text-secondary);
+            cursor: pointer;
+            border-radius: var(--radius-xs);
+            transition: all var(--transition-fast);
+        }
+
+        .gallery-tab.active {
+            background: var(--color-primary-light);
+            color: var(--color-primary);
+        }
+
+        .media-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+            gap: 1.5rem;
+            width: 100%;
+        }
+
+        .media-card-item {
+            position: relative;
+            overflow: hidden;
+            border-radius: var(--radius-sm);
+            padding: 0;
+            display: flex;
+            flex-direction: column;
+            aspect-ratio: 1 / 1;
+            transition: transform var(--transition-fast), box-shadow var(--transition-fast);
+        }
+
+        .media-card-item:hover {
+            transform: translateY(-4px);
+            box-shadow: var(--shadow-md);
+        }
+
+        .media-thumbnail-wrapper {
+            position: relative;
+            flex: 1;
+            background: var(--color-bg-accent);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            overflow: hidden;
+        }
+
+        .media-thumbnail-img {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+        }
+
+        .media-meta-overlay {
+            position: absolute;
+            bottom: 0;
+            left: 0;
+            right: 0;
+            background: linear-gradient(to top, rgba(0,0,0,0.8) 0%, rgba(0,0,0,0.2) 70%, rgba(0,0,0,0) 100%);
+            padding: 1rem 0.75rem 0.5rem 0.75rem;
+            color: #fff;
+            opacity: 0;
+            transition: opacity var(--transition-fast);
+            display: flex;
+            flex-direction: column;
+            gap: 0.15rem;
+        }
+
+        .media-card-item:hover .media-meta-overlay {
+            opacity: 1;
+        }
+
+        .overlay-title {
+            font-size: 0.8125rem;
+            font-weight: 600;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+
+        .overlay-desc {
+            font-size: 0.7rem;
+            opacity: 0.8;
+        }
+
+        .card-controls-bar {
+            padding: 0.65rem 0.75rem;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            border-top: 1px solid var(--color-border);
+            background: var(--color-bg-card);
+        }
+
+        .control-btn-icon {
+            background: none;
+            border: none;
+            cursor: pointer;
+            color: var(--color-text-secondary);
+            padding: 0.25rem;
+            border-radius: var(--radius-xs);
+            transition: all var(--transition-fast);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .control-btn-icon:hover {
+            background: var(--color-bg-accent);
+            color: var(--color-primary);
+        }
+
+        .control-btn-icon.active {
+            color: #ffc107; /* Star yellow */
+        }
+
+        .empty-gallery-state {
+            grid-column: 1 / -1;
+            text-align: center;
+            padding: 5rem 2rem;
+            background: var(--color-bg-card);
+            border: 1.5px dashed var(--color-border);
+            border-radius: var(--radius-md);
+            color: var(--color-text-secondary);
+        }
+
+        /* Popups and toast */
+        .toast-notification {
+            position: fixed;
+            bottom: 2rem;
+            right: 2rem;
+            background: var(--color-success);
+            color: #fff;
+            padding: 1rem 1.5rem;
+            border-radius: var(--radius-sm);
+            box-shadow: var(--shadow-lg);
+            font-size: 0.875rem;
+            font-weight: 500;
+            display: none;
+            z-index: 1000;
+            animation: slideUp var(--transition-normal) forwards;
+        }
+
+        @keyframes slideUp {
+            from { transform: translateY(20px); opacity: 0; }
+            to { transform: translateY(0); opacity: 1; }
+        }
+    </style>
+</head>
+<body>
+
+    <div class="app-container">
+        <app-sidebar></app-sidebar>
+        <app-header></app-header>
+
+        <main class="main-content animated-fade-in">
+            
+            <!-- Page Header -->
+            <div class="page-header">
+                <div class="page-title-section">
+                    <h1 class="page-title">Media Library</h1>
+                    <p class="page-subtitle">Upload, organize, and attach visual assets to your scheduled postings.</p>
+                </div>
+            </div>
+
+            <div class="media-workspace">
+                
+                <!-- Drag and Drop Dropzone -->
+                <div class="card upload-dropzone-card" id="dropzoneCard">
+                    <input type="file" id="fileInput" accept="image/*,video/*" multiple style="display: none;" />
+                    <div class="upload-icon-circle">📤</div>
+                    <h3 style="font-size: 1.125rem; font-weight: 600; margin-bottom: 0.35rem; color: var(--color-text-primary);">
+                        Drag and drop your files here
+                    </h3>
+                    <p style="font-size: 0.875rem; color: var(--color-text-secondary);">
+                        or click to browse your local device (Supports JPG, PNG, WEBP, GIF, MP4 up to 10MB)
+                    </p>
+                    
+                    <!-- Progress Bar -->
+                    <div class="progress-bar-container" id="progressBarContainer">
+                        <div class="progress-bar-fill" id="progressBarFill"></div>
+                    </div>
+                    <p style="font-size: 0.75rem; color: var(--color-text-tertiary); margin-top: 0.5rem; display: none;" id="progressLabelText">
+                        Uploading assets...
+                    </p>
+                </div>
+
+                <!-- Gallery Listing Section -->
+                <div>
+                    <!-- Controls and filter tabs -->
+                    <div class="gallery-controls">
+                        <div class="gallery-tab-group">
+                            <button class="gallery-tab active" data-filter="all">All</button>
+                            <button class="gallery-tab" data-filter="favorites">Favorites</button>
+                            <button class="gallery-tab" data-filter="images">Images</button>
+                            <button class="gallery-tab" data-filter="videos">Videos</button>
+                        </div>
+                        
+                        <div style="display: flex; gap: 0.75rem; align-items: center;">
+                            <input type="text" id="gallerySearchInput" class="form-input" placeholder="Search files..." style="width: 200px;" />
+                            <select id="gallerySortSelect" class="form-select" style="width: 140px;">
+                                <option value="newest">Newest First</option>
+                                <option value="oldest">Oldest First</option>
+                                <option value="name">Name A-Z</option>
+                                <option value="size">Size</option>
+                            </select>
+                        </div>
+                    </div>
+
+                    <!-- Grid Layout -->
+                    <div class="media-grid" id="mediaGridContainer">
+                        <div class="empty-gallery-state" id="mediaLoading">
+                            <span style="display: inline-block; width: 24px; height: 24px; border: 2px solid var(--color-primary); border-top-color: transparent; border-radius: 50%; animation: spin 0.8s linear infinite; margin-bottom: 0.5rem;"></span>
+                            <p>Loading assets grid...</p>
+                        </div>
+                    </div>
+                </div>
+
+            </div>
+
+        </main>
+    </div>
+
+    <!-- Toast Notification -->
+    <div class="toast-notification" id="toastNotification">
+        Action completed successfully
+    </div>
+
+    <!-- ES Module Javascript Boilerplate -->
+    <script type="module" src="js/app.js"></script>
+    <script type="module">
+        import { mediaService } from './js/services/mediaService.js';
+        import { uploadService } from './js/services/uploadService.js';
+        import { imageService } from './js/services/imageService.js';
+
+        let mediaList = [];
+        let currentFilter = 'all';
+
+        const grid = document.getElementById('mediaGridContainer');
+        const searchInput = document.getElementById('gallerySearchInput');
+        const sortSelect = document.getElementById('gallerySortSelect');
+        const dropzone = document.getElementById('dropzoneCard');
+        const fileInput = document.getElementById('fileInput');
+
+        const progressBarContainer = document.getElementById('progressBarContainer');
+        const progressBarFill = document.getElementById('progressBarFill');
+        const progressLabelText = document.getElementById('progressLabelText');
+
+        // Fetch assets
+        async function fetchGallery() {
+            try {
+                mediaList = await mediaService.getMedia();
+                renderGallery();
+            } catch (err) {
+                console.error(err);
+                grid.innerHTML = `
+                    <div class="empty-gallery-state" style="color: var(--color-danger); border-color: var(--color-danger-light);">
+                        <p style="font-weight: 600;">Connection error loading library</p>
+                        <p style="font-size: 0.8125rem;">Verify worker server is running.</p>
+                    </div>
+                `;
+            }
+        }
+
+        // Render cards
+        function renderGallery() {
+            const query = searchInput.value.toLowerCase().trim();
+            const sortBy = sortSelect.value;
+
+            // 1. Filter
+            let filtered = mediaList.filter(item => {
+                const matchesSearch = item.filename && item.filename.toLowerCase().includes(query);
+                
+                let matchesType = true;
+                if (currentFilter === 'favorites') {
+                    matchesType = item.is_favorite === 1;
+                } else if (currentFilter === 'images') {
+                    matchesType = item.mime_type && item.mime_type.startsWith('image/');
+                } else if (currentFilter === 'videos') {
+                    matchesType = item.mime_type && item.mime_type.startsWith('video/');
+                }
+                
+                return matchesSearch && matchesType;
+            });
+
+            // 2. Sort
+            filtered.sort((a, b) => {
+                if (sortBy === 'newest') return new Date(b.created_at) - new Date(a.created_at);
+                if (sortBy === 'oldest') return new Date(a.created_at) - new Date(b.created_at);
+                if (sortBy === 'name') return (a.filename || '').localeCompare(b.filename || '');
+                if (sortBy === 'size') return b.file_size - a.file_size;
+                return 0;
+            });
+
+            grid.innerHTML = '';
+
+            if (filtered.length === 0) {
+                grid.innerHTML = `
+                    <div class="empty-gallery-state">
+                        <p style="font-weight: 500; margin-bottom: 0.25rem;">No assets found</p>
+                        <p style="font-size: 0.8125rem; color: var(--color-text-tertiary);">Drag and drop a file above to add media to your library.</p>
+                    </div>
+                `;
+                return;
+            }
+
+            filtered.forEach(item => {
+                const card = document.createElement('div');
+                card.className = 'card media-card-item';
+                
+                const isImage = item.mime_type && item.mime_type.startsWith('image/');
+                const sizeMb = (item.file_size / 1024 / 1024).toFixed(2);
+                const dimensions = item.width && item.height ? `${item.width}x${item.height}px` : 'Video Asset';
+                
+                const favoriteClass = item.is_favorite === 1 ? 'active' : '';
+                const favoriteIcon = item.is_favorite === 1 ? '★' : '☆';
+
+                // We store base64 dataUrl in storage_key for local preview simulation
+                const url = item.storage_key;
+
+                card.innerHTML = `
+                    <div class="media-thumbnail-wrapper">
+                        ${isImage 
+                            ? `<img src="${url}" alt="${item.filename}" class="media-thumbnail-img" />`
+                            : `<div style="font-size: 2.5rem;">🎥</div>`
+                        }
+                        
+                        <div class="media-meta-overlay">
+                            <span class="overlay-title">${item.filename}</span>
+                            <span class="overlay-desc">${sizeMb} MB • ${dimensions}</span>
+                        </div>
+                    </div>
+                    <div class="card-controls-bar">
+                        <button class="control-btn-icon btnFav ${favoriteClass}" data-id="${item.id}" data-fav="${item.is_favorite}" title="Favorite">
+                            ${favoriteIcon}
+                        </button>
+                        
+                        <div style="display: flex; gap: 0.25rem;">
+                            <!-- Copy URL -->
+                            <button class="control-btn-icon btnCopyUrl" data-url="${url}" title="Copy URL">
+                                🔗
+                            </button>
+                            <!-- Rename -->
+                            <button class="control-btn-icon btnRename" data-id="${item.id}" data-name="${item.filename}" title="Rename">
+                                ✏️
+                            </button>
+                            <!-- Delete -->
+                            <button class="control-btn-icon btnDelete" data-id="${item.id}" title="Delete">
+                                🗑️
+                            </button>
+                        </div>
+                    </div>
+                `;
+                grid.appendChild(card);
+            });
+
+            // Bind interactions
+            document.querySelectorAll('.btnFav').forEach(btn => {
+                btn.addEventListener('click', async (e) => {
+                    const id = e.currentTarget.getAttribute('data-id');
+                    const currentFav = parseInt(e.currentTarget.getAttribute('data-fav'));
+                    const newFav = currentFav === 1 ? false : true;
+                    
+                    const updated = await mediaService.toggleFavorite(id, newFav);
+                    if (updated) {
+                        showToast(newFav ? '🎉 Added to favorites!' : 'Removed from favorites.');
+                        fetchGallery();
+                    }
+                });
+            });
+
+            document.querySelectorAll('.btnCopyUrl').forEach(btn => {
+                btn.addEventListener('click', (e) => {
+                    const url = e.currentTarget.getAttribute('data-url');
+                    // In production this copies the CDN link
+                    navigator.clipboard.writeText(url);
+                    showToast('📋 CDN storage key copied to clipboard!');
+                });
+            });
+
+            document.querySelectorAll('.btnRename').forEach(btn => {
+                btn.addEventListener('click', async (e) => {
+                    const id = e.currentTarget.getAttribute('data-id');
+                    const oldName = e.currentTarget.getAttribute('data-name');
+                    
+                    const newName = prompt("Enter new filename:", oldName);
+                    if (newName && newName.trim() && newName !== oldName) {
+                        const updated = await mediaService.renameMedia(id, newName.trim());
+                        if (updated) {
+                            showToast('✏️ Filename updated successfully!');
+                            fetchGallery();
+                        }
+                    }
+                });
+            });
+
+            document.querySelectorAll('.btnDelete').forEach(btn => {
+                btn.addEventListener('click', async (e) => {
+                    const id = e.currentTarget.getAttribute('data-id');
+                    if (confirm("Are you sure you want to permanently delete this media asset? Any linked post drafts will detach.")) {
+                        const success = await mediaService.deleteMedia(id);
+                        if (success) {
+                            showToast('🗑️ Asset deleted successfully.');
+                            fetchGallery();
+                        }
+                    }
+                });
+            });
+        }
+
+        // Dropzone interactions
+        dropzone.addEventListener('click', () => fileInput.click());
+
+        dropzone.addEventListener('dragover', (e) => {
+            e.preventDefault();
+            dropzone.classList.add('dragover');
+        });
+
+        dropzone.addEventListener('dragleave', () => {
+            dropzone.classList.remove('dragover');
+        });
+
+        dropzone.addEventListener('drop', async (e) => {
+            e.preventDefault();
+            dropzone.classList.remove('dragover');
+            const files = e.dataTransfer.files;
+            if (files.length > 0) {
+                handleFileUploads(files);
+            }
+        });
+
+        fileInput.addEventListener('change', (e) => {
+            if (e.target.files.length > 0) {
+                handleFileUploads(e.target.files);
+            }
+        });
+
+        async function handleFileUploads(files) {
+            progressBarContainer.style.display = 'block';
+            progressLabelText.style.display = 'block';
+            progressLabelText.textContent = 'Analyzing and uploading assets...';
+
+            for (let i = 0; i < files.length; i++) {
+                const file = files[i];
+                progressBarFill.style.width = '0%';
+                
+                try {
+                    // Extract dimensions if image
+                    let dimensions = {};
+                    if (file.type.startsWith('image/')) {
+                        dimensions = await imageService.getImageDimensions(file);
+                    }
+
+                    // Trigger XHR upload with progress tracker
+                    await uploadService.uploadFile(file, dimensions, (percent) => {
+                        progressBarFill.style.width = `${percent}%`;
+                    });
+
+                    showToast(`📤 Uploaded ${file.name} successfully!`);
+                } catch (err) {
+                    alert(`Upload failed for ${file.name}: ${err.message}`);
+                }
+            }
+
+            // Hide bars after pause
+            setTimeout(() => {
+                progressBarContainer.style.display = 'none';
+                progressLabelText.style.display = 'none';
+                progressBarFill.style.width = '0%';
+            }, 1000);
+
+            fetchGallery();
+        }
+
+        // Tab Filters
+        document.querySelectorAll('.gallery-tab').forEach(tab => {
+            tab.addEventListener('click', (e) => {
+                document.querySelectorAll('.gallery-tab').forEach(t => t.classList.remove('active'));
+                e.target.classList.add('active');
+                currentFilter = e.target.getAttribute('data-filter');
+                renderGallery();
+            });
+        });
+
+        // Search and Sort
+        searchInput.addEventListener('input', renderGallery);
+        sortSelect.addEventListener('change', renderGallery);
+
+        // Toast trigger
+        function showToast(msg) {
+            const toast = document.getElementById('toastNotification');
+            toast.textContent = msg;
+            toast.style.display = 'block';
+            setTimeout(() => {
+                toast.style.display = 'none';
+            }, 3000);
+        }
+
+        // Run
+        fetchGallery();
+    </script>
+    <style>
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+    </style>
+</body>
+</html>

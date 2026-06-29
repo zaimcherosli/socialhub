@@ -1,0 +1,192 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Analytics | SocialHub - Platform Scheduler</title>
+    
+    <!-- Meta tags for SEO -->
+    <meta name="description" content="Review growth statistics, post performance metrics, and connected account analysis logs for SocialHub.">
+    <meta name="author" content="SocialHub Team">
+
+    <!-- Auth Route Guard: redirects to login.html instantly if user not authenticated -->
+    <script type="module">
+        import { sessionService } from './js/services/sessionService.js';
+        sessionService.requireAuth();
+    </script>
+
+    <!-- CSS Stylesheets -->
+    <link rel="stylesheet" href="css/variables.css">
+    <link rel="stylesheet" href="css/layout.css">
+    <link rel="stylesheet" href="css/components.css">
+    <style>
+        .analytics-chart-mock {
+            height: 200px;
+            width: 100%;
+            background: linear-gradient(180deg, var(--color-primary-light) 0%, transparent 100%);
+            border-radius: var(--radius-sm);
+            margin-top: 1rem;
+            position: relative;
+            overflow: hidden;
+            display: flex;
+            align-items: flex-end;
+            padding: 0 1rem;
+            gap: 1.5rem;
+        }
+
+        .chart-bar-mock {
+            flex: 1;
+            background: var(--color-primary);
+            border-top-left-radius: 4px;
+            border-top-right-radius: 4px;
+            opacity: 0.85;
+            transition: opacity var(--transition-fast);
+            position: relative;
+        }
+
+        .chart-bar-mock:hover {
+            opacity: 1;
+        }
+
+        .chart-bar-mock::before {
+            content: attr(data-value);
+            position: absolute;
+            top: -24px;
+            left: 50%;
+            transform: translateX(-50%);
+            font-size: 10px;
+            font-weight: 600;
+            color: var(--color-text-secondary);
+        }
+    </style>
+</head>
+<body>
+
+    <div class="app-container">
+        <app-sidebar></app-sidebar>
+        <app-header></app-header>
+
+        <main class="main-content animated-fade-in">
+            
+            <!-- Page Header -->
+            <div class="page-header">
+                <div class="page-title-section">
+                    <h1 class="page-title">Channel Analytics</h1>
+                    <p class="page-subtitle">Track impressions, engagement, and click-through rates across platforms.</p>
+                </div>
+                <div class="page-actions">
+                    <button class="btn btn-secondary">
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                            <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M7 10l5 5 5-5M12 15V3"/>
+                        </svg>
+                        Export CSV
+                    </button>
+                    <select class="form-select" style="width: 160px; padding: 0.5rem 0.75rem;">
+                        <option>Last 7 Days</option>
+                        <option selected>Last 30 Days</option>
+                        <option>Last 90 Days</option>
+                    </select>
+                </div>
+            </div>
+
+            <!-- Summary metrics -->
+            <div class="dashboard-metrics-grid">
+                
+                <!-- Stat 1 -->
+                <div class="card">
+                    <span class="card-subtitle">Total Reach</span>
+                    <h2 class="card-title" style="font-size: 2rem; font-weight: 700; margin-top: 0.5rem; font-family: var(--font-heading);">45,280</h2>
+                    <span style="font-size: 0.75rem; color: var(--color-success); font-weight: 600; display: inline-flex; align-items: center; gap: 0.25rem; margin-top: 0.25rem;">
+                        ↑ 12.4% <span style="color: var(--color-text-tertiary); font-weight: 400;">vs last month</span>
+                    </span>
+                </div>
+
+                <!-- Stat 2 -->
+                <div class="card">
+                    <span class="card-subtitle">Engagement Rate</span>
+                    <h2 class="card-title" style="font-size: 2rem; font-weight: 700; margin-top: 0.5rem; font-family: var(--font-heading);">4.82%</h2>
+                    <span style="font-size: 0.75rem; color: var(--color-success); font-weight: 600; display: inline-flex; align-items: center; gap: 0.25rem; margin-top: 0.25rem;">
+                        ↑ 0.35% <span style="color: var(--color-text-tertiary); font-weight: 400;">vs last month</span>
+                    </span>
+                </div>
+
+                <!-- Stat 3 -->
+                <div class="card">
+                    <span class="card-subtitle">Link Clicks</span>
+                    <h2 class="card-title" style="font-size: 2rem; font-weight: 700; margin-top: 0.5rem; font-family: var(--font-heading);">2,891</h2>
+                    <span style="font-size: 0.75rem; color: var(--color-warning); font-weight: 600; display: inline-flex; align-items: center; gap: 0.25rem; margin-top: 0.25rem;">
+                        ↓ 1.2% <span style="color: var(--color-text-tertiary); font-weight: 400;">vs last month</span>
+                    </span>
+                </div>
+
+                <!-- Stat 4 -->
+                <div class="card">
+                    <span class="card-subtitle">Net Followers</span>
+                    <h2 class="card-title" style="font-size: 2rem; font-weight: 700; margin-top: 0.5rem; font-family: var(--font-heading);">+942</h2>
+                    <span style="font-size: 0.75rem; color: var(--color-success); font-weight: 600; display: inline-flex; align-items: center; gap: 0.25rem; margin-top: 0.25rem;">
+                        ↑ 8.1% <span style="color: var(--color-text-tertiary); font-weight: 400;">vs last month</span>
+                    </span>
+                </div>
+
+            </div>
+
+            <!-- Visual Chart card -->
+            <div class="card" style="padding: 1.75rem;">
+                <h3 class="card-title">Audience Impressions</h3>
+                <p class="card-subtitle">Daily impressions breakdown across LinkedIn and Twitter.</p>
+                
+                <!-- Mock Graph bar columns -->
+                <div class="analytics-chart-mock">
+                    <div class="chart-bar-mock" style="height: 35%;" data-value="1.2k"></div>
+                    <div class="chart-bar-mock" style="height: 48%;" data-value="1.8k"></div>
+                    <div class="chart-bar-mock" style="height: 65%;" data-value="2.5k"></div>
+                    <div class="chart-bar-mock" style="height: 52%;" data-value="2.0k"></div>
+                    <div class="chart-bar-mock" style="height: 80%;" data-value="3.2k"></div>
+                    <div class="chart-bar-mock" style="height: 72%;" data-value="2.8k"></div>
+                    <div class="chart-bar-mock" style="height: 95%;" data-value="4.1k"></div>
+                </div>
+            </div>
+
+            <!-- Performance Table details -->
+            <div class="card" style="padding: 1.75rem;">
+                <h3 class="card-title">Top Performing Posts</h3>
+                <p class="card-subtitle" style="margin-bottom: 1.25rem;">Sort and filter published posts based on conversion metrics.</p>
+                
+                <div class="table-container">
+                    <table class="table">
+                        <thead>
+                            <tr>
+                                <th>Post Content</th>
+                                <th>Channel</th>
+                                <th>Impressions</th>
+                                <th>Clicks</th>
+                                <th>Engagement</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr>
+                                <td style="font-weight: 500;">Announcing our new features for SocialHub! 🚀</td>
+                                <td><span class="platform-pill linkedin" style="font-size: 10px; padding: 0.15rem 0.4rem;">LI</span></td>
+                                <td>14,250</td>
+                                <td>482</td>
+                                <td>5.8%</td>
+                            </tr>
+                            <tr>
+                                <td style="font-weight: 500;">Why Serverless is the future of SaaS pipelines... ⚡</td>
+                                <td><span class="platform-pill twitter" style="font-size: 10px; padding: 0.15rem 0.4rem;">X</span></td>
+                                <td>8,420</td>
+                                <td>304</td>
+                                <td>4.2%</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+        </main>
+    </div>
+
+    <!-- ES Module Javascript Boilerplate -->
+    <script type="module" src="js/app.js"></script>
+</body>
+</html>

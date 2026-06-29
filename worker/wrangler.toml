@@ -1,0 +1,19 @@
+# wrangler.toml - Cloudflare Worker Configuration
+name = "socialhub-worker"
+main = "src/index.js"
+compatibility_date = "2026-06-29"
+
+# Variables/Bindings
+[vars]
+ENVIRONMENT = "development"
+
+# D1 Database Binding
+[[d1_databases]]
+binding = "DB"
+database_name = "socialhub-db"
+database_id = "00000000-0000-0000-0000-000000000000" # Replace with wrangler d1 create command output uuid
+
+# R2 Buckets Binding (Asset storage bucket reference)
+[[r2_buckets]]
+binding = "BUCKET"
+bucket_name = "socialhub-assets"

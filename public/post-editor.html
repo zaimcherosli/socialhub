@@ -1,0 +1,863 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Post Composer | SocialHub - Platform Scheduler</title>
+
+    <!-- Auth Route Guard: redirects to login.html instantly if user not authenticated -->
+    <script type="module">
+        import { sessionService } from './js/services/sessionService.js';
+        sessionService.requireAuth();
+    </script>
+
+    <!-- CSS Stylesheets -->
+    <link rel="stylesheet" href="css/variables.css">
+    <link rel="stylesheet" href="css/layout.css">
+    <link rel="stylesheet" href="css/components.css">
+    <style>
+        .editor-workspace {
+            display: grid;
+            grid-template-columns: 2fr 1fr;
+            gap: 2rem;
+            align-items: start;
+        }
+
+        .editor-canvas-card {
+            padding: 2rem;
+            display: flex;
+            flex-direction: column;
+            gap: 1.25rem;
+        }
+
+        .editor-textarea {
+            width: 100%;
+            min-height: 220px;
+            font-family: var(--font-body);
+            font-size: 1rem;
+            line-height: 1.5;
+            background: var(--color-bg-input);
+            border: 1px solid var(--color-border);
+            border-radius: var(--radius-sm);
+            padding: 1.25rem;
+            resize: vertical;
+            outline: none;
+            color: var(--color-text-primary);
+            transition: all var(--transition-fast);
+        }
+
+        .editor-textarea:focus {
+            border-color: var(--color-primary);
+            box-shadow: 0 0 0 3px var(--color-primary-glow);
+            background: var(--color-bg-card);
+        }
+
+        .metrics-badge-row {
+            display: flex;
+            align-items: center;
+            gap: 1.5rem;
+            font-size: 0.8125rem;
+            color: var(--color-text-secondary);
+            border-bottom: 1px solid var(--color-border);
+            padding-bottom: 1rem;
+        }
+
+        .metric-item {
+            display: flex;
+            align-items: center;
+            gap: 0.35rem;
+        }
+
+        .metric-value {
+            font-weight: 600;
+            color: var(--color-text-primary);
+        }
+
+        /* Platform preview sidebar */
+        .preview-pane-card {
+            position: sticky;
+            top: calc(var(--header-height) + 2rem);
+        }
+
+        .threads-preview-bubble {
+            background: var(--color-bg-base);
+            border: 1px solid var(--color-border);
+            border-radius: var(--radius-md);
+            padding: 1.25rem;
+            margin-top: 1rem;
+            position: relative;
+        }
+
+        [data-theme="dark"] .threads-preview-bubble {
+            background: #141416;
+        }
+
+        .preview-avatar {
+            width: 36px;
+            height: 36px;
+            border-radius: 50%;
+            background: var(--color-primary);
+            color: #fff;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 0.75rem;
+            font-weight: 600;
+        }
+
+        .preview-caption-text {
+            font-size: 0.875rem;
+            line-height: 1.45;
+            white-space: pre-wrap;
+            word-wrap: break-word;
+            margin-top: 0.75rem;
+        }
+
+        .hashtag-highlight { color: #0095f6; font-weight: 500; }
+        .mention-highlight { color: var(--color-primary); font-weight: 500; }
+
+        .editor-controls-row {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            flex-wrap: wrap;
+            gap: 1rem;
+            margin-top: 1rem;
+        }
+
+        .editor-history-buttons {
+            display: flex;
+            gap: 0.25rem;
+        }
+
+        .autosave-status-text {
+            font-size: 0.75rem;
+            color: var(--color-text-tertiary);
+            font-style: italic;
+        }
+
+        .emoji-selector-grid {
+            display: flex;
+            gap: 0.35rem;
+            flex-wrap: wrap;
+            margin-top: 0.5rem;
+        }
+
+        .emoji-btn {
+            background: var(--color-bg-accent);
+            border: 1px solid var(--color-border);
+            border-radius: var(--radius-xs);
+            padding: 0.35rem 0.5rem;
+            font-size: 0.875rem;
+            cursor: pointer;
+            transition: all var(--transition-fast);
+        }
+
+        .emoji-btn:hover {
+            background: var(--color-border);
+            transform: scale(1.05);
+        }
+
+        .recovery-banner {
+            background: var(--color-warning-light);
+            border: 1px solid rgba(255, 193, 7, 0.2);
+            border-radius: var(--radius-sm);
+            padding: 0.875rem 1.25rem;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 1.5rem;
+            font-size: 0.875rem;
+            animation: fadeIn var(--transition-normal);
+        }
+
+        /* Attachment styles */
+        .attachment-badge-card {
+            position: relative;
+            width: 100px;
+            height: 100px;
+            border-radius: var(--radius-xs);
+            border: 1px solid var(--color-border);
+            overflow: hidden;
+            background: var(--color-bg-accent);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .attachment-img-preview {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+        }
+
+        .attachment-detach-btn {
+            position: absolute;
+            top: 2px;
+            right: 2px;
+            background: rgba(0,0,0,0.6);
+            color: #fff;
+            border: none;
+            width: 18px;
+            height: 18px;
+            border-radius: 50%;
+            cursor: pointer;
+            font-size: 0.65rem;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: 700;
+        }
+
+        /* Modal styling */
+        .picker-modal-backdrop {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.4);
+            z-index: 1001;
+            align-items: center;
+            justify-content: center;
+            backdrop-filter: blur(4px);
+        }
+
+        .picker-modal-content {
+            width: 90%;
+            max-width: 580px;
+            max-height: 80vh;
+            display: flex;
+            flex-direction: column;
+            gap: 1rem;
+            padding: 1.5rem;
+        }
+
+        .picker-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(100px, 1fr));
+            gap: 0.875rem;
+            max-height: 360px;
+            overflow-y: auto;
+            padding: 0.25rem;
+        }
+
+        .picker-item-card {
+            border: 1px solid var(--color-border);
+            border-radius: var(--radius-xs);
+            cursor: pointer;
+            overflow: hidden;
+            aspect-ratio: 1 / 1;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background: var(--color-bg-accent);
+            position: relative;
+            transition: all var(--transition-fast);
+        }
+
+        .picker-item-card:hover {
+            border-color: var(--color-primary);
+            box-shadow: var(--shadow-sm);
+        }
+
+        @media (max-width: 1024px) {
+            .editor-workspace {
+                grid-template-columns: 1fr;
+            }
+            .preview-pane-card {
+                position: relative;
+                top: 0;
+            }
+        }
+    </style>
+</head>
+<body>
+
+    <div class="app-container">
+        <app-sidebar></app-sidebar>
+        <app-header></app-header>
+
+        <main class="main-content animated-fade-in">
+            
+            <!-- Page Header -->
+            <div class="page-header">
+                <div class="page-title-section">
+                    <h1 class="page-title" id="pageTitleLabel">New Post</h1>
+                    <p class="page-subtitle">Draft your content and configure publishing visibility.</p>
+                </div>
+                <div class="page-actions">
+                    <a href="posts.html" class="btn btn-secondary" id="btnBack">Cancel</a>
+                    <button class="btn btn-primary" id="btnSavePost">Save Changes</button>
+                </div>
+            </div>
+
+            <!-- Restore Backup Notification Banner -->
+            <div class="recovery-banner" id="recoveryBanner" style="display: none;">
+                <div style="display: flex; align-items: center; gap: 0.5rem;">
+                    ⚠️ <span>Unsaved local changes detected from a previous browser session.</span>
+                </div>
+                <div style="display: flex; gap: 0.5rem;">
+                    <button class="btn btn-primary" style="padding: 0.35rem 0.75rem; font-size: 0.75rem;" id="btnRestoreBackup">Restore</button>
+                    <button class="btn btn-secondary" style="padding: 0.35rem 0.75rem; font-size: 0.75rem;" id="btnDismissBackup">Dismiss</button>
+                </div>
+            </div>
+
+            <!-- Workspace Grid -->
+            <div class="editor-workspace">
+                
+                <!-- Left: Editor Canvas -->
+                <div class="card editor-canvas-card">
+                    <h3 class="card-title">Editor Workspace</h3>
+                    
+                    <div class="form-group">
+                        <label class="form-label" for="postTitle">Post Organizer Title</label>
+                        <input type="text" id="postTitle" class="form-input" placeholder="e.g. Threads Product Announcement Draft" />
+                    </div>
+
+                    <!-- Metrics row -->
+                    <div class="metrics-badge-row">
+                        <div class="metric-item">
+                            <span>Characters:</span>
+                            <span class="metric-value" id="charCountLabel">0</span>
+                            <span id="platformLimitWarning" style="color: var(--color-danger); font-weight: 600; margin-left: 0.25rem; display: none;"></span>
+                        </div>
+                        <div class="metric-item">
+                            <span>Words:</span>
+                            <span class="metric-value" id="wordCountLabel">0</span>
+                        </div>
+                        <div class="metric-item">
+                            <span>Reading Time:</span>
+                            <span class="metric-value" id="readingTimeLabel">1 min</span>
+                        </div>
+                    </div>
+
+                    <div class="form-group" style="margin-bottom: 0.25rem;">
+                        <label class="form-label" for="postCaption">Caption Content</label>
+                        <textarea id="postCaption" class="editor-textarea" placeholder="Compose your post content here... Type #hashtags or @mentions. Add links..."></textarea>
+                    </div>
+
+                    <!-- Media attachments row -->
+                    <div class="form-group" style="margin-bottom: 0.75rem;">
+                        <span class="form-label">Media Attachments</span>
+                        <div id="attachedMediaContainer" style="display: flex; gap: 0.875rem; flex-wrap: wrap; margin-top: 0.5rem; margin-bottom: 0.75rem;">
+                            <!-- Dynamic attachment cards -->
+                        </div>
+                        <div style="display: flex; gap: 0.5rem;">
+                            <button class="btn btn-secondary" style="font-size: 0.75rem; padding: 0.45rem 0.75rem;" id="btnOpenMediaPicker">
+                                🖼️ Add from Library
+                            </button>
+                            <input type="file" id="directComposerFileInput" accept="image/*,video/*" style="display: none;" />
+                            <button class="btn btn-secondary" style="font-size: 0.75rem; padding: 0.45rem 0.75rem;" id="btnComposerDirectUpload">
+                                📤 Direct Upload
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- Emoji panel -->
+                    <div class="form-group" style="margin-bottom: 1rem;">
+                        <span class="form-label">Quick Emojis</span>
+                        <div class="emoji-selector-grid" id="emojiSelectorGrid">
+                            <button class="emoji-btn">🔥</button>
+                            <button class="emoji-btn">🚀</button>
+                            <button class="emoji-btn">🎨</button>
+                            <button class="emoji-btn">⚡</button>
+                            <button class="emoji-btn">💻</button>
+                            <button class="emoji-btn">📈</button>
+                            <button class="emoji-btn">🤖</button>
+                            <button class="emoji-btn">📝</button>
+                            <button class="emoji-btn">📅</button>
+                            <button class="emoji-btn">✔️</button>
+                        </div>
+                    </div>
+
+                    <div class="two-col-grid" style="gap: 1rem;">
+                        <div class="form-group" style="margin-bottom: 0;">
+                            <label class="form-label" for="postVisibility">Visibility</label>
+                            <select id="postVisibility" class="form-select">
+                                <option value="public" selected>Public</option>
+                                <option value="private">Private</option>
+                                <option value="limited">Limited</option>
+                            </select>
+                        </div>
+                        <div class="form-group" style="margin-bottom: 0;">
+                            <label class="form-label" for="postStatus">Publish Status</label>
+                            <select id="postStatus" class="form-select">
+                                <option value="draft" selected>Draft</option>
+                                <option value="scheduled">Scheduled</option>
+                            </select>
+                        </div>
+                    </div>
+
+                    <!-- Undo, Redo, Autosave status -->
+                    <div class="editor-controls-row">
+                        <div class="editor-history-buttons">
+                            <button class="btn btn-secondary btn-icon" id="btnUndo" title="Undo" style="padding: 0.4rem 0.5rem;" disabled>
+                                ↩️ Undo
+                            </button>
+                            <button class="btn btn-secondary btn-icon" id="btnRedo" title="Redo" style="padding: 0.4rem 0.5rem;" disabled>
+                                ↪️ Redo
+                            </button>
+                        </div>
+                        <div class="autosave-status-text" id="autosaveStatusLabel">
+                            Autosave active (every 30s)
+                        </div>
+                    </div>
+
+                </div>
+
+                <!-- Right: Platform live preview -->
+                <div class="card preview-pane-card">
+                    <h3 class="card-title">Live Preview</h3>
+                    <p class="card-subtitle">Threads feed rendering simulation.</p>
+                    
+                    <div class="threads-preview-bubble">
+                        <div style="display: flex; align-items: center; gap: 0.75rem;">
+                            <div class="preview-avatar" id="previewAvatarLetters">JD</div>
+                            <div>
+                                <span style="font-weight: 600; font-size: 0.875rem;" id="previewUserNameLabel">John Doe</span>
+                                <span style="color: var(--color-text-tertiary); font-size: 0.75rem; display: block;">Just now</span>
+                            </div>
+                        </div>
+                        <div class="preview-caption-text" id="previewCaptionText">Your post preview will appear here.</div>
+                        
+                        <!-- Visual Preview inside feed bubble -->
+                        <div id="previewMediaContainer" style="margin-top: 0.75rem; display: none;">
+                            <img id="previewMediaImg" src="" style="width: 100%; max-height: 220px; object-fit: cover; border-radius: var(--radius-sm);" />
+                        </div>
+                    </div>
+                </div>
+
+            </div>
+
+        </main>
+    </div>
+
+    <!-- Media Asset Picker Drawer Modal -->
+    <div class="picker-modal-backdrop" id="mediaPickerModal">
+        <div class="card picker-modal-content">
+            <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid var(--color-border); padding-bottom: 0.75rem; margin-bottom: 0.5rem;">
+                <h3 class="card-title" style="margin-bottom: 0;">Attach Library Visuals</h3>
+                <button class="btn btn-secondary" style="padding: 0.35rem 0.65rem; font-size: 0.75rem;" id="btnCloseMediaPicker">Close</button>
+            </div>
+            <div class="picker-grid" id="modalMediaGrid">
+                <!-- Media files populate here -->
+            </div>
+        </div>
+    </div>
+
+    <!-- Script imports -->
+    <script type="module" src="js/app.js"></script>
+    <script type="module">
+        import { postService } from './js/services/postService.js';
+        import { draftService } from './js/services/draftService.js';
+        import { editorService } from './js/services/editorService.js';
+        import { validationService } from './js/services/validationService.js';
+        import { authService } from './js/services/authService.js';
+        import { mediaService } from './js/services/mediaService.js';
+        import { uploadService } from './js/services/uploadService.js';
+        import { imageService } from './js/services/imageService.js';
+
+        const urlParams = new URLSearchParams(window.location.search);
+        const postId = urlParams.get('id') || 'new';
+
+        const titleInput = document.getElementById('postTitle');
+        const captionTextarea = document.getElementById('postCaption');
+        const visibilitySelect = document.getElementById('postVisibility');
+        const statusSelect = document.getElementById('postStatus');
+        const mediaContainer = document.getElementById('attachedMediaContainer');
+        const pickerModal = document.getElementById('mediaPickerModal');
+
+        let isDirty = false;
+        let dbUpdatedAt = null;
+        let attachedMedia = []; // Stores actual media objects
+
+        // Fetch user preview metadata
+        async function fetchUserPreviewMeta() {
+            const user = await authService.getSession();
+            if (user) {
+                document.getElementById('previewUserNameLabel').textContent = user.name;
+                const initials = user.name.trim().split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2);
+                document.getElementById('previewAvatarLetters').textContent = initials;
+            }
+        }
+
+        // Format highlights
+        function formatPreviewText(text) {
+            if (!text) return 'Your post preview will appear here.';
+            let escaped = text
+                .replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;").replace(/'/g, "&#039;");
+            escaped = escaped.replace(/(#[a-z0-9_]+)/gi, '<span class="hashtag-highlight">$1</span>');
+            escaped = escaped.replace(/(@[a-z0-9_]+)/gi, '<span class="mention-highlight">$1</span>');
+            return escaped;
+        }
+
+        // Render attachments
+        function renderAttachedMedia() {
+            mediaContainer.innerHTML = '';
+            
+            const previewContainer = document.getElementById('previewMediaContainer');
+            const previewImg = document.getElementById('previewMediaImg');
+
+            if (attachedMedia.length === 0) {
+                mediaContainer.innerHTML = `
+                    <p style="font-size: 0.75rem; color: var(--color-text-tertiary); font-style: italic;">No media attachments linked.</p>
+                `;
+                previewContainer.style.display = 'none';
+                return;
+            }
+
+            attachedMedia.forEach(item => {
+                const card = document.createElement('div');
+                card.className = 'attachment-badge-card';
+                
+                const isImage = item.mime_type && item.mime_type.startsWith('image/');
+                const url = item.storage_key; // base64 preview path
+
+                card.innerHTML = `
+                    ${isImage 
+                        ? `<img src="${url}" class="attachment-img-preview" />`
+                        : `<div style="font-size: 1.5rem;">🎥</div>`
+                    }
+                    <button class="attachment-detach-btn btnDetach" data-id="${item.id}">×</button>
+                `;
+                mediaContainer.appendChild(card);
+            });
+
+            // Bind detach button listeners
+            document.querySelectorAll('.btnDetach').forEach(btn => {
+                btn.addEventListener('click', (e) => {
+                    const id = parseInt(e.currentTarget.getAttribute('data-id'));
+                    attachedMedia = attachedMedia.filter(m => m.id !== id);
+                    isDirty = true;
+                    renderAttachedMedia();
+                });
+            });
+
+            // Display first image attachment in Threads feed live preview
+            const firstImage = attachedMedia.find(m => m.mime_type && m.mime_type.startsWith('image/'));
+            if (firstImage) {
+                previewImg.src = firstImage.storage_key;
+                previewContainer.style.display = 'block';
+            } else {
+                previewContainer.style.display = 'none';
+            }
+        }
+
+        function updateEditorStats() {
+            const caption = captionTextarea.value;
+            const chars = editorService.getCharacterCount(caption);
+            const words = editorService.getWordCount(caption);
+            const time = editorService.estimateReadingTime(caption);
+
+            document.getElementById('charCountLabel').textContent = chars;
+            document.getElementById('wordCountLabel').textContent = words;
+            document.getElementById('readingTimeLabel').textContent = `${time} min`;
+
+            const limitReport = validationService.validatePlatformLimits(caption, 'threads');
+            const limitWarning = document.getElementById('platformLimitWarning');
+            if (limitReport.exceedsLimit) {
+                captionTextarea.style.borderColor = 'var(--color-danger)';
+                limitWarning.textContent = `Threads limit exceeded! (${chars}/500)`;
+                limitWarning.style.display = 'inline';
+            } else {
+                captionTextarea.style.borderColor = '';
+                limitWarning.style.display = 'none';
+            }
+
+            document.getElementById('previewCaptionText').innerHTML = formatPreviewText(caption);
+        }
+
+        // Get Editor State
+        function getEditorState() {
+            return {
+                title: titleInput.value,
+                caption: captionTextarea.value,
+                visibility: visibilitySelect.value,
+                status: statusSelect.value,
+                attachedMedia: attachedMedia // Capture attached media list in state buffers
+            };
+        }
+
+        // Set Editor State
+        function setEditorState(state) {
+            titleInput.value = state.title || '';
+            captionTextarea.value = state.caption || '';
+            visibilitySelect.value = state.visibility || 'public';
+            statusSelect.value = state.status || 'draft';
+            attachedMedia = state.attachedMedia || [];
+            renderAttachedMedia();
+            updateEditorStats();
+        }
+
+        function recordState() {
+            editorService.pushState(getEditorState());
+            document.getElementById('btnUndo').disabled = false;
+            document.getElementById('btnRedo').disabled = true;
+        }
+
+        // Save post update and map media junction records
+        async function savePostData() {
+            const state = getEditorState();
+            
+            const report = validationService.validatePostForm(state.title, state.caption);
+            if (!report.isValid) {
+                alert(Object.values(report.errors).join('\n'));
+                return;
+            }
+
+            const btnSave = document.getElementById('btnSavePost');
+            btnSave.disabled = true;
+            btnSave.textContent = 'Saving...';
+
+            try {
+                let targetId = postId;
+                
+                if (postId === 'new') {
+                    const response = await postService.createPost(state);
+                    targetId = response.id;
+                } else {
+                    await postService.updatePost(postId, state);
+                }
+
+                // Sync junctions table post_media
+                // 1. Fetch current links from DB
+                const currentDBLinks = await mediaService.getPostMedia(targetId);
+                const currentDBIds = currentDBLinks.map(m => m.id);
+                const attachedIds = attachedMedia.map(m => m.id);
+
+                // 2. Attach any new media that is not yet linked
+                for (const mId of attachedIds) {
+                    if (!currentDBIds.includes(mId)) {
+                        await mediaService.attachMediaToPost(targetId, mId);
+                    }
+                }
+
+                // 3. Detach any previously linked media that was removed in editor session
+                for (const mId of currentDBIds) {
+                    if (!attachedIds.includes(mId)) {
+                        await mediaService.detachMediaFromPost(targetId, mId);
+                    }
+                }
+
+                draftService.clearBackup(postId);
+                isDirty = false;
+                window.location.replace(`posts.html`);
+            } catch (err) {
+                alert(`Error saving post attachments: ${err.message}`);
+                btnSave.disabled = false;
+                btnSave.textContent = 'Save Changes';
+            }
+        }
+
+        // Initialize editor loading
+        async function initEditor() {
+            await fetchUserPreviewMeta();
+
+            let initialState = { title: '', caption: '', visibility: 'public', status: 'draft', attachedMedia: [] };
+
+            if (postId !== 'new') {
+                document.getElementById('pageTitleLabel').textContent = 'Edit Post';
+                try {
+                    const post = await postService.getPost(postId);
+                    const media = await mediaService.getPostMedia(postId);
+                    
+                    initialState = {
+                        title: post.title,
+                        caption: post.caption,
+                        visibility: post.visibility,
+                        status: post.status,
+                        attachedMedia: media
+                    };
+                    dbUpdatedAt = post.updated_at;
+                } catch (err) {
+                    alert('Failed to retrieve post details from backend database.');
+                    window.location.replace('posts.html');
+                    return;
+                }
+            }
+
+            setEditorState(initialState);
+            editorService.resetHistory(initialState);
+
+            if (draftService.hasNewerBackup(postId, dbUpdatedAt)) {
+                document.getElementById('recoveryBanner').style.display = 'flex';
+            }
+
+            draftService.startAutosave(postId, getEditorState, (timestamp) => {
+                const date = new Date(timestamp);
+                const timeStr = date.toLocaleTimeString();
+                document.getElementById('autosaveStatusLabel').textContent = `Saved locally at ${timeStr}`;
+            });
+        }
+
+        // Event listeners
+        titleInput.addEventListener('input', () => { isDirty = true; });
+        captionTextarea.addEventListener('input', () => {
+            isDirty = true;
+            updateEditorStats();
+        });
+
+        let typingTimer;
+        captionTextarea.addEventListener('keyup', () => {
+            clearTimeout(typingTimer);
+            typingTimer = setTimeout(recordState, 1000);
+        });
+        titleInput.addEventListener('change', recordState);
+        visibilitySelect.addEventListener('change', () => { isDirty = true; recordState(); });
+        statusSelect.addEventListener('change', () => { isDirty = true; recordState(); });
+
+        // Emoji buttons triggers
+        document.querySelectorAll('.emoji-btn').forEach(btn => {
+            btn.addEventListener('click', (e) => {
+                const emoji = e.target.textContent;
+                const start = captionTextarea.selectionStart;
+                const end = captionTextarea.selectionEnd;
+                const text = captionTextarea.value;
+                captionTextarea.value = text.substring(0, start) + emoji + text.substring(end);
+                captionTextarea.focus();
+                captionTextarea.selectionStart = captionTextarea.selectionEnd = start + emoji.length;
+                isDirty = true;
+                updateEditorStats();
+                recordState();
+            });
+        });
+
+        // Undo / Redo triggers
+        document.getElementById('btnUndo').addEventListener('click', () => {
+            const previous = editorService.undo(getEditorState());
+            if (previous) {
+                setEditorState(previous);
+                document.getElementById('btnRedo').disabled = false;
+            }
+            if (editorService.undo(getEditorState()) === null) {
+                document.getElementById('btnUndo').disabled = true;
+            }
+        });
+
+        document.getElementById('btnRedo').addEventListener('click', () => {
+            const next = editorService.redo();
+            if (next) {
+                setEditorState(next);
+                document.getElementById('btnUndo').disabled = false;
+            }
+            if (editorService.redo() === null) {
+                document.getElementById('btnRedo').disabled = true;
+            }
+        });
+
+        // Recovery Banner controls
+        document.getElementById('btnRestoreBackup').addEventListener('click', () => {
+            const backup = draftService.getBackup(postId);
+            if (backup) {
+                setEditorState(backup);
+                recordState();
+            }
+            document.getElementById('recoveryBanner').style.display = 'none';
+        });
+
+        document.getElementById('btnDismissBackup').addEventListener('click', () => {
+            draftService.clearBackup(postId);
+            document.getElementById('recoveryBanner').style.display = 'none';
+        });
+
+        // Media Picker Modal triggers
+        const btnOpenPicker = document.getElementById('btnOpenMediaPicker');
+        const btnClosePicker = document.getElementById('btnCloseMediaPicker');
+        const modalMediaGrid = document.getElementById('modalMediaGrid');
+
+        btnOpenPicker.addEventListener('click', async () => {
+            pickerModal.style.display = 'flex';
+            modalMediaGrid.innerHTML = '<p style="font-size:0.8125rem; color:var(--color-text-secondary);">Loading library...</p>';
+            
+            try {
+                const libraryList = await mediaService.getMedia();
+                modalMediaGrid.innerHTML = '';
+
+                if (libraryList.length === 0) {
+                    modalMediaGrid.innerHTML = '<p style="font-size:0.8125rem; color:var(--color-text-secondary); grid-column: 1/-1;">Your library is empty. Try a Direct Upload first.</p>';
+                    return;
+                }
+
+                libraryList.forEach(item => {
+                    const isImage = item.mime_type && item.mime_type.startsWith('image/');
+                    const card = document.createElement('div');
+                    card.className = 'picker-item-card';
+                    card.title = item.filename;
+
+                    card.innerHTML = isImage
+                        ? `<img src="${item.storage_key}" style="width:100%; height:100%; object-fit:cover;" />`
+                        : `<span style="font-size:1.5rem;">🎥</span>`;
+                    
+                    card.addEventListener('click', () => {
+                        // Avoid duplicates in attachment lists
+                        if (!attachedMedia.some(m => m.id === item.id)) {
+                            attachedMedia.push(item);
+                            isDirty = true;
+                            renderAttachedMedia();
+                        }
+                        pickerModal.style.display = 'none';
+                    });
+
+                    modalMediaGrid.appendChild(card);
+                });
+            } catch (err) {
+                modalMediaGrid.innerHTML = '<p style="font-size:0.8125rem; color:var(--color-danger); grid-column: 1/-1;">Failed to fetch media assets list.</p>';
+            }
+        });
+
+        btnClosePicker.addEventListener('click', () => {
+            pickerModal.style.display = 'none';
+        });
+
+        // Direct upload inside post composer
+        const btnDirectUpload = document.getElementById('btnComposerDirectUpload');
+        const directFileInput = document.getElementById('directComposerFileInput');
+
+        btnDirectUpload.addEventListener('click', () => directFileInput.click());
+
+        directFileInput.addEventListener('change', async (e) => {
+            const file = e.target.files[0];
+            if (!file) return;
+
+            btnDirectUpload.disabled = true;
+            btnDirectUpload.textContent = 'Uploading...';
+
+            try {
+                let dimensions = {};
+                if (file.type.startsWith('image/')) {
+                    dimensions = await imageService.getImageDimensions(file);
+                }
+
+                // XHR upload to D1 storage
+                const response = await uploadService.uploadFile(file, dimensions);
+                if (response.success && response.media) {
+                    attachedMedia.push(response.media);
+                    isDirty = true;
+                    renderAttachedMedia();
+                }
+            } catch (err) {
+                alert(`Upload failed: ${err.message}`);
+            } finally {
+                btnDirectUpload.disabled = false;
+                btnDirectUpload.textContent = 'Direct Upload';
+            }
+        });
+
+        document.getElementById('btnSavePost').addEventListener('click', savePostData);
+
+        // Unload warning guard
+        window.addEventListener('beforeunload', (e) => {
+            if (isDirty) {
+                e.preventDefault();
+                e.returnValue = 'You have unsaved changes. Are you sure you want to leave?';
+            }
+            draftService.stopAutosave();
+        });
+
+        // Initialize editor layout
+        initEditor();
+    </script>
+</body>
+</html>

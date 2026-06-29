@@ -1,0 +1,274 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Dashboard | SocialHub - Platform Scheduler</title>
+    
+    <!-- Meta tags for SEO -->
+    <meta name="description" content="Manage your unified social media scheduling calendar, analytics dashboard, and channel publisher for SocialHub.">
+    <meta name="author" content="SocialHub Team">
+
+    <!-- Auth Route Guard: redirects to login.html instantly if user not authenticated -->
+    <script type="module">
+        import { sessionService } from './js/services/sessionService.js';
+        sessionService.requireAuth();
+    </script>
+
+    <!-- CSS Stylesheets -->
+    <link rel="stylesheet" href="css/variables.css">
+    <link rel="stylesheet" href="css/layout.css">
+    <link rel="stylesheet" href="css/components.css">
+</head>
+<body>
+
+    <div class="app-container">
+        <!-- Reusable Custom Sidebar Element -->
+        <app-sidebar></app-sidebar>
+
+        <!-- Reusable Custom Header Element -->
+        <app-header></app-header>
+
+        <!-- Main Dashboard Content -->
+        <main class="main-content animated-fade-in">
+            
+            <!-- Page Header Section -->
+            <div class="page-header">
+                <div class="page-title-section">
+                    <h1 class="page-title">Dashboard Overview</h1>
+                    <p class="page-subtitle">Welcome back, John! Here's a summary of your automated social channels.</p>
+                </div>
+                <div class="page-actions">
+                    <button class="btn btn-secondary" id="btnSyncWorker" title="Force sync and dispatch schedules">
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                            <path d="M21.5 2v6h-6M21.34 15.57a10 10 0 1 1-.57-8.38l5.67-5.67"></path>
+                        </svg>
+                        Sync Worker
+                    </button>
+                    <a href="posts.html" class="btn btn-primary">
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                            <line x1="12" y1="5" x2="12" y2="19"></line>
+                            <line x1="5" y1="12" x2="19" y2="12"></line>
+                        </svg>
+                        New Post
+                    </a>
+                </div>
+            </div>
+
+            <!-- Metrics Highlight Cards -->
+            <div class="dashboard-metrics-grid">
+                
+                <!-- Card 1: Social Channels Connected -->
+                <div class="card">
+                    <div class="card-header">
+                        <span class="card-subtitle">Active Channels</span>
+                        <span class="badge badge-info">linked</span>
+                    </div>
+                    <h2 class="card-title" style="font-size: 2.25rem; font-weight: 700; font-family: var(--font-heading);">5 Accounts</h2>
+                    <p class="card-subtitle" style="margin-top: 0.5rem; font-size: 0.75rem;">Threads, FB, IG, LinkedIn, X</p>
+                </div>
+
+                <!-- Card 2: Pending Schedules -->
+                <div class="card">
+                    <div class="card-header">
+                        <span class="card-subtitle">Schedules Queue</span>
+                        <span class="badge badge-warning">pending</span>
+                    </div>
+                    <h2 class="card-title" style="font-size: 2.25rem; font-weight: 700; font-family: var(--font-heading);">12 Posts</h2>
+                    <p class="card-subtitle" style="margin-top: 0.5rem; font-size: 0.75rem;">Next execution in 24 mins</p>
+                </div>
+
+                <!-- Card 3: Published Successfully -->
+                <div class="card">
+                    <div class="card-header">
+                        <span class="card-subtitle">Published Items</span>
+                        <span class="badge badge-success">success</span>
+                    </div>
+                    <h2 class="card-title" style="font-size: 2.25rem; font-weight: 700; font-family: var(--font-heading);">148 Total</h2>
+                    <p class="card-subtitle" style="margin-top: 0.5rem; font-size: 0.75rem;">+28 posts successfully this week</p>
+                </div>
+
+                <!-- Card 4: Worker Pipeline Heartbeat -->
+                <div class="card">
+                    <div class="card-header">
+                        <span class="card-subtitle">Pipeline Status</span>
+                        <span class="badge badge-success">operational</span>
+                    </div>
+                    <h2 class="card-title" style="font-size: 2.25rem; font-weight: 700; font-family: var(--font-heading);">100% Up</h2>
+                    <p class="card-subtitle" style="margin-top: 0.5rem; font-size: 0.75rem;">Cloudflare Workers & D1 online</p>
+                </div>
+
+            </div>
+
+            <!-- Main Dashboard Dynamic Content Area -->
+            <div class="dashboard-main-grid">
+                
+                <!-- Left: Recent Queue and Outbox -->
+                <div class="card" style="padding: 1.75rem;">
+                    <div class="card-header">
+                        <div>
+                            <h3 class="card-title">Recent Publishing Activity</h3>
+                            <p class="card-subtitle">Track your drafts, scheduled queues, and recent dispatches.</p>
+                        </div>
+                    </div>
+                    <div class="table-container">
+                        <table class="table" id="recentActivityTable">
+                            <thead>
+                                <tr>
+                                    <th>Content Preview</th>
+                                    <th>Channels</th>
+                                    <th>Schedule Date</th>
+                                    <th>Status</th>
+                                    <th style="text-align: right;">Action</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <tr>
+                                    <td style="max-width: 260px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-weight: 500;">
+                                        Announcing our new features for SocialHub! 🚀 #socialmedia #scheduling
+                                    </td>
+                                    <td>
+                                        <div style="display: flex; gap: 0.25rem;">
+                                            <span class="platform-pill linkedin" style="font-size: 10px; padding: 0.15rem 0.4rem;">LI</span>
+                                            <span class="platform-pill twitter" style="font-size: 10px; padding: 0.15rem 0.4rem;">X</span>
+                                        </div>
+                                    </td>
+                                    <td style="color: var(--color-text-secondary); font-size: 0.8125rem;">Jun 29, 2026 10:00 AM</td>
+                                    <td><span class="badge badge-success">published</span></td>
+                                    <td style="text-align: right;">
+                                        <button class="btn btn-secondary btn-icon" style="padding: 0.35rem;" title="View Post Details">
+                                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                                <circle cx="12" cy="12" r="1"></circle>
+                                                <circle cx="12" cy="5" r="1"></circle>
+                                                <circle cx="12" cy="19" r="1"></circle>
+                                            </svg>
+                                        </button>
+                                    </td>
+                                </tr>
+                                <tr>
+                                    <td style="max-width: 260px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-weight: 500;">
+                                        Design aesthetics are key to successful marketing. Thoughts? 🎨
+                                    </td>
+                                    <td>
+                                        <div style="display: flex; gap: 0.25rem;">
+                                            <span class="platform-pill instagram" style="font-size: 10px; padding: 0.15rem 0.4rem;">IG</span>
+                                            <span class="platform-pill facebook" style="font-size: 10px; padding: 0.15rem 0.4rem;">FB</span>
+                                        </div>
+                                    </td>
+                                    <td style="color: var(--color-text-secondary); font-size: 0.8125rem;">Jun 30, 2026 03:30 PM</td>
+                                    <td><span class="badge badge-warning">scheduled</span></td>
+                                    <td style="text-align: right;">
+                                        <button class="btn btn-secondary btn-icon" style="padding: 0.35rem;" title="View Post Details">
+                                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                                <circle cx="12" cy="12" r="1"></circle>
+                                                <circle cx="12" cy="5" r="1"></circle>
+                                                <circle cx="12" cy="19" r="1"></circle>
+                                            </svg>
+                                        </button>
+                                    </td>
+                                </tr>
+                                <tr>
+                                    <td style="max-width: 260px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-weight: 500;">
+                                        Drafting out the roadmap for Threads integration. Coming soon!
+                                    </td>
+                                    <td>
+                                        <div style="display: flex; gap: 0.25rem;">
+                                            <span class="platform-pill threads" style="font-size: 10px; padding: 0.15rem 0.4rem;">TH</span>
+                                        </div>
+                                    </td>
+                                    <td style="color: var(--color-text-secondary); font-size: 0.8125rem;">Not Scheduled</td>
+                                    <td><span class="badge badge-info">draft</span></td>
+                                    <td style="text-align: right;">
+                                        <button class="btn btn-secondary btn-icon" style="padding: 0.35rem;" title="View Post Details">
+                                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                                <circle cx="12" cy="12" r="1"></circle>
+                                                <circle cx="12" cy="5" r="1"></circle>
+                                                <circle cx="12" cy="19" r="1"></circle>
+                                            </svg>
+                                        </button>
+                                    </td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+
+                <!-- Right: Quick Composer Widget -->
+                <div class="card" style="padding: 1.75rem;">
+                    <h3 class="card-title">Quick Composer</h3>
+                    <p class="card-subtitle" style="margin-bottom: 1.25rem;">Draft content and publish instantly.</p>
+                    
+                    <form id="quickPostForm" onsubmit="event.preventDefault();">
+                        <div class="form-group">
+                            <label class="form-label" for="composerContent">Content</label>
+                            <textarea id="composerContent" class="form-textarea" placeholder="What would you like to schedule? Add hashtag #social..."></textarea>
+                        </div>
+                        
+                        <div class="form-group">
+                            <label class="form-label">Select Channels</label>
+                            <div style="display: flex; flex-wrap: wrap; gap: 0.5rem; margin-top: 0.25rem;">
+                                <label class="platform-pill linkedin" style="cursor: pointer; display: flex; align-items: center; gap: 0.35rem;">
+                                    <input type="checkbox" id="chkLI" checked style="accent-color: #fff;" /> LinkedIn
+                                </label>
+                                <label class="platform-pill twitter" style="cursor: pointer; display: flex; align-items: center; gap: 0.35rem;">
+                                    <input type="checkbox" id="chkTW" style="accent-color: #fff;" /> X
+                                </label>
+                                <label class="platform-pill instagram" style="cursor: pointer; display: flex; align-items: center; gap: 0.35rem;">
+                                    <input type="checkbox" id="chkIG" checked style="accent-color: #fff;" /> Instagram
+                                </label>
+                                <label class="platform-pill facebook" style="cursor: pointer; display: flex; align-items: center; gap: 0.35rem;">
+                                    <input type="checkbox" id="chkFB" style="accent-color: #fff;" /> Facebook
+                                </label>
+                            </div>
+                        </div>
+
+                        <div class="form-group">
+                            <label class="form-label" for="composerTime">Schedule Date & Time</label>
+                            <input type="datetime-local" id="composerTime" class="form-input" />
+                        </div>
+
+                        <div style="display: flex; gap: 0.5rem; margin-top: 1.5rem;">
+                            <button type="submit" class="btn btn-primary" style="flex: 1;">Schedule Post</button>
+                            <button type="button" class="btn btn-secondary" title="Save as Draft">Draft</button>
+                        </div>
+                    </form>
+                </div>
+
+            </div>
+
+        </main>
+    </div>
+
+    <!-- ES Module Javascript Boilerplate -->
+    <script type="module" src="js/app.js"></script>
+    <script type="module">
+        import { workerService } from './js/services/workerService.js';
+        
+        // Setup Sync Worker listener
+        document.getElementById('btnSyncWorker').addEventListener('click', async () => {
+            const btn = document.getElementById('btnSyncWorker');
+            btn.disabled = true;
+            btn.innerHTML = `<span style="display: inline-block; animation: spin 1s linear infinite; margin-right: 0.5rem;">⚙️</span>Syncing...`;
+            
+            try {
+                const response = await workerService.triggerWorkerPublish();
+                alert(`Sync completed! Status: ${response.status}. Execution ID: ${response.execution_id}`);
+            } catch (err) {
+                alert('Worker sync request failed.');
+            } finally {
+                btn.disabled = false;
+                btn.innerHTML = `
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <path d="M21.5 2v6h-6M21.34 15.57a10 10 0 1 1-.57-8.38l5.67-5.67"></path>
+                    </svg> Sync Worker`;
+            }
+        });
+    </script>
+    <style>
+        @keyframes spin {
+            from { transform: rotate(0deg); }
+            to { transform: rotate(360deg); }
+        }
+    </style>
+</body>
+</html>

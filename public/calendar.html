@@ -303,28 +303,28 @@
             <!-- Page Header -->
             <div class="page-header" style="margin-bottom: 1.5rem;">
                 <div class="page-title-section">
-                    <h1 class="page-title">Kalendar Jadual</h1>
-                    <p class="page-subtitle">Urus dan pantau semua jadual penerbitan media sosial anda.</p>
+                    <h1 class="page-title">Schedule</h1>
+                    <p class="page-subtitle">Schedule, drag-and-drop reschedule, filter, search, and manage bulk post queues.</p>
                 </div>
             </div>
 
             <!-- Workspace Tabs -->
             <div class="tab-container-row" style="display: flex; gap: 1rem; margin-bottom: 1.5rem; border-bottom: 2px solid var(--color-border); padding-bottom: 0.5rem;">
-                <button class="btn btn-secondary tab-btn active" id="tabBtnCalendar" style="font-weight: 600; padding: 0.5rem 1.25rem;">📅 Paparan Kalendar</button>
-                <button class="btn btn-secondary tab-btn" id="tabBtnQueue" style="font-weight: 600; padding: 0.5rem 1.25rem;">📋 Senarai Giliran</button>
+                <button class="btn btn-secondary tab-btn active" id="tabBtnCalendar" style="font-weight: 600; padding: 0.5rem 1.25rem;">📅 Calendar View</button>
+                <button class="btn btn-secondary tab-btn" id="tabBtnQueue" style="font-weight: 600; padding: 0.5rem 1.25rem;">📋 Queue List</button>
             </div>
 
             <!-- Global Search & Filters Panel -->
             <div class="card" style="padding: 1.25rem; margin-bottom: 1.5rem; display: flex; flex-direction: column; gap: 1rem;">
                 <div class="filters-grid">
                     <div class="form-group" style="margin: 0;">
-                        <label class="form-label" style="font-size: 0.75rem;">Cari Kapsyen / Kata Kunci</label>
-                        <input type="text" id="filterSearch" class="form-input" placeholder="Taip hashtag atau teks..." style="width: 100%;" />
+                        <label class="form-label" style="font-size: 0.75rem;">Search Caption / Keywords</label>
+                        <input type="text" id="filterSearch" class="form-input" placeholder="Type hashtag or text..." style="width: 100%;" />
                     </div>
                     <div class="form-group" style="margin: 0;">
                         <label class="form-label" style="font-size: 0.75rem;">Platform</label>
                         <select id="filterPlatform" class="form-select" style="width: 100%;">
-                            <option value="all">Semua Platform</option>
+                            <option value="all">All Platforms</option>
                             <option value="threads">Threads</option>
                             <option value="facebook">Facebook</option>
                             <option value="instagram">Instagram</option>
@@ -335,7 +335,7 @@
                     <div class="form-group" style="margin: 0;">
                         <label class="form-label" style="font-size: 0.75rem;">Status</label>
                         <select id="filterStatus" class="form-select" style="width: 100%;">
-                            <option value="all">Semua Status</option>
+                            <option value="all">All Statuses</option>
                             <option value="scheduled">scheduled</option>
                             <option value="publishing">publishing</option>
                             <option value="published">published</option>
@@ -345,24 +345,24 @@
                         </select>
                     </div>
                     <div class="form-group" style="margin: 0;">
-                        <label class="form-label" style="font-size: 0.75rem;">Akaun</label>
+                        <label class="form-label" style="font-size: 0.75rem;">Account</label>
                         <select id="filterAccount" class="form-select" style="width: 100%;">
-                            <option value="all">Semua Akaun</option>
+                            <option value="all">All Accounts</option>
                         </select>
                     </div>
                     <div class="form-group" style="margin: 0;">
-                        <button class="btn btn-secondary" id="btnResetFilters" style="width: 100%; height: 38px;">Buang Penapis</button>
+                        <button class="btn btn-secondary" id="btnResetFilters" style="width: 100%; height: 38px;">Clear Filters</button>
                     </div>
                 </div>
             </div>
 
             <!-- Bulk Actions Toolbar -->
             <div class="bulk-actions-bar" id="bulkActionsToolbar">
-                <span id="lblSelectedCount" style="font-size: 0.875rem; font-weight: 600; color: var(--color-primary);">0 hantaran dipilih</span>
+                <span id="lblSelectedCount" style="font-size: 0.875rem; font-weight: 600; color: var(--color-primary);">0 posts selected</span>
                 <div style="display: flex; gap: 0.5rem;">
-                    <button class="btn btn-secondary btn-sm" id="btnBulkReschedule">Jadual Semula</button>
-                    <button class="btn btn-secondary btn-sm" id="btnBulkRetry">Cuba Semula</button>
-                    <button class="btn btn-danger btn-sm" id="btnBulkDelete">Padam</button>
+                    <button class="btn btn-secondary btn-sm" id="btnBulkReschedule">Reschedule</button>
+                    <button class="btn btn-secondary btn-sm" id="btnBulkRetry">Retry</button>
+                    <button class="btn btn-danger btn-sm" id="btnBulkDelete">Delete</button>
                 </div>
             </div>
 
@@ -376,13 +376,13 @@
                             <button class="btn btn-secondary" style="padding: 0.45rem 0.75rem;" id="btnPrevMonth">◀</button>
                             <span class="calendar-nav-title" id="calendarTitle">June 2026</span>
                             <button class="btn btn-secondary" style="padding: 0.45rem 0.75rem;" id="btnNextMonth">▶</button>
-                            <button class="btn btn-secondary" style="padding: 0.45rem 0.75rem;" id="btnToday">Hari Ini</button>
+                            <button class="btn btn-secondary" style="padding: 0.45rem 0.75rem; margin-left: 0.5rem;" id="btnToday">Today</button>
                         </div>
 
                         <div class="calendar-view-toggle">
-                            <button class="calendar-view-btn active" data-view="month" id="btnViewMonth">Bulan</button>
-                            <button class="calendar-view-btn" data-view="week" id="btnViewWeek">Minggu</button>
-                            <button class="calendar-view-btn" data-view="day" id="btnViewDay">Hari</button>
+                            <button class="calendar-view-btn active" data-view="month" id="btnViewMonth">Month</button>
+                            <button class="calendar-view-btn" data-view="week" id="btnViewWeek">Week</button>
+                            <button class="calendar-view-btn" data-view="day" id="btnViewDay">Day</button>
                         </div>
                     </div>
 
@@ -390,13 +390,13 @@
                     <div style="overflow-x: auto; width: 100%; -webkit-overflow-scrolling: touch; margin-top: 1rem;">
                         <!-- Monthly Grid Header -->
                         <div id="calendarGridHeader" class="calendar-grid-header">
-                            <div>Ahd</div>
-                            <div>Isn</div>
-                            <div>Sel</div>
-                            <div>Rab</div>
-                            <div>Kha</div>
-                            <div>Jum</div>
-                            <div>Sab</div>
+                            <div>Sun</div>
+                            <div>Mon</div>
+                            <div>Tue</div>
+                            <div>Wed</div>
+                            <div>Thu</div>
+                            <div>Fri</div>
+                            <div>Sat</div>
                         </div>
                         
                         <!-- Calendar Body (Dynamically Switched Month/Week/Day) -->

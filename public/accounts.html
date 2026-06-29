@@ -44,7 +44,7 @@
 
         .accounts-grid {
             display: grid;
-            grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+            grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
             gap: 1.5rem;
             width: 100%;
         }
@@ -155,8 +155,8 @@
             <!-- Page Header -->
             <div class="page-header">
                 <div class="page-title-section">
-                    <h1 class="page-title">Akaun Media Sosial</h1>
-                    <p class="page-subtitle">Hubungkan dan urus semua saluran media sosial anda di sini.</p>
+                    <h1 class="page-title">Social Accounts</h1>
+                    <p class="page-subtitle">Connect and manage all your active social media channels.</p>
                 </div>
             </div>
 
@@ -165,19 +165,19 @@
                 
                 <!-- Section: Connected accounts -->
                 <div>
-                    <h2 class="section-title">Akaun Dihubungkan</h2>
+                    <h2 class="section-title">Connected Accounts</h2>
                     <div class="accounts-grid" id="connectedAccountsGrid">
                         <!-- Dynamically generated connected accounts here -->
                         <div class="empty-state" id="accountsLoading">
                             <span style="display: inline-block; width: 20px; height: 20px; border: 2px solid var(--color-primary); border-top-color: transparent; border-radius: 50%; animation: spin 0.8s linear infinite; margin-bottom: 0.5rem;"></span>
-                            <p>Memuatkan saluran sosial yang dihubungkan...</p>
+                            <p>Loading connected social channels...</p>
                         </div>
                     </div>
                 </div>
 
                 <!-- Section: Connect new platforms -->
                 <div>
-                    <h2 class="section-title">Integrasi Tersedia</h2>
+                    <h2 class="section-title">Available Integrations</h2>
                     <div class="accounts-grid">
                         
                         <!-- Threads integration Card -->
@@ -188,11 +188,11 @@
                                     <span class="badge badge-info">active</span>
                                 </div>
                                 <h3 class="card-title">Threads</h3>
-                                <p class="card-subtitle">Terbitkan kandungan terus ke rangkaian Threads oleh Meta.</p>
+                                <p class="card-subtitle" style="font-size: 0.8rem; line-height: 1.5;">Publish content directly to Meta's Threads network.</p>
                             </div>
                             <div style="margin-top: 1.5rem;">
                                 <button class="btn btn-primary" style="width: 100%;" id="btnConnectThreads">
-                                    Hubungkan Threads
+                                    Connect Threads
                                 </button>
                             </div>
                         </div>
@@ -205,10 +205,10 @@
                                     <span class="badge badge-info" style="background: rgba(0,0,0,0.04); color: var(--color-text-secondary);">upcoming</span>
                                 </div>
                                 <h3 class="card-title">Facebook</h3>
-                                <p class="card-subtitle">Hubungkan Halaman dan Kumpulan untuk mengurus jangkauan komuniti.</p>
+                                <p class="card-subtitle" style="font-size: 0.8rem; line-height: 1.5;">Link Pages and Groups to manage community outreach.</p>
                             </div>
                             <div style="margin-top: 1.5rem;">
-                                <button class="btn btn-secondary" style="width: 100%;" disabled>Facebook — Akan Datang</button>
+                                <button class="btn btn-secondary" style="width: 100%;" disabled>Facebook — Coming Soon</button>
                             </div>
                         </div>
 
@@ -220,10 +220,10 @@
                                     <span class="badge badge-info" style="background: rgba(0,0,0,0.04); color: var(--color-text-secondary);">upcoming</span>
                                 </div>
                                 <h3 class="card-title">Instagram</h3>
-                                <p class="card-subtitle">Automatikkan penerbitan aset visual perniagaan ke feed anda.</p>
+                                <p class="card-subtitle" style="font-size: 0.8rem; line-height: 1.5;">Automate business visual content publishing to your feed.</p>
                             </div>
                             <div style="margin-top: 1.5rem;">
-                                <button class="btn btn-secondary" style="width: 100%;" disabled>Instagram — Akan Datang</button>
+                                <button class="btn btn-secondary" style="width: 100%;" disabled>Instagram — Coming Soon</button>
                             </div>
                         </div>
 
@@ -235,10 +235,10 @@
                                     <span class="badge badge-info" style="background: rgba(0,0,0,0.04); color: var(--color-text-secondary);">upcoming</span>
                                 </div>
                                 <h3 class="card-title">LinkedIn</h3>
-                                <p class="card-subtitle">Hubungkan profil profesional dan halaman organisasi.</p>
+                                <p class="card-subtitle" style="font-size: 0.8rem; line-height: 1.5;">Connect professional profiles and organization pages.</p>
                             </div>
                             <div style="margin-top: 1.5rem;">
-                                <button class="btn btn-secondary" style="width: 100%;" disabled>LinkedIn — Akan Datang</button>
+                                <button class="btn btn-secondary" style="width: 100%;" disabled>LinkedIn — Coming Soon</button>
                             </div>
                         </div>
 
@@ -250,10 +250,10 @@
                                     <span class="badge badge-info" style="background: rgba(0,0,0,0.04); color: var(--color-text-secondary);">upcoming</span>
                                 </div>
                                 <h3 class="card-title">X (Twitter)</h3>
-                                <p class="card-subtitle">Siarkan thread mikro-blog dan kemas kini masa nyata.</p>
+                                <p class="card-subtitle" style="font-size: 0.8rem; line-height: 1.5;">Post micro-blog threads and real-time updates.</p>
                             </div>
                             <div style="margin-top: 1.5rem;">
-                                <button class="btn btn-secondary" style="width: 100%;" disabled>X — Akan Datang</button>
+                                <button class="btn btn-secondary" style="width: 100%;" disabled>X — Coming Soon</button>
                             </div>
                         </div>
 
@@ -267,7 +267,7 @@
 
     <!-- Toast Notification Banner -->
     <div class="toast-notification" id="successToast">
-        🎉 Akaun sosial berjaya dihubungkan!
+        🎉 Social account linked successfully!
     </div>
 
     <!-- Script imports -->
@@ -287,8 +287,8 @@
                 if (accounts.length === 0) {
                     grid.innerHTML = `
                         <div class="empty-state">
-                            <p style="font-weight: 500; margin-bottom: 0.25rem;">Tiada akaun dihubungkan</p>
-                            <p style="font-size: 0.8125rem; color: var(--color-text-tertiary);">Hubungkan profil Threads anda di bawah untuk mula menjadualkan hantaran.</p>
+                            <h3 class="card-title" style="margin-bottom: 0.25rem;">No accounts connected</h3>
+                            <p style="font-size: 0.8125rem; color: var(--color-text-tertiary);">Connect your social profiles below to start scheduling posts.</p>
                         </div>
                     `;
                     return;
@@ -319,15 +319,15 @@
                             
                             <div class="account-details-list">
                                 <div class="detail-item">
-                                    <span>ID Akaun:</span>
+                                    <span>Account ID:</span>
                                     <span class="detail-value">${account.account_id}</span>
                                 </div>
                                 <div class="detail-item">
-                                    <span>Tarikh Dihubungkan:</span>
+                                    <span>Connected Since:</span>
                                     <span class="detail-value">${connectedDate}</span>
                                 </div>
                                 <div class="detail-item">
-                                    <span>Token Tamat:</span>
+                                    <span>Token Expires:</span>
                                     <span class="detail-value" style="color: ${isExpired ? 'var(--color-danger)' : 'inherit'};">${
                                         expiresText
                                     }</span>
@@ -335,7 +335,7 @@
                             </div>
                         </div>
                         <div style="display: flex; gap: 0.5rem; margin-top: 1.5rem;">
-                            <button class="btn btn-secondary btnReconnect" data-id="${account.id}" style="flex: 1; font-size: 0.75rem;">Hubung Semula</button>
+                            <button class="btn btn-secondary btnReconnect" data-id="${account.id}" style="flex: 1; font-size: 0.75rem;">Reconnect</button>
                             <button class="btn btn-danger btn-icon btnDisconnect" data-id="${account.id}" title="Disconnect Account">
                                 <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                                     <polyline points="3 6 5 6 21 6"></polyline>
@@ -351,13 +351,13 @@
                 document.querySelectorAll('.btnDisconnect').forEach(btn => {
                     btn.addEventListener('click', async (e) => {
                         const id = e.currentTarget.getAttribute('data-id');
-                        if (confirm("Adakah anda pasti mahu memutuskan hubungan saluran sosial ini? Konfigurasi token akan dibuang.")) {
+                        if (confirm("Are you sure you want to disconnect this social channel? Token configurations will be removed.")) {
                             const success = await socialService.disconnectAccount(id);
                             if (success) {
-                                showToast('Saluran berjaya diputuskan hubungan!');
+                                showToast('Channel disconnected successfully!');
                                 loadConnectedAccounts();
                             } else {
-                                alert("Gagal memutuskan kredensial saluran. Sila cuba semula.");
+                                alert("Failed to disconnect channel credentials. Please try again.");
                             }
                         }
                     });
@@ -374,8 +374,8 @@
                 console.error(err);
                 grid.innerHTML = `
                     <div class="empty-state" style="color: var(--color-danger); border-color: var(--color-danger-light);">
-                        <p style="font-weight: 600;">Gagal memuatkan saluran dihubungkan</p>
-                        <p style="font-size: 0.8125rem;">Pastikan pelayan backend berjalan dan boleh diakses.</p>
+                        <p style="font-weight: 600;">Failed to load connected channels</p>
+                        <p style="font-size: 0.8125rem;">Ensure the backend server is running and accessible.</p>
                     </div>
                 `;
             }

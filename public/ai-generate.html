@@ -38,97 +38,97 @@
             <!-- Page Header -->
             <div class="page-header">
                 <div class="page-title-section">
-                    <h1 class="page-title">Jana Kandungan AI ✨</h1>
-                    <p class="page-subtitle">Hasilkan kapsyen media sosial yang menarik dan hashtag dalam sekelip mata.</p>
+                    <h1 class="page-title">AI Caption Generator ✨</h1>
+                    <p class="page-subtitle">Generate viral captions and hashtags tailored to your brand in seconds.</p>
                 </div>
             </div>
 
             <!-- Double-column grid for Form and Live Preview -->
-            <div class="composer-grid">
+            <div class="two-col-grid">
                 
                 <!-- Left: Form Parameters -->
                 <div class="card" style="padding: 1.75rem; display: flex; flex-direction: column; gap: 1.25rem;">
-                    <h3 class="card-title" style="margin-bottom: 0.25rem; font-size: 1.1rem; font-weight: 600;">Maklumat Jenama</h3>
-                    <p style="font-size: 0.8125rem; color: var(--color-text-secondary); margin-bottom: 0.5rem;">Isikan maklumat jenama dan produk anda untuk AI hasilkan kapsyen terbaik.</p>
+                    <h3 class="card-title" style="margin-bottom: 0.25rem; font-size: 1.1rem; font-weight: 600;">Brand Details</h3>
+                    <p style="font-size: 0.8125rem; color: var(--color-text-secondary); margin-bottom: 0.5rem;">Fill in your brand info and product details for AI to craft the best captions.</p>
                     
                     <form id="aiGenerateForm" onsubmit="event.preventDefault();">
                         <div class="form-group" style="margin-bottom: 1rem;">
-                            <label class="form-label" for="businessType">Jenis Perniagaan / Jenama</label>
+                            <label class="form-label" for="businessType">Business / Brand Type</label>
                             <select id="businessType" class="form-select" style="width: 100%;">
-                                <option value="E-Commerce Store">Kedai E-Commerce</option>
-                                <option value="SaaS Startup">SaaS / Syarikat Teknologi</option>
-                                <option value="Local Café / Restaurant">Kafe / Restoran Tempatan</option>
-                                <option value="Digital Agency">Agensi Pemasaran Digital</option>
-                                <option value="Consulting / Coach">Kesihatan & Kecantikan / Jurulatih</option>
-                                <option value="Creative Studio">Studio Kreatif</option>
-                                <option value="Other">Lain-lain (Tulis Sendiri)</option>
+                                <option value="E-Commerce Store">E-Commerce Store</option>
+                                <option value="SaaS Startup">SaaS / Tech Startup</option>
+                                <option value="Local Café / Restaurant">Local Café / Restaurant</option>
+                                <option value="Digital Agency">Digital Marketing Agency</option>
+                                <option value="Consulting / Coach">Health & Wellness / Coach</option>
+                                <option value="Creative Studio">Creative Studio</option>
+                                <option value="Other">Other (Custom)</option>
                             </select>
-                            <input type="text" id="customBusinessType" class="form-input" placeholder="Masukkan jenis perniagaan anda..." style="width: 100%; margin-top: 0.5rem; display: none;" />
+                            <input type="text" id="customBusinessType" class="form-input" placeholder="Enter your business type..." style="width: 100%; margin-top: 0.5rem; display: none;" />
                         </div>
 
                         <div class="form-group" style="margin-bottom: 1rem;">
-                            <label class="form-label" for="productService">Penerangan Produk atau Perkhidmatan</label>
-                            <textarea id="productService" class="form-input" rows="3" placeholder="Apa yang anda promosikan? cth: Penjadual SocialHub membantu pemilik perniagaan jimat 10 jam seminggu..." style="width: 100%; resize: vertical;" required></textarea>
+                            <label class="form-label" for="productService">Product or Service Description</label>
+                            <textarea id="productService" class="form-input" rows="3" placeholder="What are you promoting? e.g. SocialHub scheduler helps small business owners save 10 hours a week..." style="width: 100%; resize: vertical;" required></textarea>
                         </div>
 
                         <div class="form-group" style="margin-bottom: 1rem;">
-                            <label class="form-label" for="targetAudience">Sasaran Audiens</label>
-                            <input type="text" id="targetAudience" class="form-input" placeholder="cth: usahawan muda, pengurus pemasaran" style="width: 100%;" />
+                            <label class="form-label" for="targetAudience">Target Audience</label>
+                            <input type="text" id="targetAudience" class="form-input" placeholder="e.g. busy founders, marketing managers" style="width: 100%;" />
                         </div>
 
                         <div class="form-group" style="margin-bottom: 1rem;">
-                            <label class="form-label" for="goal">Matlamat Kempen</label>
+                            <label class="form-label" for="goal">Campaign Goal</label>
                             <select id="goal" class="form-select" style="width: 100%;">
-                                <option value="Brand Awareness">Kesedaran Jenama</option>
-                                <option value="Lead Generation">Jana Prospek</option>
-                                <option value="Engagement / Conversation">Penglibatan / Perbualan</option>
-                                <option value="Product Launch / Promo">Pelancaran / Promosi</option>
-                                <option value="Educational / Informative">Pendidikan / Maklumat</option>
+                                <option value="Brand Awareness">Brand Awareness</option>
+                                <option value="Lead Generation">Lead Generation</option>
+                                <option value="Engagement / Conversation">Engagement / Conversation</option>
+                                <option value="Product Launch / Promo">Product Launch / Promo</option>
+                                <option value="Educational / Informative">Educational / Informative</option>
                             </select>
                         </div>
 
                         <div class="form-group" style="margin-bottom: 1rem;">
-                            <label class="form-label" for="tone">Nada Penulisan</label>
+                            <label class="form-label" for="tone">Tone of Voice</label>
                             <select id="tone" class="form-select" style="width: 100%;">
-                                <option value="Professional & Trustworthy">Profesional & Dipercayai</option>
-                                <option value="Friendly & Casual">Mesra & Santai</option>
-                                <option value="Bold & Assertive">Berani & Tegas</option>
-                                <option value="Humorous & Witty">Jenaka & Bijak</option>
-                                <option value="Inspiring & Motivational">Inspiratif & Memotivasikan</option>
+                                <option value="Professional & Trustworthy">Professional & Trustworthy</option>
+                                <option value="Friendly & Casual">Friendly & Casual</option>
+                                <option value="Bold & Assertive">Bold & Assertive</option>
+                                <option value="Humorous & Witty">Humorous & Witty</option>
+                                <option value="Inspiring & Motivational">Inspiring & Motivational</option>
                             </select>
                         </div>
 
                         <div class="form-group" style="margin-bottom: 1.5rem;">
-                            <label class="form-label" for="language">Bahasa Output</label>
+                            <label class="form-label" for="language">Output Language</label>
                             <select id="language" class="form-select" style="width: 100%;">
                                 <option value="English">English</option>
-                                <option value="Malay" selected>Bahasa Melayu</option>
-                                <option value="Indonesian">Bahasa Indonesia</option>
-                                <option value="Chinese">Bahasa Cina</option>
-                                <option value="Tamil">Bahasa Tamil</option>
+                                <option value="Malay" selected>Malay</option>
+                                <option value="Indonesian">Indonesian</option>
+                                <option value="Chinese">Chinese</option>
+                                <option value="Tamil">Tamil</option>
                             </select>
                         </div>
 
                         <button type="button" class="btn btn-primary" id="btnAIGenerate" style="width: 100%; height: 44px; justify-content: center; font-weight: 600;">
                             <span id="spinnerAI" style="display: none; width: 16px; height: 16px; border: 2px solid white; border-top-color: transparent; border-radius: 50%; animation: spin 0.8s linear infinite; margin-right: 0.5rem;"></span>
-                            ✨ Jana Sekarang
+                            ✨ Generate
                         </button>
                     </form>
                 </div>
 
                 <!-- Right: Preview and Editing Panel -->
                 <div class="card" style="padding: 1.75rem; align-self: start; display: flex; flex-direction: column; gap: 1.25rem;">
-                    <h3 class="card-title" style="margin-bottom: 0.25rem; font-size: 1.1rem; font-weight: 600;">Pratonton & Penerbitan</h3>
-                    <p style="font-size: 0.8125rem; color: var(--color-text-secondary); margin-bottom: 0.5rem;">Semak kapsyen, pilih saluran dan jadualkan hantaran anda.</p>
+                    <h3 class="card-title" style="margin-bottom: 0.25rem; font-size: 1.1rem; font-weight: 600;">Preview & Publish</h3>
+                    <p style="font-size: 0.8125rem; color: var(--color-text-secondary); margin-bottom: 0.5rem;">Review the generated copy, select channels, and schedule your post.</p>
 
                     <div id="aiOutputContainer" style="display: none; flex-direction: column; gap: 1rem;">
                         <div class="form-group">
-                            <label class="form-label" for="previewTitle">Tajuk Hantaran</label>
-                            <input type="text" id="previewTitle" class="form-input" placeholder="Masukkan tajuk hantaran..." style="width: 100%;" />
+                            <label class="form-label" for="previewTitle">Post Title</label>
+                            <input type="text" id="previewTitle" class="form-input" placeholder="Enter post title..." style="width: 100%;" />
                         </div>
 
                         <div class="form-group">
-                            <label class="form-label" for="previewCaption">Kapsyen Dijana</label>
+                            <label class="form-label" for="previewCaption">Generated Caption</label>
                             <textarea id="previewCaption" class="form-input" rows="5" style="width: 100%; resize: vertical;"></textarea>
                         </div>
 
@@ -144,7 +144,7 @@
 
                         <!-- Target Channels Checklist -->
                         <div class="form-group">
-                            <label class="form-label">Saluran Sasaran</label>
+                            <label class="form-label">Target Channels</label>
                             <div id="aiChannelsContainer" style="
                                 display: flex;
                                 flex-direction: column;
@@ -155,23 +155,23 @@
                                 border-radius: var(--radius-xs);
                                 border: 1px solid var(--color-border);
                             ">
-                                <p style="font-size: 0.75rem; color: var(--color-text-tertiary); font-style: italic; margin: 0;">Memuatkan saluran...</p>
+                                <p style="font-size: 0.75rem; color: var(--color-text-tertiary); font-style: italic; margin: 0;">Loading channels...</p>
                             </div>
                         </div>
 
                         <!-- Action Controls -->
                         <div style="display: flex; flex-direction: column; gap: 0.75rem; margin-top: 0.5rem;">
                             <div style="display: flex; gap: 0.75rem;">
-                                <button class="btn btn-secondary" id="btnAIPlanPublish" style="flex: 1; justify-content: center; height: 42px; font-weight: 600;">⚡ Terbitkan Sekarang</button>
-                                <button class="btn btn-primary" id="btnAIPlanSchedule" style="flex: 1; justify-content: center; height: 42px; font-weight: 600;">📅 Jadualkan</button>
+                                <button class="btn btn-secondary" id="btnAIPlanPublish" style="flex: 1; justify-content: center; height: 42px; font-weight: 600;">⚡ Publish Now</button>
+                                <button class="btn btn-primary" id="btnAIPlanSchedule" style="flex: 1; justify-content: center; height: 42px; font-weight: 600;">📅 Schedule Post</button>
                             </div>
-                            <button class="btn btn-secondary btn-outline" id="btnAIPlanDraft" style="width: 100%; justify-content: center; height: 42px; font-weight: 600; border: 1px solid var(--color-border); background: transparent;">💾 Simpan Draf</button>
+                            <button class="btn btn-secondary btn-outline" id="btnAIPlanDraft" style="width: 100%; justify-content: center; height: 42px; font-weight: 600; border: 1px solid var(--color-border); background: transparent;">💾 Save as Draft</button>
                         </div>
                     </div>
 
                     <div id="aiEmptyPreviewState" style="text-align: center; padding: 4rem 2rem; background: var(--color-bg-accent); border: 1.5px dashed var(--color-border); border-radius: var(--radius-md); color: var(--color-text-secondary);">
-                        <p style="font-weight: 500; margin-bottom: 0.25rem;">Belum ada kapsyen dijana</p>
-                        <p style="font-size: 0.8125rem; color: var(--color-text-tertiary);">Isi maklumat jenama di sebelah kiri dan klik Jana Sekarang.</p>
+                        <p style="font-weight: 500; margin-bottom: 0.25rem;">No caption generated yet</p>
+                        <p style="font-size: 0.8125rem; color: var(--color-text-tertiary);">Fill in brand details on the left and click Generate.</p>
                     </div>
 
                 </div>

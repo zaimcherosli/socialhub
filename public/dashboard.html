@@ -45,22 +45,22 @@
             <div class="page-header">
                 <div class="page-title-section">
                     <h1 class="page-title">Dashboard</h1>
-                    <p class="page-subtitle">Selamat kembali! Ini ringkasan saluran media sosial anda.</p>
+                    <p class="page-subtitle">Welcome back! Here's a summary of your social media channels.</p>
                 </div>
                 <div class="page-actions">
-                    <button class="btn btn-secondary" id="btnSyncWorker" title="Segerak jadual penerbitan">
+                    <button class="btn btn-secondary" id="btnSyncWorker" title="Sync publishing schedule">
                         <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                             <path d="M21.5 2v6h-6M21.34 15.57a10 10 0 1 1-.57-8.38l5.67-5.67">
                             </path>
                         </svg>
-                        Segerak
+                        Sync
                     </button>
                     <a href="posts.html" class="btn btn-primary">
                         <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
                             <line x1="12" y1="5" x2="12" y2="19"></line>
                             <line x1="5" y1="12" x2="19" y2="12"></line>
                         </svg>
-                        Hantaran Baru
+                        New Post
                     </a>
                 </div>
             </div>
@@ -71,51 +71,51 @@
                 <!-- Kad 1: Hari Ini -->
                 <div class="card stat-card" id="cardUpcomingToday" style="border-left: 4px solid var(--color-primary); background: linear-gradient(135deg, var(--color-bg-card) 0%, var(--color-primary-light) 100%);">
                     <div class="card-header">
-                        <span class="card-subtitle" style="font-weight: 600;">📅 Hari Ini</span>
-                        <span class="badge" style="background: var(--color-primary-light); color: var(--color-primary); font-size: 0.7rem;">hari ini</span>
+                        <span class="card-subtitle" style="font-weight: 600;">📅 Today</span>
+                        <span class="badge" style="background: var(--color-primary-light); color: var(--color-primary); font-size: 0.7rem;">today</span>
                     </div>
-                    <h2 class="card-title" style="font-size: 2.25rem; font-weight: 700; font-family: var(--font-heading); color: var(--color-primary);" id="lblUpcomingTodayCount">0 Post</h2>
-                    <p class="card-subtitle" style="margin-top: 0.5rem; font-size: 0.75rem;">Dijadualkan hari ini</p>
+                    <h2 class="card-title" style="font-size: 2.25rem; font-weight: 700; font-family: var(--font-heading); color: var(--color-primary);" id="lblUpcomingTodayCount">0 Posts</h2>
+                    <p class="card-subtitle" style="margin-top: 0.5rem; font-size: 0.75rem;">Scheduled for today</p>
                 </div>
 
                 <!-- Kad 2: Esok -->
                 <div class="card stat-card" id="cardUpcomingTomorrow" style="border-left: 4px solid #0ea5e9; background: linear-gradient(135deg, var(--color-bg-card) 0%, rgba(14,165,233,0.07) 100%);">
                     <div class="card-header">
-                        <span class="card-subtitle" style="font-weight: 600;">🌤️ Esok</span>
-                        <span class="badge" style="background: #e0f2fe; color: #0369a1; font-size: 0.7rem;">esok</span>
+                        <span class="card-subtitle" style="font-weight: 600;">🌤️ Tomorrow</span>
+                        <span class="badge" style="background: #e0f2fe; color: #0369a1; font-size: 0.7rem;">tomorrow</span>
                     </div>
-                    <h2 class="card-title" style="font-size: 2.25rem; font-weight: 700; font-family: var(--font-heading); color: #0ea5e9;" id="lblUpcomingTomorrowCount">0 Post</h2>
-                    <p class="card-subtitle" style="margin-top: 0.5rem; font-size: 0.75rem;">Dijadualkan esok</p>
+                    <h2 class="card-title" style="font-size: 2.25rem; font-weight: 700; font-family: var(--font-heading); color: #0ea5e9;" id="lblUpcomingTomorrowCount">0 Posts</h2>
+                    <p class="card-subtitle" style="margin-top: 0.5rem; font-size: 0.75rem;">Scheduled for tomorrow</p>
                 </div>
 
                 <!-- Kad 3: 7 Hari -->
                 <div class="card stat-card" id="cardNext7Days" style="border-left: 4px solid #a855f7; background: linear-gradient(135deg, var(--color-bg-card) 0%, rgba(168,85,247,0.07) 100%);">
                     <div class="card-header">
-                        <span class="card-subtitle" style="font-weight: 600;">📆 7 Hari</span>
-                        <span class="badge" style="background: #f3e8ff; color: #6b21a8; font-size: 0.7rem;">minggu</span>
+                        <span class="card-subtitle" style="font-weight: 600;">📆 Next 7 Days</span>
+                        <span class="badge" style="background: #f3e8ff; color: #6b21a8; font-size: 0.7rem;">week</span>
                     </div>
-                    <h2 class="card-title" style="font-size: 2.25rem; font-weight: 700; font-family: var(--font-heading); color: #a855f7;" id="lblNext7DaysCount">0 Post</h2>
-                    <p class="card-subtitle" style="margin-top: 0.5rem; font-size: 0.75rem;">7 hari akan datang</p>
+                    <h2 class="card-title" style="font-size: 2.25rem; font-weight: 700; font-family: var(--font-heading); color: #a855f7;" id="lblNext7DaysCount">0 Posts</h2>
+                    <p class="card-subtitle" style="margin-top: 0.5rem; font-size: 0.75rem;">Upcoming in 7 days</p>
                 </div>
 
                 <!-- Kad 4: Diterbitkan -->
                 <div class="card stat-card" id="cardPublishedToday" style="border-left: 4px solid var(--color-success); background: linear-gradient(135deg, var(--color-bg-card) 0%, var(--color-success-light) 100%);">
                     <div class="card-header">
-                        <span class="card-subtitle" style="font-weight: 600;">✅ Diterbitkan</span>
-                        <span class="badge" style="background: #d1fae5; color: #059669; font-size: 0.7rem;">berjaya</span>
+                        <span class="card-subtitle" style="font-weight: 600;">✅ Published</span>
+                        <span class="badge" style="background: #d1fae5; color: #059669; font-size: 0.7rem;">success</span>
                     </div>
-                    <h2 class="card-title" style="font-size: 2.25rem; font-weight: 700; font-family: var(--font-heading); color: var(--color-success);" id="lblPublishedTodayCount">0 Post</h2>
-                    <p class="card-subtitle" style="margin-top: 0.5rem; font-size: 0.75rem;">Berjaya diterbitkan hari ini</p>
+                    <h2 class="card-title" style="font-size: 2.25rem; font-weight: 700; font-family: var(--font-heading); color: var(--color-success);" id="lblPublishedTodayCount">0 Posts</h2>
+                    <p class="card-subtitle" style="margin-top: 0.5rem; font-size: 0.75rem;">Successfully published today</p>
                 </div>
 
                 <!-- Kad 5: Gagal -->
                 <div class="card stat-card" id="cardFailed" style="border-left: 4px solid var(--color-danger); background: linear-gradient(135deg, var(--color-bg-card) 0%, var(--color-danger-light) 100%);">
                     <div class="card-header">
-                        <span class="card-subtitle" style="font-weight: 600;">⚠️ Gagal</span>
-                        <span class="badge" style="background: #fee2e2; color: #dc2626; font-size: 0.7rem;">ralat</span>
+                        <span class="card-subtitle" style="font-weight: 600;">⚠️ Failed</span>
+                        <span class="badge" style="background: #fee2e2; color: #dc2626; font-size: 0.7rem;">error</span>
                     </div>
-                    <h2 class="card-title" style="font-size: 2.25rem; font-weight: 700; font-family: var(--font-heading); color: var(--color-danger);" id="lblFailedCount">0 Post</h2>
-                    <p class="card-subtitle" style="margin-top: 0.5rem; font-size: 0.75rem;">Perlu dicuba semula</p>
+                    <h2 class="card-title" style="font-size: 2.25rem; font-weight: 700; font-family: var(--font-heading); color: var(--color-danger);" id="lblFailedCount">0 Posts</h2>
+                    <p class="card-subtitle" style="margin-top: 0.5rem; font-size: 0.75rem;">Needs to be retried</p>
                 </div>
 
             </div>
@@ -127,19 +127,19 @@
                 <div class="card" style="padding: 1.75rem;">
                     <div class="card-header">
                         <div>
-                            <h3 class="card-title">Aktiviti Penerbitan Terbaru</h3>
-                            <p class="card-subtitle">Pantau draf, giliran jadual dan penerbitan terkini anda.</p>
+                            <h3 class="card-title">Recent Publishing Activity</h3>
+                            <p class="card-subtitle">Monitor your drafts, scheduled queue and recent publications.</p>
                         </div>
                     </div>
                     <div class="table-container" style="overflow-x: auto;">
                         <table class="table" id="recentActivityTable">
                             <thead>
                                 <tr>
-                                    <th>Pratonton Kandungan</th>
-                                    <th>Saluran</th>
-                                    <th>Tarikh Jadual</th>
+                                    <th>Content Preview</th>
+                                    <th>Channel</th>
+                                    <th>Scheduled Date</th>
                                     <th>Status</th>
-                                    <th style="text-align: right;">Tindakan</th>
+                                    <th style="text-align: right;">Actions</th>
                                 </tr>
                             </thead>
                             <tbody>
@@ -232,11 +232,11 @@
                 const res = await schedulerService.getScheduleStatusSummary();
                 if (res.success && res.summary) {
                     const sum = res.summary;
-                    document.getElementById('lblUpcomingTodayCount').textContent = `${sum.upcoming_today} Post`;
-                    document.getElementById('lblUpcomingTomorrowCount').textContent = `${sum.upcoming_tomorrow} Post`;
-                    document.getElementById('lblNext7DaysCount').textContent = `${sum.next_7_days} Post`;
-                    document.getElementById('lblPublishedTodayCount').textContent = `${sum.published_today} Post`;
-                    document.getElementById('lblFailedCount').textContent = `${sum.failed} Post`;
+                    document.getElementById('lblUpcomingTodayCount').textContent = `${sum.upcoming_today} Posts`;
+                    document.getElementById('lblUpcomingTomorrowCount').textContent = `${sum.upcoming_tomorrow} Posts`;
+                    document.getElementById('lblNext7DaysCount').textContent = `${sum.next_7_days} Posts`;
+                    document.getElementById('lblPublishedTodayCount').textContent = `${sum.published_today} Posts`;
+                    document.getElementById('lblFailedCount').textContent = `${sum.failed} Posts`;
                 }
             } catch (err) {
                 console.error('Failed to load scheduler summary status:', err);
@@ -247,20 +247,20 @@
         document.getElementById('btnSyncWorker').addEventListener('click', async () => {
             const btn = document.getElementById('btnSyncWorker');
             btn.disabled = true;
-            btn.innerHTML = `<span style="display: inline-block; animation: spin 1s linear infinite; margin-right: 0.5rem;">⚙️</span>Menyegerak...`;
+            btn.innerHTML = `<span style="display: inline-block; animation: spin 1s linear infinite; margin-right: 0.5rem;">⚙️</span>Syncing...`;
             
             try {
                 const response = await workerService.triggerWorkerPublish();
-                alert(`Segerak selesai! Status: ${response.status}. ID Pelaksanaan: ${response.execution_id}`);
+                alert(`Sync complete! Status: ${response.status}. Execution ID: ${response.execution_id}`);
                 loadSummaryStats();
             } catch (err) {
-                alert('Permintaan segerak gagal. Sila cuba semula.');
+                alert('Sync request failed. Please try again.');
             } finally {
                 btn.disabled = false;
                 btn.innerHTML = `
                     <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                         <path d="M21.5 2v6h-6M21.34 15.57a10 10 0 1 1-.57-8.38l5.67-5.67"></path>
-                    </svg> Segerak`;
+                    </svg> Sync`;
             }
         });
 

@@ -6,6 +6,7 @@ compatibility_date = "2026-06-29"
 # Variables/Bindings
 [vars]
 ENVIRONMENT = "development"
+THREADS_CLIENT_ID = "952901221088471"
 
 # D1 Database Binding
 [[d1_databases]]

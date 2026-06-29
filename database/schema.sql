@@ -86,7 +86,7 @@ CREATE TABLE IF NOT EXISTS schedules (
 -- Publish Logs (Audit trail for api responses and errors)
 CREATE TABLE IF NOT EXISTS publish_logs (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
-    schedule_id INTEGER REFERENCES schedules(id) ON DELETE SET NULL,
+    schedule_id INTEGER REFERENCES publish_queue(id) ON DELETE SET NULL,
     social_account_id INTEGER NOT NULL REFERENCES social_accounts(id) ON DELETE CASCADE,
     status TEXT CHECK(status IN ('success', 'failed')) NOT NULL,
     error_message TEXT,

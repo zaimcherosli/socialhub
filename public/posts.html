@@ -449,14 +449,17 @@
         // Toggle composer drawer
         const btnNewPost = document.getElementById('btnNewPost');
         const composerDrawer = document.getElementById('composerDrawer');
-        btnNewPost.addEventListener('click', (e) => {
-            e.preventDefault();
-            if (composerDrawer.style.display === 'none') {
-                composerDrawer.style.display = 'block';
-            } else {
-                composerDrawer.style.display = 'none';
-            }
-        });
+        if (btnNewPost && composerDrawer) {
+            btnNewPost.addEventListener('click', (e) => {
+                e.preventDefault();
+                console.log('[CreatePost] Button clicked. Current drawer display:', composerDrawer.style.display);
+                if (composerDrawer.style.display === 'none' || !composerDrawer.style.display) {
+                    composerDrawer.style.display = 'block';
+                } else {
+                    composerDrawer.style.display = 'none';
+                }
+            });
+        }
 
         // Reusable Composer Event Listeners
         const postsComposer = document.getElementById('postsComposer');

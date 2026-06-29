@@ -81,12 +81,12 @@ export const PublishingEngine = {
         const startTime = Date.now();
         console.log(`[PublishingEngine] Initiating publication pipeline for queue ID: ${queueId}`);
 
-        // 1. Fetch queue item joined with post contents
+        // 1. Fetch queue item joined with post contents scoping by workspace membership
         const queueItem = await db.prepare(
-            `SELECT q.*, p.title, p.caption 
+            `SELECT q.*, p.title, p.caption, p.workspace_id 
              FROM publish_queue q 
              JOIN posts p ON q.post_id = p.id 
-             WHERE q.id = ? AND q.user_id = ?`
+             WHERE q.id = ? AND p.workspace_id IN (SELECT workspace_id FROM workspace_members WHERE user_id = ?)`
         ).bind(queueId, userId).first();
 
         if (!queueItem) {
@@ -101,10 +101,10 @@ export const PublishingEngine = {
 
         this.emit('onPublishStart', { queueId, platform: queueItem.platform });
 
-        // 3. Resolve OAuth Credentials from D1
+        // 3. Resolve OAuth Credentials from workspace
         const socialAccount = await db.prepare(
-            "SELECT id, access_token, refresh_token FROM social_accounts WHERE user_id = ? AND platform = ? AND status = 'active'"
-        ).bind(userId, queueItem.platform).first();
+            "SELECT id, access_token, refresh_token FROM social_accounts WHERE workspace_id = ? AND platform = ? AND status = 'active'"
+        ).bind(queueItem.workspace_id, queueItem.platform).first();
 
         if (!socialAccount) {
             const errStr = `Connected account credentials missing for platform: ${queueItem.platform}`;

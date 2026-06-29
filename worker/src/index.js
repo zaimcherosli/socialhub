@@ -276,17 +276,258 @@ export default {
             
             const token = authHeader.split(' ')[1];
             const payload = await verifyJWT(token, jwtSecret);
-            if (!payload || !payload.sub) return null;
-
-            if (!env.DB) return { uuid: payload.sub, email: payload.email, name: payload.name, role: payload.role };
+            if (!payload || !payload.sub) return null;            if (!env.DB) return { uuid: payload.sub, email: payload.email, name: payload.name, role: payload.role };
 
             return await env.DB.prepare("SELECT id, uuid, name, email, role, status FROM users WHERE uuid = ?")
                 .bind(payload.sub)
                 .first();
         };
 
+        const PLANS = {
+            free: { accounts: 1, posts: 10, ai_credits: 0, storage: 50 * 1024 * 1024, features: ['calendar', 'queue'] },
+            starter: { accounts: 3, posts: 50, ai_credits: 10, storage: 500 * 1024 * 1024, features: ['calendar', 'queue', 'ai_assistant'] },
+            pro: { accounts: 10, posts: 500, ai_credits: 100, storage: 5 * 1024 * 1024 * 1024, features: ['calendar', 'queue', 'ai_assistant', 'analytics'] },
+            agency: { accounts: 30, posts: 5000, ai_credits: 1000, storage: 50 * 1024 * 1024 * 1024, features: ['calendar', 'queue', 'ai_assistant', 'analytics', 'clients'] },
+            enterprise: { accounts: 99999, posts: 999999, ai_credits: 999999, storage: 1000 * 1024 * 1024 * 1024, features: ['calendar', 'queue', 'ai_assistant', 'analytics', 'clients', 'custom_branding'] }
+        };
+
+        const getActiveWorkspace = async (user) => {
+            if (!user) return null;
+            return await env.DB.prepare(
+                `SELECT m.role, w.id as workspace_id, w.uuid, w.name, w.slug, w.subscription_plan, w.subscription_status
+                 FROM workspace_members m
+                 JOIN workspaces w ON m.workspace_id = w.id
+                 WHERE m.user_id = ?
+                 ORDER BY w.id ASC`
+            ).bind(user.id).first();
+        };
+
+        const logActivity = async (workspaceId, userId, action, details) => {
+            await env.DB.prepare(
+                `INSERT INTO audit_logs (workspace_id, user_id, action, details)
+                 VALUES (?, ?, ?, ?)`
+            ).bind(workspaceId || null, userId || null, action, details || null).run();
+        };
+
         try {
             switch (url.pathname) {
+
+                // ==================== SAAS MULTI-TENANT REST API ====================
+
+                case '/api/workspaces/me': {
+                    const user = await getAuthUser();
+                    if (!user) return new Response(JSON.stringify({ message: 'Unauthorized session' }), { status: 401, headers: corsHeaders });
+                    if (!env.DB) return new Response(JSON.stringify({ message: 'Database missing' }), { status: 500, headers: corsHeaders });
+
+                    const activeWorkspace = await getActiveWorkspace(user);
+                    if (!activeWorkspace) {
+                        return new Response(JSON.stringify({ message: 'No active workspace found' }), { status: 404, headers: corsHeaders });
+                    }
+
+                    if (request.method === 'GET') {
+                        const plan = activeWorkspace.subscription_plan;
+                        const limits = PLANS[plan];
+                        return new Response(JSON.stringify({
+                            success: true,
+                            workspace: activeWorkspace,
+                            limits,
+                            features: limits.features
+                        }), { status: 200, headers: corsHeaders });
+                    }
+
+                    if (request.method === 'PUT') {
+                        if (activeWorkspace.role !== 'owner') {
+                            return new Response(JSON.stringify({ message: 'Forbidden: Only the workspace Owner can update details.' }), { status: 403, headers: corsHeaders });
+                        }
+                        const { name, slug } = await request.json();
+                        if (!name || !slug) return new Response(JSON.stringify({ message: 'Name and slug are required' }), { status: 400, headers: corsHeaders });
+
+                        try {
+                            await env.DB.prepare(
+                                "UPDATE workspaces SET name = ?, slug = ?, updated_at = (datetime('now')) WHERE id = ?"
+                            ).bind(name.trim(), slug.trim().toLowerCase(), activeWorkspace.workspace_id).run();
+
+                            await logActivity(activeWorkspace.workspace_id, user.id, 'update_workspace', `Renamed workspace to "${name}"`);
+                            return new Response(JSON.stringify({ success: true, message: 'Workspace updated successfully' }), { status: 200, headers: corsHeaders });
+                        } catch (e) {
+                            return new Response(JSON.stringify({ message: 'Slug already taken or update failed' }), { status: 400, headers: corsHeaders });
+                        }
+                    }
+
+                    return new Response(JSON.stringify({ error: 'Method not allowed' }), { status: 405, headers: corsHeaders });
+                }
+
+                case '/api/workspaces/members': {
+                    const user = await getAuthUser();
+                    if (!user) return new Response(JSON.stringify({ message: 'Unauthorized session' }), { status: 401, headers: corsHeaders });
+                    if (!env.DB) return new Response(JSON.stringify({ message: 'Database missing' }), { status: 500, headers: corsHeaders });
+
+                    const activeWorkspace = await getActiveWorkspace(user);
+                    if (!activeWorkspace) return new Response(JSON.stringify({ message: 'No active workspace found' }), { status: 404, headers: corsHeaders });
+
+                    if (!['owner', 'admin'].includes(activeWorkspace.role)) {
+                        return new Response(JSON.stringify({ message: 'Forbidden: Access restricted to Owner and Admin' }), { status: 403, headers: corsHeaders });
+                    }
+
+                    if (request.method === 'GET') {
+                        const { results } = await env.DB.prepare(
+                            `SELECT m.id, m.role, u.name, u.email, u.uuid 
+                             FROM workspace_members m
+                             JOIN users u ON m.user_id = u.id
+                             WHERE m.workspace_id = ?`
+                        ).bind(activeWorkspace.workspace_id).all();
+
+                        return new Response(JSON.stringify({ success: true, members: results }), { status: 200, headers: corsHeaders });
+                    }
+
+                    if (request.method === 'POST') {
+                        const { email, role } = await request.json();
+                        if (!email || !role) return new Response(JSON.stringify({ message: 'Email and role are required' }), { status: 400, headers: corsHeaders });
+
+                        const targetUser = await env.DB.prepare("SELECT id, name FROM users WHERE email = ?").bind(email.toLowerCase().trim()).first();
+                        if (!targetUser) return new Response(JSON.stringify({ message: 'User not found in SocialHub directory' }), { status: 404, headers: corsHeaders });
+
+                        try {
+                            await env.DB.prepare(
+                                "INSERT INTO workspace_members (workspace_id, user_id, role) VALUES (?, ?, ?)"
+                            ).bind(activeWorkspace.workspace_id, targetUser.id, role).run();
+
+                            await logActivity(activeWorkspace.workspace_id, user.id, 'add_member', `Added ${targetUser.name} (${email}) as ${role}`);
+                            return new Response(JSON.stringify({ success: true, message: 'Member added successfully' }), { status: 201, headers: corsHeaders });
+                        } catch (e) {
+                            return new Response(JSON.stringify({ message: 'User is already a member of this workspace' }), { status: 400, headers: corsHeaders });
+                        }
+                    }
+
+                    return new Response(JSON.stringify({ error: 'Method not allowed' }), { status: 405, headers: corsHeaders });
+                }
+
+                case '/api/clients': {
+                    const user = await getAuthUser();
+                    if (!user) return new Response(JSON.stringify({ message: 'Unauthorized session' }), { status: 401, headers: corsHeaders });
+                    if (!env.DB) return new Response(JSON.stringify({ message: 'Database missing' }), { status: 500, headers: corsHeaders });
+
+                    const activeWorkspace = await getActiveWorkspace(user);
+                    if (!activeWorkspace) return new Response(JSON.stringify({ message: 'No active workspace found' }), { status: 404, headers: corsHeaders });
+
+                    const limits = PLANS[activeWorkspace.subscription_plan];
+                    if (!limits.features.includes('clients')) {
+                        return new Response(JSON.stringify({ message: 'Feature locked: Upgrade subscription plan to access Agency Clients management.' }), { status: 403, headers: corsHeaders });
+                    }
+
+                    if (request.method === 'GET') {
+                        const { results } = await env.DB.prepare("SELECT * FROM clients WHERE workspace_id = ?").bind(activeWorkspace.workspace_id).all();
+                        return new Response(JSON.stringify({ success: true, clients: results }), { status: 200, headers: corsHeaders });
+                    }
+
+                    if (request.method === 'POST') {
+                        if (activeWorkspace.role === 'viewer') return new Response(JSON.stringify({ message: 'Forbidden: Viewer cannot edit' }), { status: 403, headers: corsHeaders });
+                        const { name, email } = await request.json();
+                        if (!name) return new Response(JSON.stringify({ message: 'Client name is required' }), { status: 400, headers: corsHeaders });
+
+                        const result = await env.DB.prepare(
+                            "INSERT INTO clients (workspace_id, name, email) VALUES (?, ?, ?)"
+                        ).bind(activeWorkspace.workspace_id, name.trim(), email ? email.trim() : null).run();
+
+                        await logActivity(activeWorkspace.workspace_id, user.id, 'create_client', `Created client: ${name}`);
+                        return new Response(JSON.stringify({ success: true, message: 'Client created successfully', id: result.meta.last_row_id }), { status: 201, headers: corsHeaders });
+                    }
+
+                    return new Response(JSON.stringify({ error: 'Method not allowed' }), { status: 405, headers: corsHeaders });
+                }
+
+                case '/api/audit-logs': {
+                    const user = await getAuthUser();
+                    if (!user) return new Response(JSON.stringify({ message: 'Unauthorized session' }), { status: 401, headers: corsHeaders });
+                    if (!env.DB) return new Response(JSON.stringify({ message: 'Database missing' }), { status: 500, headers: corsHeaders });
+
+                    const activeWorkspace = await getActiveWorkspace(user);
+                    if (!activeWorkspace) return new Response(JSON.stringify({ message: 'No active workspace found' }), { status: 404, headers: corsHeaders });
+
+                    if (!['owner', 'admin'].includes(activeWorkspace.role)) {
+                        return new Response(JSON.stringify({ message: 'Forbidden: Audit logs restricted to Owner/Admin' }), { status: 403, headers: corsHeaders });
+                    }
+
+                    if (request.method === 'GET') {
+                        const { results } = await env.DB.prepare(
+                            `SELECT a.*, u.name as user_name, u.email as user_email 
+                             FROM audit_logs a
+                             LEFT JOIN users u ON a.user_id = u.id
+                             WHERE a.workspace_id = ?
+                             ORDER BY a.created_at DESC`
+                        ).bind(activeWorkspace.workspace_id).all();
+
+                        return new Response(JSON.stringify({ success: true, logs: results }), { status: 200, headers: corsHeaders });
+                    }
+
+                    return new Response(JSON.stringify({ error: 'Method not allowed' }), { status: 405, headers: corsHeaders });
+                }
+
+                case '/api/subscriptions/create': {
+                    const user = await getAuthUser();
+                    if (!user) return new Response(JSON.stringify({ message: 'Unauthorized session' }), { status: 401, headers: corsHeaders });
+                    if (!env.DB) return new Response(JSON.stringify({ message: 'Database missing' }), { status: 500, headers: corsHeaders });
+
+                    const activeWorkspace = await getActiveWorkspace(user);
+                    if (!activeWorkspace) return new Response(JSON.stringify({ message: 'No active workspace found' }), { status: 404, headers: corsHeaders });
+                    if (activeWorkspace.role !== 'owner') return new Response(JSON.stringify({ message: 'Forbidden: Only workspace Owner can change plans.' }), { status: 403, headers: corsHeaders });
+
+                    if (request.method === 'POST') {
+                        const { plan } = await request.json();
+                        if (!PLANS[plan]) return new Response(JSON.stringify({ message: 'Invalid plan selected' }), { status: 400, headers: corsHeaders });
+
+                        const subId = `billplz-sub-${crypto.randomUUID().substring(0, 8)}`;
+                        await env.DB.prepare(
+                            "UPDATE workspaces SET billplz_sub_id = ? WHERE id = ?"
+                        ).bind(subId, activeWorkspace.workspace_id).run();
+
+                        await logActivity(activeWorkspace.workspace_id, user.id, 'initiate_subscription', `Initiated subscription plan change to ${plan}`);
+                        
+                        const checkoutUrl = `https://socialhub.zaimrosli.my/billing-checkout-mock?sub_id=${subId}&plan=${plan}`;
+                        return new Response(JSON.stringify({ success: true, checkout_url: checkoutUrl, sub_id: subId }), { status: 200, headers: corsHeaders });
+                    }
+
+                    return new Response(JSON.stringify({ error: 'Method not allowed' }), { status: 405, headers: corsHeaders });
+                }
+
+                case '/api/webhooks/billplz': {
+                    if (request.method !== 'POST') return new Response(JSON.stringify({ error: 'Method not allowed' }), { status: 405, headers: corsHeaders });
+                    if (!env.DB) return new Response(JSON.stringify({ message: 'Database missing' }), { status: 500, headers: corsHeaders });
+
+                    let payload = {};
+                    try {
+                        const contentType = request.headers.get('Content-Type') || '';
+                        if (contentType.includes('application/json')) {
+                            payload = await request.json();
+                        } else {
+                            const formData = await request.formData();
+                            for (const [key, value] of formData.entries()) {
+                                payload[key] = value;
+                            }
+                        }
+                    } catch (e) {
+                        return new Response(JSON.stringify({ error: 'Invalid payload request' }), { status: 400, headers: corsHeaders });
+                    }
+
+                    const subId = payload.sub_id || payload.id;
+                    const plan = payload.plan || 'pro';
+                    const status = payload.status === 'paid' || payload.status === 'active' ? 'active' : 'canceled';
+
+                    if (subId) {
+                        const workspace = await env.DB.prepare("SELECT id FROM workspaces WHERE billplz_sub_id = ?").bind(subId).first();
+                        if (workspace) {
+                            await env.DB.prepare(
+                                `UPDATE workspaces 
+                                 SET subscription_plan = ?, subscription_status = ?, updated_at = (datetime('now')) 
+                                 WHERE id = ?`
+                            ).bind(plan, status, workspace.id).run();
+
+                            await logActivity(workspace.id, null, 'billplz_webhook', `Processed payment status callback: plan=${plan}, status=${status}`);
+                            return new Response(JSON.stringify({ success: true }), { status: 200, headers: corsHeaders });
+                        }
+                    }
+                    return new Response(JSON.stringify({ error: 'Subscription ID not found' }), { status: 404, headers: corsHeaders });
+                }
 
                 // ==================== SCHEDULING & QUEUE ENGINE REST API ====================
 
@@ -295,21 +536,28 @@ export default {
                     if (!user) return new Response(JSON.stringify({ message: 'Unauthorized session' }), { status: 401, headers: corsHeaders });
                     if (!env.DB) return new Response(JSON.stringify({ message: 'Database missing' }), { status: 500, headers: corsHeaders });
 
+                    const activeWorkspace = await getActiveWorkspace(user);
+                    if (!activeWorkspace) return new Response(JSON.stringify({ message: 'No active workspace found' }), { status: 404, headers: corsHeaders });
+
                     // 1. GET /api/queue - List queue timelines
                     if (request.method === 'GET') {
                         const { results } = await env.DB.prepare(
                             `SELECT q.*, p.title, p.caption 
                              FROM publish_queue q 
                              JOIN posts p ON q.post_id = p.id 
-                             WHERE q.user_id = ? 
+                             WHERE p.workspace_id = ? 
                              ORDER BY q.scheduled_at ASC`
-                        ).bind(user.id).all();
+                        ).bind(activeWorkspace.workspace_id).all();
 
                         return new Response(JSON.stringify({ success: true, results }), { status: 200, headers: corsHeaders });
                     }
 
                     // 2. POST /api/queue - Insert new schedule
                     if (request.method === 'POST') {
+                        if (activeWorkspace.role === 'viewer') {
+                            return new Response(JSON.stringify({ message: 'Forbidden: Viewers cannot create publications.' }), { status: 403, headers: corsHeaders });
+                        }
+
                         const { post_id, platform, scheduled_at, timezone } = await request.json();
 
                         if (!post_id || !platform || !scheduled_at) {
@@ -335,6 +583,8 @@ export default {
                             .bind(scheduled_at, post_id)
                             .run();
 
+                        await logActivity(activeWorkspace.workspace_id, user.id, 'schedule_post', `Queued post ID ${post_id} for platform: ${platform}`);
+
                         return new Response(JSON.stringify({
                             success: true,
                             message: 'Post queued for scheduling successfully',
@@ -354,6 +604,13 @@ export default {
                     if (!user) return new Response(JSON.stringify({ message: 'Unauthorized session' }), { status: 401, headers: corsHeaders });
                     if (!env.DB) return new Response(JSON.stringify({ message: 'Database missing' }), { status: 500, headers: corsHeaders });
 
+                    const activeWorkspace = await getActiveWorkspace(user);
+                    if (!activeWorkspace) return new Response(JSON.stringify({ message: 'No active workspace found' }), { status: 404, headers: corsHeaders });
+
+                    if (activeWorkspace.role === 'viewer') {
+                        return new Response(JSON.stringify({ message: 'Forbidden: Viewers cannot cancel schedules.' }), { status: 403, headers: corsHeaders });
+                    }
+
                     const { ids } = await request.json();
                     if (!ids || !Array.isArray(ids) || ids.length === 0) {
                         return new Response(JSON.stringify({ message: 'IDs array required' }), { status: 400, headers: corsHeaders });
@@ -361,7 +618,12 @@ export default {
 
                     // Bulk delete from queue and reset post status to draft if no other queues exist
                     for (const queueId of ids) {
-                        const queueItem = await env.DB.prepare("SELECT post_id FROM publish_queue WHERE id = ? AND user_id = ?").bind(queueId, user.id).first();
+                        const queueItem = await env.DB.prepare(
+                            `SELECT q.post_id FROM publish_queue q 
+                             JOIN posts p ON q.post_id = p.id 
+                             WHERE q.id = ? AND p.workspace_id = ?`
+                        ).bind(queueId, activeWorkspace.workspace_id).first();
+
                         if (queueItem) {
                             await env.DB.prepare("DELETE FROM publish_queue WHERE id = ?").bind(queueId).run();
                             
@@ -373,6 +635,7 @@ export default {
                         }
                     }
 
+                    await logActivity(activeWorkspace.workspace_id, user.id, 'bulk_cancel_schedule', `Bulk cancelled ${ids.length} schedules.`);
                     return new Response(JSON.stringify({ success: true, message: 'Bulk schedules cancelled successfully' }), { status: 200, headers: corsHeaders });
                 }
 
@@ -383,19 +646,36 @@ export default {
                     if (!user) return new Response(JSON.stringify({ message: 'Unauthorized session' }), { status: 401, headers: corsHeaders });
                     if (!env.DB) return new Response(JSON.stringify({ message: 'Database missing' }), { status: 500, headers: corsHeaders });
 
+                    const activeWorkspace = await getActiveWorkspace(user);
+                    if (!activeWorkspace) return new Response(JSON.stringify({ message: 'No active workspace found' }), { status: 404, headers: corsHeaders });
+
                     if (request.method === 'GET') {
-                        const { results } = await env.DB.prepare("SELECT id, user_id, title, caption, status, visibility, scheduled_at, published_at, created_at, updated_at FROM posts WHERE user_id = ? ORDER BY created_at DESC")
-                            .bind(user.id)
+                        const { results } = await env.DB.prepare("SELECT id, user_id, title, caption, status, visibility, scheduled_at, published_at, created_at, updated_at FROM posts WHERE workspace_id = ? ORDER BY created_at DESC")
+                            .bind(activeWorkspace.workspace_id)
                             .all();
                         return new Response(JSON.stringify({ success: true, results }), { status: 200, headers: corsHeaders });
                     }
 
                     if (request.method === 'POST') {
+                        if (activeWorkspace.role === 'viewer') {
+                            return new Response(JSON.stringify({ message: 'Forbidden: Viewers cannot create posts.' }), { status: 403, headers: corsHeaders });
+                        }
+
+                        const plan = activeWorkspace.subscription_plan;
+                        const limit = PLANS[plan].posts;
+                        const startOfMonth = new Date(new Date().getFullYear(), new Date().getMonth(), 1).toISOString();
+                        const countRes = await env.DB.prepare("SELECT COUNT(*) as count FROM posts WHERE workspace_id = ? AND created_at >= ?").bind(activeWorkspace.workspace_id, startOfMonth).first();
+                        if (countRes && countRes.count >= limit) {
+                            return new Response(JSON.stringify({ message: `Subscription limit reached: Maximum ${limit} posts per month allowed on ${plan} plan.` }), { status: 403, headers: corsHeaders });
+                        }
+
                         const { title, caption, status, visibility, scheduled_at } = await request.json();
 
-                        const result = await env.DB.prepare("INSERT INTO posts (user_id, title, caption, status, visibility, scheduled_at) VALUES (?, ?, ?, ?, ?, ?)")
-                            .bind(user.id, title || '', caption || '', status || 'draft', visibility || 'public', scheduled_at || null)
+                        const result = await env.DB.prepare("INSERT INTO posts (user_id, workspace_id, title, caption, status, visibility, scheduled_at) VALUES (?, ?, ?, ?, ?, ?, ?)")
+                            .bind(user.id, activeWorkspace.workspace_id, title || '', caption || '', status || 'draft', visibility || 'public', scheduled_at || null)
                             .run();
+
+                        await logActivity(activeWorkspace.workspace_id, user.id, 'create_post', `Created post "${title || 'Untitled'}"`);
 
                         return new Response(JSON.stringify({
                             success: true,
@@ -414,19 +694,34 @@ export default {
                     if (!user) return new Response(JSON.stringify({ message: 'Unauthorized session' }), { status: 401, headers: corsHeaders });
                     if (!env.DB) return new Response(JSON.stringify({ message: 'Database missing' }), { status: 500, headers: corsHeaders });
 
+                    const activeWorkspace = await getActiveWorkspace(user);
+                    if (!activeWorkspace) return new Response(JSON.stringify({ message: 'No active workspace found' }), { status: 404, headers: corsHeaders });
+
                     if (request.method === 'GET') {
                         const { results } = await env.DB.prepare(
                             `SELECT sp.*, sa.account_name 
                              FROM scheduled_posts sp
                              LEFT JOIN social_accounts sa ON sp.account_id = sa.id
-                             WHERE sp.user_id = ? 
+                             WHERE sp.workspace_id = ? 
                              ORDER BY sp.publish_at ASC`
-                        ).bind(user.id).all();
+                        ).bind(activeWorkspace.workspace_id).all();
                         
                         return new Response(JSON.stringify({ success: true, results }), { status: 200, headers: corsHeaders });
                     }
 
                     if (request.method === 'POST') {
+                        if (activeWorkspace.role === 'viewer') {
+                            return new Response(JSON.stringify({ message: 'Forbidden: Viewers cannot schedule posts.' }), { status: 403, headers: corsHeaders });
+                        }
+
+                        const plan = activeWorkspace.subscription_plan;
+                        const limit = PLANS[plan].posts;
+                        const startOfMonth = new Date(new Date().getFullYear(), new Date().getMonth(), 1).toISOString();
+                        const countRes = await env.DB.prepare("SELECT COUNT(*) as count FROM scheduled_posts WHERE workspace_id = ? AND created_at >= ?").bind(activeWorkspace.workspace_id, startOfMonth).first();
+                        if (countRes && countRes.count >= limit) {
+                            return new Response(JSON.stringify({ message: `Subscription limit reached: Maximum ${limit} posts per month allowed on ${plan} plan.` }), { status: 403, headers: corsHeaders });
+                        }
+
                         const { title, content, targets, publish_at, timezone } = await request.json();
                         
                         if (!content || !targets || !Array.isArray(targets) || targets.length === 0 || !publish_at) {
@@ -437,10 +732,11 @@ export default {
                         
                         for (const target of targets) {
                             const result = await env.DB.prepare(
-                                `INSERT INTO scheduled_posts (user_id, account_id, platform, content, media_urls, status, publish_at, timezone) 
-                                 VALUES (?, ?, ?, ?, ?, 'scheduled', ?, ?)`
+                                `INSERT INTO scheduled_posts (user_id, workspace_id, account_id, platform, content, media_urls, status, publish_at, timezone) 
+                                 VALUES (?, ?, ?, ?, ?, ?, 'scheduled', ?, ?)`
                             ).bind(
                                 user.id, 
+                                activeWorkspace.workspace_id,
                                 target.accountId || null, 
                                 target.platform, 
                                 content, 
@@ -451,6 +747,8 @@ export default {
                             
                             insertedIds.push(result.meta.last_row_id);
                         }
+
+                        await logActivity(activeWorkspace.workspace_id, user.id, 'schedule_posts', `Scheduled ${targets.length} posts targets.`);
 
                         return new Response(JSON.stringify({
                             success: true,
@@ -466,6 +764,9 @@ export default {
                     const user = await getAuthUser();
                     if (!user) return new Response(JSON.stringify({ message: 'Unauthorized session' }), { status: 401, headers: corsHeaders });
                     if (!env.DB) return new Response(JSON.stringify({ message: 'Database missing' }), { status: 500, headers: corsHeaders });
+
+                    const activeWorkspace = await getActiveWorkspace(user);
+                    if (!activeWorkspace) return new Response(JSON.stringify({ message: 'No active workspace found' }), { status: 404, headers: corsHeaders });
 
                     if (request.method !== 'GET') {
                         return new Response(JSON.stringify({ error: 'Method not allowed' }), { status: 405, headers: corsHeaders });
@@ -492,8 +793,8 @@ export default {
                     };
 
                     const counts = await env.DB.prepare(
-                        `SELECT status, COUNT(*) as count FROM scheduled_posts WHERE user_id = ? GROUP BY status`
-                    ).bind(user.id).all();
+                        `SELECT status, COUNT(*) as count FROM scheduled_posts WHERE workspace_id = ? GROUP BY status`
+                    ).bind(activeWorkspace.workspace_id).all();
 
                     counts.results.forEach(row => {
                         if (row.status === 'scheduled') summary.scheduled = row.count;
@@ -503,26 +804,26 @@ export default {
 
                     const upcomingTodayRes = await env.DB.prepare(
                         `SELECT COUNT(*) as count FROM scheduled_posts 
-                         WHERE user_id = ? AND status = 'scheduled' AND publish_at >= ? AND publish_at <= ?`
-                    ).bind(user.id, startOfToday, endOfToday).first();
+                         WHERE workspace_id = ? AND status = 'scheduled' AND publish_at >= ? AND publish_at <= ?`
+                    ).bind(activeWorkspace.workspace_id, startOfToday, endOfToday).first();
                     summary.upcoming_today = upcomingTodayRes ? upcomingTodayRes.count : 0;
 
                     const upcomingTomorrowRes = await env.DB.prepare(
                         `SELECT COUNT(*) as count FROM scheduled_posts 
-                         WHERE user_id = ? AND status = 'scheduled' AND publish_at >= ? AND publish_at <= ?`
-                    ).bind(user.id, startOfTomorrow, endOfTomorrow).first();
+                         WHERE workspace_id = ? AND status = 'scheduled' AND publish_at >= ? AND publish_at <= ?`
+                    ).bind(activeWorkspace.workspace_id, startOfTomorrow, endOfTomorrow).first();
                     summary.upcoming_tomorrow = upcomingTomorrowRes ? upcomingTomorrowRes.count : 0;
 
                     const next7DaysRes = await env.DB.prepare(
                         `SELECT COUNT(*) as count FROM scheduled_posts 
-                         WHERE user_id = ? AND status = 'scheduled' AND publish_at >= ? AND publish_at <= ?`
-                    ).bind(user.id, startOfToday, endOf7Days).first();
+                         WHERE workspace_id = ? AND status = 'scheduled' AND publish_at >= ? AND publish_at <= ?`
+                    ).bind(activeWorkspace.workspace_id, startOfToday, endOf7Days).first();
                     summary.next_7_days = next7DaysRes ? next7DaysRes.count : 0;
 
                     const publishedTodayRes = await env.DB.prepare(
                         `SELECT COUNT(*) as count FROM scheduled_posts 
-                         WHERE user_id = ? AND status = 'published' AND published_at >= ? AND published_at <= ?`
-                    ).bind(user.id, startOfToday, endOfToday).first();
+                         WHERE workspace_id = ? AND status = 'published' AND published_at >= ? AND published_at <= ?`
+                    ).bind(activeWorkspace.workspace_id, startOfToday, endOfToday).first();
                     summary.published_today = publishedTodayRes ? publishedTodayRes.count : 0;
 
                     return new Response(JSON.stringify({ success: true, summary }), { status: 200, headers: corsHeaders });
@@ -630,9 +931,12 @@ export default {
                     if (!user) return new Response(JSON.stringify({ message: 'Unauthorized session' }), { status: 401, headers: corsHeaders });
                     if (!env.DB) return new Response(JSON.stringify({ message: 'Database missing' }), { status: 500, headers: corsHeaders });
 
+                    const activeWorkspace = await getActiveWorkspace(user);
+                    if (!activeWorkspace) return new Response(JSON.stringify({ message: 'No active workspace found' }), { status: 404, headers: corsHeaders });
+
                     if (request.method === 'GET') {
-                        const { results } = await env.DB.prepare("SELECT * FROM media WHERE user_id = ? ORDER BY created_at DESC")
-                            .bind(user.id)
+                        const { results } = await env.DB.prepare("SELECT * FROM media WHERE workspace_id = ? ORDER BY created_at DESC")
+                            .bind(activeWorkspace.workspace_id)
                             .all();
                         return new Response(JSON.stringify({ success: true, results }), { status: 200, headers: corsHeaders });
                     }
@@ -645,7 +949,13 @@ export default {
                     if (!user) return new Response(JSON.stringify({ message: 'Unauthorized session' }), { status: 401, headers: corsHeaders });
                     if (!env.DB) return new Response(JSON.stringify({ message: 'Database missing' }), { status: 500, headers: corsHeaders });
 
+                    const activeWorkspace = await getActiveWorkspace(user);
+                    if (!activeWorkspace) return new Response(JSON.stringify({ message: 'No active workspace found' }), { status: 404, headers: corsHeaders });
+
                     if (request.method !== 'POST') return new Response(JSON.stringify({ error: 'Method not allowed' }), { status: 405, headers: corsHeaders });
+                    if (activeWorkspace.role === 'viewer') {
+                        return new Response(JSON.stringify({ message: 'Forbidden: Viewers cannot upload media.' }), { status: 403, headers: corsHeaders });
+                    }
 
                     const formData = await request.formData();
                     const file = formData.get('file');
@@ -659,16 +969,26 @@ export default {
                     const fileSize = file.size;
                     const filename = sanitizeFilename(originalName);
 
+                    const plan = activeWorkspace.subscription_plan;
+                    const limits = PLANS[plan];
+                    const sizeRes = await env.DB.prepare("SELECT SUM(file_size) as total FROM media WHERE workspace_id = ?").bind(activeWorkspace.workspace_id).first();
+                    const currentTotal = sizeRes ? (sizeRes.total || 0) : 0;
+                    if ((currentTotal + fileSize) > limits.storage) {
+                        return new Response(JSON.stringify({ message: "Subscription limit reached: Storage capacity exceeded." }), { status: 403, headers: corsHeaders });
+                    }
+
                     const buffer = await file.arrayBuffer();
                     const base64Str = btoa(String.fromCharCode(...new Uint8Array(buffer)));
                     const dataUrl = `data:${mimeType};base64,${base64Str}`;
 
-                    const result = await env.DB.prepare("INSERT INTO media (user_id, filename, original_name, mime_type, file_size, width, height, storage_provider, storage_key, thumbnail) VALUES (?, ?, ?, ?, ?, ?, ?, 'local', ?, ?)")
-                        .bind(user.id, filename, originalName, mimeType, fileSize, width, height, dataUrl, dataUrl)
+                    const result = await env.DB.prepare("INSERT INTO media (user_id, workspace_id, filename, original_name, mime_type, file_size, width, height, storage_provider, storage_key, thumbnail) VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'local', ?, ?)")
+                        .bind(user.id, activeWorkspace.workspace_id, filename, originalName, mimeType, fileSize, width, height, dataUrl, dataUrl)
                         .run();
 
                     const newMediaId = result.meta.last_row_id;
                     const uploadedRecord = await env.DB.prepare("SELECT * FROM media WHERE id = ?").bind(newMediaId).first();
+
+                    await logActivity(activeWorkspace.workspace_id, user.id, 'upload_media', `Uploaded file: ${filename} (${fileSize} bytes)`);
 
                     return new Response(JSON.stringify({ success: true, message: 'Uploaded successfully', media: uploadedRecord }), { status: 201, headers: corsHeaders });
                 }
@@ -679,6 +999,12 @@ export default {
                     if (request.method !== 'GET') return new Response(JSON.stringify({ error: 'Method not allowed' }), { status: 405, headers: corsHeaders });
                     const user = await getAuthUser();
                     if (!user) return new Response(JSON.stringify({ message: 'Unauthorized session' }), { status: 401, headers: corsHeaders });
+
+                    const activeWorkspace = await getActiveWorkspace(user);
+                    if (!activeWorkspace) return new Response(JSON.stringify({ message: 'No active workspace found' }), { status: 404, headers: corsHeaders });
+                    if (!['owner', 'admin'].includes(activeWorkspace.role)) {
+                        return new Response(JSON.stringify({ message: 'Forbidden: Only Admin/Owner can connect social accounts.' }), { status: 403, headers: corsHeaders });
+                    }
 
                     const platform = url.searchParams.get('platform');
                     const provider = OAuthProviders[platform];
@@ -718,19 +1044,34 @@ export default {
 
                     const code = url.searchParams.get('code');
                     const state = url.searchParams.get('state');
-                    if (!state) return new Response('State parameter missing', { status: 400 });
+                    const frontendOrigin = env.FRONTEND_ORIGIN || "http://localhost:5173";
+
+                    if (!state) return Response.redirect(`${frontendOrigin}/accounts.html?error=state_missing`, 302);
 
                     const statePayload = await verifyJWT(state, jwtSecret);
-                    if (!statePayload || !statePayload.sub || !statePayload.platform) return new Response('Invalid state', { status: 403 });
+                    if (!statePayload || !statePayload.sub || !statePayload.platform) return Response.redirect(`${frontendOrigin}/accounts.html?error=invalid_state`, 302);
 
                     const userUuid = statePayload.sub;
                     const platform = statePayload.platform;
                     const provider = OAuthProviders[platform];
-                    if (!provider) return new Response('Provider missing', { status: 400 });
-                    if (!env.DB) return new Response('DB missing', { status: 500 });
+                    if (!provider) return Response.redirect(`${frontendOrigin}/accounts.html?error=provider_missing`, 302);
+                    if (!env.DB) return Response.redirect(`${frontendOrigin}/accounts.html?error=db_missing`, 302);
 
                     const user = await env.DB.prepare("SELECT id FROM users WHERE uuid = ?").bind(userUuid).first();
-                    if (!user) return new Response('User not found', { status: 404 });
+                    if (!user) return Response.redirect(`${frontendOrigin}/accounts.html?error=user_not_found`, 302);
+
+                    const activeWorkspace = await getActiveWorkspace(user);
+                    if (!activeWorkspace) return Response.redirect(`${frontendOrigin}/accounts.html?error=no_workspace`, 302);
+                    if (!['owner', 'admin'].includes(activeWorkspace.role)) return Response.redirect(`${frontendOrigin}/accounts.html?error=forbidden`, 302);
+
+                    const plan = activeWorkspace.subscription_plan;
+                    const limits = PLANS[plan];
+                    const countRes = await env.DB.prepare("SELECT COUNT(*) as count FROM social_accounts WHERE workspace_id = ?").bind(activeWorkspace.workspace_id).first();
+                    const existingAccountCheck = await env.DB.prepare("SELECT id FROM social_accounts WHERE workspace_id = ? AND platform = ?").bind(activeWorkspace.workspace_id, platform).first();
+                    
+                    if (!existingAccountCheck && countRes && countRes.count >= limits.accounts) {
+                        return Response.redirect(`${frontendOrigin}/accounts.html?error=limit_exceeded`, 302);
+                    }
 
                     const clientIdKey = `${platform.toUpperCase()}_CLIENT_ID`;
                     const clientSecretKey = `${platform.toUpperCase()}_CLIENT_SECRET`;
@@ -757,8 +1098,8 @@ export default {
                     const expiresAt = tokenData.expires_in ? new Date(Date.now() + (tokenData.expires_in * 1000)).toISOString() : null;
                     const nowStr = new Date().toISOString();
 
-                    const existingAccount = await env.DB.prepare("SELECT id FROM social_accounts WHERE user_id = ? AND platform = ? AND account_id = ?")
-                        .bind(user.id, platform, tokenData.account_id)
+                    const existingAccount = await env.DB.prepare("SELECT id FROM social_accounts WHERE workspace_id = ? AND platform = ? AND account_id = ?")
+                        .bind(activeWorkspace.workspace_id, platform, tokenData.account_id)
                         .first();
 
                     if (existingAccount) {
@@ -766,12 +1107,13 @@ export default {
                             .bind(tokenData.account_name, encryptedAccessToken, encryptedRefreshToken, expiresAt, nowStr, existingAccount.id)
                             .run();
                     } else {
-                        await env.DB.prepare("INSERT INTO social_accounts (user_id, platform, account_name, account_id, access_token, refresh_token, expires_at, status) VALUES (?, ?, ?, ?, ?, ?, ?, 'active')")
-                            .bind(user.id, platform, tokenData.account_name, tokenData.account_id, encryptedAccessToken, encryptedRefreshToken, expiresAt)
+                        await env.DB.prepare("INSERT INTO social_accounts (user_id, workspace_id, platform, account_name, account_id, access_token, refresh_token, expires_at, status) VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'active')")
+                            .bind(user.id, activeWorkspace.workspace_id, platform, tokenData.account_name, tokenData.account_id, encryptedAccessToken, encryptedRefreshToken, expiresAt)
                             .run();
                     }
 
-                    const frontendOrigin = env.FRONTEND_ORIGIN || "http://localhost:5173";
+                    await logActivity(activeWorkspace.workspace_id, user.id, 'connect_account', `Connected ${platform} account: ${tokenData.account_name}`);
+
                     return Response.redirect(`${frontendOrigin}/accounts.html?success=true`, 302);
                 }
 
@@ -783,7 +1125,10 @@ export default {
                     if (!user) return new Response(JSON.stringify({ message: 'Unauthorized session' }), { status: 401, headers: corsHeaders });
                     if (!env.DB) return new Response(JSON.stringify({ accounts: [] }), { status: 200, headers: corsHeaders });
 
-                    const { results } = await env.DB.prepare("SELECT id, platform, account_name, account_id, expires_at, status, created_at FROM social_accounts WHERE user_id = ?").bind(user.id).all();
+                    const activeWorkspace = await getActiveWorkspace(user);
+                    if (!activeWorkspace) return new Response(JSON.stringify({ message: 'No active workspace found' }), { status: 404, headers: corsHeaders });
+
+                    const { results } = await env.DB.prepare("SELECT id, platform, account_name, account_id, expires_at, status, created_at FROM social_accounts WHERE workspace_id = ?").bind(activeWorkspace.workspace_id).all();
                     return new Response(JSON.stringify({ success: true, accounts: results }), { status: 200, headers: corsHeaders });
                 }
 
@@ -793,13 +1138,18 @@ export default {
                     if (!user) return new Response(JSON.stringify({ message: 'Unauthorized session' }), { status: 401, headers: corsHeaders });
                     if (!env.DB) return new Response(JSON.stringify({ results: [] }), { status: 200, headers: corsHeaders });
 
+                    const activeWorkspace = await getActiveWorkspace(user);
+                    if (!activeWorkspace) return new Response(JSON.stringify({ message: 'No active workspace found' }), { status: 404, headers: corsHeaders });
+
                     const { results } = await env.DB.prepare(
                         `SELECT l.*, q.platform, p.title 
                          FROM publish_logs l 
+                         JOIN social_accounts sa ON l.social_account_id = sa.id
                          LEFT JOIN publish_queue q ON l.schedule_id = q.id 
                          LEFT JOIN posts p ON q.post_id = p.id 
+                         WHERE sa.workspace_id = ?
                          ORDER BY l.published_at DESC`
-                    ).all();
+                    ).bind(activeWorkspace.workspace_id).all();
                     return new Response(JSON.stringify({ success: true, results }), { status: 200, headers: corsHeaders });
                 }
 
@@ -1014,6 +1364,60 @@ export default {
 
                             return new Response(JSON.stringify({ success: true, message: 'Schedule cancelled and removed' }), { status: 200, headers: corsHeaders });
                         }
+
+                    // Match /api/workspaces/members/:id
+                    const wsMemberMatch = url.pathname.match(/^\/api\/workspaces\/members\/(\d+)$/);
+                    if (wsMemberMatch) {
+                        const memberId = parseInt(wsMemberMatch[1]);
+                        const user = await getAuthUser();
+                        if (!user) return new Response(JSON.stringify({ message: 'Unauthorized session' }), { status: 401, headers: corsHeaders });
+                        if (!env.DB) return new Response(JSON.stringify({ message: 'Database missing' }), { status: 500, headers: corsHeaders });
+
+                        const activeWorkspace = await getActiveWorkspace(user);
+                        if (!activeWorkspace) return new Response(JSON.stringify({ message: 'No active workspace found' }), { status: 404, headers: corsHeaders });
+                        if (!['owner', 'admin'].includes(activeWorkspace.role)) {
+                            return new Response(JSON.stringify({ message: 'Forbidden: Only Owner/Admin can remove members.' }), { status: 403, headers: corsHeaders });
+                        }
+
+                        if (request.method === 'DELETE') {
+                            const result = await env.DB.prepare(
+                                "DELETE FROM workspace_members WHERE id = ? AND workspace_id = ?"
+                            ).bind(memberId, activeWorkspace.workspace_id).run();
+
+                            if (result.meta.changes === 0) return new Response(JSON.stringify({ message: 'Member not found or not in workspace' }), { status: 404, headers: corsHeaders });
+
+                            await logActivity(activeWorkspace.workspace_id, user.id, 'remove_member', `Removed workspace member ID ${memberId}`);
+                            return new Response(JSON.stringify({ success: true, message: 'Member removed successfully' }), { status: 200, headers: corsHeaders });
+                        }
+                    }
+
+                    // Match /api/clients/:id
+                    const clientMatch = url.pathname.match(/^\/api\/clients\/(\d+)$/);
+                    if (clientMatch) {
+                        const clientId = parseInt(clientMatch[1]);
+                        const user = await getAuthUser();
+                        if (!user) return new Response(JSON.stringify({ message: 'Unauthorized session' }), { status: 401, headers: corsHeaders });
+                        if (!env.DB) return new Response(JSON.stringify({ message: 'Database missing' }), { status: 500, headers: corsHeaders });
+
+                        const activeWorkspace = await getActiveWorkspace(user);
+                        if (!activeWorkspace) return new Response(JSON.stringify({ message: 'No active workspace found' }), { status: 404, headers: corsHeaders });
+
+                        const limits = PLANS[activeWorkspace.subscription_plan];
+                        if (!limits.features.includes('clients')) {
+                            return new Response(JSON.stringify({ message: 'Feature locked: Upgrade subscription plan to access clients.' }), { status: 403, headers: corsHeaders });
+                        }
+
+                        if (request.method === 'DELETE') {
+                            if (activeWorkspace.role === 'viewer') return new Response(JSON.stringify({ message: 'Forbidden' }), { status: 403, headers: corsHeaders });
+                            const result = await env.DB.prepare(
+                                "DELETE FROM clients WHERE id = ? AND workspace_id = ?"
+                            ).bind(clientId, activeWorkspace.workspace_id).run();
+
+                            if (result.meta.changes === 0) return new Response(JSON.stringify({ message: 'Client not found or not in workspace' }), { status: 404, headers: corsHeaders });
+
+                            await logActivity(activeWorkspace.workspace_id, user.id, 'delete_client', `Deleted client ID ${clientId}`);
+                            return new Response(JSON.stringify({ success: true, message: 'Client deleted successfully' }), { status: 200, headers: corsHeaders });
+                        }
                     }
 
                     // Match /api/media/:id
@@ -1024,21 +1428,25 @@ export default {
                         if (!user) return new Response(JSON.stringify({ message: 'Unauthorized session' }), { status: 401, headers: corsHeaders });
                         if (!env.DB) return new Response(JSON.stringify({ message: 'Database missing' }), { status: 500, headers: corsHeaders });
 
+                        const activeWorkspace = await getActiveWorkspace(user);
+                        if (!activeWorkspace) return new Response(JSON.stringify({ message: 'No active workspace found' }), { status: 404, headers: corsHeaders });
+
                         if (request.method === 'PUT') {
+                            if (activeWorkspace.role === 'viewer') return new Response(JSON.stringify({ message: 'Forbidden' }), { status: 403, headers: corsHeaders });
                             const { filename, is_favorite } = await request.json();
                             const nowStr = new Date().toISOString();
 
                             if (filename !== undefined) {
                                 const cleanFilename = sanitizeFilename(filename);
-                                await env.DB.prepare("UPDATE media SET filename = ?, updated_at = ? WHERE id = ? AND user_id = ?")
-                                    .bind(cleanFilename, nowStr, mediaId, user.id)
+                                await env.DB.prepare("UPDATE media SET filename = ?, updated_at = ? WHERE id = ? AND workspace_id = ?")
+                                    .bind(cleanFilename, nowStr, mediaId, activeWorkspace.workspace_id)
                                     .run();
                             }
 
                             if (is_favorite !== undefined) {
                                 const favInt = is_favorite ? 1 : 0;
-                                await env.DB.prepare("UPDATE media SET is_favorite = ?, updated_at = ? WHERE id = ? AND user_id = ?")
-                                    .bind(favInt, nowStr, mediaId, user.id)
+                                await env.DB.prepare("UPDATE media SET is_favorite = ?, updated_at = ? WHERE id = ? AND workspace_id = ?")
+                                    .bind(favInt, nowStr, mediaId, activeWorkspace.workspace_id)
                                     .run();
                             }
 
@@ -1047,8 +1455,11 @@ export default {
                         }
 
                         if (request.method === 'DELETE') {
-                            const result = await env.DB.prepare("DELETE FROM media WHERE id = ? AND user_id = ?").bind(mediaId, user.id).run();
-                            if (result.meta.changes === 0) return new Response(JSON.stringify({ message: 'Asset not found' }), { status: 404, headers: corsHeaders });
+                            if (activeWorkspace.role === 'viewer') return new Response(JSON.stringify({ message: 'Forbidden' }), { status: 403, headers: corsHeaders });
+                            const result = await env.DB.prepare("DELETE FROM media WHERE id = ? AND workspace_id = ?").bind(mediaId, activeWorkspace.workspace_id).run();
+                            if (result.meta.changes === 0) return new Response(JSON.stringify({ message: 'Asset not found or unauthorized' }), { status: 404, headers: corsHeaders });
+                            
+                            await logActivity(activeWorkspace.workspace_id, user.id, 'delete_media', `Deleted media asset ID ${mediaId}`);
                             return new Response(JSON.stringify({ success: true, message: 'Media asset deleted' }), { status: 200, headers: corsHeaders });
                         }
                     }
@@ -1063,6 +1474,13 @@ export default {
                         if (!user) return new Response(JSON.stringify({ message: 'Unauthorized session' }), { status: 401, headers: corsHeaders });
                         if (!env.DB) return new Response(JSON.stringify({ message: 'Database missing' }), { status: 500, headers: corsHeaders });
 
+                        const activeWorkspace = await getActiveWorkspace(user);
+                        if (!activeWorkspace) return new Response(JSON.stringify({ message: 'No active workspace found' }), { status: 404, headers: corsHeaders });
+                        if (activeWorkspace.role === 'viewer') return new Response(JSON.stringify({ message: 'Forbidden' }), { status: 403, headers: corsHeaders });
+
+                        const post = await env.DB.prepare("SELECT id FROM posts WHERE id = ? AND workspace_id = ?").bind(postId, activeWorkspace.workspace_id).first();
+                        if (!post) return new Response(JSON.stringify({ message: 'Post not found or unauthorized' }), { status: 404, headers: corsHeaders });
+
                         await env.DB.prepare("DELETE FROM post_media WHERE post_id = ? AND media_id = ?").bind(postId, mediaId).run();
                         return new Response(JSON.stringify({ success: true, message: 'Media detached' }), { status: 200, headers: corsHeaders });
                     }
@@ -1075,12 +1493,19 @@ export default {
                         if (!user) return new Response(JSON.stringify({ message: 'Unauthorized session' }), { status: 401, headers: corsHeaders });
                         if (!env.DB) return new Response(JSON.stringify({ message: 'Database missing' }), { status: 500, headers: corsHeaders });
 
+                        const activeWorkspace = await getActiveWorkspace(user);
+                        if (!activeWorkspace) return new Response(JSON.stringify({ message: 'No active workspace found' }), { status: 404, headers: corsHeaders });
+
+                        const post = await env.DB.prepare("SELECT id FROM posts WHERE id = ? AND workspace_id = ?").bind(postId, activeWorkspace.workspace_id).first();
+                        if (!post) return new Response(JSON.stringify({ message: 'Post not found or unauthorized' }), { status: 404, headers: corsHeaders });
+
                         if (request.method === 'GET') {
                             const { results } = await env.DB.prepare("SELECT m.* FROM media m JOIN post_media pm ON m.id = pm.media_id WHERE pm.post_id = ?").bind(postId).all();
                             return new Response(JSON.stringify({ success: true, results }), { status: 200, headers: corsHeaders });
                         }
 
                         if (request.method === 'POST') {
+                            if (activeWorkspace.role === 'viewer') return new Response(JSON.stringify({ message: 'Forbidden' }), { status: 403, headers: corsHeaders });
                             const { media_id } = await request.json();
                             await env.DB.prepare("INSERT OR IGNORE INTO post_media (post_id, media_id) VALUES (?, ?)")
                                 .bind(postId, media_id)
@@ -1098,12 +1523,25 @@ export default {
                         if (!user) return new Response(JSON.stringify({ message: 'Unauthorized session' }), { status: 401, headers: corsHeaders });
                         if (!env.DB) return new Response(JSON.stringify({ message: 'Database missing' }), { status: 500, headers: corsHeaders });
 
-                        const original = await env.DB.prepare("SELECT * FROM posts WHERE id = ? AND user_id = ?").bind(postId, user.id).first();
-                        if (!original) return new Response(JSON.stringify({ message: 'Post not found' }), { status: 404, headers: corsHeaders });
+                        const activeWorkspace = await getActiveWorkspace(user);
+                        if (!activeWorkspace) return new Response(JSON.stringify({ message: 'No active workspace found' }), { status: 404, headers: corsHeaders });
+                        if (activeWorkspace.role === 'viewer') return new Response(JSON.stringify({ message: 'Forbidden' }), { status: 403, headers: corsHeaders });
+
+                        // Check post limits
+                        const plan = activeWorkspace.subscription_plan;
+                        const limit = PLANS[plan].posts;
+                        const startOfMonth = new Date(new Date().getFullYear(), new Date().getMonth(), 1).toISOString();
+                        const countRes = await env.DB.prepare("SELECT COUNT(*) as count FROM posts WHERE workspace_id = ? AND created_at >= ?").bind(activeWorkspace.workspace_id, startOfMonth).first();
+                        if (countRes && countRes.count >= limit) {
+                            return new Response(JSON.stringify({ message: `Subscription limit reached: Maximum ${limit} posts per month allowed on ${plan} plan.` }), { status: 403, headers: corsHeaders });
+                        }
+
+                        const original = await env.DB.prepare("SELECT * FROM posts WHERE id = ? AND workspace_id = ?").bind(postId, activeWorkspace.workspace_id).first();
+                        if (!original) return new Response(JSON.stringify({ message: 'Post not found or unauthorized' }), { status: 404, headers: corsHeaders });
 
                         const newTitle = original.title ? `${original.title} (Copy)` : 'Copy';
-                        const result = await env.DB.prepare("INSERT INTO posts (user_id, title, caption, status, visibility, scheduled_at) VALUES (?, ?, ?, ?, ?, ?)")
-                            .bind(user.id, newTitle, original.caption, 'draft', original.visibility, null)
+                        const result = await env.DB.prepare("INSERT INTO posts (user_id, workspace_id, title, caption, status, visibility, scheduled_at) VALUES (?, ?, ?, ?, ?, ?, ?)")
+                            .bind(user.id, activeWorkspace.workspace_id, newTitle, original.caption, 'draft', original.visibility, null)
                             .run();
 
                         const newPostId = result.meta.last_row_id;
@@ -1112,6 +1550,8 @@ export default {
                         for (const row of mediaAttachments.results) {
                             await env.DB.prepare("INSERT INTO post_media (post_id, media_id) VALUES (?, ?)").bind(newPostId, row.media_id).run();
                         }
+
+                        await logActivity(activeWorkspace.workspace_id, user.id, 'duplicate_post', `Duplicated post ID ${postId} to ${newPostId}`);
 
                         return new Response(JSON.stringify({ success: true, message: 'Post duplicated successfully', id: newPostId }), { status: 201, headers: corsHeaders });
                     }
@@ -1124,27 +1564,36 @@ export default {
                         if (!user) return new Response(JSON.stringify({ message: 'Unauthorized session' }), { status: 401, headers: corsHeaders });
                         if (!env.DB) return new Response(JSON.stringify({ message: 'Database missing' }), { status: 500, headers: corsHeaders });
 
+                        const activeWorkspace = await getActiveWorkspace(user);
+                        if (!activeWorkspace) return new Response(JSON.stringify({ message: 'No active workspace found' }), { status: 404, headers: corsHeaders });
+
                         if (request.method === 'GET') {
-                            const post = await env.DB.prepare("SELECT * FROM posts WHERE id = ? AND user_id = ?").bind(postId, user.id).first();
-                            if (!post) return new Response(JSON.stringify({ message: 'Post not found' }), { status: 404, headers: corsHeaders });
+                            const post = await env.DB.prepare("SELECT * FROM posts WHERE id = ? AND workspace_id = ?").bind(postId, activeWorkspace.workspace_id).first();
+                            if (!post) return new Response(JSON.stringify({ message: 'Post not found or unauthorized' }), { status: 404, headers: corsHeaders });
                             return new Response(JSON.stringify({ success: true, post }), { status: 200, headers: corsHeaders });
                         }
 
                         if (request.method === 'PUT') {
+                            if (activeWorkspace.role === 'viewer') return new Response(JSON.stringify({ message: 'Forbidden' }), { status: 403, headers: corsHeaders });
                             const { title, caption, status, visibility, scheduled_at } = await request.json();
                             const nowStr = new Date().toISOString();
                             
-                            const result = await env.DB.prepare("UPDATE posts SET title = ?, caption = ?, status = ?, visibility = ?, scheduled_at = ?, updated_at = ? WHERE id = ? AND user_id = ?")
-                                .bind(title, caption, status, visibility, scheduled_at || null, nowStr, postId, user.id)
+                            const result = await env.DB.prepare("UPDATE posts SET title = ?, caption = ?, status = ?, visibility = ?, scheduled_at = ?, updated_at = ? WHERE id = ? AND workspace_id = ?")
+                                .bind(title, caption, status, visibility, scheduled_at || null, nowStr, postId, activeWorkspace.workspace_id)
                                 .run();
 
                             if (result.meta.changes === 0) return new Response(JSON.stringify({ message: 'Post not found or unauthorized' }), { status: 404, headers: corsHeaders });
+                            
+                            await logActivity(activeWorkspace.workspace_id, user.id, 'update_post', `Updated post ID ${postId}: "${title || 'Untitled'}"`);
                             return new Response(JSON.stringify({ success: true, message: 'Post updated successfully' }), { status: 200, headers: corsHeaders });
                         }
 
                         if (request.method === 'DELETE') {
-                            const result = await env.DB.prepare("DELETE FROM posts WHERE id = ? AND user_id = ?").bind(postId, user.id).run();
+                            if (activeWorkspace.role === 'viewer') return new Response(JSON.stringify({ message: 'Forbidden' }), { status: 403, headers: corsHeaders });
+                            const result = await env.DB.prepare("DELETE FROM posts WHERE id = ? AND workspace_id = ?").bind(postId, activeWorkspace.workspace_id).run();
                             if (result.meta.changes === 0) return new Response(JSON.stringify({ message: 'Post not found or unauthorized' }), { status: 404, headers: corsHeaders });
+                            
+                            await logActivity(activeWorkspace.workspace_id, user.id, 'delete_post', `Deleted post ID ${postId}`);
                             return new Response(JSON.stringify({ success: true, message: 'Post deleted successfully' }), { status: 200, headers: corsHeaders });
                         }
                     }
@@ -1157,13 +1606,20 @@ export default {
                         if (!user) return new Response(JSON.stringify({ message: 'Unauthorized session' }), { status: 401, headers: corsHeaders });
                         if (!env.DB) return new Response(JSON.stringify({ message: 'Database binding missing' }), { status: 500, headers: corsHeaders });
 
+                        const activeWorkspace = await getActiveWorkspace(user);
+                        if (!activeWorkspace) return new Response(JSON.stringify({ message: 'No active workspace found' }), { status: 404, headers: corsHeaders });
+                        if (!['owner', 'admin'].includes(activeWorkspace.role)) {
+                            return new Response(JSON.stringify({ message: 'Forbidden: Only Admin/Owner can manage social accounts.' }), { status: 403, headers: corsHeaders });
+                        }
+
                         if (request.method === 'DELETE') {
-                            await env.DB.prepare("DELETE FROM social_accounts WHERE id = ? AND user_id = ?").bind(accountId, user.id).run();
+                            await env.DB.prepare("DELETE FROM social_accounts WHERE id = ? AND workspace_id = ?").bind(accountId, activeWorkspace.workspace_id).run();
+                            await logActivity(activeWorkspace.workspace_id, user.id, 'disconnect_account', `Disconnected account ID ${accountId}`);
                             return new Response(JSON.stringify({ success: true, message: 'Account link deleted successfully' }), { status: 200, headers: corsHeaders });
                         }
 
                         if (request.method === 'POST') {
-                            const account = await env.DB.prepare("SELECT platform FROM social_accounts WHERE id = ? AND user_id = ?").bind(accountId, user.id).first();
+                            const account = await env.DB.prepare("SELECT platform FROM social_accounts WHERE id = ? AND workspace_id = ?").bind(accountId, activeWorkspace.workspace_id).first();
                             if (!account) return new Response(JSON.stringify({ message: 'Account not found' }), { status: 404, headers: corsHeaders });
 
                             const clientIdKey = `${account.platform.toUpperCase()}_CLIENT_ID`;
@@ -1178,24 +1634,11 @@ export default {
                                 : `${url.origin}/api/oauth/callback`;
                             const authUrl = OAuthProviders[account.platform].getAuthUrl(stateToken, redirectUri, clientId);
 
-                            if (account.platform === 'threads') {
-                                console.log('📢 Threads OAuth Reconnect Debug Log:');
-                                console.log({
-                                    authorizeUrl: authUrl,
-                                    client_id: clientId,
-                                    redirect_uri: redirectUri,
-                                    scope: 'threads_basic,threads_content_publish',
-                                    response_type: 'code',
-                                    state: stateToken
-                                });
-                            }
-
                             return new Response(JSON.stringify({ success: true, redirect_url: authUrl }), { status: 200, headers: corsHeaders });
                         }
                     }
+                    }
 
-                    // ==================== AUTH PORTIONS ====================
-                    
                     if (url.pathname === '/api/auth/register') {
                         if (request.method !== 'POST') return new Response(JSON.stringify({ error: 'Method not allowed' }), { status: 405, headers: corsHeaders });
                         const { name, email, password } = await request.json();
@@ -1209,7 +1652,26 @@ export default {
 
                         const passwordHash = await hashPassword(password);
                         const userUuid = crypto.randomUUID();
-                        await env.DB.prepare("INSERT INTO users (uuid, name, email, password_hash, role, status) VALUES (?, ?, ?, ?, 'user', 'active')").bind(userUuid, name.trim(), email.toLowerCase().trim(), passwordHash).run();
+                        
+                        const result = await env.DB.prepare("INSERT INTO users (uuid, name, email, password_hash, role, status) VALUES (?, ?, ?, ?, 'user', 'active')").bind(userUuid, name.trim(), email.toLowerCase().trim(), passwordHash).run();
+                        const userId = result.meta.last_row_id;
+
+                        // Auto-create personal workspace
+                        const wsUuid = crypto.randomUUID();
+                        const wsSlug = `personal-${userId}`;
+                        const wsResult = await env.DB.prepare(
+                            `INSERT INTO workspaces (uuid, name, slug, subscription_plan, subscription_status)
+                             VALUES (?, ?, ?, 'free', 'active')`
+                        ).bind(wsUuid, `${name.trim()}'s Workspace`, wsSlug).run();
+                        const wsId = wsResult.meta.last_row_id;
+
+                        // Add user as owner of their workspace
+                        await env.DB.prepare(
+                            `INSERT INTO workspace_members (workspace_id, user_id, role)
+                             VALUES (?, ?, 'owner')`
+                        ).bind(wsId, userId).run();
+
+                        await logActivity(wsId, userId, 'register', 'User registered and personal workspace provisioned');
 
                         return new Response(JSON.stringify({ success: true, message: 'Registration successful!' }), { status: 201, headers: corsHeaders });
                     }
@@ -1324,8 +1786,8 @@ export default {
 
                     try {
                         const socialAccount = await env.DB.prepare(
-                            "SELECT * FROM social_accounts WHERE id = ? AND user_id = ?"
-                        ).bind(post.account_id, post.user_id).first();
+                            "SELECT * FROM social_accounts WHERE id = ? AND workspace_id = ?"
+                        ).bind(post.account_id, post.workspace_id).first();
 
                         if (!socialAccount) {
                             throw new Error('Connected social account not found.');

@@ -1,0 +1,435 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AI Generator | SocialHub - Platform Scheduler</title>
+    
+    <!-- Meta tags for SEO -->
+    <meta name="description" content="Generate high-converting social media captions, CTAs, and hashtags powered by interchangeable AI models.">
+    <meta name="author" content="SocialHub Team">
+
+    <!-- Auth Route Guard: redirects to login.html instantly if user not authenticated -->
+    <script type="module">
+        import { sessionService } from './js/services/sessionService.js';
+        sessionService.requireAuth();
+    </script>
+
+    <!-- CSS Stylesheets -->
+    <link rel="stylesheet" href="css/variables.css">
+    <link rel="stylesheet" href="css/layout.css">
+    <link rel="stylesheet" href="css/components.css">
+</head>
+<body>
+
+    <div class="app-container">
+        <app-sidebar></app-sidebar>
+        <app-header></app-header>
+
+        <main class="main-content animated-fade-in">
+            
+            <!-- Page Header -->
+            <div class="page-header">
+                <div class="page-title-section">
+                    <h1 class="page-title">AI Caption Generator</h1>
+                    <p class="page-subtitle">Draft viral captions and hashtags dynamically tailored for your audience.</p>
+                </div>
+            </div>
+
+            <!-- Double-column grid for Form and Live Preview -->
+            <div class="composer-grid">
+                
+                <!-- Left: Form Parameters -->
+                <div class="card" style="padding: 1.75rem; display: flex; flex-direction: column; gap: 1.25rem;">
+                    <h3 class="card-title" style="margin-bottom: 0.25rem; font-size: 1.1rem; font-weight: 600;">Creative Context</h3>
+                    <p style="font-size: 0.8125rem; color: var(--color-text-secondary); margin-bottom: 0.5rem;">Input details about your brand and product to generate copy.</p>
+                    
+                    <form id="aiGenerateForm" onsubmit="event.preventDefault();">
+                        <div class="form-group" style="margin-bottom: 1rem;">
+                            <label class="form-label" for="businessType">Business / Brand Type</label>
+                            <select id="businessType" class="form-select" style="width: 100%;">
+                                <option value="E-Commerce Store">E-Commerce Store</option>
+                                <option value="SaaS Startup">SaaS / Tech Startup</option>
+                                <option value="Local Café / Restaurant">Local Café / Restaurant</option>
+                                <option value="Digital Agency">Digital Marketing Agency</option>
+                                <option value="Consulting / Coach">Health & Wellness / Coach</option>
+                                <option value="Creative Studio">Creative Studio</option>
+                                <option value="Other">Other (Write Custom)</option>
+                            </select>
+                            <input type="text" id="customBusinessType" class="form-input" placeholder="Enter custom business type..." style="width: 100%; margin-top: 0.5rem; display: none;" />
+                        </div>
+
+                        <div class="form-group" style="margin-bottom: 1rem;">
+                            <label class="form-label" for="productService">Product or Service Description</label>
+                            <textarea id="productService" class="form-input" rows="3" placeholder="What are you promoting? e.g. SocialHub scheduler helping small business owners save 10 hours a week..." style="width: 100%; resize: vertical;" required></textarea>
+                        </div>
+
+                        <div class="form-group" style="margin-bottom: 1rem;">
+                            <label class="form-label" for="targetAudience">Target Audience</label>
+                            <input type="text" id="targetAudience" class="form-input" placeholder="e.g. busy founders, marketing consultants" style="width: 100%;" />
+                        </div>
+
+                        <div class="form-group" style="margin-bottom: 1rem;">
+                            <label class="form-label" for="goal">Campaign Goal</label>
+                            <select id="goal" class="form-select" style="width: 100%;">
+                                <option value="Brand Awareness">Brand Awareness</option>
+                                <option value="Lead Generation">Lead Generation</option>
+                                <option value="Engagement / Conversation">Engagement / Conversation</option>
+                                <option value="Product Launch / Promo">Product Launch / Promo</option>
+                                <option value="Educational / Informative">Educational / Informative</option>
+                            </select>
+                        </div>
+
+                        <div class="form-group" style="margin-bottom: 1rem;">
+                            <label class="form-label" for="tone">Tone of Voice</label>
+                            <select id="tone" class="form-select" style="width: 100%;">
+                                <option value="Professional & Trustworthy">Professional & Trustworthy</option>
+                                <option value="Friendly & Casual">Friendly & Casual</option>
+                                <option value="Bold & Assertive">Bold & Assertive</option>
+                                <option value="Humorous & Witty">Humorous & Witty</option>
+                                <option value="Inspiring & Motivational">Inspiring & Motivational</option>
+                            </select>
+                        </div>
+
+                        <div class="form-group" style="margin-bottom: 1.5rem;">
+                            <label class="form-label" for="language">Output Language</label>
+                            <select id="language" class="form-select" style="width: 100%;">
+                                <option value="English">English</option>
+                                <option value="Malay">Malay</option>
+                                <option value="Indonesian">Indonesian</option>
+                                <option value="Chinese">Chinese</option>
+                                <option value="Tamil">Tamil</option>
+                            </select>
+                        </div>
+
+                        <button type="button" class="btn btn-primary" id="btnAIGenerate" style="width: 100%; height: 44px; justify-content: center; font-weight: 600;">
+                            <span id="spinnerAI" style="display: none; width: 16px; height: 16px; border: 2px solid white; border-top-color: transparent; border-radius: 50%; animation: spin 0.8s linear infinite; margin-right: 0.5rem;"></span>
+                            ✨ Generate Social Copy
+                        </button>
+                    </form>
+                </div>
+
+                <!-- Right: Preview and Editing Panel -->
+                <div class="card" style="padding: 1.75rem; align-self: start; display: flex; flex-direction: column; gap: 1.25rem;">
+                    <h3 class="card-title" style="margin-bottom: 0.25rem; font-size: 1.1rem; font-weight: 600;">Preview & Publishing</h3>
+                    <p style="font-size: 0.8125rem; color: var(--color-text-secondary); margin-bottom: 0.5rem;">Review copy, customize details, select accounts, and schedule drafts.</p>
+
+                    <div id="aiOutputContainer" style="display: none; flex-direction: column; gap: 1rem;">
+                        <div class="form-group">
+                            <label class="form-label" for="previewTitle">Post Title</label>
+                            <input type="text" id="previewTitle" class="form-input" placeholder="Enter post title..." style="width: 100%;" />
+                        </div>
+
+                        <div class="form-group">
+                            <label class="form-label" for="previewCaption">Generated Caption</label>
+                            <textarea id="previewCaption" class="form-input" rows="5" style="width: 100%; resize: vertical;"></textarea>
+                        </div>
+
+                        <div class="form-group">
+                            <label class="form-label" for="previewCTA">Call to Action (CTA)</label>
+                            <input type="text" id="previewCTA" class="form-input" style="width: 100%;" />
+                        </div>
+
+                        <div class="form-group">
+                            <label class="form-label" for="previewHashtags">Hashtags</label>
+                            <input type="text" id="previewHashtags" class="form-input" placeholder="e.g. #socialhub #saas" style="width: 100%;" />
+                        </div>
+
+                        <!-- Target Channels Checklist -->
+                        <div class="form-group">
+                            <label class="form-label">Target Channels</label>
+                            <div id="aiChannelsContainer" style="
+                                display: flex;
+                                flex-direction: column;
+                                gap: 0.5rem;
+                                margin-top: 0.5rem;
+                                background: var(--color-bg-accent);
+                                padding: 0.75rem 1rem;
+                                border-radius: var(--radius-xs);
+                                border: 1px solid var(--color-border);
+                            ">
+                                <p style="font-size: 0.75rem; color: var(--color-text-tertiary); font-style: italic; margin: 0;">Loading channels...</p>
+                            </div>
+                        </div>
+
+                        <!-- Action Controls -->
+                        <div style="display: flex; flex-direction: column; gap: 0.75rem; margin-top: 0.5rem;">
+                            <div style="display: flex; gap: 0.75rem;">
+                                <button class="btn btn-secondary" id="btnAIPlanPublish" style="flex: 1; justify-content: center; height: 42px; font-weight: 600;">⚡ Publish Now</button>
+                                <button class="btn btn-primary" id="btnAIPlanSchedule" style="flex: 1; justify-content: center; height: 42px; font-weight: 600;">📅 Schedule Post</button>
+                            </div>
+                            <button class="btn btn-secondary btn-outline" id="btnAIPlanDraft" style="width: 100%; justify-content: center; height: 42px; font-weight: 600; border: 1px solid var(--color-border); background: transparent;">Save as Draft</button>
+                        </div>
+                    </div>
+
+                    <div id="aiEmptyPreviewState" style="text-align: center; padding: 4rem 2rem; background: var(--color-bg-accent); border: 1.5px dashed var(--color-border); border-radius: var(--radius-md); color: var(--color-text-secondary);">
+                        <p style="font-weight: 500; margin-bottom: 0.25rem;">No caption generated yet</p>
+                        <p style="font-size: 0.8125rem; color: var(--color-text-tertiary);">Fill in the brand details on the left and click Generate.</p>
+                    </div>
+
+                </div>
+
+            </div>
+
+            <!-- Schedule Modal element -->
+            <schedule-modal id="aiScheduleModal"></schedule-modal>
+
+        </main>
+    </div>
+
+    <!-- ES Module Javascript Boilerplate -->
+    <script type="module" src="js/app.js"></script>
+    <script type="module">
+        import { apiClient } from './js/utils/api.js';
+        import { socialService } from './js/services/socialService.js';
+        import { postService } from './js/services/postService.js';
+        import { schedulerService } from './js/services/schedulerService.js';
+        import { publishService } from './js/services/publishService.js';
+        import { notificationService } from './js/services/notificationService.js';
+
+        // Toggle custom business type display
+        const selectBusinessType = document.getElementById('businessType');
+        const customBusinessInput = document.getElementById('customBusinessType');
+        selectBusinessType.addEventListener('change', () => {
+            if (selectBusinessType.value === 'Other') {
+                customBusinessInput.style.display = 'block';
+                customBusinessInput.required = true;
+            } else {
+                customBusinessInput.style.display = 'none';
+                customBusinessInput.required = false;
+            }
+        });
+
+        // AI generate request handler
+        const btnGenerate = document.getElementById('btnAIGenerate');
+        const spinner = document.getElementById('spinnerAI');
+        const outputContainer = document.getElementById('aiOutputContainer');
+        const emptyState = document.getElementById('aiEmptyPreviewState');
+
+        // Form bindings
+        const txtProduct = document.getElementById('productService');
+        const txtAudience = document.getElementById('targetAudience');
+        const selectGoal = document.getElementById('goal');
+        const selectTone = document.getElementById('tone');
+        const selectLang = document.getElementById('language');
+
+        // Editable outputs
+        const outTitle = document.getElementById('previewTitle');
+        const outCaption = document.getElementById('previewCaption');
+        const outCTA = document.getElementById('previewCTA');
+        const outHashtags = document.getElementById('previewHashtags');
+
+        btnGenerate.addEventListener('click', async () => {
+            if (!txtProduct.value.trim()) {
+                alert('Please describe your product or service.');
+                return;
+            }
+
+            const businessVal = selectBusinessType.value === 'Other' 
+                ? customBusinessInput.value.trim() 
+                : selectBusinessType.value;
+
+            if (!businessVal) {
+                alert('Please provide a business type.');
+                return;
+            }
+
+            btnGenerate.disabled = true;
+            spinner.style.display = 'inline-block';
+
+            try {
+                const response = await apiClient.post('/ai/generate', {
+                    businessType: businessVal,
+                    product: txtProduct.value.trim(),
+                    targetAudience: txtAudience.value.trim() || undefined,
+                    goal: selectGoal.value,
+                    tone: selectTone.value,
+                    language: selectLang.value
+                });
+
+                if (response.success && response.result) {
+                    const data = response.result;
+                    
+                    // Populate outputs
+                    outTitle.value = `${businessVal} - Generated Post`;
+                    outCaption.value = data.caption || '';
+                    outCTA.value = data.cta || '';
+                    
+                    const hashtagsList = data.hashtags || [];
+                    outHashtags.value = hashtagsList.map(h => h.startsWith('#') ? h : `#${h}`).join(' ');
+
+                    emptyState.style.display = 'none';
+                    outputContainer.style.display = 'flex';
+                    
+                    notificationService.success('Copy generated successfully!');
+                } else {
+                    throw new Error(response.message || 'Generation failed');
+                }
+            } catch (err) {
+                notificationService.error(err.message || 'Error occurred while generating caption.');
+            } finally {
+                btnGenerate.disabled = false;
+                spinner.style.display = 'none';
+            }
+        });
+
+        // Load channels checklist
+        const channelsContainer = document.getElementById('aiChannelsContainer');
+        let connectedAccounts = [];
+
+        async function loadChannels() {
+            try {
+                const accounts = await socialService.getAccounts();
+                connectedAccounts = accounts.filter(a => a.status === 'active');
+                
+                channelsContainer.innerHTML = '';
+                if (connectedAccounts.length === 0) {
+                    channelsContainer.innerHTML = `<p style="font-size: 0.75rem; color: var(--color-text-tertiary); font-style: italic; margin: 0;">No connected channels. <a href="accounts.html" style="color:var(--color-primary); font-weight:500;">Link accounts here</a></p>`;
+                    return;
+                }
+
+                connectedAccounts.forEach(acc => {
+                    const label = document.createElement('label');
+                    label.style = 'display: flex; align-items: center; gap: 0.5rem; font-size: 0.875rem; cursor: pointer; color: var(--color-text-secondary);';
+                    label.innerHTML = `
+                        <input type="checkbox" class="ai-channel-checkbox" value="${acc.platform}" data-account-id="${acc.id}" checked />
+                        <span style="text-transform: capitalize; font-weight: 500;">${acc.platform}</span>
+                        <span style="font-size: 0.75rem; color: var(--color-text-tertiary);">(${acc.account_name})</span>
+                    `;
+                    channelsContainer.appendChild(label);
+                });
+            } catch (err) {
+                channelsContainer.innerHTML = `<p style="font-size: 0.75rem; color: var(--color-danger); margin: 0;">Failed to load accounts</p>`;
+            }
+        }
+
+        // Gather preview data
+        function getPayloadData() {
+            const title = outTitle.value.trim() || 'AI Generated Post';
+            
+            // Format content: Caption + CTA + Hashtags
+            let content = outCaption.value.trim();
+            if (outCTA.value.trim()) {
+                content += `\n\n${outCTA.value.trim()}`;
+            }
+            if (outHashtags.value.trim()) {
+                content += `\n\n${outHashtags.value.trim()}`;
+            }
+
+            const checked = Array.from(document.querySelectorAll('.ai-channel-checkbox:checked'));
+            const targets = checked.map(cb => ({
+                platform: cb.value,
+                accountId: cb.dataset.accountId
+            }));
+
+            return { title, content, targets };
+        }
+
+        function validatePayload(payload) {
+            if (!payload.content || !payload.content.trim()) {
+                alert('Please ensure caption content is not empty.');
+                return false;
+            }
+            if (payload.targets.length === 0) {
+                alert('Please select at least one publishing channel.');
+                return false;
+            }
+            if (payload.content.length > 500) {
+                alert('Content exceeds Threads character limit of 500.');
+                return false;
+            }
+            return true;
+        }
+
+        // 1. Save Draft
+        document.getElementById('btnAIPlanDraft').addEventListener('click', async () => {
+            const { title, content } = getPayloadData();
+            if (!content) {
+                alert('Caption is required to save draft.');
+                return;
+            }
+
+            try {
+                const res = await postService.createPost({
+                    title,
+                    caption: content,
+                    status: 'draft',
+                    visibility: 'public'
+                });
+
+                if (res.success) {
+                    notificationService.success('Draft saved successfully!');
+                    setTimeout(() => window.location.href = 'posts.html', 1000);
+                }
+            } catch (err) {
+                notificationService.error(`Failed to save draft: ${err.message}`);
+            }
+        });
+
+        // 2. Publish Now
+        document.getElementById('btnAIPlanPublish').addEventListener('click', async () => {
+            const payload = getPayloadData();
+            if (!validatePayload(payload)) return;
+
+            const btn = document.getElementById('btnAIPlanPublish');
+            btn.disabled = true;
+
+            try {
+                const nowUtc = new Date().toISOString();
+                const res = await schedulerService.createScheduledPost({
+                    title: payload.title,
+                    content: payload.content,
+                    targets: payload.targets,
+                    publish_at: nowUtc,
+                    timezone: 'UTC'
+                });
+
+                if (res.success && res.ids) {
+                    for (const id of res.ids) {
+                        await publishService.publishImmediately(id);
+                    }
+                    notificationService.success('Published successfully to channels!');
+                    setTimeout(() => window.location.href = 'monitor.html', 1000);
+                }
+            } catch (err) {
+                notificationService.error(`Failed to publish: ${err.message}`);
+            } finally {
+                btn.disabled = false;
+            }
+        });
+
+        // 3. Schedule Post
+        const modal = document.getElementById('aiScheduleModal');
+        document.getElementById('btnAIPlanSchedule').addEventListener('click', () => {
+            const payload = getPayloadData();
+            if (!validatePayload(payload)) return;
+            modal.show();
+        });
+
+        modal.addEventListener('schedule-saved', async (e) => {
+            const payload = getPayloadData();
+            const { time, timezone } = e.detail;
+
+            try {
+                const res = await schedulerService.createScheduledPost({
+                    title: payload.title,
+                    content: payload.content,
+                    targets: payload.targets,
+                    publish_at: new Date(time).toISOString(),
+                    timezone
+                });
+
+                if (res.success) {
+                    notificationService.success('Post scheduled successfully!');
+                    setTimeout(() => window.location.href = 'calendar.html', 1000);
+                }
+            } catch (err) {
+                notificationService.error(`Scheduling failed: ${err.message}`);
+            }
+        });
+
+        // Init
+        loadChannels();
+    </script>
+</body>
+</html>

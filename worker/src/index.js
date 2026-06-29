@@ -7,6 +7,7 @@
 
 import { PublishingEngine } from './publishers/PublishingEngine.js';
 import { PublisherFactory } from './publishers/PublisherFactory.js';
+import { AIFactory } from './services/ai/AIFactory.js';
 
 const encoder = new TextEncoder();
 const decoder = new TextDecoder();
@@ -313,6 +314,58 @@ export default {
             switch (url.pathname) {
 
                 // ==================== SAAS MULTI-TENANT REST API ====================
+
+                case '/api/ai/generate': {
+                    const user = await getAuthUser();
+                    if (!user) return new Response(JSON.stringify({ message: 'Unauthorized session' }), { status: 401, headers: corsHeaders });
+                    if (!env.DB) return new Response(JSON.stringify({ message: 'Database missing' }), { status: 500, headers: corsHeaders });
+
+                    const activeWorkspace = await getActiveWorkspace(user);
+                    if (!activeWorkspace) return new Response(JSON.stringify({ message: 'No active workspace found' }), { status: 404, headers: corsHeaders });
+
+                    if (request.method !== 'POST') return new Response(JSON.stringify({ error: 'Method not allowed' }), { status: 405, headers: corsHeaders });
+                    if (activeWorkspace.role === 'viewer') return new Response(JSON.stringify({ message: 'Forbidden: Viewers cannot generate content.' }), { status: 403, headers: corsHeaders });
+
+                    const plan = activeWorkspace.subscription_plan;
+                    const maxCredits = PLANS[plan].ai_credits;
+
+                    const startOfMonth = new Date(new Date().getFullYear(), new Date().getMonth(), 1).toISOString();
+                    const creditsRes = await env.DB.prepare(
+                        "SELECT COUNT(*) as count FROM audit_logs WHERE workspace_id = ? AND action = 'ai_generate' AND created_at >= ?"
+                    ).bind(activeWorkspace.workspace_id, startOfMonth).first();
+
+                    const currentCreditsUsed = creditsRes ? (creditsRes.count || 0) : 0;
+                    if (currentCreditsUsed >= maxCredits) {
+                        return new Response(JSON.stringify({ message: `AI credit limit reached: Your ${plan} plan allows up to ${maxCredits} AI generations per month. Please upgrade your subscription.` }), { status: 403, headers: corsHeaders });
+                    }
+
+                    try {
+                        const { businessType, product, targetAudience, goal, tone, language } = await request.json();
+                        if (!businessType || !product) {
+                            return new Response(JSON.stringify({ message: 'Business type and product/service are required.' }), { status: 400, headers: corsHeaders });
+                        }
+
+                        const provider = AIFactory.getProvider(env);
+                        const result = await provider.generateCaption({
+                            businessType,
+                            product,
+                            targetAudience: targetAudience || 'General public',
+                            goal: goal || 'Brand awareness',
+                            tone: tone || 'Professional',
+                            language: language || 'English'
+                        });
+
+                        await logActivity(activeWorkspace.workspace_id, user.id, 'ai_generate', `Generated caption for business "${businessType}": ${product.substring(0, 30)}...`);
+
+                        return new Response(JSON.stringify({
+                            success: true,
+                            result,
+                            credits_remaining: maxCredits - currentCreditsUsed - 1
+                        }), { status: 200, headers: corsHeaders });
+                    } catch (e) {
+                        return new Response(JSON.stringify({ message: e.message }), { status: 500, headers: corsHeaders });
+                    }
+                }
 
                 case '/api/workspaces/me': {
                     const user = await getAuthUser();

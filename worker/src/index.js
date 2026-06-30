@@ -574,7 +574,12 @@ export default {
                         });
 
                         const arrayBuffer = await new Response(imageResponse).arrayBuffer();
-                        const base64Str = btoa(String.fromCharCode(...new Uint8Array(arrayBuffer)));
+                        const bytes = new Uint8Array(arrayBuffer);
+                        let binary = '';
+                        for (let i = 0; i < bytes.length; i++) {
+                            binary += String.fromCharCode(bytes[i]);
+                        }
+                        const base64Str = btoa(binary);
                         const dataUrl = `data:image/jpeg;base64,${base64Str}`;
                         const fileSize = arrayBuffer.byteLength;
 

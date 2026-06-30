@@ -4,7 +4,7 @@ import { apiClient } from '../utils/api.js';
 export const workerService = {
     async triggerWorkerPublish() {
         console.log('[WorkerService] Requesting immediate background execution of scheduler worker');
-        return await apiClient.post('/api/cron/sync');
+        return await apiClient.post('/cron/sync');
     },
 
     async getWorkerStatus() {

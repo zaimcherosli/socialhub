@@ -4,11 +4,11 @@ export class GeminiProvider extends AIProvider {
     constructor(apiKey, model) {
         super();
         this.apiKey = apiKey ? apiKey.replace(/^["']|["']$/g, '') : '';
-        // Auto-migrate deprecated gemini-1.5/2.0 models to gemini-2.0-flash-lite
-        let targetModel = model || 'gemini-2.0-flash-lite';
+        // Auto-migrate deprecated models to gemini-2.5-flash
+        let targetModel = model || 'gemini-2.5-flash';
         if (targetModel.includes('gemini-2.0-flash') || targetModel.includes('gemini-1.5-flash')) {
-            if (!targetModel.includes('lite') && !targetModel.includes('/')) {
-                targetModel = 'gemini-2.0-flash-lite';
+            if (!targetModel.includes('/')) {
+                targetModel = 'gemini-2.5-flash';
             }
         }
         this.model = targetModel;

@@ -166,8 +166,8 @@ class PostComposer extends HTMLElement {
             alert('Please select at least one publishing channel.');
             return false;
         }
-        if (state.content.length > 500) {
-            alert('Your content exceeds the character limit for Threads.');
+        if (state.content.length > 5000) {
+            alert('Your content exceeds the maximum thread limit of 5000 characters.');
             return false;
         }
         return true;

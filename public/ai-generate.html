@@ -412,8 +412,8 @@
                 alert('Please select at least one publishing channel.');
                 return false;
             }
-            if (payload.content.length > 500) {
-                alert('Content exceeds Threads character limit of 500.');
+            if (payload.content.length > 5000) {
+                alert('Content exceeds Threads character limit of 5000 (which will be split into replies).');
                 return false;
             }
             return true;

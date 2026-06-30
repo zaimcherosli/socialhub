@@ -17,6 +17,8 @@ Write a high-converting, engaging social media post based on the following detai
 - Tone of Voice: ${tone}
 - Language: ${language}
 
+IMPORTANT: The generated caption MUST be under 350 characters to ensure the total post length including CTA and hashtags stays strictly under 500 characters.
+
 Provide the output in a strict JSON format with the following keys. Return ONLY the JSON object, with no markdown code blocks, explanations, or additional text:
 {
   "caption": "write the main post caption here, engaging and optimized for the specified tone",

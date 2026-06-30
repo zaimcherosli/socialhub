@@ -30,7 +30,7 @@ Example valid format:
 ]
 
 Each object in the JSON array must contain exactly these keys:
-- caption: The caption text for the post (written in ${language} language, tailored for local Malaysian audience if Malay, avoiding Indonesian vocabulary).
+- caption: The caption text for the post (written in ${language} language, tailored for local Malaysian audience if Malay, avoiding Indonesian vocabulary. The caption MUST be under 350 characters to ensure the total post length including CTA and hashtags stays strictly under 500 characters).
 - cta: A compelling call to action.
 - hashtags: An array of 3 relevant hashtags.
 

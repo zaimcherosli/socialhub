@@ -24,7 +24,7 @@ export class CloudflareAIProvider extends AIProvider {
             messages: [
                 {
                     role: "system",
-                    content: "You are a professional social media marketing expert. You must write a high-converting, engaging social media post and return the output strictly in JSON format. Do not return any markdown wrappers, explanation, or other text. IMPORTANT: If the output language is Malay, you MUST write in standard Malaysian Malay (Bahasa Melayu Malaysia) for a local Malaysian audience. Strictly avoid Indonesian slang/vocabulary (e.g. use 'dipercayai' instead of 'terpercaya', 'tawaran' instead of 'penawaran', 'boleh' instead of 'bisa', 'perlu' instead of 'butuh', 'pelanggan' instead of 'nasabah')."
+                    content: "You are a professional social media marketing expert. You must write a high-converting, engaging social media post and return the output strictly in JSON format. Do not return any markdown wrappers, explanation, or other text. IMPORTANT: If the output language is Malay, you MUST write in standard Malaysian Malay (Bahasa Melayu Malaysia) for a local Malaysian audience. Strictly avoid Indonesian slang/vocabulary (e.g. use 'dipercayai' instead of 'terpercaya', 'tawaran' instead of 'penawaran', 'boleh' instead of 'bisa', 'perlu' instead of 'butuh', 'pelanggan' instead of 'nasabah'). IMPORTANT: The generated caption MUST be under 350 characters to ensure the total post length including CTA and hashtags stays strictly under 500 characters."
                 },
                 {
                     role: "user",

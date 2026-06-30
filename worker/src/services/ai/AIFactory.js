@@ -1,21 +1,36 @@
 import { OpenRouterProvider } from './OpenRouterProvider.js';
 import { GeminiProvider } from './GeminiProvider.js';
+import { CloudflareAIProvider } from './CloudflareAIProvider.js';
 
 export class AIFactory {
     static getProvider(env) {
         const model = env.OPENROUTER_MODEL || "";
-        const isGemini = model.toLowerCase().includes("gemini") || !!env.GEMINI_API_KEY;
+        const hasGeminiKey = !!env.GEMINI_API_KEY;
+        const hasOpenRouterKey = !!env.OPENROUTER_API_KEY;
+
+        // Use Cloudflare Workers AI if explicitly selected, or if no keys are set and the AI binding is available
+        const isCloudflare = model.toLowerCase().includes("cloudflare") || 
+                             model.toLowerCase().includes("llama-3-8b") ||
+                             (!hasGeminiKey && !hasOpenRouterKey && env.AI);
+
+        if (isCloudflare && env.AI) {
+            return new CloudflareAIProvider(env.AI);
+        }
+
+        const isGemini = model.toLowerCase().includes("gemini") || hasGeminiKey;
 
         if (isGemini) {
             const apiKey = env.GEMINI_API_KEY || env.OPENROUTER_API_KEY;
             if (!apiKey) {
+                if (env.AI) return new CloudflareAIProvider(env.AI);
                 throw new Error("Missing GEMINI_API_KEY or OPENROUTER_API_KEY configuration in environment variables.");
             }
-            const cleanModel = model.includes('/') ? 'gemini-1.5-flash' : (model || 'gemini-1.5-flash');
+            const cleanModel = model.includes('/') ? 'gemini-2.0-flash' : (model || 'gemini-2.0-flash');
             return new GeminiProvider(apiKey, cleanModel);
         } else {
             const apiKey = env.OPENROUTER_API_KEY;
             if (!apiKey) {
+                if (env.AI) return new CloudflareAIProvider(env.AI);
                 throw new Error("Missing OPENROUTER_API_KEY configuration in environment variables.");
             }
             const cleanModel = model || "meta-llama/llama-3.2-3b-instruct:free";

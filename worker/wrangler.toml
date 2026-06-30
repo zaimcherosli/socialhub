@@ -19,4 +19,7 @@ database_id = "f8054d30-59c2-4cdd-820c-ffe8eed91bf9"
 [triggers]
 crons = ["* * * * *"]
 
+[ai]
+binding = "AI"
+
 

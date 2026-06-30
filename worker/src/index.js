@@ -366,7 +366,7 @@ export default {
                         if (api_key && api_key.trim() !== '') {
                             // Encrypt using built-in encrypt function
                             try {
-                                encKey = await encryptToken(api_key.trim(), env.TOKEN_SECRET);
+                                encKey = await encryptToken(api_key.trim(), encryptionSecret);
                             } catch (e) {
                                 encKey = api_key.trim(); // fallback plain if no encrypt func
                             }
@@ -439,7 +439,7 @@ export default {
                         if (wsAI?.ai_api_key_enc) {
                             try {
                                 // Attempt decrypt, fallback to raw value
-                                const decrypted = await decryptToken(wsAI.ai_api_key_enc, env.TOKEN_SECRET);
+                                const decrypted = await decryptToken(wsAI.ai_api_key_enc, encryptionSecret);
                                 if (decrypted) aiEnv.OPENROUTER_API_KEY = decrypted;
                             } catch (_) {
                                 aiEnv.OPENROUTER_API_KEY = wsAI.ai_api_key_enc;

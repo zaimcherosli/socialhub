@@ -135,6 +135,19 @@
             .accounts-grid {
                 grid-template-columns: 1fr;
             }
+            .integrations-scroll-grid {
+                display: flex !important;
+                overflow-x: auto !important;
+                scroll-snap-type: x mandatory;
+                padding-bottom: 1rem;
+                gap: 1rem;
+                -webkit-overflow-scrolling: touch;
+            }
+            .integrations-scroll-grid .account-card {
+                flex: 0 0 280px;
+                scroll-snap-align: start;
+                min-height: 220px;
+            }
             .page-header {
                 flex-direction: column;
                 align-items: stretch;
@@ -178,7 +191,7 @@
                 <!-- Section: Connect new platforms -->
                 <div>
                     <h2 class="section-title">Available Integrations</h2>
-                    <div class="accounts-grid">
+                    <div class="accounts-grid integrations-scroll-grid">
                         
                         <!-- Threads integration Card -->
                         <div class="card account-card">

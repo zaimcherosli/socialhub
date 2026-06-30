@@ -338,11 +338,18 @@
                                     <div class="model-desc">Meta · Lightweight, ultra fast</div>
                                 </label>
 
+                                <label class="model-option-card" id="cardGeminiFlash" for="modelGeminiFlash">
+                                    <input type="radio" name="aiModel" id="modelGeminiFlash" value="gemini-1.5-flash">
+                                    <span class="model-badge free" style="background: #e0f2fe; color: #0369a1;">Gemini</span>
+                                    <div class="model-name">Gemini 1.5 Flash</div>
+                                    <div class="model-desc">Google · Smart, fast & multilingual</div>
+                                </label>
+
                                 <label class="model-option-card" id="cardGemini" for="modelGemini">
                                     <input type="radio" name="aiModel" id="modelGemini" value="openrouter/free">
                                     <span class="model-badge free">Free</span>
                                     <div class="model-name">Auto Free Router</div>
-                                    <div class="model-desc">OpenRouter · Automatically picks best free model</div>
+                                    <div class="model-desc">OpenRouter · Auto picks best free model</div>
                                 </label>
 
                                 <label class="model-option-card" id="cardMistral" for="modelMistral">
@@ -378,8 +385,8 @@
                                     <input type="radio" name="aiModel" id="modelCustom" value="custom">
                                     <div>
                                         <span class="model-badge custom">Custom</span>
-                                        <div class="model-name">Custom OpenRouter Model</div>
-                                        <div class="model-desc">Enter any model ID from <a href="https://openrouter.ai/models" target="_blank" style="color: var(--color-primary); text-decoration: none;">openrouter.ai/models</a> (e.g. <code style="font-size: 0.65rem; background: var(--color-bg-accent); padding: 0.05rem 0.3rem; border-radius: 3px;">deepseek/deepseek-r1:free</code>)</div>
+                                        <div class="model-name">Custom Model ID</div>
+                                        <div class="model-desc">Enter any model ID from openrouter.ai/models or Gemini (e.g. <code style="font-size: 0.65rem; background: var(--color-bg-accent); padding: 0.05rem 0.3rem; border-radius: 3px;">deepseek/deepseek-r1:free</code>)</div>
                                     </div>
                                 </label>
 
@@ -395,9 +402,9 @@
                         <!-- Right: API Key + Usage -->
                         <div style="display: flex; flex-direction: column; gap: 1.25rem;">
                             <div class="form-group" style="margin: 0;">
-                                <label class="form-label" for="openrouterKey">OpenRouter API Key</label>
+                                <label class="form-label" for="openrouterKey">API Key (Gemini / OpenRouter)</label>
                                 <div class="api-key-input-wrap">
-                                    <input type="password" id="openrouterKey" class="form-input" placeholder="sk-or-v1-••••••••••••••••" style="width: 100%;" autocomplete="off" />
+                                    <input type="password" id="openrouterKey" class="form-input" placeholder="Enter Gemini or OpenRouter Key..." style="width: 100%;" autocomplete="off" />
                                     <button type="button" class="toggle-key-btn" id="btnToggleKey" title="Show/Hide key">
                                         <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" id="eyeIcon">
                                             <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/>
@@ -419,10 +426,14 @@
                                 <p style="font-size: 0.72rem; color: var(--color-text-tertiary); margin: 0;">Add your own API key to bypass plan credit limits.</p>
                             </div>
 
-                            <a href="https://openrouter.ai/keys" target="_blank" class="btn btn-secondary" style="justify-content: center; font-size: 0.8rem;">
-                                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg>
-                                Get Free OpenRouter API Key
-                            </a>
+                            <div style="display: flex; gap: 0.5rem; width: 100%;">
+                                <a href="https://aistudio.google.com/" target="_blank" class="btn btn-secondary" style="flex: 1; justify-content: center; font-size: 0.775rem;">
+                                    Get Gemini API Key
+                                </a>
+                                <a href="https://openrouter.ai/keys" target="_blank" class="btn btn-secondary btn-outline" style="flex: 1; justify-content: center; font-size: 0.775rem; border: 1px solid var(--color-border); background: transparent;">
+                                    Get OpenRouter Key
+                                </a>
+                            </div>
                         </div>
                     </div>
 

@@ -469,6 +469,25 @@
         </div>
     </div>
 
+    <!-- AI Image Prompt Modal -->
+    <div class="picker-modal-backdrop" id="aiImageModal" style="display: none;">
+        <div class="card picker-modal-content" style="max-width: 400px; padding: 1.5rem; width: 90%;">
+            <h3 class="card-title" style="font-size: 1rem; margin-bottom: 0.5rem; display: flex; align-items: center; gap: 0.5rem;">
+                <span>🎨</span> Penjana Gambar AI
+            </h3>
+            <p style="font-size: 0.75rem; color: var(--color-text-secondary); margin-bottom: 1rem;">
+                Masukkan penerangan gambar yang ingin dijana di bawah.
+            </p>
+            <div class="form-group" style="margin-bottom: 1rem;">
+                <textarea id="aiImagePromptInput" class="form-input" rows="3" style="width: 100%; font-size: 0.8125rem; resize: vertical;" placeholder="Cth: A professional cup of latte coffee with latte art on a wooden table, warm ambient lighting"></textarea>
+            </div>
+            <div style="display: flex; gap: 0.5rem; justify-content: flex-end;">
+                <button class="btn btn-secondary" id="btnCancelAIImage" style="font-size: 0.75rem; padding: 0.45rem 0.75rem;">Batal</button>
+                <button class="btn btn-primary" id="btnSubmitAIImage" style="font-size: 0.75rem; padding: 0.45rem 0.75rem;">Jana Gambar</button>
+            </div>
+        </div>
+    </div>
+
     <!-- Script imports -->
     <script type="module" src="js/app.js"></script>
     <script type="module">
@@ -953,16 +972,35 @@
         });
         // AI Image Generation trigger
         const btnGenerateAIImage = document.getElementById('btnGenerateAIImage');
-        btnGenerateAIImage.addEventListener('click', async () => {
-            const prompt = window.prompt("Masukkan arahan prompt AI untuk menjana gambar:\n(Cth: 'A professional cup of latte coffee with latte art on a wooden table, warm ambient lighting')");
-            if (!prompt || prompt.trim() === "") return;
+        const aiImageModal = document.getElementById('aiImageModal');
+        const aiImagePromptInput = document.getElementById('aiImagePromptInput');
+        const btnCancelAIImage = document.getElementById('btnCancelAIImage');
+        const btnSubmitAIImage = document.getElementById('btnSubmitAIImage');
 
+        btnGenerateAIImage.addEventListener('click', () => {
+            aiImagePromptInput.value = '';
+            aiImageModal.style.display = 'flex';
+            aiImagePromptInput.focus();
+        });
+
+        btnCancelAIImage.addEventListener('click', () => {
+            aiImageModal.style.display = 'none';
+        });
+
+        btnSubmitAIImage.addEventListener('click', async () => {
+            const prompt = aiImagePromptInput.value.trim();
+            if (!prompt) {
+                notificationService.error("Sila masukkan penerangan prompt gambar.");
+                return;
+            }
+
+            aiImageModal.style.display = 'none';
             btnGenerateAIImage.disabled = true;
             const originalText = btnGenerateAIImage.innerHTML;
             btnGenerateAIImage.innerHTML = "⏳ Generating...";
 
             try {
-                const response = await apiClient.post('/ai/image', { prompt: prompt.trim() });
+                const response = await apiClient.post('/ai/image', { prompt: prompt });
                 if (response.success && response.media) {
                     attachedMedia.push(response.media);
                     isDirty = true;

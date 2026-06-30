@@ -197,33 +197,33 @@
                             </div>
                         </div>
 
-                        <!-- Facebook Card (Upcoming) -->
-                        <div class="card account-card" style="opacity: 0.75;">
+                        <!-- Facebook Card -->
+                        <div class="card account-card">
                             <div>
                                 <div class="platform-header">
                                     <div class="platform-badge-logo facebook">f</div>
-                                    <span class="badge badge-info" style="background: rgba(0,0,0,0.04); color: var(--color-text-secondary);">upcoming</span>
+                                    <span class="badge badge-info">active</span>
                                 </div>
                                 <h3 class="card-title">Facebook</h3>
                                 <p class="card-subtitle" style="font-size: 0.8rem; line-height: 1.5;">Link Pages and Groups to manage community outreach.</p>
                             </div>
                             <div style="margin-top: 1.5rem;">
-                                <button class="btn btn-secondary" style="width: 100%;" disabled>Facebook — Coming Soon</button>
+                                <button class="btn btn-primary" style="width: 100%;" id="btnConnectFacebook">Connect Facebook</button>
                             </div>
                         </div>
 
-                        <!-- Instagram Card (Upcoming) -->
-                        <div class="card account-card" style="opacity: 0.75;">
+                        <!-- Instagram Card -->
+                        <div class="card account-card">
                             <div>
                                 <div class="platform-header">
                                     <div class="platform-badge-logo instagram">IG</div>
-                                    <span class="badge badge-info" style="background: rgba(0,0,0,0.04); color: var(--color-text-secondary);">upcoming</span>
+                                    <span class="badge badge-info">active</span>
                                 </div>
                                 <h3 class="card-title">Instagram</h3>
                                 <p class="card-subtitle" style="font-size: 0.8rem; line-height: 1.5;">Automate business visual content publishing to your feed.</p>
                             </div>
                             <div style="margin-top: 1.5rem;">
-                                <button class="btn btn-secondary" style="width: 100%;" disabled>Instagram — Coming Soon</button>
+                                <button class="btn btn-primary" style="width: 100%;" id="btnConnectInstagram">Connect Instagram</button>
                             </div>
                         </div>
 
@@ -384,6 +384,14 @@
         // Bind Link Channel actions
         document.getElementById('btnConnectThreads').addEventListener('click', async () => {
             await oauthService.initiateConnect('threads');
+        });
+
+        document.getElementById('btnConnectFacebook').addEventListener('click', async () => {
+            await oauthService.initiateConnect('facebook');
+        });
+
+        document.getElementById('btnConnectInstagram').addEventListener('click', async () => {
+            await oauthService.initiateConnect('instagram');
         });
 
         // Toast controller

@@ -4,8 +4,8 @@ export class GeminiProvider extends AIProvider {
     constructor(apiKey, model) {
         super();
         this.apiKey = apiKey;
-        // Default to gemini-1.5-flash if not provided or set to openrouter default
-        this.model = model && model.includes('/') ? 'gemini-1.5-flash' : (model || 'gemini-1.5-flash');
+        // Default to gemini-2.0-flash if not provided or set to openrouter default
+        this.model = model && model.includes('/') ? 'gemini-2.0-flash' : (model || 'gemini-2.0-flash');
     }
 
     async generateCaption({ businessType, product, targetAudience, goal, tone, language }) {

@@ -8,7 +8,7 @@ compatibility_date = "2026-06-29"
 ENVIRONMENT = "development"
 THREADS_CLIENT_ID = "952901221088471"
 FRONTEND_ORIGIN = "https://socialhub.zaimrosli.my"
-OPENROUTER_MODEL = "gemini-1.5-flash"
+OPENROUTER_MODEL = "gemini-2.0-flash"
 
 # D1 Database Binding
 [[d1_databases]]

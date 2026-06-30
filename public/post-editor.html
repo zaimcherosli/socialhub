@@ -503,6 +503,8 @@
         import { scheduleService } from './js/services/scheduleService.js';
         import { queueService } from './js/services/queueService.js';
         import { timezoneService } from './js/services/timezoneService.js';
+        import { apiClient } from './js/utils/api.js';
+        import { notificationService } from './js/services/notificationService.js';
 
         const urlParams = new URLSearchParams(window.location.search);
         const postId = urlParams.get('id') || 'new';

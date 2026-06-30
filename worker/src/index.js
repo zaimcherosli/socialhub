@@ -326,7 +326,7 @@ export default {
 
                     // Ensure ai_model column exists (idempotent migration)
                     try {
-                        await env.DB.prepare("ALTER TABLE workspaces ADD COLUMN ai_model TEXT DEFAULT 'meta-llama/llama-3-8b-instruct:free'").run();
+                        await env.DB.prepare("ALTER TABLE workspaces ADD COLUMN ai_model TEXT DEFAULT 'meta-llama/llama-3.1-8b-instruct:free'").run();
                     } catch (_) { /* column already exists */ }
                     try {
                         await env.DB.prepare("ALTER TABLE workspaces ADD COLUMN ai_api_key_enc TEXT").run();
@@ -347,7 +347,7 @@ export default {
 
                         return new Response(JSON.stringify({
                             success: true,
-                            model: ws?.ai_model || env.OPENROUTER_MODEL || 'meta-llama/llama-3-8b-instruct:free',
+                            model: ws?.ai_model || env.OPENROUTER_MODEL || 'meta-llama/llama-3.1-8b-instruct:free',
                             has_api_key: !!(ws?.ai_api_key_enc),
                             credits_used: creditsRes?.count || 0,
                             credits_max: maxCredits

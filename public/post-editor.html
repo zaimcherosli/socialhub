@@ -344,13 +344,16 @@
                         <div id="attachedMediaContainer" style="display: flex; gap: 0.875rem; flex-wrap: wrap; margin-top: 0.5rem; margin-bottom: 0.75rem;">
                             <!-- Dynamic attachment cards -->
                         </div>
-                        <div style="display: flex; gap: 0.5rem;">
+                        <div style="display: flex; gap: 0.5rem; flex-wrap: wrap;">
                             <button class="btn btn-secondary" style="font-size: 0.75rem; padding: 0.45rem 0.75rem;" id="btnOpenMediaPicker">
                                 🖼️ Add from Library
                             </button>
                             <input type="file" id="directComposerFileInput" accept="image/*,video/*" style="display: none;" />
                             <button class="btn btn-secondary" style="font-size: 0.75rem; padding: 0.45rem 0.75rem;" id="btnComposerDirectUpload">
                                 📤 Direct Upload
+                            </button>
+                            <button class="btn btn-secondary" style="font-size: 0.75rem; padding: 0.45rem 0.75rem; background: var(--color-primary-light); color: var(--color-primary); border-color: var(--color-primary-light);" id="btnGenerateAIImage">
+                                🎨 Generate with AI
                             </button>
                         </div>
                     </div>
@@ -948,7 +951,34 @@
             draftService.clearBackup(postId);
             document.getElementById('recoveryBanner').style.display = 'none';
         });
+        // AI Image Generation trigger
+        const btnGenerateAIImage = document.getElementById('btnGenerateAIImage');
+        btnGenerateAIImage.addEventListener('click', async () => {
+            const prompt = window.prompt("Masukkan arahan prompt AI untuk menjana gambar:\n(Cth: 'A professional cup of latte coffee with latte art on a wooden table, warm ambient lighting')");
+            if (!prompt || prompt.trim() === "") return;
 
+            btnGenerateAIImage.disabled = true;
+            const originalText = btnGenerateAIImage.innerHTML;
+            btnGenerateAIImage.innerHTML = "⏳ Generating...";
+
+            try {
+                const response = await apiClient.post('/ai/image', { prompt: prompt.trim() });
+                if (response.success && response.media) {
+                    attachedMedia.push(response.media);
+                    isDirty = true;
+                    renderAttachedMedia();
+                    notificationService.success("Gambar AI berjaya dijana dan dilampirkan!");
+                } else {
+                    notificationService.error(response.message || "Gagal menjana gambar AI.");
+                }
+            } catch (err) {
+                console.error("AI Image Generation failed:", err);
+                notificationService.error(err.message || "Ralat berlaku semasa menjana gambar AI.");
+            } finally {
+                btnGenerateAIImage.disabled = false;
+                btnGenerateAIImage.innerHTML = originalText;
+            }
+        });
         // Media Picker Modal triggers
         const btnOpenPicker = document.getElementById('btnOpenMediaPicker');
         const btnClosePicker = document.getElementById('btnCloseMediaPicker');

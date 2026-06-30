@@ -552,6 +552,58 @@ export default {
                     return new Response(JSON.stringify({ error: 'Method not allowed' }), { status: 405, headers: corsHeaders });
                 }
 
+                case '/api/ai/image': {
+                    const user = await getAuthUser();
+                    if (!user) return new Response(JSON.stringify({ message: 'Unauthorized session' }), { status: 401, headers: corsHeaders });
+                    if (!env.DB) return new Response(JSON.stringify({ message: 'Database missing' }), { status: 500, headers: corsHeaders });
+                    if (!env.AI) return new Response(JSON.stringify({ message: 'AI service missing' }), { status: 500, headers: corsHeaders });
+
+                    const activeWorkspace = await getActiveWorkspace(user);
+                    if (!activeWorkspace) return new Response(JSON.stringify({ message: 'No active workspace found' }), { status: 404, headers: corsHeaders });
+                    if (activeWorkspace.role === 'viewer') return new Response(JSON.stringify({ message: 'Forbidden: Viewers cannot generate media.' }), { status: 403, headers: corsHeaders });
+
+                    if (request.method !== 'POST') return new Response(JSON.stringify({ error: 'Method not allowed' }), { status: 405, headers: corsHeaders });
+
+                    try {
+                        const { prompt } = await request.json();
+                        if (!prompt) return new Response(JSON.stringify({ message: 'Prompt is required.' }), { status: 400, headers: corsHeaders });
+
+                        const imageResponse = await env.AI.run('@cf/lykon/dreamshaper-8-lcm', {
+                            prompt: prompt,
+                            num_steps: 20
+                        });
+
+                        const arrayBuffer = await new Response(imageResponse).arrayBuffer();
+                        const base64Str = btoa(String.fromCharCode(...new Uint8Array(arrayBuffer)));
+                        const dataUrl = `data:image/jpeg;base64,${base64Str}`;
+                        const fileSize = arrayBuffer.byteLength;
+
+                        const plan = activeWorkspace.subscription_plan;
+                        const limits = PLANS[plan];
+                        const sizeRes = await env.DB.prepare("SELECT SUM(file_size) as total FROM media WHERE workspace_id = ?").bind(activeWorkspace.workspace_id).first();
+                        const currentTotal = sizeRes ? (sizeRes.total || 0) : 0;
+                        if ((currentTotal + fileSize) > limits.storage) {
+                            return new Response(JSON.stringify({ message: "Subscription limit reached: Storage capacity exceeded." }), { status: 403, headers: corsHeaders });
+                        }
+
+                        const filename = `ai_generated_${Date.now()}.jpg`;
+
+                        const result = await env.DB.prepare(
+                            `INSERT INTO media (user_id, workspace_id, filename, original_name, mime_type, file_size, width, height, storage_provider, storage_key, thumbnail) 
+                             VALUES (?, ?, ?, ?, 'image/jpeg', ?, 1024, 1024, 'local', ?, ?)`
+                        ).bind(user.id, activeWorkspace.workspace_id, filename, filename, fileSize, dataUrl, dataUrl).run();
+
+                        const newMediaId = result.meta.last_row_id;
+                        const mediaRecord = await env.DB.prepare("SELECT * FROM media WHERE id = ?").bind(newMediaId).first();
+
+                        await logActivity(activeWorkspace.workspace_id, user.id, 'ai_image_generate', `Generated AI image: ${prompt.substring(0, 30)}...`);
+
+                        return new Response(JSON.stringify({ success: true, media: mediaRecord }), { status: 201, headers: corsHeaders });
+                    } catch (e) {
+                        return new Response(JSON.stringify({ message: e.message }), { status: 500, headers: corsHeaders });
+                    }
+                }
+
                 case '/api/ai/generate': {
                     const user = await getAuthUser();
                     if (!user) return new Response(JSON.stringify({ message: 'Unauthorized session' }), { status: 401, headers: corsHeaders });

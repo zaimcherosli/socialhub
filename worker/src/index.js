@@ -440,9 +440,13 @@ export default {
                             try {
                                 // Attempt decrypt, fallback to raw value
                                 const decrypted = await decryptToken(wsAI.ai_api_key_enc, encryptionSecret);
-                                if (decrypted) aiEnv.OPENROUTER_API_KEY = decrypted;
+                                if (decrypted) {
+                                    aiEnv.OPENROUTER_API_KEY = decrypted;
+                                    aiEnv.GEMINI_API_KEY = decrypted;
+                                }
                             } catch (_) {
                                 aiEnv.OPENROUTER_API_KEY = wsAI.ai_api_key_enc;
+                                aiEnv.GEMINI_API_KEY = wsAI.ai_api_key_enc;
                             }
                         }
 

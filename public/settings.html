@@ -203,6 +203,7 @@
 
         @media (max-width: 768px) {
             .settings-grid { grid-template-columns: 1fr; }
+            .settings-grid > .settings-card { grid-column: auto !important; }
             .ai-settings-inner { grid-template-columns: 1fr; }
             .model-option-grid { grid-template-columns: repeat(2, 1fr); }
             .settings-card { padding: 1.25rem; }
@@ -212,6 +213,7 @@
             .model-option-grid { grid-template-columns: 1fr; }
             .save-btn-row { flex-direction: column; align-items: stretch; }
             .save-btn-row .btn { justify-content: center; }
+            .api-key-buttons { flex-direction: column; }
         }
 
         @keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
@@ -433,7 +435,7 @@
                                 <p style="font-size: 0.72rem; color: var(--color-text-tertiary); margin: 0;">Add your own API key to bypass plan credit limits.</p>
                             </div>
 
-                            <div style="display: flex; gap: 0.5rem; width: 100%;">
+                            <div class="api-key-buttons" style="display: flex; gap: 0.5rem; width: 100%;">
                                 <a href="https://aistudio.google.com/" target="_blank" class="btn btn-secondary" style="flex: 1; justify-content: center; font-size: 0.775rem;">
                                     Get Gemini API Key
                                 </a>

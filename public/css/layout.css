@@ -432,7 +432,11 @@ app-header {
         transition: left var(--transition-normal);
         grid-area: unset;
         display: block;
-        z-index: 100;
+        z-index: 1500;
+    }
+
+    .sidebar-backdrop {
+        z-index: 1450 !important;
     }
 
     .sidebar-wrapper {
@@ -441,6 +445,7 @@ app-header {
         width: 100%;
         align-items: stretch;
         padding: 1.5rem 1rem;
+        padding-bottom: calc(1.5rem + env(safe-area-inset-bottom, 20px));
     }
 
     .brand-name, .nav-label, .user-info, .sidebar-footer {

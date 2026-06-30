@@ -57,7 +57,8 @@ export class ThreadsPublisher extends PublisherInterface {
             // Step 1: Create a Threads media container
             console.log(`[ThreadsPublisher] Creating media container for caption: ${post.caption}`);
             
-            const containerUrl = new URL('https://graph.threads.net/v1.0/me/threads');
+            const threadsAccountId = credentials.account_id || 'me';
+            const containerUrl = new URL(`https://graph.threads.net/v1.0/${threadsAccountId}/threads`);
             containerUrl.searchParams.set('media_type', 'TEXT');
             containerUrl.searchParams.set('text', post.caption);
             containerUrl.searchParams.set('access_token', accessToken);
@@ -84,7 +85,7 @@ export class ThreadsPublisher extends PublisherInterface {
             // Step 2: Publish the media container
             console.log(`[ThreadsPublisher] Publishing media container ID: ${containerId}`);
             
-            const publishUrl = new URL('https://graph.threads.net/v1.0/me/threads_publish');
+            const publishUrl = new URL(`https://graph.threads.net/v1.0/${threadsAccountId}/threads_publish`);
             publishUrl.searchParams.set('creation_id', containerId);
             publishUrl.searchParams.set('access_token', accessToken);
 

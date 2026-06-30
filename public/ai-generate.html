@@ -25,6 +25,23 @@
     <link rel="stylesheet" href="css/variables.css">
     <link rel="stylesheet" href="css/layout.css">
     <link rel="stylesheet" href="css/components.css">
+    <style>
+        .composer-actions-row {
+            display: flex;
+            gap: 0.75rem;
+        }
+        .composer-actions-row button {
+            flex: 1;
+            justify-content: center;
+            height: 42px;
+            font-weight: 600;
+        }
+        @media (max-width: 480px) {
+            .composer-actions-row {
+                flex-direction: column !important;
+            }
+        }
+    </style>
 </head>
 <body>
 
@@ -161,9 +178,9 @@
 
                         <!-- Action Controls -->
                         <div style="display: flex; flex-direction: column; gap: 0.75rem; margin-top: 0.5rem;">
-                            <div style="display: flex; gap: 0.75rem;">
-                                <button class="btn btn-secondary" id="btnAIPlanPublish" style="flex: 1; justify-content: center; height: 42px; font-weight: 600;">⚡ Publish Now</button>
-                                <button class="btn btn-primary" id="btnAIPlanSchedule" style="flex: 1; justify-content: center; height: 42px; font-weight: 600;">📅 Schedule Post</button>
+                            <div class="composer-actions-row">
+                                <button class="btn btn-secondary" id="btnAIPlanPublish">⚡ Publish Now</button>
+                                <button class="btn btn-primary" id="btnAIPlanSchedule">📅 Schedule Post</button>
                             </div>
                             <button class="btn btn-secondary btn-outline" id="btnAIPlanDraft" style="width: 100%; justify-content: center; height: 42px; font-weight: 600; border: 1px solid var(--color-border); background: transparent;">💾 Save as Draft</button>
                         </div>

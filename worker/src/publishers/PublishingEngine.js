@@ -103,7 +103,7 @@ export const PublishingEngine = {
 
         // 3. Resolve OAuth Credentials from workspace
         const socialAccount = await db.prepare(
-            "SELECT id, access_token, refresh_token FROM social_accounts WHERE workspace_id = ? AND platform = ? AND status = 'active'"
+            "SELECT id, account_id, access_token, refresh_token FROM social_accounts WHERE workspace_id = ? AND platform = ? AND status = 'active'"
         ).bind(queueItem.workspace_id, queueItem.platform).first();
 
         if (!socialAccount) {
@@ -130,7 +130,10 @@ export const PublishingEngine = {
 
         let result;
         try {
-            result = await publisher.publish(queueItem, { access_token: decryptedToken });
+            result = await publisher.publish(queueItem, { 
+                access_token: decryptedToken,
+                account_id: socialAccount.account_id
+            });
         } catch (e) {
             result = {
                 success: false,

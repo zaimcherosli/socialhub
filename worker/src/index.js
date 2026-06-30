@@ -401,17 +401,28 @@ export default {
                     if (request.method !== 'POST') return new Response(JSON.stringify({ error: 'Method not allowed' }), { status: 405, headers: corsHeaders });
                     if (activeWorkspace.role === 'viewer') return new Response(JSON.stringify({ message: 'Forbidden: Viewers cannot generate content.' }), { status: 403, headers: corsHeaders });
 
+                    // Read workspace AI preferences from DB (model & optional custom API key)
+                    const wsAI = await env.DB.prepare(
+                        "SELECT ai_model, ai_api_key_enc FROM workspaces WHERE id = ?"
+                    ).bind(activeWorkspace.workspace_id).first().catch(() => null);
+
                     const plan = activeWorkspace.subscription_plan;
                     const maxCredits = PLANS[plan].ai_credits;
 
-                    const startOfMonth = new Date(new Date().getFullYear(), new Date().getMonth(), 1).toISOString();
-                    const creditsRes = await env.DB.prepare(
-                        "SELECT COUNT(*) as count FROM audit_logs WHERE workspace_id = ? AND action = 'ai_generate' AND created_at >= ?"
-                    ).bind(activeWorkspace.workspace_id, startOfMonth).first();
+                    // Bypass monthly limits check if a workspace-specific API key is set
+                    const hasCustomKey = !!(wsAI?.ai_api_key_enc);
+                    let currentCreditsUsed = 0;
 
-                    const currentCreditsUsed = creditsRes ? (creditsRes.count || 0) : 0;
-                    if (currentCreditsUsed >= maxCredits) {
-                        return new Response(JSON.stringify({ message: `AI credit limit reached: Your ${plan} plan allows up to ${maxCredits} AI generations per month. Please upgrade your subscription.` }), { status: 403, headers: corsHeaders });
+                    if (!hasCustomKey) {
+                        const startOfMonth = new Date(new Date().getFullYear(), new Date().getMonth(), 1).toISOString();
+                        const creditsRes = await env.DB.prepare(
+                            "SELECT COUNT(*) as count FROM audit_logs WHERE workspace_id = ? AND action = 'ai_generate' AND created_at >= ?"
+                        ).bind(activeWorkspace.workspace_id, startOfMonth).first();
+
+                        currentCreditsUsed = creditsRes ? (creditsRes.count || 0) : 0;
+                        if (currentCreditsUsed >= maxCredits) {
+                            return new Response(JSON.stringify({ message: `AI credit limit reached: Your ${plan} plan allows up to ${maxCredits} AI generations per month. Please add your own API key in Settings to bypass this limit or upgrade your subscription.` }), { status: 403, headers: corsHeaders });
+                        }
                     }
 
                     try {
@@ -419,11 +430,6 @@ export default {
                         if (!businessType || !product) {
                             return new Response(JSON.stringify({ message: 'Business type and product/service are required.' }), { status: 400, headers: corsHeaders });
                         }
-
-                        // Read workspace AI preferences from DB (model & optional custom API key)
-                        const wsAI = await env.DB.prepare(
-                            "SELECT ai_model, ai_api_key_enc FROM workspaces WHERE id = ?"
-                        ).bind(activeWorkspace.workspace_id).first().catch(() => null);
 
                         // Build env-like object overriding with workspace preferences
                         const aiEnv = { ...env };

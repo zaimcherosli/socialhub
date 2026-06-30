@@ -512,15 +512,21 @@
 
                     if (has_api_key) keyInput.placeholder = 'sk-or-v1-••••••• (saved)';
 
-                    const used = credits_used || 0;
-                    const max  = credits_max  || 10;
-                    const pct  = Math.min((used / Math.max(max, 1)) * 100, 100);
-                    document.getElementById('creditBarFill').style.width = `${pct}%`;
-                    document.getElementById('creditBarFill').style.background =
-                        pct >= 90 ? 'var(--color-danger)' :
-                        pct >= 70 ? 'var(--color-warning)' :
-                        'var(--gradient-primary)';
-                    document.getElementById('creditUsageLabel').textContent = `${used} / ${max} generations`;
+                    if (has_api_key) {
+                        document.getElementById('creditBarFill').style.width = '100%';
+                        document.getElementById('creditBarFill').style.background = 'var(--gradient-primary)';
+                        document.getElementById('creditUsageLabel').innerHTML = '<span class="status-badge status-active" style="padding: 0.15rem 0.4rem; font-size: 0.68rem;">Unlimited (Bypassed)</span>';
+                    } else {
+                        const used = credits_used || 0;
+                        const max  = credits_max  || 10;
+                        const pct  = Math.min((used / Math.max(max, 1)) * 100, 100);
+                        document.getElementById('creditBarFill').style.width = `${pct}%`;
+                        document.getElementById('creditBarFill').style.background =
+                            pct >= 90 ? 'var(--color-danger)' :
+                            pct >= 70 ? 'var(--color-warning)' :
+                            'var(--gradient-primary)';
+                        document.getElementById('creditUsageLabel').textContent = `${used} / ${max} generations`;
+                    }
                 }
             } catch (e) {
                 document.getElementById('creditUsageLabel').textContent = 'Could not load';

@@ -274,7 +274,8 @@ const OAuthProviders = {
 
             if (!response.ok) {
                 const err = await response.json().catch(() => ({}));
-                throw new Error(err.error_message || "Meta Threads access token exchange failed");
+                const errMsg = err.error?.message || err.error_message || (err.error ? JSON.stringify(err.error) : JSON.stringify(err));
+                throw new Error(errMsg || "Meta Threads access token exchange failed");
             }
 
             const data = await response.json();
@@ -390,7 +391,8 @@ const OAuthProviders = {
 
             if (!response.ok) {
                 const err = await response.json().catch(() => ({}));
-                throw new Error(err.error_message || "Instagram access token exchange failed");
+                const errMsg = err.error?.message || err.error_message || (err.error ? JSON.stringify(err.error) : JSON.stringify(err));
+                throw new Error(errMsg || "Instagram access token exchange failed");
             }
 
             const data = await response.json();

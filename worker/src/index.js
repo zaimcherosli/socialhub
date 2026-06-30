@@ -1513,6 +1513,7 @@ export default {
 
                             return new Response(JSON.stringify({ success: true, message: 'Schedule cancelled and removed' }), { status: 200, headers: corsHeaders });
                         }
+                    }
 
                     // Match /api/workspaces/members/:id
                     const wsMemberMatch = url.pathname.match(/^\/api\/workspaces\/members\/(\d+)$/);
@@ -1785,7 +1786,6 @@ export default {
 
                             return new Response(JSON.stringify({ success: true, redirect_url: authUrl }), { status: 200, headers: corsHeaders });
                         }
-                    }
                     }
 
                     if (url.pathname === '/api/auth/register') {

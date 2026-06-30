@@ -505,9 +505,11 @@
         import { timezoneService } from './js/services/timezoneService.js';
         import { apiClient } from './js/utils/api.js';
         import { notificationService } from './js/services/notificationService.js';
+        import { schedulerService } from './js/services/schedulerService.js';
 
         const urlParams = new URLSearchParams(window.location.search);
         const postId = urlParams.get('id') || 'new';
+        const postType = urlParams.get('type') || 'draft';
 
         const titleInput = document.getElementById('postTitle');
         const captionTextarea = document.getElementById('postCaption');
@@ -725,6 +727,21 @@
                     state.scheduled_at = scheduledTimeUtc;
                 }
                 
+                if (postType === 'scheduled') {
+                    const updates = {
+                        content: state.caption,
+                        publish_at: state.status === 'scheduled' ? scheduledTimeUtc : undefined,
+                        status: state.status,
+                        timezone: userTimezone,
+                        media_urls: JSON.stringify(attachedMedia)
+                    };
+                    await schedulerService.updateScheduledPost(postId, updates);
+                    draftService.clearBackup(postId);
+                    isDirty = false;
+                    window.location.replace('calendar.html');
+                    return;
+                }
+
                 if (postId === 'new') {
                     const response = await postService.createPost(state);
                     targetId = response.id;
@@ -788,11 +805,31 @@
             btnPublish.textContent = 'Publishing...';
 
             try {
-                let targetId = postId;
+                const userTimezone = timezoneService.getUserTimezone();
+                const nowUtc = new Date().toISOString();
                 
+                if (postType === 'scheduled') {
+                    const updates = {
+                        content: state.caption,
+                        publish_at: nowUtc,
+                        status: 'scheduled',
+                        timezone: userTimezone,
+                        media_urls: JSON.stringify(attachedMedia)
+                    };
+                    await schedulerService.updateScheduledPost(postId, updates);
+                    const publishSuccess = await queueService.manualPublish(postId);
+                    if (!publishSuccess) {
+                        throw new Error('Manual dispatch execution failed in the publishing queue.');
+                    }
+                    draftService.clearBackup(postId);
+                    isDirty = false;
+                    alert('Successfully published to Threads!');
+                    window.location.replace(`monitor.html`);
+                    return;
+                }
+
                 // Force status to scheduled before publishing
                 state.status = 'scheduled';
-                const nowUtc = new Date().toISOString();
                 state.scheduled_at = nowUtc;
 
                 if (postId === 'new') {
@@ -852,18 +889,31 @@
             if (postId !== 'new') {
                 document.getElementById('pageTitleLabel').textContent = 'Edit Post';
                 try {
-                    const post = await postService.getPost(postId);
-                    const media = await mediaService.getPostMedia(postId);
-                    
-                    initialState = {
-                        title: post.title,
-                        caption: post.caption,
-                        visibility: post.visibility,
-                        status: post.status,
-                        scheduled_at: post.scheduled_at,
-                        attachedMedia: media
-                    };
-                    dbUpdatedAt = post.updated_at;
+                    if (postType === 'scheduled') {
+                        const post = await schedulerService.getScheduledPost(postId);
+                        initialState = {
+                            title: '',
+                            caption: post.content || '',
+                            visibility: 'public',
+                            status: 'scheduled',
+                            scheduled_at: post.publish_at,
+                            attachedMedia: JSON.parse(post.media_urls || '[]')
+                        };
+                        dbUpdatedAt = post.updated_at;
+                    } else {
+                        const post = await postService.getPost(postId);
+                        const media = await mediaService.getPostMedia(postId);
+                        
+                        initialState = {
+                            title: post.title,
+                            caption: post.caption,
+                            visibility: post.visibility,
+                            status: post.status,
+                            scheduled_at: post.scheduled_at,
+                            attachedMedia: media
+                        };
+                        dbUpdatedAt = post.updated_at;
+                    }
                 } catch (err) {
                     alert('Failed to retrieve post details from backend database.');
                     window.location.replace('posts.html');

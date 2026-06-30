@@ -6,6 +6,11 @@ export const schedulerService = {
         return await apiClient.get('/scheduled-posts');
     },
 
+    async getScheduledPost(id) {
+        const data = await apiClient.get(`/scheduled-posts/${id}`);
+        return data.post;
+    },
+
     async createScheduledPost(postData) {
         return await apiClient.post('/scheduled-posts', postData);
     },

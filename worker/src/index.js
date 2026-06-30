@@ -1784,8 +1784,14 @@ export default {
                         if (!user) return new Response(JSON.stringify({ message: 'Unauthorized session' }), { status: 401, headers: corsHeaders });
                         if (!env.DB) return new Response(JSON.stringify({ message: 'Database missing' }), { status: 500, headers: corsHeaders });
 
+                        if (request.method === 'GET') {
+                            const post = await env.DB.prepare("SELECT * FROM scheduled_posts WHERE id = ? AND user_id = ?").bind(spId, user.id).first();
+                            if (!post) return new Response(JSON.stringify({ message: 'Scheduled post not found' }), { status: 404, headers: corsHeaders });
+                            return new Response(JSON.stringify({ success: true, post }), { status: 200, headers: corsHeaders });
+                        }
+
                         if (request.method === 'PUT') {
-                            const { status, publish_at, timezone, content } = await request.json();
+                            const { status, publish_at, timezone, content, media_urls } = await request.json();
                             
                             const fields = [];
                             const binds = [];
@@ -1805,6 +1811,10 @@ export default {
                             if (content !== undefined) {
                                 fields.push("content = ?");
                                 binds.push(content);
+                            }
+                            if (media_urls !== undefined) {
+                                fields.push("media_urls = ?");
+                                binds.push(media_urls);
                             }
 
                             if (fields.length === 0) {

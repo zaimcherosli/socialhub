@@ -1056,7 +1056,7 @@
         // Edit schedule content
         document.getElementById('btnEditScheduleContent').addEventListener('click', () => {
             if (selectedSchedule) {
-                window.location.href = `post-editor.html?id=${selectedSchedule.id}`;
+                window.location.href = `post-editor.html?id=${selectedSchedule.id}&type=scheduled`;
             }
         });
 

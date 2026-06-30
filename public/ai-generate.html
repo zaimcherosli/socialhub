@@ -161,11 +161,19 @@
                         </div>
 
                         <div class="form-group" style="margin-bottom: 1rem;">
-                            <label class="form-label" for="autoCount">Campaign Length (Staggered Daily)</label>
+                            <label class="form-label" for="autoCount">Campaign Length (Total Generated Posts)</label>
                             <select id="autoCount" class="form-select" style="width: 100%;">
-                                <option value="3">3 Posts Campaign (Staggered over 3 days)</option>
-                                <option value="5">5 Posts Campaign (Staggered over 5 days)</option>
-                                <option value="7">7 Posts Campaign (Staggered over 7 days)</option>
+                                <option value="3">3 Posts</option>
+                                <option value="5">5 Posts</option>
+                                <option value="7">7 Posts</option>
+                            </select>
+                        </div>
+
+                        <div class="form-group" style="margin-bottom: 1rem;">
+                            <label class="form-label" for="autoFrequency">Kekerapan Harian (Daily Frequency)</label>
+                            <select id="autoFrequency" class="form-select" style="width: 100%;">
+                                <option value="1">1 Post Sehari (Pagi - 9 AM)</option>
+                                <option value="3">3 Post Sehari (Pagi - 9 AM, Tengahari - 12 PM, Malam - 6 PM)</option>
                             </select>
                         </div>
 
@@ -547,6 +555,7 @@
             const targetAudience = document.getElementById('autoAudience').value.trim();
             const platform = document.getElementById('autoPlatform').value;
             const count = parseInt(document.getElementById('autoCount').value);
+            const frequency = parseInt(document.getElementById('autoFrequency').value);
             const language = document.getElementById('autoLanguage').value;
             const timezoneOffset = new Date().getTimezoneOffset();
 
@@ -564,6 +573,7 @@
                     targetAudience,
                     platform,
                     count,
+                    frequency,
                     language,
                     timezoneOffset
                 });

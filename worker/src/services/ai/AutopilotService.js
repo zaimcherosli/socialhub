@@ -3,8 +3,8 @@ export class AutopilotService {
         this.provider = provider;
     }
 
-    async generateAutopilotCampaign({ niche, targetAudience, platform, count, language, timezoneOffset }) {
-        console.log(`[AutopilotService] Starting autopilot campaign generation for niche: "${niche}", count: ${count}`);
+    async generateAutopilotCampaign({ niche, targetAudience, platform, count, language, timezoneOffset, frequency }) {
+        console.log(`[AutopilotService] Starting autopilot campaign generation for niche: "${niche}", count: ${count}, frequency: ${frequency}`);
 
         // Custom prompt requesting a JSON array of posts
         const prompt = `You are a professional social media marketing expert and content planner.
@@ -97,13 +97,22 @@ Ensure that the posts are diverse (e.g. one educational/value post, one promotio
         // Slice to requested count just in case
         campaignPosts = campaignPosts.slice(0, count);
 
-        // Optimal times: 9 AM, 12 PM, 6 PM, 3 PM, 10 AM
-        const optimalHours = [9, 12, 18, 15, 10];
+        // Optimal hours: 9 AM, 12 PM, 6 PM
+        const optimalHours = [9, 12, 18];
         const offset = typeof timezoneOffset === 'number' ? timezoneOffset : -480; // default UTC+8
+        const postsPerDay = parseInt(frequency) || 1;
 
         const scheduledCampaign = campaignPosts.map((post, idx) => {
-            const daysAhead = idx + 1; // Start tomorrow
-            const localHour = optimalHours[idx % optimalHours.length];
+            const daysAhead = Math.floor(idx / postsPerDay) + 1; // Starts tomorrow
+            const timeIndex = idx % postsPerDay;
+            
+            let localHour = 9;
+            if (postsPerDay === 1) {
+                const singleOptimalHours = [9, 12, 18, 15, 10];
+                localHour = singleOptimalHours[idx % singleOptimalHours.length];
+            } else {
+                localHour = optimalHours[timeIndex % optimalHours.length];
+            }
             
             // Calculate UTC timestamp
             const date = new Date();

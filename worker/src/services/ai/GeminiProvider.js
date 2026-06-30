@@ -4,8 +4,14 @@ export class GeminiProvider extends AIProvider {
     constructor(apiKey, model) {
         super();
         this.apiKey = apiKey ? apiKey.replace(/^["']|["']$/g, '') : '';
-        // Default to gemini-2.0-flash if not provided or set to openrouter default
-        this.model = model && model.includes('/') ? 'gemini-2.0-flash' : (model || 'gemini-2.0-flash');
+        // Auto-migrate deprecated gemini-1.5/2.0 models to gemini-2.0-flash-lite
+        let targetModel = model || 'gemini-2.0-flash-lite';
+        if (targetModel.includes('gemini-2.0-flash') || targetModel.includes('gemini-1.5-flash')) {
+            if (!targetModel.includes('lite') && !targetModel.includes('/')) {
+                targetModel = 'gemini-2.0-flash-lite';
+            }
+        }
+        this.model = targetModel;
     }
 
     async generateCaption({ businessType, product, targetAudience, goal, tone, language }) {

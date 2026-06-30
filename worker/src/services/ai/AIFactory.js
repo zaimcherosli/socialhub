@@ -6,7 +6,7 @@ export class AIFactory {
         if (!apiKey) {
             throw new Error("Missing OPENROUTER_API_KEY configuration in environment variables.");
         }
-        const model = env.OPENROUTER_MODEL || "meta-llama/llama-3.1-8b-instruct:free";
+        const model = env.OPENROUTER_MODEL || "meta-llama/llama-3.2-3b-instruct:free";
         return new OpenRouterProvider(apiKey, model);
     }
 }

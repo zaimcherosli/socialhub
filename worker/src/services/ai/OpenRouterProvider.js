@@ -4,7 +4,7 @@ export class OpenRouterProvider extends AIProvider {
     constructor(apiKey, model) {
         super();
         this.apiKey = apiKey;
-        this.model = model || "meta-llama/llama-3.1-8b-instruct:free";
+        this.model = model || "meta-llama/llama-3.2-3b-instruct:free";
     }
 
     async generateCaption({ businessType, product, targetAudience, goal, tone, language }) {

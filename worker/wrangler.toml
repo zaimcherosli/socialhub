@@ -8,7 +8,7 @@ compatibility_date = "2026-06-29"
 ENVIRONMENT = "development"
 THREADS_CLIENT_ID = "952901221088471"
 FRONTEND_ORIGIN = "https://socialhub.zaimrosli.my"
-OPENROUTER_MODEL = "meta-llama/llama-3.1-8b-instruct:free"
+OPENROUTER_MODEL = "meta-llama/llama-3.2-3b-instruct:free"
 
 # D1 Database Binding
 [[d1_databases]]

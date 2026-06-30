@@ -8,6 +8,7 @@
 import { PublishingEngine } from './publishers/PublishingEngine.js';
 import { PublisherFactory } from './publishers/PublisherFactory.js';
 import { AIFactory } from './services/ai/AIFactory.js';
+import { AutopilotService } from './services/ai/AutopilotService.js';
 
 const encoder = new TextEncoder();
 const decoder = new TextDecoder();
@@ -468,6 +469,109 @@ export default {
                             model_used: aiEnv.OPENROUTER_MODEL,
                             credits_remaining: maxCredits - currentCreditsUsed - 1
                         }), { status: 200, headers: corsHeaders });
+                    } catch (e) {
+                        return new Response(JSON.stringify({ message: e.message }), { status: 500, headers: corsHeaders });
+                    }
+                }
+
+                case '/api/ai/autopilot': {
+                    const user = await getAuthUser();
+                    if (!user) return new Response(JSON.stringify({ message: 'Unauthorized session' }), { status: 401, headers: corsHeaders });
+                    if (!env.DB) return new Response(JSON.stringify({ message: 'Database missing' }), { status: 500, headers: corsHeaders });
+
+                    const activeWorkspace = await getActiveWorkspace(user);
+                    if (!activeWorkspace) return new Response(JSON.stringify({ message: 'No active workspace found' }), { status: 404, headers: corsHeaders });
+
+                    if (request.method !== 'POST') return new Response(JSON.stringify({ error: 'Method not allowed' }), { status: 405, headers: corsHeaders });
+                    if (activeWorkspace.role === 'viewer') return new Response(JSON.stringify({ message: 'Forbidden: Viewers cannot create content.' }), { status: 403, headers: corsHeaders });
+
+                    const { niche, targetAudience, platform, count, language, timezoneOffset } = await request.json();
+                    if (!niche) {
+                        return new Response(JSON.stringify({ message: 'Business niche is required.' }), { status: 400, headers: corsHeaders });
+                    }
+
+                    const wsAI = await env.DB.prepare(
+                        "SELECT ai_model, ai_api_key_enc FROM workspaces WHERE id = ?"
+                    ).bind(activeWorkspace.workspace_id).first().catch(() => null);
+
+                    // Build env-like object overriding with workspace preferences
+                    const aiEnv = { ...env };
+                    if (wsAI?.ai_model) {
+                        aiEnv.OPENROUTER_MODEL = wsAI.ai_model;
+                    }
+                    if (wsAI?.ai_api_key_enc) {
+                        try {
+                            const decrypted = await decryptToken(wsAI.ai_api_key_enc, encryptionSecret);
+                            if (decrypted) {
+                                aiEnv.OPENROUTER_API_KEY = decrypted;
+                                aiEnv.GEMINI_API_KEY = decrypted;
+                            }
+                        } catch (_) {
+                            aiEnv.OPENROUTER_API_KEY = wsAI.ai_api_key_enc;
+                            aiEnv.GEMINI_API_KEY = wsAI.ai_api_key_enc;
+                        }
+                    }
+
+                    try {
+                        const provider = AIFactory.getProvider(aiEnv);
+                        const autopilotService = new AutopilotService(provider);
+                        
+                        const campaign = await autopilotService.generateAutopilotCampaign({
+                            niche,
+                            targetAudience: targetAudience || 'General public',
+                            platform: platform || 'threads',
+                            count: parseInt(count) || 3,
+                            language: language || 'Bahasa Melayu',
+                            timezoneOffset: parseInt(timezoneOffset) || -480
+                        });
+
+                        // Find connected account for this user & platform
+                        const socialAccount = await env.DB.prepare(
+                            "SELECT id FROM social_accounts WHERE user_id = ? AND platform = ? AND status = 'active' LIMIT 1"
+                        ).bind(user.id, platform || 'threads').first();
+
+                        const accountId = socialAccount ? socialAccount.id : null;
+                        const finalStatus = accountId ? 'scheduled' : 'draft';
+
+                        const dbInsert = env.DB.prepare(
+                            `INSERT INTO scheduled_posts (user_id, account_id, platform, content, status, publish_at, created_at, updated_at)
+                             VALUES (?, ?, ?, ?, ?, ?, (datetime('now')), (datetime('now')))`
+                        );
+
+                        const insertedPosts = [];
+                        for (const post of campaign) {
+                            const result = await dbInsert.bind(
+                                user.id,
+                                accountId,
+                                platform || 'threads',
+                                post.content,
+                                finalStatus,
+                                post.publish_at
+                            ).run();
+                            
+                            insertedPosts.push({
+                                id: result.meta?.last_row_id || null,
+                                content: post.content,
+                                publish_at: post.publish_at,
+                                status: finalStatus
+                            });
+                        }
+
+                        await logActivity(
+                            activeWorkspace.workspace_id,
+                            user.id,
+                            'ai_autopilot',
+                            `Generated autopilot campaign: ${campaign.length} posts scheduled as ${finalStatus} for niche "${niche.substring(0, 30)}..."`
+                        );
+
+                        return new Response(JSON.stringify({
+                            success: true,
+                            posts: insertedPosts,
+                            model_used: aiEnv.OPENROUTER_MODEL,
+                            scheduled_count: campaign.length,
+                            status: finalStatus
+                        }), { status: 200, headers: corsHeaders });
+
                     } catch (e) {
                         return new Response(JSON.stringify({ message: e.message }), { status: 500, headers: corsHeaders });
                     }

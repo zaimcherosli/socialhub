@@ -64,9 +64,13 @@
             <div class="two-col-grid">
                 
                 <!-- Left: Form Parameters -->
+                <!-- Left: Form Parameters -->
                 <div class="card" style="padding: 1.75rem; display: flex; flex-direction: column; gap: 1.25rem;">
-                    <h3 class="card-title" style="margin-bottom: 0.25rem; font-size: 1.1rem; font-weight: 600;">Brand Details</h3>
-                    <p style="font-size: 0.8125rem; color: var(--color-text-secondary); margin-bottom: 0.5rem;">Fill in your brand info and product details for AI to craft the best captions.</p>
+                    <!-- Tab Headers -->
+                    <div style="display: flex; border-bottom: 1px solid var(--color-border); padding-bottom: 0.5rem; gap: 1.25rem; margin-bottom: 0.5rem;">
+                        <button type="button" class="tab-btn active" id="tabSingle" style="background: none; border: none; font-size: 0.875rem; font-weight: 600; padding: 0.5rem 0.25rem; cursor: pointer; border-bottom: 2px solid var(--color-primary); color: var(--color-primary); transition: all var(--transition-fast);">Single Post</button>
+                        <button type="button" class="tab-btn" id="tabAutopilot" style="background: none; border: none; font-size: 0.875rem; font-weight: 500; padding: 0.5rem 0.25rem; cursor: pointer; color: var(--color-text-secondary); transition: all var(--transition-fast);">AI Autopilot Planner 🚀</button>
+                    </div>
                     
                     <form id="aiGenerateForm" onsubmit="event.preventDefault();">
                         <div class="form-group" style="margin-bottom: 1rem;">
@@ -129,6 +133,56 @@
                         <button type="button" class="btn btn-primary" id="btnAIGenerate" style="width: 100%; height: 44px; justify-content: center; font-weight: 600;">
                             <span id="spinnerAI" style="display: none; width: 16px; height: 16px; border: 2px solid white; border-top-color: transparent; border-radius: 50%; animation: spin 0.8s linear infinite; margin-right: 0.5rem;"></span>
                             ✨ Generate
+                        </button>
+                    </form>
+
+                    <!-- Autopilot Campaign Form (Hidden by default) -->
+                    <form id="aiAutopilotForm" style="display: none;" onsubmit="event.preventDefault();">
+                        <div class="form-group" style="margin-bottom: 1rem;">
+                            <label class="form-label" for="autoNiche">Business Niche & Description</label>
+                            <textarea id="autoNiche" class="form-input" rows="3" placeholder="e.g. Kedai kopi hipster di Bangi yang menjual espresso premium dan pastri..." style="width: 100%; resize: vertical;" required></textarea>
+                        </div>
+
+                        <div class="form-group" style="margin-bottom: 1rem;">
+                            <label class="form-label" for="autoAudience">Target Audience</label>
+                            <input type="text" id="autoAudience" class="form-input" placeholder="e.g. coffee lovers, students, busy office workers" style="width: 100%;" />
+                        </div>
+
+                        <div class="form-group" style="margin-bottom: 1rem;">
+                            <label class="form-label" for="autoPlatform">Target Platform</label>
+                            <select id="autoPlatform" class="form-select" style="width: 100%;">
+                                <option value="threads">Threads</option>
+                                <option value="facebook">Facebook</option>
+                                <option value="instagram">Instagram</option>
+                                <option value="linkedin">LinkedIn</option>
+                                <option value="tiktok">TikTok</option>
+                                <option value="twitter">Twitter</option>
+                            </select>
+                        </div>
+
+                        <div class="form-group" style="margin-bottom: 1rem;">
+                            <label class="form-label" for="autoCount">Campaign Length (Staggered Daily)</label>
+                            <select id="autoCount" class="form-select" style="width: 100%;">
+                                <option value="3">3 Posts Campaign (Staggered over 3 days)</option>
+                                <option value="5">5 Posts Campaign (Staggered over 5 days)</option>
+                                <option value="7">7 Posts Campaign (Staggered over 7 days)</option>
+                            </select>
+                        </div>
+
+                        <div class="form-group" style="margin-bottom: 1.5rem;">
+                            <label class="form-label" for="autoLanguage">Output Language</label>
+                            <select id="autoLanguage" class="form-select" style="width: 100%;">
+                                <option value="English">English</option>
+                                <option value="Malay" selected>Malay</option>
+                                <option value="Indonesian">Indonesian</option>
+                                <option value="Chinese">Chinese</option>
+                                <option value="Tamil">Tamil</option>
+                            </select>
+                        </div>
+
+                        <button type="button" class="btn btn-primary" id="btnAIAutopilot" style="width: 100%; height: 44px; justify-content: center; font-weight: 600;">
+                            <span id="spinnerAuto" style="display: none; width: 16px; height: 16px; border: 2px solid white; border-top-color: transparent; border-radius: 50%; animation: spin 0.8s linear infinite; margin-right: 0.5rem;"></span>
+                            🚀 Generate & Schedule Autopilot
                         </button>
                     </form>
                 </div>
@@ -449,6 +503,83 @@
                 }
             } catch (err) {
                 notificationService.error(`Scheduling failed: ${err.message}`);
+            }
+        });
+
+        // Tab switching logic
+        const tabSingle = document.getElementById('tabSingle');
+        const tabAutopilot = document.getElementById('tabAutopilot');
+        const aiGenerateForm = document.getElementById('aiGenerateForm');
+        const aiAutopilotForm = document.getElementById('aiAutopilotForm');
+
+        tabSingle.addEventListener('click', () => {
+            tabSingle.style.borderBottom = "2px solid var(--color-primary)";
+            tabSingle.style.color = "var(--color-primary)";
+            tabSingle.classList.add('active');
+            
+            tabAutopilot.style.borderBottom = "none";
+            tabAutopilot.style.color = "var(--color-text-secondary)";
+            tabAutopilot.classList.remove('active');
+            
+            aiGenerateForm.style.display = "block";
+            aiAutopilotForm.style.display = "none";
+        });
+
+        tabAutopilot.addEventListener('click', () => {
+            tabAutopilot.style.borderBottom = "2px solid var(--color-primary)";
+            tabAutopilot.style.color = "var(--color-primary)";
+            tabAutopilot.classList.add('active');
+            
+            tabSingle.style.borderBottom = "none";
+            tabSingle.style.color = "var(--color-text-secondary)";
+            tabSingle.classList.remove('active');
+            
+            aiGenerateForm.style.display = "none";
+            aiAutopilotForm.style.display = "block";
+        });
+
+        // Autopilot form generation handler
+        const btnAIAutopilot = document.getElementById('btnAIAutopilot');
+        const spinnerAuto = document.getElementById('spinnerAuto');
+
+        btnAIAutopilot.addEventListener('click', async () => {
+            const niche = document.getElementById('autoNiche').value.trim();
+            const targetAudience = document.getElementById('autoAudience').value.trim();
+            const platform = document.getElementById('autoPlatform').value;
+            const count = parseInt(document.getElementById('autoCount').value);
+            const language = document.getElementById('autoLanguage').value;
+            const timezoneOffset = new Date().getTimezoneOffset();
+
+            if (!niche) {
+                notificationService.error("Sila masukkan niche perniagaan anda!");
+                return;
+            }
+
+            btnAIAutopilot.disabled = true;
+            spinnerAuto.style.display = "inline-block";
+
+            try {
+                const response = await apiClient.post('/ai/autopilot', {
+                    niche,
+                    targetAudience,
+                    platform,
+                    count,
+                    language,
+                    timezoneOffset
+                });
+
+                if (response.success) {
+                    notificationService.success(`Tahniah! ${response.scheduled_count} post autopilot telah berjaya dijana & dijadualkan (${response.status})!`);
+                    setTimeout(() => window.location.href = "calendar.html", 1500);
+                } else {
+                    notificationService.error(response.message || "Gagal menjana autopilot post.");
+                }
+            } catch (err) {
+                console.error("Autopilot failed:", err);
+                notificationService.error(err.message || "Ralat berlaku semasa menghubungi AI.");
+            } finally {
+                btnAIAutopilot.disabled = false;
+                spinnerAuto.style.display = "none";
             }
         });
 

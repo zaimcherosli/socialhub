@@ -85,6 +85,7 @@ class ScheduledPostsTable extends HTMLElement {
                     <td style="padding: 1rem; text-align: right;">
                         <div style="display: flex; gap: 0.5rem; justify-content: flex-end;">
                             ${post.status === 'scheduled' || post.status === 'failed' ? `
+                                <a href="post-editor.html?id=${post.id}" class="btn btn-secondary btn-sm" style="padding: 0.25rem 0.5rem; font-size: 0.75rem; text-decoration: none; display: inline-flex; align-items: center;">Edit</a>
                                 <button class="btn btn-secondary btn-sm btn-publish-now" data-id="${post.id}" style="padding: 0.25rem 0.5rem; font-size: 0.75rem;">⚡ Now</button>
                                 <button class="btn btn-danger btn-sm btn-cancel-post" data-id="${post.id}" style="padding: 0.25rem 0.5rem; font-size: 0.75rem;">Cancel</button>
                             ` : ''}

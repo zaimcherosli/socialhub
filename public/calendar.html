@@ -484,8 +484,9 @@
                 </button>
             </div>
 
-            <div style="display: flex; gap: 0.5rem; margin-top: 0.75rem;">
+            <div style="display: flex; gap: 0.5rem; margin-top: 0.75rem; flex-wrap: wrap;">
                 <button class="btn btn-secondary" style="flex: 1; font-size: 0.8125rem;" id="btnShowReschedule">Reschedule</button>
+                <button class="btn btn-primary" style="flex: 1; font-size: 0.8125rem;" id="btnEditScheduleContent">Edit Content</button>
                 <button class="btn btn-danger" style="flex: 1; font-size: 0.8125rem;" id="btnCancelSchedule">Cancel Schedule</button>
             </div>
         </div>
@@ -1049,6 +1050,13 @@
                 } catch (err) {
                     notificationService.error('Failed to cancel schedule.');
                 }
+            }
+        });
+
+        // Edit schedule content
+        document.getElementById('btnEditScheduleContent').addEventListener('click', () => {
+            if (selectedSchedule) {
+                window.location.href = `post-editor.html?id=${selectedSchedule.id}`;
             }
         });
 

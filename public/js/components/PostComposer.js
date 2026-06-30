@@ -42,7 +42,7 @@ class PostComposer extends HTMLElement {
                         </div>
                     </div>
 
-                    <div style="display: flex; gap: 0.75rem; margin-top: 0.5rem;">
+                    <div class="composer-actions-row">
                         <button class="btn btn-secondary" id="composerBtnPublish" style="flex: 1; justify-content: center; height: 42px;">⚡ Publish Now</button>
                         <button class="btn btn-primary" id="composerBtnSchedule" style="flex: 1; justify-content: center; height: 42px;">📅 Schedule Post</button>
                     </div>

@@ -303,3 +303,19 @@
 .bottom-nav-item {
     position: relative;
 }
+
+/* ── Responsive Action Button Row ───────────────────────────── */
+.composer-actions-row {
+    display: flex;
+    gap: 0.75rem;
+    margin-top: 0.5rem;
+}
+
+@media (max-width: 480px) {
+    .composer-actions-row {
+        flex-direction: column !important;
+    }
+    .composer-actions-row button {
+        width: 100% !important;
+    }
+}

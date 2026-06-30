@@ -8,13 +8,15 @@ export class AIFactory {
         const hasGeminiKey = !!env.GEMINI_API_KEY;
         const hasOpenRouterKey = !!env.OPENROUTER_API_KEY;
 
-        // Use Cloudflare Workers AI if explicitly selected, or if no keys are set and the AI binding is available
         const isCloudflare = model.toLowerCase().includes("cloudflare") || 
                              model.toLowerCase().includes("llama-3-8b") ||
+                             model.toLowerCase().includes("llama-3.1-8b") ||
+                             model.toLowerCase().includes("llama-3.2-3b") ||
+                             model.startsWith("@cf/") ||
                              (!hasGeminiKey && !hasOpenRouterKey && env.AI);
 
         if (isCloudflare && env.AI) {
-            return new CloudflareAIProvider(env.AI);
+            return new CloudflareAIProvider(env.AI, model);
         }
 
         const isGemini = model.toLowerCase().includes("gemini") || hasGeminiKey;

@@ -285,7 +285,7 @@ export default {
         };
 
         const PLANS = {
-            free: { accounts: 1, posts: 10, ai_credits: 0, storage: 50 * 1024 * 1024, features: ['calendar', 'queue'] },
+            free: { accounts: 1, posts: 10, ai_credits: 15, storage: 50 * 1024 * 1024, features: ['calendar', 'queue', 'ai_assistant'] },
             starter: { accounts: 3, posts: 50, ai_credits: 10, storage: 500 * 1024 * 1024, features: ['calendar', 'queue', 'ai_assistant'] },
             pro: { accounts: 10, posts: 500, ai_credits: 100, storage: 5 * 1024 * 1024 * 1024, features: ['calendar', 'queue', 'ai_assistant', 'analytics'] },
             agency: { accounts: 30, posts: 5000, ai_credits: 1000, storage: 50 * 1024 * 1024 * 1024, features: ['calendar', 'queue', 'ai_assistant', 'analytics', 'clients'] },
@@ -312,7 +312,6 @@ export default {
 
         try {
             switch (url.pathname) {
-
                 // ==================== SAAS MULTI-TENANT REST API ====================
 
                 // ── AI Settings: GET/POST model preference & API key per workspace ──
@@ -409,11 +408,12 @@ export default {
                     const plan = activeWorkspace.subscription_plan;
                     const maxCredits = PLANS[plan].ai_credits;
 
-                    // Bypass monthly limits check if a workspace-specific API key is set
+                    // Bypass monthly limits check if a workspace-specific API key is set, or if we are in local development
                     const hasCustomKey = !!(wsAI?.ai_api_key_enc);
+                    const isDev = env.ENVIRONMENT === 'development';
                     let currentCreditsUsed = 0;
 
-                    if (!hasCustomKey) {
+                    if (!hasCustomKey && !isDev) {
                         const startOfMonth = new Date(new Date().getFullYear(), new Date().getMonth(), 1).toISOString();
                         const creditsRes = await env.DB.prepare(
                             "SELECT COUNT(*) as count FROM audit_logs WHERE workspace_id = ? AND action = 'ai_generate' AND created_at >= ?"

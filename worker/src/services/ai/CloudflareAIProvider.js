@@ -1,15 +1,34 @@
 import { AIProvider } from './AIProvider.js';
 
 export class CloudflareAIProvider extends AIProvider {
-    constructor(aiBinding) {
+    constructor(aiBinding, model) {
         super();
         this.ai = aiBinding;
-        this.model = '@cf/meta/llama-3-8b-instruct';
+        
+        // Auto-migrate deprecated models to llama-3.2-3b-instruct
+        let targetModel = model || '@cf/meta/llama-3.2-3b-instruct';
+        const deprecatedModels = [
+            '@cf/meta/llama-3-8b-instruct',
+            '@cf/meta/llama-3.1-8b-instruct',
+            '@cf/meta/llama-3.1-8b-instruct-awq'
+        ];
+        if (deprecatedModels.includes(targetModel)) {
+            targetModel = '@cf/meta/llama-3.2-3b-instruct';
+        }
+        this.model = targetModel;
     }
 
     async generateCaption({ businessType, product, targetAudience, goal, tone, language }) {
-        const prompt = `You are a professional social media marketing expert.
-Write a high-converting, engaging social media post based on the following details:
+        console.log(`[CloudflareAIProvider] Executing run with model: ${this.model}`);
+        const response = await this.ai.run(this.model, {
+            messages: [
+                {
+                    role: "system",
+                    content: "You are a professional social media marketing expert. You must write a high-converting, engaging social media post and return the output strictly in JSON format. Do not return any markdown wrappers, explanation, or other text."
+                },
+                {
+                    role: "user",
+                    content: `Write a social media post based on these details:
 - Business Type: ${businessType}
 - Product / Service: ${product}
 - Target Audience: ${targetAudience}
@@ -17,22 +36,61 @@ Write a high-converting, engaging social media post based on the following detai
 - Tone of Voice: ${tone}
 - Language: ${language}
 
-Provide the output in a strict JSON format with the following keys. Do not return any other text, markdown blocks, or explanation:
+Provide the output in a strict JSON format matching this schema:
 {
   "caption": "write the main post caption here, engaging and optimized for the specified tone",
   "cta": "write a strong call-to-action",
   "hashtags": ["hashtag1", "hashtag2", "hashtag3"]
-}`;
-
-        const response = await this.ai.run(this.model, {
-            prompt: prompt
+}`
+                }
+            ]
         });
 
-        if (!response || !response.response) {
-            throw new Error("Invalid response received from Cloudflare Workers AI.");
+        console.log(`[CloudflareAIProvider] Raw response:`, JSON.stringify(response, null, 2));
+
+        let rawText = "";
+        let parsedResult = null;
+
+        if (response.response && typeof response.response === 'object') {
+            parsedResult = response.response;
+        } else if (response.response) {
+            rawText = response.response;
+        } else if (response.choices && response.choices[0]) {
+            const msg = response.choices[0].message;
+            if (msg && msg.content) {
+                if (typeof msg.content === 'object') {
+                    parsedResult = msg.content;
+                } else {
+                    rawText = msg.content;
+                }
+            } else if (response.choices[0].text) {
+                if (typeof response.choices[0].text === 'object') {
+                    parsedResult = response.choices[0].text;
+                } else {
+                    rawText = response.choices[0].text;
+                }
+            }
+        } else if (response.result && response.result.response) {
+            if (typeof response.result.response === 'object') {
+                parsedResult = response.result.response;
+            } else {
+                rawText = response.result.response;
+            }
         }
 
-        const rawText = response.response.trim();
+        if (parsedResult) {
+            return {
+                caption: parsedResult.caption || "",
+                cta: parsedResult.cta || "",
+                hashtags: parsedResult.hashtags || []
+            };
+        }
+
+        if (!rawText) {
+            throw new Error("Could not extract text response from Cloudflare Workers AI payload.");
+        }
+
+        rawText = rawText.trim();
         let jsonStr = rawText;
         if (jsonStr.startsWith("```json")) {
             jsonStr = jsonStr.substring(7);

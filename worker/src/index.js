@@ -108,6 +108,42 @@ async function signJWT(payload, secret) {
     return `${tokenData}.${encodedSignature}`;
 }
 
+async function getPerformanceFeedback(db, workspaceId) {
+    try {
+        const topPosts = await db.prepare(
+            `SELECT content, views_count, likes_count, replies_count FROM scheduled_posts 
+             WHERE workspace_id = ? AND status = 'published' AND views_count > 0
+             ORDER BY (views_count + likes_count * 5 + replies_count * 10) DESC 
+             LIMIT 3`
+        ).bind(workspaceId).all();
+
+        const bottomPosts = await db.prepare(
+            `SELECT content, views_count, likes_count, replies_count FROM scheduled_posts 
+             WHERE workspace_id = ? AND status = 'published' AND views_count > 0
+             ORDER BY (views_count + likes_count * 5 + replies_count * 10) ASC 
+             LIMIT 3`
+        ).bind(workspaceId).all();
+
+        let performanceFeedback = "";
+        if (topPosts.results && topPosts.results.length > 0) {
+            performanceFeedback += "\nHere are your top-performing past posts. Analyze their hook, style, and angle to write similar high-performing content:\n";
+            topPosts.results.forEach((p, i) => {
+                performanceFeedback += `Top Post ${i+1}: "${p.content.replace(/\n/g, ' ')}" (Views: ${p.views_count}, Likes: ${p.likes_count})\n`;
+            });
+        }
+        if (bottomPosts.results && bottomPosts.results.length > 0) {
+            performanceFeedback += "\nHere are your lowest-performing past posts. Avoid these hooks, structures, or angles, and write different/better angles:\n";
+            bottomPosts.results.forEach((p, i) => {
+                performanceFeedback += `Low Post ${i+1}: "${p.content.replace(/\n/g, ' ')}" (Views: ${p.views_count}, Likes: ${p.likes_count})\n`;
+            });
+        }
+        return performanceFeedback;
+    } catch (e) {
+        console.error("[getPerformanceFeedback] Failed to query performance:", e.message);
+        return "";
+    }
+}
+
 async function verifyJWT(token, secret) {
     try {
         const parts = token.split(".");
@@ -452,9 +488,10 @@ export default {
                         }
 
                         const provider = AIFactory.getProvider(aiEnv);
+                        const performanceFeedback = await getPerformanceFeedback(env.DB, activeWorkspace.workspace_id);
                         const result = await provider.generateCaption({
                             businessType,
-                            product,
+                            product: product + performanceFeedback,
                             targetAudience: targetAudience || 'General public',
                             goal: goal || 'Brand awareness',
                             tone: tone || 'Professional',
@@ -485,7 +522,7 @@ export default {
                     if (request.method !== 'POST') return new Response(JSON.stringify({ error: 'Method not allowed' }), { status: 405, headers: corsHeaders });
                     if (activeWorkspace.role === 'viewer') return new Response(JSON.stringify({ message: 'Forbidden: Viewers cannot create content.' }), { status: 403, headers: corsHeaders });
 
-                    const { niche, targetAudience, platform, count, language, timezoneOffset } = await request.json();
+                    const { niche, targetAudience, platform, count, language, timezoneOffset, frequency } = await request.json();
                     if (!niche) {
                         return new Response(JSON.stringify({ message: 'Business niche is required.' }), { status: 400, headers: corsHeaders });
                     }
@@ -515,14 +552,16 @@ export default {
                     try {
                         const provider = AIFactory.getProvider(aiEnv);
                         const autopilotService = new AutopilotService(provider);
+                        const performanceFeedback = await getPerformanceFeedback(env.DB, activeWorkspace.workspace_id);
                         
                         const campaign = await autopilotService.generateAutopilotCampaign({
-                            niche,
+                            niche: niche + performanceFeedback,
                             targetAudience: targetAudience || 'General public',
                             platform: platform || 'threads',
                             count: parseInt(count) || 3,
                             language: language || 'Bahasa Melayu',
-                            timezoneOffset: parseInt(timezoneOffset) || -480
+                            timezoneOffset: parseInt(timezoneOffset) || -480,
+                            frequency: parseInt(frequency) || 1
                         });
 
                         // Find connected account for this user & platform
@@ -1172,6 +1211,61 @@ export default {
                                     await env.DB.prepare("INSERT INTO publish_logs (schedule_id, social_account_id, status, error_message, response_payload, published_at) VALUES (?, ?, 'failure', ?, ?, (datetime('now')))")
                                         .bind(post.id, post.account_id, err.message, JSON.stringify({ error: err.message }))
                                         .run();
+                                }
+                            }
+                        }
+
+                        // ==================== METRICS INSIGHTS SYNC LOOP ====================
+                        const publishedPosts = await env.DB.prepare(
+                            `SELECT sp.*, sa.access_token as sa_access_token, sa.account_id as sa_account_id, pl.external_post_id
+                             FROM scheduled_posts sp
+                             JOIN social_accounts sa ON sp.account_id = sa.id
+                             JOIN publish_logs pl ON sp.id = pl.schedule_id
+                             WHERE sp.status = 'published' AND sp.platform = 'threads'
+                             AND (sp.last_insights_sync IS NULL OR sp.last_insights_sync <= ?)
+                             ORDER BY sp.published_at DESC
+                             LIMIT 10`
+                        ).bind(new Date(Date.now() - 4 * 60 * 60 * 1000).toISOString()).all();
+
+                        if (publishedPosts.results && publishedPosts.results.length > 0) {
+                            for (const post of publishedPosts.results) {
+                                try {
+                                    const decryptedAccessToken = await decryptToken(post.sa_access_token, encryptionSecret);
+                                    let views = 0;
+                                    let likes = 0;
+                                    let replies = 0;
+                                    let reposts = 0;
+
+                                    if (decryptedAccessToken.includes('mock-threads-token') || env.ENVIRONMENT === 'development') {
+                                        const hoursSincePublish = (Date.now() - new Date(post.published_at).getTime()) / (3600 * 1000);
+                                        const baseMultiplier = Math.min(24, Math.max(1, hoursSincePublish));
+                                        views = Math.floor(50 * baseMultiplier + Math.random() * 200);
+                                        likes = Math.floor(views * (0.05 + Math.random() * 0.08));
+                                        replies = Math.floor(likes * (0.05 + Math.random() * 0.1));
+                                        reposts = Math.floor(likes * (0.02 + Math.random() * 0.05));
+                                    } else {
+                                        const insightsUrl = `https://graph.threads.net/v1.0/${post.external_post_id}/insights?metric=views,likes,replies,reposts&access_token=${decryptedAccessToken}`;
+                                        const insightsRes = await fetch(insightsUrl);
+                                        if (insightsRes.ok) {
+                                            const data = await insightsRes.json();
+                                            if (data && Array.isArray(data.data)) {
+                                                views = data.data.find(m => m.name === 'views')?.values?.[0]?.value || 0;
+                                                likes = data.data.find(m => m.name === 'likes')?.values?.[0]?.value || 0;
+                                                replies = data.data.find(m => m.name === 'replies')?.values?.[0]?.value || 0;
+                                                reposts = data.data.find(m => m.name === 'reposts')?.values?.[0]?.value || 0;
+                                            }
+                                        }
+                                    }
+
+                                    await env.DB.prepare(
+                                        `UPDATE scheduled_posts 
+                                         SET views_count = ?, likes_count = ?, replies_count = ?, reposts_count = ?, last_insights_sync = ?, updated_at = (datetime('now'))
+                                         WHERE id = ?`
+                                    ).bind(views, likes, replies, reposts, new Date().toISOString(), post.id).run();
+
+                                    console.log(`[CronSync] Synced insights for post ID ${post.id}: views=${views}, likes=${likes}`);
+                                } catch (insightErr) {
+                                    console.error(`[CronSync] Failed to sync insights for post ${post.id}:`, insightErr.message);
                                 }
                             }
                         }

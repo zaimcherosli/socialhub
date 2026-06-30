@@ -534,14 +534,15 @@ export default {
                         const finalStatus = accountId ? 'scheduled' : 'draft';
 
                         const dbInsert = env.DB.prepare(
-                            `INSERT INTO scheduled_posts (user_id, account_id, platform, content, status, publish_at, created_at, updated_at)
-                             VALUES (?, ?, ?, ?, ?, ?, (datetime('now')), (datetime('now')))`
+                            `INSERT INTO scheduled_posts (user_id, workspace_id, account_id, platform, content, status, publish_at, created_at, updated_at)
+                             VALUES (?, ?, ?, ?, ?, ?, ?, (datetime('now')), (datetime('now')))`
                         );
 
                         const insertedPosts = [];
                         for (const post of campaign) {
                             const result = await dbInsert.bind(
                                 user.id,
+                                activeWorkspace.workspace_id,
                                 accountId,
                                 platform || 'threads',
                                 post.content,

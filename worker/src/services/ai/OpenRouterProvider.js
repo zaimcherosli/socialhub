@@ -3,7 +3,7 @@ import { AIProvider } from './AIProvider.js';
 export class OpenRouterProvider extends AIProvider {
     constructor(apiKey, model) {
         super();
-        this.apiKey = apiKey;
+        this.apiKey = apiKey ? apiKey.replace(/^["']|["']$/g, '') : '';
         this.model = model || "meta-llama/llama-3.2-3b-instruct:free";
     }
 

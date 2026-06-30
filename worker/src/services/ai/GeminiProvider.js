@@ -3,7 +3,7 @@ import { AIProvider } from './AIProvider.js';
 export class GeminiProvider extends AIProvider {
     constructor(apiKey, model) {
         super();
-        this.apiKey = apiKey;
+        this.apiKey = apiKey ? apiKey.replace(/^["']|["']$/g, '') : '';
         // Default to gemini-2.0-flash if not provided or set to openrouter default
         this.model = model && model.includes('/') ? 'gemini-2.0-flash' : (model || 'gemini-2.0-flash');
     }

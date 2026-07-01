@@ -360,43 +360,53 @@ const OAuthProviders = {
             const fbExchangeResponse = await fetch(
                 `https://graph.facebook.com/v18.0/oauth/access_token?grant_type=fb_exchange_token&client_id=${clientId}&client_secret=${clientSecret}&fb_exchange_token=${shortLivedUserToken}`
             );
-            
+
             let longLivedUserToken = shortLivedUserToken;
             if (fbExchangeResponse.ok) {
                 const exchangeData = await fbExchangeResponse.json();
                 longLivedUserToken = exchangeData.access_token;
             } else {
-                console.error("[Facebook] Failed to exchange User token for long-lived token:", await fbExchangeResponse.text());
+                console.error("[Facebook] Failed to exchange for long-lived token:", await fbExchangeResponse.text());
             }
 
-            // 3. Fetch managed Facebook Pages with the long-lived User token to get permanent Page tokens
-            const pagesResponse = await fetch(`https://graph.facebook.com/v18.0/me/accounts?access_token=${longLivedUserToken}`);
-            
-            let finalToken = longLivedUserToken;
-            let accountName = "Facebook User";
-            let accountId = "facebook_user";
-            
+            // 3. Get user's own profile (ID + name) as fallback
+            const meRes = await fetch(`https://graph.facebook.com/v18.0/me?fields=id,name&access_token=${longLivedUserToken}`);
+            let fbUserId = 'fb_user';
+            let fbUserName = 'Facebook User';
+            if (meRes.ok) {
+                const meData = await meRes.json();
+                fbUserId = meData.id || 'fb_user';
+                fbUserName = meData.name || 'Facebook User';
+            }
+
+            // 4. Try to fetch managed Pages — if none found, store user token for manual page selection
+            const pagesResponse = await fetch(`https://graph.facebook.com/v18.0/me/accounts?access_token=${longLivedUserToken}&fields=id,name,access_token`);
+
             if (pagesResponse.ok) {
                 const pagesData = await pagesResponse.json();
                 const pages = pagesData.data || [];
                 if (pages.length > 0) {
-                    // Use the Page Access Token which is permanent (never expires)
-                    finalToken = pages[0].access_token;
-                    accountName = `${pages[0].name} (FB Page)`;
-                    accountId = pages[0].id;
-                } else {
-                    throw new Error("No Facebook Pages found. Ensure you manage at least one Page and granted pages_show_list permission.");
+                    // Best case: got page access token directly (permanent, never expires)
+                    return {
+                        access_token: pages[0].access_token,
+                        refresh_token: "facebook-no-refresh-token",
+                        expires_in: 5184000,
+                        account_name: `${pages[0].name} (FB Page)`,
+                        account_id: pages[0].id.toString(),
+                        allPages: pages // pass all pages for multi-page selection later
+                    };
                 }
-            } else {
-                throw new Error("Failed to retrieve Facebook Pages from User profile.");
             }
 
+            // Fallback: no pages found — store user token and let user pick from UI
+            console.warn(`[Facebook] No pages returned for user ${fbUserId} — storing user token for page selection UI`);
             return {
-                access_token: finalToken,
-                refresh_token: "facebook-no-refresh-token",
-                expires_in: 5184000, // 60 days reference representation
-                account_name: accountName,
-                account_id: accountId.toString()
+                access_token: longLivedUserToken,
+                refresh_token: "facebook-user-token",
+                expires_in: 5184000,
+                account_name: `${fbUserName} (Select Page)`,
+                account_id: fbUserId.toString(),
+                needsPageSelection: true
             };
         }
     },
@@ -1694,21 +1704,32 @@ export default {
                     const expiresAt = tokenData.expires_in ? new Date(Date.now() + (tokenData.expires_in * 1000)).toISOString() : null;
                     const nowStr = new Date().toISOString();
 
+                    // Determine account status: 'needs_setup' when user must select a Page
+                    const accountStatus = tokenData.needsPageSelection ? 'needs_setup' : 'active';
+
                     const existingAccount = await env.DB.prepare("SELECT id FROM social_accounts WHERE workspace_id = ? AND platform = ? AND account_id = ?")
                         .bind(activeWorkspace.workspace_id, platform, tokenData.account_id)
                         .first();
 
+                    let savedAccountId;
                     if (existingAccount) {
-                        await env.DB.prepare("UPDATE social_accounts SET account_name = ?, access_token = ?, refresh_token = ?, expires_at = ?, status = 'active', updated_at = ? WHERE id = ?")
-                            .bind(tokenData.account_name, encryptedAccessToken, encryptedRefreshToken, expiresAt, nowStr, existingAccount.id)
+                        await env.DB.prepare(`UPDATE social_accounts SET account_name = ?, access_token = ?, refresh_token = ?, expires_at = ?, status = ?, updated_at = ? WHERE id = ?`)
+                            .bind(tokenData.account_name, encryptedAccessToken, encryptedRefreshToken, expiresAt, accountStatus, nowStr, existingAccount.id)
                             .run();
+                        savedAccountId = existingAccount.id;
                     } else {
-                        await env.DB.prepare("INSERT INTO social_accounts (user_id, workspace_id, platform, account_name, account_id, access_token, refresh_token, expires_at, status) VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'active')")
-                            .bind(user.id, activeWorkspace.workspace_id, platform, tokenData.account_name, tokenData.account_id, encryptedAccessToken, encryptedRefreshToken, expiresAt)
+                        const insertResult = await env.DB.prepare(`INSERT INTO social_accounts (user_id, workspace_id, platform, account_name, account_id, access_token, refresh_token, expires_at, status) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`)
+                            .bind(user.id, activeWorkspace.workspace_id, platform, tokenData.account_name, tokenData.account_id, encryptedAccessToken, encryptedRefreshToken, expiresAt, accountStatus)
                             .run();
+                        savedAccountId = insertResult.meta.last_row_id;
                     }
 
                     await logActivity(activeWorkspace.workspace_id, user.id, 'connect_account', `Connected ${platform} account: ${tokenData.account_name}`);
+
+                    // If Facebook needs page selection, redirect to the page picker UI
+                    if (tokenData.needsPageSelection) {
+                        return Response.redirect(`${frontendOrigin}/accounts.html?fb_pending=${savedAccountId}`, 302);
+                    }
 
                     return Response.redirect(`${frontendOrigin}/accounts.html?success=true`, 302);
                 }
@@ -1819,6 +1840,67 @@ export default {
 
                     const { results } = await env.DB.prepare("SELECT id, platform, account_name, account_id, expires_at, status, created_at FROM social_accounts WHERE workspace_id = ?").bind(activeWorkspace.workspace_id).all();
                     return new Response(JSON.stringify({ success: true, accounts: results }), { status: 200, headers: corsHeaders });
+                }
+
+                // ==================== FACEBOOK PAGE SELECTION ====================
+
+                case '/api/social/facebook/pages': {
+                    if (request.method !== 'GET') return new Response(JSON.stringify({ error: 'Method not allowed' }), { status: 405, headers: corsHeaders });
+                    const user = await getAuthUser();
+                    if (!user) return new Response(JSON.stringify({ message: 'Unauthorized' }), { status: 401, headers: corsHeaders });
+                    if (!env.DB) return new Response(JSON.stringify({ message: 'DB missing' }), { status: 500, headers: corsHeaders });
+
+                    const accountId = parseInt(url.searchParams.get('account_id'));
+                    if (!accountId) return new Response(JSON.stringify({ message: 'account_id required' }), { status: 400, headers: corsHeaders });
+
+                    const account = await env.DB.prepare("SELECT * FROM social_accounts WHERE id = ? AND user_id = ?").bind(accountId, user.id).first();
+                    if (!account) return new Response(JSON.stringify({ message: 'Account not found' }), { status: 404, headers: corsHeaders });
+
+                    const userToken = await decryptToken(account.access_token, encryptionSecret);
+                    const pagesRes = await fetch(`https://graph.facebook.com/v18.0/me/accounts?access_token=${userToken}&fields=id,name,category,fan_count`);
+                    if (!pagesRes.ok) {
+                        const err = await pagesRes.json().catch(() => ({}));
+                        return new Response(JSON.stringify({ success: false, message: err.error?.message || 'Failed to fetch pages from Facebook' }), { status: 400, headers: corsHeaders });
+                    }
+                    const pagesData = await pagesRes.json();
+                    return new Response(JSON.stringify({ success: true, pages: pagesData.data || [] }), { status: 200, headers: corsHeaders });
+                }
+
+                case '/api/social/facebook/select-page': {
+                    if (request.method !== 'POST') return new Response(JSON.stringify({ error: 'Method not allowed' }), { status: 405, headers: corsHeaders });
+                    const user = await getAuthUser();
+                    if (!user) return new Response(JSON.stringify({ message: 'Unauthorized' }), { status: 401, headers: corsHeaders });
+                    if (!env.DB) return new Response(JSON.stringify({ message: 'DB missing' }), { status: 500, headers: corsHeaders });
+
+                    const { account_id: acctId, page_id } = await request.json();
+                    if (!acctId || !page_id) return new Response(JSON.stringify({ message: 'account_id and page_id required' }), { status: 400, headers: corsHeaders });
+
+                    const account = await env.DB.prepare("SELECT * FROM social_accounts WHERE id = ? AND user_id = ?").bind(acctId, user.id).first();
+                    if (!account) return new Response(JSON.stringify({ message: 'Account not found' }), { status: 404, headers: corsHeaders });
+
+                    const userToken = await decryptToken(account.access_token, encryptionSecret);
+
+                    // Fetch pages with their permanent access tokens
+                    const pagesRes = await fetch(`https://graph.facebook.com/v18.0/me/accounts?access_token=${userToken}&fields=id,name,access_token`);
+                    if (!pagesRes.ok) {
+                        return new Response(JSON.stringify({ success: false, message: 'Failed to fetch pages from Facebook' }), { status: 400, headers: corsHeaders });
+                    }
+                    const pagesData = await pagesRes.json();
+                    const selectedPage = (pagesData.data || []).find(p => p.id === page_id);
+                    if (!selectedPage) {
+                        return new Response(JSON.stringify({ success: false, message: `Page ID ${page_id} not found in your managed pages.` }), { status: 404, headers: corsHeaders });
+                    }
+
+                    // Save the permanent Page Access Token
+                    const encryptedPageToken = await encryptToken(selectedPage.access_token, encryptionSecret);
+                    const nowStr2 = new Date().toISOString();
+                    await env.DB.prepare(
+                        "UPDATE social_accounts SET access_token = ?, account_name = ?, account_id = ?, status = 'active', expires_at = NULL, updated_at = ? WHERE id = ?"
+                    ).bind(encryptedPageToken, `${selectedPage.name} (FB Page)`, selectedPage.id, nowStr2, acctId).run();
+
+                    await logActivity(account.workspace_id, user.id, 'fb_page_selected', `Selected Facebook Page: ${selectedPage.name} (${selectedPage.id})`);
+
+                    return new Response(JSON.stringify({ success: true, message: `Facebook Page "${selectedPage.name}" connected successfully!`, page_name: selectedPage.name }), { status: 200, headers: corsHeaders });
                 }
 
                 case '/api/publish/logs': {

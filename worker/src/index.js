@@ -1903,6 +1903,42 @@ export default {
                     return new Response(JSON.stringify({ success: true, message: `Facebook Page "${selectedPage.name}" connected successfully!`, page_name: selectedPage.name }), { status: 200, headers: corsHeaders });
                 }
 
+                case '/api/social/facebook/manual-token': {
+                    if (request.method !== 'POST') return new Response(JSON.stringify({ error: 'Method not allowed' }), { status: 405, headers: corsHeaders });
+                    const user = await getAuthUser();
+                    if (!user) return new Response(JSON.stringify({ message: 'Unauthorized' }), { status: 401, headers: corsHeaders });
+                    if (!env.DB) return new Response(JSON.stringify({ message: 'DB missing' }), { status: 500, headers: corsHeaders });
+
+                    const { account_id: manualAcctId, page_access_token, page_name: manualPageName } = await request.json();
+                    if (!manualAcctId || !page_access_token) {
+                        return new Response(JSON.stringify({ success: false, message: 'account_id and page_access_token required' }), { status: 400, headers: corsHeaders });
+                    }
+
+                    // Verify the token is valid by calling /me on Facebook
+                    const verifyRes = await fetch(`https://graph.facebook.com/v18.0/me?fields=id,name&access_token=${page_access_token}`);
+                    if (!verifyRes.ok) {
+                        const verifyErr = await verifyRes.json().catch(() => ({}));
+                        return new Response(JSON.stringify({ success: false, message: `Invalid token: ${verifyErr.error?.message || 'Facebook rejected this token'}` }), { status: 400, headers: corsHeaders });
+                    }
+                    const verifyData = await verifyRes.json();
+                    const resolvedPageName = manualPageName || verifyData.name || 'Facebook Page';
+                    const resolvedPageId = verifyData.id;
+
+                    // Verify ownership — this account must belong to the requesting user
+                    const manualAccount = await env.DB.prepare("SELECT * FROM social_accounts WHERE id = ? AND user_id = ?").bind(manualAcctId, user.id).first();
+                    if (!manualAccount) return new Response(JSON.stringify({ message: 'Account not found' }), { status: 404, headers: corsHeaders });
+
+                    const encryptedManualToken = await encryptToken(page_access_token, encryptionSecret);
+                    const nowManual = new Date().toISOString();
+                    await env.DB.prepare(
+                        "UPDATE social_accounts SET access_token = ?, account_name = ?, account_id = ?, status = 'active', expires_at = NULL, updated_at = ? WHERE id = ?"
+                    ).bind(encryptedManualToken, `${resolvedPageName} (FB Page)`, resolvedPageId, nowManual, manualAcctId).run();
+
+                    await logActivity(manualAccount.workspace_id, user.id, 'fb_manual_token', `Manually connected Facebook Page: ${resolvedPageName} (${resolvedPageId})`);
+
+                    return new Response(JSON.stringify({ success: true, message: `Facebook Page "${resolvedPageName}" connected successfully!`, page_name: resolvedPageName }), { status: 200, headers: corsHeaders });
+                }
+
                 case '/api/publish/logs': {
                     if (request.method !== 'GET') return new Response(JSON.stringify({ error: 'Method not allowed' }), { status: 405, headers: corsHeaders });
                     const user = await getAuthUser();

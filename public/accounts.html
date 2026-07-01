@@ -476,9 +476,35 @@
                 const data = await res.json();
 
                 if (!data.success || !data.pages || data.pages.length === 0) {
-                    listEl.innerHTML = '';
-                    errEl.textContent = data.message || 'No Facebook Pages found. Make sure you manage at least one Page and granted page permissions.';
-                    errEl.style.display = 'block';
+                    listEl.innerHTML = 
+                        <div style="padding:1rem;background:var(--color-bg-accent,#f8fafc);border-radius:var(--radius-sm);border:1px solid var(--color-border);">
+                            <p style="font-size:0.825rem;color:var(--color-text-secondary);margin:0 0 1rem 0;">
+                                ⚠️ Facebook API could not retrieve your Pages automatically (common for new apps).<br>
+                                <strong>Enter your Page Access Token manually below:</strong>
+                            </p>
+                            <div style="margin-bottom:0.75rem;">
+                                <label style="font-size:0.775rem;font-weight:600;display:block;margin-bottom:0.3rem;color:var(--color-text-primary);">Page Name</label>
+                                <input id="fbManualPageName" type="text" placeholder="e.g. Hartanah Online"
+                                    style="width:100%;padding:0.5rem 0.75rem;border:1.5px solid var(--color-border);border-radius:var(--radius-sm);font-size:0.875rem;box-sizing:border-box;background:var(--color-bg-card);" />
+                            </div>
+                            <div style="margin-bottom:1rem;">
+                                <label style="font-size:0.775rem;font-weight:600;display:block;margin-bottom:0.3rem;color:var(--color-text-primary);">Page Access Token</label>
+                                <textarea id="fbManualToken" rows="3" placeholder="Paste your Page Access Token here..."
+                                    style="width:100%;padding:0.5rem 0.75rem;border:1.5px solid var(--color-border);border-radius:var(--radius-sm);font-size:0.75rem;font-family:monospace;box-sizing:border-box;background:var(--color-bg-card);resize:vertical;"></textarea>
+                                <p style="font-size:0.7rem;color:var(--color-text-tertiary);margin:0.25rem 0 0 0;">
+                                    Get it from: <a href="https://business.facebook.com/settings/system-users" target="_blank" style="color:var(--color-primary);">Facebook Business Settings</a> → System Users → Generate Token, or from Graph API Explorer.
+                                </p>
+                            </div>
+                            <button id="fbManualSubmit" style="width:100%;padding:0.6rem;background:var(--color-primary,#2563eb);color:#fff;border:none;border-radius:var(--radius-sm);font-weight:600;font-size:0.875rem;cursor:pointer;">
+                                🔗 Connect with this Token
+                            </button>
+                        </div>;
+                    document.getElementById('fbManualSubmit').addEventListener('click', () => {
+                        const token = document.getElementById('fbManualToken').value.trim();
+                        const name = document.getElementById('fbManualPageName').value.trim();
+                        if (!token) { errEl.textContent = 'Please paste your Page Access Token.'; errEl.style.display = 'block'; return; }
+                        submitManualFbToken(token, name);
+                    });
                     return;
                 }
 
@@ -532,6 +558,36 @@
             }
         }
 
+        async function submitManualFbToken(pageToken, pageName) {
+            const errEl = document.getElementById('fbPageError');
+            const btn = document.getElementById('fbManualSubmit');
+            errEl.style.display = 'none';
+            if (btn) { btn.disabled = true; btn.textContent = 'Connecting...'; }
+            try {
+                const token = localStorage.getItem('socialhub_jwt') || sessionStorage.getItem('socialhub_jwt');
+                const res = await fetch('https://api.socialhub.zaimrosli.my/api/social/facebook/manual-token', {
+                    method: 'POST',
+                    headers: { 'Authorization': Bearer , 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ account_id: fbPendingAccountId, page_access_token: pageToken, page_name: pageName })
+                });
+                const data = await res.json();
+                if (data.success) {
+                    document.getElementById('fbPageModal').style.display = 'none';
+                    window.history.replaceState({}, document.title, window.location.pathname);
+                    showToast(🎉 "" connected successfully!);
+                    loadConnectedAccounts();
+                } else {
+                    errEl.textContent = data.message || 'Failed to connect. Please check your token.';
+                    errEl.style.display = 'block';
+                    if (btn) { btn.disabled = false; btn.textContent = '🔗 Connect with this Token'; }
+                }
+            } catch (err) {
+                errEl.textContent = Error: ;
+                errEl.style.display = 'block';
+                if (btn) { btn.disabled = false; btn.textContent = '🔗 Connect with this Token'; }
+            }
+        }
+
         document.getElementById('fbPageModalClose').addEventListener('click', () => {
             document.getElementById('fbPageModal').style.display = 'none';
             window.history.replaceState({}, document.title, window.location.pathname);
@@ -553,6 +609,8 @@
     </style>
 </body>
 </html>
+
+
 
 
 

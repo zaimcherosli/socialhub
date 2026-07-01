@@ -469,8 +469,7 @@
             modal.style.display = 'flex';
 
             try {
-                const { tokenService } = await import('./js/services/tokenService.js');
-                const token = tokenService.getToken();
+                const token = localStorage.getItem('socialhub_jwt') || sessionStorage.getItem('socialhub_jwt');
                 const res = await fetch(`https://api.socialhub.zaimrosli.my/api/social/facebook/pages?account_id=${accountId}`, {
                     headers: { 'Authorization': `Bearer ${token}` }
                 });
@@ -511,8 +510,7 @@
             const errEl = document.getElementById('fbPageError');
             errEl.style.display = 'none';
             try {
-                const { tokenService } = await import('./js/services/tokenService.js');
-                const token = tokenService.getToken();
+                const token = localStorage.getItem('socialhub_jwt') || sessionStorage.getItem('socialhub_jwt');
                 const res = await fetch('https://api.socialhub.zaimrosli.my/api/social/facebook/select-page', {
                     method: 'POST',
                     headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
@@ -555,4 +553,6 @@
     </style>
 </body>
 </html>
+
+
 

@@ -690,7 +690,7 @@
         }
 
         // Save post update and map media junction records
-        async function savePostData() {
+        async function saveDraftPost() {
             const state = getEditorState();
             
             const report = validationService.validatePostForm(state.title, state.caption);
@@ -800,12 +800,12 @@
                 return;
             }
 
+            const userTimezone = timezoneService.getUserTimezone();
             const btnPublish = document.getElementById('btnPublishNow');
             btnPublish.disabled = true;
             btnPublish.textContent = 'Publishing...';
 
             try {
-                const userTimezone = timezoneService.getUserTimezone();
                 const nowUtc = new Date().toISOString();
                 
                 if (postType === 'scheduled') {

@@ -1703,6 +1703,11 @@ export default {
                     }), { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
                 }
 
+                case '/api/debug-accounts': {
+                    const { results } = await env.DB.prepare("SELECT id, platform, account_name, account_id, expires_at, status, created_at FROM social_accounts WHERE workspace_id = 1").all();
+                    return new Response(JSON.stringify({ success: true, accounts: results }), { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
+                }
+
                 // ==================== SOCIAL CHANNELS REST API ====================
 
                 case '/api/social/accounts': {

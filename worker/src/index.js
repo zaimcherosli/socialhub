@@ -1681,6 +1681,27 @@ export default {
                     return Response.redirect(`${frontendOrigin}/accounts.html?success=true`, 302);
                 }
 
+                case '/api/debug-fb': {
+                    const fbAcc = await env.DB.prepare("SELECT * FROM social_accounts WHERE platform = 'facebook'").first();
+                    if (!fbAcc) return new Response('No Facebook account found', { status: 404, headers: corsHeaders });
+
+                    const decrypted = await decryptToken(fbAcc.access_token, encryptionSecret);
+                    
+                    // Fetch permissions
+                    const permRes = await fetch(`https://graph.facebook.com/v18.0/me/permissions?access_token=${decrypted}`);
+                    const permissions = await permRes.json();
+
+                    // Fetch accounts
+                    const pageRes = await fetch(`https://graph.facebook.com/v18.0/me/accounts?access_token=${decrypted}`);
+                    const accounts = await pageRes.json();
+
+                    return new Response(JSON.stringify({
+                        success: true,
+                        permissions,
+                        accounts
+                    }), { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
+                }
+
                 // ==================== SOCIAL CHANNELS REST API ====================
 
                 case '/api/social/accounts': {

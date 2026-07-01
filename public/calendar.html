@@ -435,14 +435,14 @@
                 <div id="queueViewContainer" style="display: none;">
                     <div class="card" style="padding: 0;">
                         <div class="table-responsive">
-                            <table style="width: 100%; border-collapse: collapse; text-align: left; font-size: 0.875rem;">
+                            <table style="width: 100%; min-width: 900px; border-collapse: collapse; text-align: left; font-size: 0.875rem;">
                                 <thead>
                                     <tr style="border-bottom: 2px solid var(--color-border); color: var(--color-text-tertiary); font-weight: 600; background: var(--color-bg-accent);">
                                         <th style="padding: 1rem;"><input type="checkbox" id="chkSelectAllQueue" /></th>
                                         <th style="padding: 1rem;">Platform</th>
                                         <th style="padding: 1rem;">Account</th>
                                         <th style="padding: 1rem;">Caption Preview</th>
-                                        <th style="padding: 1rem;">Publish Time</th>
+                                        <th style="padding: 1rem; white-space: nowrap;">Publish Time</th>
                                         <th style="padding: 1rem;">Status</th>
                                         <th style="padding: 1rem;">Retry</th>
                                         <th style="padding: 1rem; text-align: right;">Action</th>
@@ -954,25 +954,30 @@
                 const tr = document.createElement('tr');
                 tr.style.borderBottom = '1px solid var(--color-border)';
 
-                const localTime = timezoneService.formatUtcToLocal(item.publish_at);
+                // Format date compactly: "1 Jul 2026" + "4:22 PM GMT+8" on separate lines
+                const publishDate = new Date(item.publish_at);
+                const dateStr = publishDate.toLocaleDateString([], { day: 'numeric', month: 'short', year: 'numeric' });
+                const timeStr = publishDate.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', timeZoneName: 'short' });
+
                 const captionText = item.content ? (item.content.length > 50 ? item.content.substring(0, 50) + '...' : item.content) : '(No text)';
-                const platformIcon = item.platform === 'threads' ? '💬' : '📱';
+                const platformEmoji = item.platform === 'threads' ? '🧵' : item.platform === 'facebook' ? '📘' : item.platform === 'instagram' ? '📸' : item.platform === 'tiktok' ? '🎵' : '📱';
                 const isChecked = checkedIds.has(item.id) ? 'checked' : '';
 
                 tr.innerHTML = `
-                    <td style="padding: 1rem;"><input type="checkbox" class="chk-queue-select" data-id="${item.id}" ${isChecked} /></td>
-                    <td style="padding: 1rem; font-weight: 500;">
-                        <span style="font-size: 1.1rem; margin-right: 0.35rem;">${platformIcon}</span>
+                    <td style="padding: 0.75rem 1rem;"><input type="checkbox" class="chk-queue-select" data-id="${item.id}" ${isChecked} /></td>
+                    <td style="padding: 0.75rem 1rem; font-weight: 500; white-space: nowrap;">
+                        <span style="font-size: 1.1rem; margin-right: 0.35rem;">${platformEmoji}</span>
                         <span style="text-transform: capitalize;">${item.platform}</span>
                     </td>
-                    <td style="padding: 1rem; color: var(--color-text-secondary); font-size: 0.8125rem;">
+                    <td style="padding: 0.75rem 1rem; color: var(--color-text-secondary); font-size: 0.8125rem; white-space: nowrap; max-width: 160px; overflow: hidden; text-overflow: ellipsis;">
                         ${item.account_name || '@connected'}
                     </td>
-                    <td style="padding: 1rem; max-width: 250px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">
+                    <td style="padding: 0.75rem 1rem; max-width: 240px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">
                         ${captionText}
                     </td>
-                    <td style="padding: 1rem; color: var(--color-text-secondary); font-size: 0.8125rem;">
-                        ${localTime}
+                    <td style="padding: 0.75rem 1rem; white-space: nowrap;">
+                        <span style="display: block; font-size: 0.8125rem; font-weight: 600; color: var(--color-text-primary);">${dateStr}</span>
+                        <span style="display: block; font-size: 0.75rem; color: var(--color-text-tertiary); margin-top: 0.1rem;">${timeStr}</span>
                     </td>
                     <td style="padding: 1rem;">
                         <publish-status-badge status="${item.status}"></publish-status-badge>

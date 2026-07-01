@@ -853,8 +853,6 @@
                         await mediaService.detachMediaFromPost(targetId, mId);
                     }
                 }
-
-                const userTimezone = timezoneService.getUserTimezone();
                 
                 for (const checkbox of selectedCheckboxes) {
                     const platform = checkbox.value;

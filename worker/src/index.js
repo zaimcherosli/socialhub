@@ -1371,7 +1371,7 @@ export default {
                                     if (!socialAccount) throw new Error('Social account not found');
 
                                     const decryptedAccessToken = await decryptToken(socialAccount.access_token, encryptionSecret);
-                                    const credentials = { access_token: decryptedAccessToken };
+                                    const credentials = { access_token: decryptedAccessToken, account_id: socialAccount.account_id };
 
                                     const publisher = PublisherFactory.getPublisher(post.platform);
                                     const postObj = { title: '', caption: post.content, media: [] };
@@ -1841,7 +1841,7 @@ export default {
                             }
 
                             const decryptedAccessToken = await decryptToken(socialAccount.access_token, encryptionSecret);
-                            const credentials = { access_token: decryptedAccessToken };
+                            const credentials = { access_token: decryptedAccessToken, account_id: socialAccount.account_id };
 
                             const publisher = PublisherFactory.getPublisher(scheduledPost.platform);
                             
@@ -2462,7 +2462,7 @@ export default {
                         }
 
                         const decryptedAccessToken = await decryptToken(socialAccount.access_token, encryptionSecret);
-                        const credentials = { access_token: decryptedAccessToken };
+                        const credentials = { access_token: decryptedAccessToken, account_id: socialAccount.account_id };
 
                         const publisher = PublisherFactory.getPublisher(post.platform);
                         

@@ -1447,7 +1447,7 @@ export default {
                                         await env.DB.prepare("UPDATE scheduled_posts SET status = 'scheduled', publish_at = ?, retry_count = ?, error_message = ?, updated_at = (datetime('now')) WHERE id = ?").bind(retryTime.toISOString(), newRetryCount, err.message, post.id).run();
                                     }
 
-                                    await env.DB.prepare("INSERT INTO publish_logs (schedule_id, social_account_id, status, error_message, response_payload, published_at) VALUES (?, ?, 'failure', ?, ?, (datetime('now')))")
+                                    await env.DB.prepare("INSERT INTO publish_logs (schedule_id, social_account_id, status, error_message, response_payload, published_at) VALUES (?, ?, 'failed', ?, ?, (datetime('now')))")
                                         .bind(post.id, post.account_id, err.message, JSON.stringify({ error: err.message }))
                                         .run();
                                 }
@@ -1856,12 +1856,12 @@ export default {
                         "SELECT id, platform, account_name, account_id, expires_at, status, created_at FROM social_accounts WHERE workspace_id = ?"
                     ).bind(activeWorkspace.workspace_id).all();
 
-                    // 2. Fetch last 15 publish logs with errors
+                    // 2. Fetch last 15 failed publish logs
                     const publishLogsRes = await env.DB.prepare(`
                         SELECT pl.id, pl.status, pl.error_message, pl.published_at, sa.platform, sa.account_name
                         FROM publish_logs pl
                         JOIN social_accounts sa ON pl.social_account_id = sa.id
-                        WHERE sa.workspace_id = ?
+                        WHERE sa.workspace_id = ? AND pl.status = 'failed'
                         ORDER BY pl.published_at DESC LIMIT 15
                     `).bind(activeWorkspace.workspace_id).all();
 
@@ -2090,10 +2090,24 @@ export default {
                                      WHERE id = ?`
                                 ).bind(result.error_message, spId).run();
 
+                                await env.DB.prepare(
+                                    `INSERT INTO publish_logs (schedule_id, social_account_id, status, error_message, response_payload, published_at) 
+                                     VALUES (NULL, ?, 'failed', ?, ?, (datetime('now')))`
+                                ).bind(socialAccount.id, result.error_message, JSON.stringify(result)).run();
+
                                 return new Response(JSON.stringify({ success: false, message: result.error_message }), { status: 400, headers: corsHeaders });
                             }
                         } catch (err) {
                             await env.DB.prepare("UPDATE scheduled_posts SET status = 'failed', error_message = ? WHERE id = ?").bind(err.message, spId).run();
+                            
+                            // Insert into logs
+                            if (scheduledPost.account_id) {
+                                await env.DB.prepare(
+                                    `INSERT INTO publish_logs (schedule_id, social_account_id, status, error_message, response_payload, published_at) 
+                                     VALUES (NULL, ?, 'failed', ?, ?, (datetime('now')))`
+                                ).bind(scheduledPost.account_id, err.message, JSON.stringify({ error: err.message })).run();
+                            }
+
                             return new Response(JSON.stringify({ success: false, message: err.message }), { status: 500, headers: corsHeaders });
                         }
                     }
@@ -2744,7 +2758,7 @@ export default {
 
                         await env.DB.prepare(
                             `INSERT INTO publish_logs (schedule_id, social_account_id, status, error_message, response_payload, published_at) 
-                             VALUES (?, ?, 'failure', ?, ?, (datetime('now')))`
+                             VALUES (?, ?, 'failed', ?, ?, (datetime('now')))`
                         ).bind(post.id, post.account_id, err.message, JSON.stringify({ error: err.message, duration_ms: duration })).run();
                     }
                 }

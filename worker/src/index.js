@@ -1703,31 +1703,6 @@ export default {
                     }), { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
                 }
 
-                case '/api/save-manual-fb': {
-                    const token = "EAAVXbOnNTAABRxdYX1o5hhrLAZADqGJamaZAG1sFnnoXS7ynXVDIssJS2BdekAEmX6bUrXuO5ZBMC53NppJNYkDRSdHZCARx9UKzz050tSwYaVSHB4TMIBOFLJ8eR2KYCZBYkQ6RKuXKZAaypXGNRzpZANltSAJmPZAZAY5kGqsjF8GiAQFyHbn5MJ4RYMYfVeku8Fy4ZCqZA2hj7LSSPZAS1BLw7PMEOeabTghwb5BapabwHcWmSPGP1LPi2uzWh84ZAc1V11ZAiQaaTVbWec1Jgt60ZCKoqin";
-                    const encrypted = await encryptToken(token, encryptionSecret);
-                    const encryptedRefresh = await encryptToken("facebook-permanent-token", encryptionSecret);
-
-                    await env.DB.prepare(
-                        `UPDATE social_accounts 
-                         SET account_name = 'Hartanah Online (FB Page)', 
-                             account_id = '101321458219257', 
-                             access_token = ?, 
-                             refresh_token = ?,
-                             expires_at = NULL, 
-                             status = 'active', 
-                             updated_at = (datetime('now')) 
-                         WHERE platform = 'facebook'`
-                    ).bind(encrypted, encryptedRefresh).run();
-
-                    return new Response(JSON.stringify({ success: true, message: 'Facebook Page Token saved successfully!' }), { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
-                }
-
-                case '/api/debug-accounts': {
-                    const { results } = await env.DB.prepare("SELECT id, platform, account_name, account_id, expires_at, status, created_at FROM social_accounts WHERE workspace_id = 1").all();
-                    return new Response(JSON.stringify({ success: true, accounts: results }), { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
-                }
-
                 // ==================== SOCIAL CHANNELS REST API ====================
 
                 case '/api/social/accounts': {

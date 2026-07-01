@@ -1703,6 +1703,78 @@ export default {
                     }), { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
                 }
 
+                // ── Temp: Update Facebook Page Access Token manually ──
+                case '/api/update-fb-token': {
+                    if (request.method !== 'POST') return new Response(JSON.stringify({ error: 'Method not allowed' }), { status: 405, headers: corsHeaders });
+                    if (!env.DB) return new Response(JSON.stringify({ message: 'Database missing' }), { status: 500, headers: corsHeaders });
+
+                    const user = await getAuthUser();
+                    if (!user) return new Response(JSON.stringify({ message: 'Unauthorized session' }), { status: 401, headers: corsHeaders });
+
+                    const activeWorkspace = await getActiveWorkspace(user);
+                    if (!activeWorkspace) return new Response(JSON.stringify({ message: 'No active workspace found' }), { status: 404, headers: corsHeaders });
+                    if (!['owner', 'admin'].includes(activeWorkspace.role)) {
+                        return new Response(JSON.stringify({ message: 'Forbidden: Only Admin/Owner can update tokens.' }), { status: 403, headers: corsHeaders });
+                    }
+
+                    const { page_access_token, page_id, account_id } = await request.json();
+                    if (!page_access_token) {
+                        return new Response(JSON.stringify({ message: 'page_access_token is required' }), { status: 400, headers: corsHeaders });
+                    }
+
+                    // Validate the token against Facebook's debug endpoint
+                    const debugRes = await fetch(`https://graph.facebook.com/v18.0/debug_token?input_token=${page_access_token}&access_token=${page_access_token}`);
+                    const debugData = await debugRes.json();
+
+                    // Also get page name
+                    const meRes = await fetch(`https://graph.facebook.com/v18.0/me?fields=id,name&access_token=${page_access_token}`);
+                    const meData = await meRes.json();
+                    if (meData.error) {
+                        return new Response(JSON.stringify({ 
+                            success: false, 
+                            message: `Token validation failed: ${meData.error.message}` 
+                        }), { status: 400, headers: corsHeaders });
+                    }
+
+                    const actualPageId = page_id || meData.id;
+                    const pageName = meData.name ? `${meData.name} (FB Page)` : `Page ${actualPageId} (FB Page)`;
+
+                    // Encrypt the token
+                    const encryptedToken = await encryptToken(page_access_token, encryptionSecret);
+
+                    // Update or insert into social_accounts
+                    const lookupId = account_id || null;
+                    let targetRow = null;
+                    if (lookupId) {
+                        targetRow = await env.DB.prepare("SELECT id FROM social_accounts WHERE id = ? AND workspace_id = ?").bind(lookupId, activeWorkspace.workspace_id).first();
+                    }
+                    if (!targetRow) {
+                        // Find existing Facebook account for this workspace
+                        targetRow = await env.DB.prepare("SELECT id FROM social_accounts WHERE workspace_id = ? AND platform = 'facebook' AND account_id = ?").bind(activeWorkspace.workspace_id, actualPageId).first();
+                    }
+
+                    const nowStr = new Date().toISOString();
+                    if (targetRow) {
+                        await env.DB.prepare(
+                            "UPDATE social_accounts SET access_token = ?, account_name = ?, account_id = ?, expires_at = NULL, status = 'active', updated_at = ? WHERE id = ?"
+                        ).bind(encryptedToken, pageName, actualPageId, nowStr, targetRow.id).run();
+                    } else {
+                        await env.DB.prepare(
+                            "INSERT INTO social_accounts (user_id, workspace_id, platform, account_name, account_id, access_token, refresh_token, expires_at, status) VALUES (?, ?, 'facebook', ?, ?, ?, NULL, NULL, 'active')"
+                        ).bind(user.id, activeWorkspace.workspace_id, pageName, actualPageId, encryptedToken).run();
+                    }
+
+                    await logActivity(activeWorkspace.workspace_id, user.id, 'update_fb_token', `Manually updated Facebook Page Access Token for page: ${pageName}`);
+
+                    return new Response(JSON.stringify({
+                        success: true,
+                        message: 'Facebook Page Access Token updated successfully!',
+                        page_name: pageName,
+                        page_id: actualPageId,
+                        debug_info: debugData.data || {}
+                    }), { status: 200, headers: corsHeaders });
+                }
+
                 // ==================== SOCIAL CHANNELS REST API ====================
 
                 case '/api/social/accounts': {

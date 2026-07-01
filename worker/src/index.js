@@ -323,7 +323,6 @@ const OAuthProviders = {
             url.searchParams.set("response_type", "code");
             url.searchParams.set("state", state);
             url.searchParams.set("auth_type", "rerequest");
-            url.searchParams.set("config_id", "4039578336342886");
             return url.toString();
         },
         async exchangeCode(code, redirectUri, clientId, clientSecret) {

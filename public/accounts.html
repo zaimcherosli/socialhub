@@ -567,14 +567,14 @@
                 const token = localStorage.getItem('socialhub_jwt') || sessionStorage.getItem('socialhub_jwt');
                 const res = await fetch('https://api.socialhub.zaimrosli.my/api/social/facebook/manual-token', {
                     method: 'POST',
-                    headers: { 'Authorization': Bearer , 'Content-Type': 'application/json' },
+                    headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
                     body: JSON.stringify({ account_id: fbPendingAccountId, page_access_token: pageToken, page_name: pageName })
                 });
                 const data = await res.json();
                 if (data.success) {
                     document.getElementById('fbPageModal').style.display = 'none';
                     window.history.replaceState({}, document.title, window.location.pathname);
-                    showToast(🎉 "" connected successfully!);
+                    showToast(`🎉 "${data.page_name}" connected successfully!`);
                     loadConnectedAccounts();
                 } else {
                     errEl.textContent = data.message || 'Failed to connect. Please check your token.';
@@ -582,7 +582,7 @@
                     if (btn) { btn.disabled = false; btn.textContent = '🔗 Connect with this Token'; }
                 }
             } catch (err) {
-                errEl.textContent = Error: ;
+                errEl.textContent = `Error: ${err.message}`;
                 errEl.style.display = 'block';
                 if (btn) { btn.disabled = false; btn.textContent = '🔗 Connect with this Token'; }
             }

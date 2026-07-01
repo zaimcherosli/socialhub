@@ -13,6 +13,21 @@ export const oauthService = {
             const data = await socialService.connectAccount(platform);
             if (data && data.redirect_url) {
                 console.log(`[OAuthService] Directing viewport redirect: ${data.redirect_url}`);
+                if (platform === 'threads' || platform === 'instagram') {
+                    const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
+                    if (isMobile) {
+                        const platformName = platform === 'threads' ? 'Threads' : 'Instagram';
+                        const proceed = confirm(
+                            `Peringatan (Mobile):\n\n` +
+                            `Sistem akan membuka laman web ${platformName} untuk sambungan. ` +
+                            `Jika telefon anda membuka aplikasi ${platformName} secara automatik dan tersekat, sila:\n\n` +
+                            `1. Guna komputer/desktop untuk sambung (Sangat Disyorkan)\n` +
+                            `2. ATAU, buka tetapan telefon anda -> Apps -> ${platformName} -> 'Open by default' -> matikan 'Open supported links'.\n\n` +
+                            `Adakah anda ingin meneruskan sekarang?`
+                        );
+                        if (!proceed) return;
+                    }
+                }
                 window.location.href = data.redirect_url;
             } else {
                 throw new Error("Invalid OAuth redirection payload returned");
@@ -32,6 +47,22 @@ export const oauthService = {
             const data = await socialService.reconnectAccount(accountId);
             if (data && data.redirect_url) {
                 console.log(`[OAuthService] Directing reconnection redirect: ${data.redirect_url}`);
+                if (data.redirect_url.includes('threads.net') || data.redirect_url.includes('instagram.com')) {
+                    const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
+                    if (isMobile) {
+                        const isThreads = data.redirect_url.includes('threads.net');
+                        const platformName = isThreads ? 'Threads' : 'Instagram';
+                        const proceed = confirm(
+                            `Peringatan (Mobile):\n\n` +
+                            `Sistem akan membuka laman web ${platformName} untuk sambungan semula. ` +
+                            `Jika telefon anda membuka aplikasi ${platformName} secara automatik dan tersekat, sila:\n\n` +
+                            `1. Guna komputer/desktop untuk sambung (Sangat Disyorkan)\n` +
+                            `2. ATAU, buka tetapan telefon anda -> Apps -> ${platformName} -> 'Open by default' -> matikan 'Open supported links'.\n\n` +
+                            `Adakah anda ingin meneruskan sekarang?`
+                        );
+                        if (!proceed) return;
+                    }
+                }
                 window.location.href = data.redirect_url;
             } else {
                 throw new Error("Invalid OAuth redirection payload returned");

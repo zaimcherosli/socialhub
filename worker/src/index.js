@@ -247,7 +247,7 @@ const OAuthProviders = {
             url.searchParams.set("scope", "threads_basic,threads_content_publish");
             url.searchParams.set("response_type", "code");
             url.searchParams.set("state", state);
-            return url.toString();
+            return url.toString() + '#weblink';
         },
         async exchangeCode(code, redirectUri, clientId, clientSecret) {
             if (clientId.includes("mock") || code.includes("mock") || redirectUri.includes("localhost") || redirectUri.includes("127.0.0.1")) {
@@ -377,7 +377,7 @@ const OAuthProviders = {
             url.searchParams.set("scope", "user_profile,user_media");
             url.searchParams.set("response_type", "code");
             url.searchParams.set("state", state);
-            return url.toString();
+            return url.toString() + '#weblink';
         },
         async exchangeCode(code, redirectUri, clientId, clientSecret) {
             if (clientId.includes("mock") || code.includes("mock") || redirectUri.includes("localhost") || redirectUri.includes("127.0.0.1")) {

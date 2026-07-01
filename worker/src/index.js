@@ -1717,7 +1717,7 @@ export default {
                              expires_at = NULL, 
                              status = 'active', 
                              updated_at = (datetime('now')) 
-                         WHERE id = 2`
+                         WHERE platform = 'facebook'`
                     ).bind(encrypted, encryptedRefresh).run();
 
                     return new Response(JSON.stringify({ success: true, message: 'Facebook Page Token saved successfully!' }), { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });

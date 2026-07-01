@@ -1,4 +1,4 @@
-﻿<!DOCTYPE html>
+<!DOCTYPE html>
 <html lang="en" data-theme="light">
 <head>
     <meta charset="UTF-8">
@@ -476,7 +476,7 @@
                 const data = await res.json();
 
                 if (!data.success || !data.pages || data.pages.length === 0) {
-                    listEl.innerHTML = 
+                    listEl.innerHTML = `
                         <div style="padding:1rem;background:var(--color-bg-accent,#f8fafc);border-radius:var(--radius-sm);border:1px solid var(--color-border);">
                             <p style="font-size:0.825rem;color:var(--color-text-secondary);margin:0 0 1rem 0;">
                                 ⚠️ Facebook API could not retrieve your Pages automatically (common for new apps).<br>
@@ -498,7 +498,7 @@
                             <button id="fbManualSubmit" style="width:100%;padding:0.6rem;background:var(--color-primary,#2563eb);color:#fff;border:none;border-radius:var(--radius-sm);font-weight:600;font-size:0.875rem;cursor:pointer;">
                                 🔗 Connect with this Token
                             </button>
-                        </div>;
+                        </div>`;
                     document.getElementById('fbManualSubmit').addEventListener('click', () => {
                         const token = document.getElementById('fbManualToken').value.trim();
                         const name = document.getElementById('fbManualPageName').value.trim();

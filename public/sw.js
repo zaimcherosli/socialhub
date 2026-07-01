@@ -1,4 +1,4 @@
-const CACHE_NAME = 'socialhub-cache-v1';
+const CACHE_NAME = 'socialhub-cache-v2';
 const ASSETS_TO_CACHE = [
   '/',
   '/dashboard.html',

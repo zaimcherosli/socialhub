@@ -347,6 +347,18 @@ const OAuthProviders = {
                 accountId = profile.id;
             }
 
+            // Fetch managed Facebook Pages to store Page info
+            const pagesResponse = await fetch(`https://graph.facebook.com/v18.0/me/accounts?access_token=${accessToken}`);
+            if (pagesResponse.ok) {
+                const pagesData = await pagesResponse.json();
+                const pages = pagesData.data || [];
+                if (pages.length > 0) {
+                    // Use first managed page as the connected account
+                    accountName = `${pages[0].name} (FB Page)`;
+                    accountId = pages[0].id;
+                }
+            }
+
             return {
                 access_token: accessToken,
                 refresh_token: "facebook-no-refresh-token",

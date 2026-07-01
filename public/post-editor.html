@@ -809,7 +809,7 @@
                 const nowUtc = new Date().toISOString();
                 
                 if (postType === 'scheduled') {
-                    // First save the latest edits to the scheduled_posts record
+                    // Save latest edits to the original scheduled_posts record first
                     const updates = {
                         content: state.caption,
                         publish_at: nowUtc,
@@ -819,15 +819,54 @@
                     };
                     await schedulerService.updateScheduledPost(postId, updates);
 
-                    // Call the correct endpoint: /api/scheduled-posts/:id/publish
-                    const publishResult = await apiClient.post(`/scheduled-posts/${postId}/publish`);
-                    if (!publishResult || !publishResult.success) {
-                        throw new Error(publishResult?.message || 'Publishing failed from scheduled post engine.');
+                    // Collect selected platforms and their account IDs
+                    const platformsToPublish = Array.from(selectedCheckboxes).map(cb => ({
+                        platform: cb.value,
+                        accountId: cb.getAttribute('data-id')
+                    }));
+
+                    // Get the platform of the record being edited
+                    const originalPost = await schedulerService.getScheduledPost(postId);
+                    const originalPlatform = originalPost?.platform;
+
+                    let allSuccess = true;
+                    const errors = [];
+
+                    for (const { platform, accountId } of platformsToPublish) {
+                        try {
+                            let targetSpId = postId;
+
+                            // If this platform is different from the original record, create a new scheduled_posts row
+                            if (platform !== originalPlatform) {
+                                const newPost = await schedulerService.createScheduledPost({
+                                    content: state.caption,
+                                    targets: [{ platform, accountId: parseInt(accountId) }],
+                                    publish_at: nowUtc,
+                                    timezone: userTimezone
+                                });
+                                targetSpId = newPost?.ids?.[0];
+                            }
+
+                            const publishResult = await apiClient.post(`/scheduled-posts/${targetSpId}/publish`);
+                            if (!publishResult || !publishResult.success) {
+                                errors.push(`${platform}: ${publishResult?.message || 'Failed'}`);
+                                allSuccess = false;
+                            }
+                        } catch (e) {
+                            errors.push(`${platform}: ${e.message}`);
+                            allSuccess = false;
+                        }
                     }
+
                     draftService.clearBackup(postId);
                     isDirty = false;
-                    notificationService.success('Berjaya diterbitkan ke Threads!');
-                    setTimeout(() => window.location.replace('calendar.html'), 1500);
+
+                    if (allSuccess) {
+                        notificationService.success(`Berjaya diterbitkan ke ${platformsToPublish.map(p => p.platform).join(', ')}!`);
+                    } else {
+                        notificationService.warning(`Sebahagian gagal: ${errors.join('; ')}`);
+                    }
+                    setTimeout(() => window.location.replace('calendar.html'), 2000);
                     return;
                 }
 

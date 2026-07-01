@@ -1757,8 +1757,8 @@ export default {
 
                                 await env.DB.prepare(
                                     `INSERT INTO publish_logs (schedule_id, social_account_id, status, error_message, external_post_id, response_payload, published_at) 
-                                     VALUES (?, ?, 'success', NULL, ?, ?, ?)`
-                                ).bind(spId, socialAccount.id, result.provider_post_id, JSON.stringify(result), nowStr).run();
+                                     VALUES (NULL, ?, 'success', NULL, ?, ?, ?)`
+                                ).bind(socialAccount.id, result.provider_post_id, JSON.stringify(result), nowStr).run();
 
                                 return new Response(JSON.stringify({ success: true, message: 'Published successfully', result }), { status: 200, headers: corsHeaders });
                             } else {

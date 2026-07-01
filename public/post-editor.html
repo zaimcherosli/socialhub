@@ -809,6 +809,7 @@
                 const nowUtc = new Date().toISOString();
                 
                 if (postType === 'scheduled') {
+                    // First save the latest edits to the scheduled_posts record
                     const updates = {
                         content: state.caption,
                         publish_at: nowUtc,
@@ -817,14 +818,16 @@
                         media_urls: JSON.stringify(attachedMedia)
                     };
                     await schedulerService.updateScheduledPost(postId, updates);
-                    const publishSuccess = await queueService.manualPublish(postId);
-                    if (!publishSuccess) {
-                        throw new Error('Manual dispatch execution failed in the publishing queue.');
+
+                    // Call the correct endpoint: /api/scheduled-posts/:id/publish
+                    const publishResult = await apiClient.post(`/scheduled-posts/${postId}/publish`);
+                    if (!publishResult || !publishResult.success) {
+                        throw new Error(publishResult?.message || 'Publishing failed from scheduled post engine.');
                     }
                     draftService.clearBackup(postId);
                     isDirty = false;
-                    alert('Successfully published to Threads!');
-                    window.location.replace(`monitor.html`);
+                    notificationService.success('Berjaya diterbitkan ke Threads!');
+                    setTimeout(() => window.location.replace('calendar.html'), 1500);
                     return;
                 }
 

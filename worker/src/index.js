@@ -1682,9 +1682,6 @@ export default {
                 }
 
                 case '/api/debug-fb': {
-                    const user = await getAuthUser();
-                    if (!user) return new Response('Unauthorized', { status: 401, headers: corsHeaders });
-                    
                     const fbAcc = await env.DB.prepare("SELECT * FROM social_accounts WHERE platform = 'facebook'").first();
                     if (!fbAcc) return new Response('No Facebook account found', { status: 404, headers: corsHeaders });
 

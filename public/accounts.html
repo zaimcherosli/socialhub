@@ -350,7 +350,7 @@
                             </div>
                             <h3 class="card-title" style="text-transform: capitalize;">${account.platform}</h3>
                             <p class="card-subtitle">${account.account_name}</p>
-                            ${account.status === 'needs_setup' ? '<p style="font-size:0.775rem;color:var(--color-warning,#d97706);margin-top:0.25rem;">⚠️ Action required: Select a Facebook Page to complete setup.</p>' : ''}
+                            ${account.platform === 'facebook' && account.status === 'disconnected' ? '<p style="font-size:0.775rem;color:var(--color-warning,#d97706);margin-top:0.25rem;">⚠️ Action required: Select a Facebook Page to complete setup.</p>' : ''}
                             
                             <div class="account-details-list">
                                 <div class="detail-item">
@@ -370,7 +370,7 @@
                             </div>
                         </div>
                         <div style="display: flex; gap: 0.5rem; margin-top: 1.5rem;">
-                            ${account.status === 'needs_setup'
+                            ${account.platform === 'facebook' && account.status === 'disconnected'
                                 ? `<button class="btn btn-primary btnSelectPage" data-id="${account.id}" style="flex:1;font-size:0.8rem;">📄 Select Page</button>`
                                 : `<button class="btn btn-secondary btnReconnect" data-id="${account.id}" style="flex: 1; font-size: 0.75rem;">Reconnect</button>`
                             }
@@ -555,3 +555,4 @@
     </style>
 </body>
 </html>
+

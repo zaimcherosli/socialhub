@@ -1704,8 +1704,8 @@ export default {
                     const expiresAt = tokenData.expires_in ? new Date(Date.now() + (tokenData.expires_in * 1000)).toISOString() : null;
                     const nowStr = new Date().toISOString();
 
-                    // Determine account status: 'needs_setup' when user must select a Page
-                    const accountStatus = tokenData.needsPageSelection ? 'needs_setup' : 'active';
+                    // Determine account status: 'disconnected' means FB user token stored but page not yet selected
+                    const accountStatus = tokenData.needsPageSelection ? 'disconnected' : 'active';
 
                     const existingAccount = await env.DB.prepare("SELECT id FROM social_accounts WHERE workspace_id = ? AND platform = ? AND account_id = ?")
                         .bind(activeWorkspace.workspace_id, platform, tokenData.account_id)

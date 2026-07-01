@@ -306,6 +306,7 @@ const OAuthProviders = {
             url.searchParams.set("scope", "email,public_profile,pages_show_list,pages_read_engagement,pages_manage_posts");
             url.searchParams.set("response_type", "code");
             url.searchParams.set("state", state);
+            url.searchParams.set("config_id", "4039578336342886");
             return url.toString();
         },
         async exchangeCode(code, redirectUri, clientId, clientSecret) {

@@ -463,6 +463,51 @@
                     </div>
                 </div>
 
+                <!-- Card 4: Diagnostics & Support — Full Width -->
+                <div class="card settings-card" style="grid-column: 1 / -1; margin-top: 1.5rem;">
+                    <div class="settings-section-header" style="margin-bottom: 1.25rem;">
+                        <div class="settings-icon-wrap" style="background: hsla(0, 100%, 50%, 0.07);">
+                            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="var(--color-danger, #ef4444)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                <circle cx="12" cy="12" r="10"/>
+                                <line x1="12" y1="8" x2="12" y2="12"/>
+                                <line x1="12" y1="16" x2="12.01" y2="16"/>
+                            </svg>
+                        </div>
+                        <div>
+                            <h3>Diagnostics & Support</h3>
+                            <p>Troubleshoot channel connectivity, view recent API errors, and download debug reports</p>
+                        </div>
+                    </div>
+
+                    <div style="display: grid; grid-template-columns: 2fr 1fr; gap: 1.5rem; align-items: start;">
+                        <!-- Left: Recent System Errors -->
+                        <div>
+                            <h4 style="font-size: 0.85rem; font-weight: 600; margin: 0 0 0.75rem 0; color: var(--color-text-primary);">Recent Publishing Failures</h4>
+                            <div id="recentErrorsList" style="display: flex; flex-direction: column; gap: 0.75rem;">
+                                <div style="font-size: 0.8rem; color: var(--color-text-tertiary); padding: 1rem; text-align: center; background: var(--color-bg-accent); border-radius: var(--radius-sm);">
+                                    Checking for recent publication logs...
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Right: Export Debug File -->
+                        <div style="background: var(--color-bg-accent); padding: 1.25rem; border-radius: var(--radius-sm); border: 1px dashed var(--color-border);">
+                            <h4 style="font-size: 0.85rem; font-weight: 600; margin: 0 0 0.5rem 0; color: var(--color-text-primary);">System Diagnostic Log</h4>
+                            <p style="font-size: 0.775rem; color: var(--color-text-secondary); margin: 0 0 1.25rem 0; line-height: 1.4;">
+                                If you are facing bugs, click below to download your workspace config & logs. You can share this JSON file with Zaim to fix the issue.
+                            </p>
+                            <button id="btnDownloadDebug" class="btn btn-secondary" style="width: 100%; justify-content: center; gap: 0.5rem; font-size: 0.8rem; padding: 0.65rem 1rem;">
+                                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                    <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+                                    <polyline points="7 10 12 15 17 10"/>
+                                    <line x1="12" y1="15" x2="12" y2="3"/>
+                                </svg>
+                                Download Debug Report
+                            </button>
+                        </div>
+                    </div>
+                </div>
+
             </div>
         </main>
     </div>
@@ -631,10 +676,79 @@
             } catch(e) {}
         }
 
+        // ── Diagnostics & Debug Report ──────────────────────────
+        let cachedDebugReport = null;
+
+        async function loadDiagnosticsInfo() {
+            const listEl = document.getElementById('recentErrorsList');
+            if (!listEl) return;
+
+            try {
+                const res = await apiClient.get('/system/debug-report');
+                if (res.success && res.report) {
+                    cachedDebugReport = res.report;
+                    const failures = res.report.failed_publish_logs || [];
+                    
+                    if (failures.length === 0) {
+                        listEl.innerHTML = `
+                            <div style="font-size: 0.8rem; color: var(--color-success); padding: 1.25rem; text-align: center; background: var(--color-success-light, #f0fdf4); border: 1.5px solid var(--color-success-border, #bbf7d0); border-radius: var(--radius-sm); font-weight: 500;">
+                                🎉 No recent publishing failures detected! Everything is running smoothly.
+                            </div>
+                        `;
+                        return;
+                    }
+
+                    listEl.innerHTML = '';
+                    // Take only the last 3 failures
+                    failures.slice(0, 3).forEach(log => {
+                        const dateStr = new Date(log.published_at).toLocaleString();
+                        const card = document.createElement('div');
+                        card.style.cssText = 'border: 1px solid var(--color-border); border-radius: var(--radius-sm); padding: 0.875rem 1rem; background: var(--color-bg-card);';
+                        card.innerHTML = `
+                            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:0.5rem;">
+                                <div style="display:flex; align-items:center; gap:0.5rem;">
+                                    <span style="font-size:0.75rem; text-transform:capitalize; padding:0.15rem 0.4rem; border-radius:3px; background:var(--color-bg-accent); font-weight:600; color:var(--color-text-primary); border:1px solid var(--color-border);">
+                                        ${log.platform}
+                                    </span>
+                                    <span style="font-weight:600; font-size:0.825rem; color:var(--color-text-primary);">${log.account_name}</span>
+                                </div>
+                                <span style="font-size:0.75rem; color:var(--color-text-tertiary);">${dateStr}</span>
+                            </div>
+                            <div style="font-family:monospace; font-size:0.75rem; color:var(--color-danger, #ef4444); background:var(--color-danger-light, #fef2f2); border: 1px solid var(--color-danger-border, #fecaca); padding:0.6rem 0.75rem; border-radius:var(--radius-xs); white-space:pre-wrap; word-break:break-word; line-height:1.45;">${log.error_message || 'Unknown API Error'}</div>
+                        `;
+                        listEl.appendChild(card);
+                    });
+                } else {
+                    listEl.innerHTML = `<div style="font-size: 0.8rem; color: var(--color-danger); padding: 1rem; text-align: center;">Failed to load logs: ${res.message || 'Unknown Error'}</div>`;
+                }
+            } catch (err) {
+                listEl.innerHTML = `<div style="font-size: 0.8rem; color: var(--color-danger); padding: 1rem; text-align: center;">Error loading logs: ${err.message}</div>`;
+            }
+        }
+
+        document.getElementById('btnDownloadDebug').addEventListener('click', () => {
+            if (!cachedDebugReport) {
+                alert('Debug data not loaded yet. Please wait a moment.');
+                return;
+            }
+            try {
+                const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(cachedDebugReport, null, 2));
+                const downloadAnchor = document.createElement('a');
+                downloadAnchor.setAttribute("href", dataStr);
+                downloadAnchor.setAttribute("download", `socialhub-debug-report-${cachedDebugReport.workspace.name.replace(/\\s+/g, '-').toLowerCase()}-${Date.now()}.json`);
+                document.body.appendChild(downloadAnchor);
+                downloadAnchor.click();
+                downloadAnchor.remove();
+            } catch (e) {
+                alert('Failed to generate debug file: ' + e.message);
+            }
+        });
+
         // ── Init ───────────────────────────────────────────────
         loadAISettings();
         loadWorkspaceInfo();
         loadUserInfo();
+        loadDiagnosticsInfo();
     </script>
 </body>
 </html>

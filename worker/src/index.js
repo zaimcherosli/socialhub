@@ -1842,6 +1842,73 @@ export default {
                     return new Response(JSON.stringify({ success: true, accounts: results }), { status: 200, headers: corsHeaders });
                 }
 
+                case '/api/system/debug-report': {
+                    if (request.method !== 'GET') return new Response(JSON.stringify({ error: 'Method not allowed' }), { status: 405, headers: corsHeaders });
+                    const user = await getAuthUser();
+                    if (!user) return new Response(JSON.stringify({ message: 'Unauthorized session' }), { status: 401, headers: corsHeaders });
+                    if (!env.DB) return new Response(JSON.stringify({ message: 'DB missing' }), { status: 500, headers: corsHeaders });
+
+                    const activeWorkspace = await getActiveWorkspace(user);
+                    if (!activeWorkspace) return new Response(JSON.stringify({ message: 'No active workspace' }), { status: 404, headers: corsHeaders });
+
+                    // 1. Gather social accounts status (without sensitive token values)
+                    const accountsRes = await env.DB.prepare(
+                        "SELECT id, platform, account_name, account_id, expires_at, status, created_at FROM social_accounts WHERE workspace_id = ?"
+                    ).bind(activeWorkspace.workspace_id).all();
+
+                    // 2. Fetch last 15 publish logs with errors
+                    const publishLogsRes = await env.DB.prepare(`
+                        SELECT pl.id, pl.status, pl.error_message, pl.published_at, sa.platform, sa.account_name
+                        FROM publish_logs pl
+                        JOIN social_accounts sa ON pl.social_account_id = sa.id
+                        WHERE sa.workspace_id = ?
+                        ORDER BY pl.published_at DESC LIMIT 15
+                    `).bind(activeWorkspace.workspace_id).all();
+
+                    // 3. Fetch last 15 audit logs
+                    const auditLogsRes = await env.DB.prepare(`
+                        SELECT id, action, details, created_at
+                        FROM audit_logs
+                        WHERE workspace_id = ?
+                        ORDER BY created_at DESC LIMIT 15
+                    `).bind(activeWorkspace.workspace_id).all();
+
+                    // 4. Compile metadata
+                    const report = {
+                        timestamp: new Date().toISOString(),
+                        app: 'SocialHub SaaS',
+                        environment: env.ENVIRONMENT || 'production',
+                        system_time: new Date().toString(),
+                        workspace: {
+                            id: activeWorkspace.workspace_id,
+                            name: activeWorkspace.workspace_name,
+                            plan: activeWorkspace.subscription_plan,
+                            role: activeWorkspace.role
+                        },
+                        user: {
+                            id: user.id,
+                            name: user.name,
+                            email: user.email,
+                            role: user.role
+                        },
+                        connected_channels: (accountsRes.results || []).map(acc => ({
+                            id: acc.id,
+                            platform: acc.platform,
+                            name: acc.account_name,
+                            account_id: acc.account_id,
+                            status: acc.status,
+                            created_at: acc.created_at,
+                            expires_at: acc.expires_at,
+                            has_expires: !!acc.expires_at,
+                            is_expired: acc.expires_at ? (new Date(acc.expires_at) < new Date()) : false
+                        })),
+                        failed_publish_logs: publishLogsRes.results || [],
+                        audit_logs: auditLogsRes.results || []
+                    };
+
+                    return new Response(JSON.stringify({ success: true, report }), { status: 200, headers: corsHeaders });
+                }
+
                 // ==================== FACEBOOK PAGE SELECTION ====================
 
                 case '/api/social/facebook/pages': {

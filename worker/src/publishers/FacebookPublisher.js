@@ -6,9 +6,9 @@ import { PublisherInterface } from './PublisherInterface.js';
  * Requires: pages_manage_posts, pages_read_engagement, pages_show_list
  *
  * Token Strategy:
- *   1. Try stored token DIRECTLY as a Page Access Token -> /{page_id}/feed
- *   2. If that fails with OAuthException, fall back to treating it as a
- *      User Access Token and fetch the Page token via /me/accounts.
+ *   The stored token is expected to be a Page Access Token.
+ *   We post directly to /{page_id}/feed using the stored token.
+ *   No /me/accounts fallback — Page Access Tokens cannot fetch user page lists.
  */
 export class FacebookPublisher extends PublisherInterface {
     constructor() {
@@ -27,20 +27,30 @@ export class FacebookPublisher extends PublisherInterface {
     }
 
     /**
-     * Publish a post to a Facebook Page.
-     * First attempts direct Page Access Token approach, then falls back to /me/accounts.
+     * Publish a post directly to a Facebook Page using the stored Page Access Token.
      */
     async publish(post, credentials) {
-        const storedToken = credentials.access_token;
-        const storedPageId = credentials.account_id;
+        const pageAccessToken = credentials.access_token;
+        const pageId = credentials.account_id;
 
-        if (!storedToken) {
+        if (!pageAccessToken) {
             return {
                 success: false,
                 provider: 'facebook',
                 provider_post_id: null,
                 error_code: 'NO_TOKEN',
-                error_message: 'Facebook access token is missing.',
+                error_message: 'Facebook access token is missing. Please reconnect your Facebook Page.',
+                retryable: false
+            };
+        }
+
+        if (!pageId) {
+            return {
+                success: false,
+                provider: 'facebook',
+                provider_post_id: null,
+                error_code: 'NO_PAGE_ID',
+                error_message: 'Facebook Page ID is missing. Please reconnect your Facebook Page account.',
                 retryable: false
             };
         }
@@ -48,21 +58,7 @@ export class FacebookPublisher extends PublisherInterface {
         const message = post.caption || post.content || '';
 
         try {
-            // === STRATEGY 1: Use stored token directly as Page Access Token ===
-            const directResult = await this._postToPage(storedPageId, message, storedToken, post);
-            if (directResult.success) {
-                return directResult;
-            }
-
-            // If OAuth failure, try fallback with /me/accounts
-            if (directResult.error_code === 'OAUTH_EXCEPTION') {
-                console.log('[FacebookPublisher] Direct token failed with OAuthException, trying /me/accounts fallback...');
-                const pageToken = await this._getPageTokenFromUserToken(storedToken, storedPageId);
-                return await this._postToPage(pageToken.pageId, message, pageToken.pageAccessToken, post, pageToken.pageName);
-            }
-
-            return directResult;
-
+            return await this._postToPage(pageId, message, pageAccessToken, post);
         } catch (err) {
             return {
                 success: false,
@@ -76,12 +72,14 @@ export class FacebookPublisher extends PublisherInterface {
     }
 
     /**
-     * Post to a specific Facebook Page feed using the provided Page Access Token.
+     * POST to a Facebook Page feed using the Page Access Token.
+     * Returns a standardised result object.
      */
-    async _postToPage(pageId, message, pageAccessToken, post, pageName = null) {
+    async _postToPage(pageId, message, pageAccessToken, post) {
         let endpoint = `${this.baseUrl}/${pageId}/feed`;
         const payload = { message, access_token: pageAccessToken };
 
+        // If media attached, use /photos endpoint instead
         if (post.media && post.media.length > 0 && post.media[0].url) {
             endpoint = `${this.baseUrl}/${pageId}/photos`;
             payload.url = post.media[0].url;
@@ -98,15 +96,28 @@ export class FacebookPublisher extends PublisherInterface {
         const result = await response.json();
 
         if (!response.ok || result.error) {
-            const errMsg = result.error?.message || `HTTP ${response.status}`;
-            const errCode = result.error?.code?.toString() || 'API_ERROR';
-            const isOAuth = result.error?.type === 'OAuthException';
+            const fbError = result.error || {};
+            const errCode = fbError.code?.toString() || response.status.toString();
+            const errType = fbError.type || 'API_ERROR';
+            const errMsg  = fbError.message || `HTTP ${response.status}`;
+
+            // Build a helpful message based on Facebook error code
+            let friendlyMsg = errMsg;
+            if (fbError.code === 190) {
+                friendlyMsg = `Facebook token expired or invalid. Please reconnect your Facebook Page. (${errMsg})`;
+            } else if (fbError.code === 200) {
+                friendlyMsg = `Missing Facebook permission: pages_manage_posts. Please reconnect with correct permissions. (${errMsg})`;
+            } else if (fbError.code === 100) {
+                friendlyMsg = `Invalid Facebook Page ID or unsupported request. (${errMsg})`;
+            }
+
             return {
                 success: false,
                 provider: 'facebook',
                 provider_post_id: null,
-                error_code: isOAuth ? 'OAUTH_EXCEPTION' : errCode,
-                error_message: errMsg,
+                error_code: errCode,
+                error_type: errType,
+                error_message: friendlyMsg,
                 retryable: response.status >= 500
             };
         }
@@ -116,34 +127,11 @@ export class FacebookPublisher extends PublisherInterface {
             provider: 'facebook',
             provider_post_id: result.id || result.post_id,
             published_at: new Date().toISOString(),
-            page_name: pageName || pageId,
             page_id: pageId,
             error_code: null,
             error_message: null,
             retryable: false
         };
-    }
-
-    /**
-     * Fall back: use a User Access Token to fetch the correct Page Access Token via /me/accounts.
-     */
-    async _getPageTokenFromUserToken(userAccessToken, pageId) {
-        const res = await fetch(`${this.baseUrl}/me/accounts?access_token=${userAccessToken}`);
-        if (!res.ok) {
-            const err = await res.json().catch(() => ({}));
-            throw new Error(err.error?.message || 'Failed to fetch Facebook pages via /me/accounts');
-        }
-        const data = await res.json();
-        const pages = data.data || [];
-
-        if (pages.length === 0) {
-            throw new Error('No Facebook Pages found. Ensure you are an admin of at least one Facebook Page and the token has pages_show_list permission.');
-        }
-
-        let page = pageId ? pages.find(p => p.id === pageId || p.name === pageId) : null;
-        if (!page) page = pages[0];
-
-        return { pageAccessToken: page.access_token, pageId: page.id, pageName: page.name };
     }
 
     async validate(post) {

@@ -897,7 +897,14 @@
                             visibility: 'public',
                             status: 'scheduled',
                             scheduled_at: post.publish_at,
-                            attachedMedia: JSON.parse(post.media_urls || '[]')
+                            attachedMedia: (() => {
+                                try {
+                                    const parsed = JSON.parse(post.media_urls);
+                                    return Array.isArray(parsed) ? parsed : [];
+                                } catch (e) {
+                                    return [];
+                                }
+                            })()
                         };
                         dbUpdatedAt = post.updated_at;
                     } else {

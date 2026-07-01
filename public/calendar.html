@@ -919,6 +919,9 @@
                         </div>
                         <div style="display:flex; align-items:center; gap:0.5rem;">
                             <publish-status-badge status="${item.status}"></publish-status-badge>
+                            ${item.status === 'scheduled' || item.status === 'failed' ? `
+                                <a href="post-editor.html?id=${item.id}&type=scheduled" class="btn btn-secondary btn-sm" style="padding: 0.25rem 0.5rem; font-size: 0.75rem; text-decoration: none;">Edit</a>
+                            ` : ''}
                             <button class="btn btn-secondary btn-sm btn-item-open" data-id="${item.id}" style="padding:0.25rem 0.5rem;">Open</button>
                         </div>
                     `;
@@ -978,7 +981,12 @@
                         ${item.retry_count || 0} / 3
                     </td>
                     <td style="padding: 1rem; text-align: right;">
-                        <button class="btn btn-secondary btn-sm btn-row-open" style="padding: 0.25rem 0.5rem; font-size: 0.75rem;">Open</button>
+                        <div style="display: flex; gap: 0.5rem; justify-content: flex-end; align-items: center;">
+                            ${item.status === 'scheduled' || item.status === 'failed' ? `
+                                <a href="post-editor.html?id=${item.id}&type=scheduled" class="btn btn-secondary btn-sm" style="padding: 0.25rem 0.5rem; font-size: 0.75rem; text-decoration: none;">Edit</a>
+                            ` : ''}
+                            <button class="btn btn-secondary btn-sm btn-row-open" style="padding: 0.25rem 0.5rem; font-size: 0.75rem;">Open</button>
+                        </div>
                     </td>
                 `;
 

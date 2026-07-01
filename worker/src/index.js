@@ -279,10 +279,26 @@ const OAuthProviders = {
             }
 
             const data = await response.json();
-            const accessToken = data.access_token;
+            const shortLivedToken = data.access_token;
             const accountId = data.user_id;
 
-            const profileResponse = await fetch(`https://graph.threads.net/v1.0/me?fields=id,username&access_token=${accessToken}`);
+            // Exchange short-lived token (1 hour) for long-lived token (60 days)
+            const exchangeResponse = await fetch(
+                `https://graph.threads.net/access_token?grant_type=th_exchange_token&client_secret=${clientSecret}&access_token=${shortLivedToken}`
+            );
+            
+            let finalToken = shortLivedToken;
+            let expiresIn = data.expires_in || 3600;
+            
+            if (exchangeResponse.ok) {
+                const exchangeData = await exchangeResponse.json();
+                finalToken = exchangeData.access_token;
+                expiresIn = exchangeData.expires_in || (86400 * 60);
+            } else {
+                console.error("[Threads] Failed to exchange for long-lived token:", await exchangeResponse.text());
+            }
+
+            const profileResponse = await fetch(`https://graph.threads.net/v1.0/me?fields=id,username&access_token=${finalToken}`);
             let accountName = `@threads_user_${accountId}`;
             if (profileResponse.ok) {
                 const profile = await profileResponse.json();
@@ -290,9 +306,9 @@ const OAuthProviders = {
             }
 
             return {
-                access_token: accessToken,
+                access_token: finalToken,
                 refresh_token: data.refresh_token || "threads-no-refresh-token",
-                expires_in: data.expires_in || (86400 * 60),
+                expires_in: expiresIn,
                 account_name: accountName,
                 account_id: accountId.toString()
             };
@@ -320,6 +336,7 @@ const OAuthProviders = {
                 };
             }
 
+            // 1. Get short-lived User token
             const response = await fetch("https://graph.facebook.com/v18.0/oauth/access_token", {
                 method: "POST",
                 headers: { "Content-Type": "application/x-www-form-urlencoded" },
@@ -337,33 +354,47 @@ const OAuthProviders = {
             }
 
             const data = await response.json();
-            const accessToken = data.access_token;
+            const shortLivedUserToken = data.access_token;
 
-            const profileResponse = await fetch(`https://graph.facebook.com/v18.0/me?fields=id,name&access_token=${accessToken}`);
-            let accountName = "Facebook User";
-            let accountId = "facebook_user";
-            if (profileResponse.ok) {
-                const profile = await profileResponse.json();
-                accountName = profile.name;
-                accountId = profile.id;
+            // 2. Exchange short-lived User token for long-lived User token (60 days)
+            const fbExchangeResponse = await fetch(
+                `https://graph.facebook.com/v18.0/oauth/access_token?grant_type=fb_exchange_token&client_id=${clientId}&client_secret=${clientSecret}&fb_exchange_token=${shortLivedUserToken}`
+            );
+            
+            let longLivedUserToken = shortLivedUserToken;
+            if (fbExchangeResponse.ok) {
+                const exchangeData = await fbExchangeResponse.json();
+                longLivedUserToken = exchangeData.access_token;
+            } else {
+                console.error("[Facebook] Failed to exchange User token for long-lived token:", await fbExchangeResponse.text());
             }
 
-            // Fetch managed Facebook Pages to store Page info
-            const pagesResponse = await fetch(`https://graph.facebook.com/v18.0/me/accounts?access_token=${accessToken}`);
+            // 3. Fetch managed Facebook Pages with the long-lived User token to get permanent Page tokens
+            const pagesResponse = await fetch(`https://graph.facebook.com/v18.0/me/accounts?access_token=${longLivedUserToken}`);
+            
+            let finalToken = longLivedUserToken;
+            let accountName = "Facebook User";
+            let accountId = "facebook_user";
+            
             if (pagesResponse.ok) {
                 const pagesData = await pagesResponse.json();
                 const pages = pagesData.data || [];
                 if (pages.length > 0) {
-                    // Use first managed page as the connected account
+                    // Use the Page Access Token which is permanent (never expires)
+                    finalToken = pages[0].access_token;
                     accountName = `${pages[0].name} (FB Page)`;
                     accountId = pages[0].id;
+                } else {
+                    throw new Error("No Facebook Pages found. Ensure you manage at least one Page and granted pages_show_list permission.");
                 }
+            } else {
+                throw new Error("Failed to retrieve Facebook Pages from User profile.");
             }
 
             return {
-                access_token: accessToken,
+                access_token: finalToken,
                 refresh_token: "facebook-no-refresh-token",
-                expires_in: data.expires_in || 5184000,
+                expires_in: 5184000, // 60 days reference representation
                 account_name: accountName,
                 account_id: accountId.toString()
             };

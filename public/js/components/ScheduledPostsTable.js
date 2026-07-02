@@ -19,9 +19,9 @@ class ScheduledPostsTable extends HTMLElement {
                     <table style="width: 100%; border-collapse: collapse; text-align: left; font-size: 0.875rem;">
                         <thead>
                             <tr style="border-bottom: 2px solid var(--color-border); color: var(--color-text-tertiary); font-weight: 600;">
-                                <th style="padding: 0.75rem 1rem;">Platform</th>
+                                <th style="padding: 0.75rem 1rem; white-space: nowrap;">Platform</th>
                                 <th style="padding: 0.75rem 1rem;">Content</th>
-                                <th style="padding: 0.75rem 1rem;">Publish At</th>
+                                <th style="padding: 0.75rem 1rem; white-space: nowrap;">Publish At</th>
                                 <th style="padding: 0.75rem 1rem;">Status</th>
                                 <th style="padding: 0.75rem 1rem; text-align: right;">Actions</th>
                             </tr>
@@ -37,7 +37,7 @@ class ScheduledPostsTable extends HTMLElement {
 
             <!-- View Post Modal Component -->
             <div class="modal-backdrop" id="viewPostModal" style="display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.55); z-index: 9999; align-items: center; justify-content: center; backdrop-filter: blur(4px);">
-                <div class="card" style="width: 100%; max-width: 450px; padding: 1.5rem; margin: 1rem; border-radius: var(--radius-md); box-shadow: var(--shadow-lg); background: var(--color-bg-primary); border: 1px solid var(--color-border);">
+                <div class="card" style="width: 100%; max-width: 450px; padding: 1.5rem; margin: 1rem; border-radius: var(--radius-md); box-shadow: var(--shadow-lg); background: var(--color-bg-card, #ffffff); border: 1px solid var(--color-border);">
                     <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.25rem;">
                         <h3 style="font-size: 1.15rem; font-weight: 700; color: var(--color-text-primary); margin: 0;">Scheduled Post Details</h3>
                         <button id="closeViewPostModal" style="background: none; border: none; cursor: pointer; color: var(--color-text-tertiary); display: flex; align-items: center; justify-content: center; padding: 0.25rem;">
@@ -58,7 +58,7 @@ class ScheduledPostsTable extends HTMLElement {
                         </div>
                         <div>
                             <span style="font-size: 0.75rem; font-weight: 600; color: var(--color-text-tertiary); text-transform: uppercase;">Content</span>
-                            <div id="viewPostContent" style="margin-top: 0.5rem; padding: 1rem; background: var(--color-bg-secondary); border: 1px solid var(--color-border); border-radius: var(--radius-sm); font-size: 0.9rem; color: var(--color-text-primary); white-space: pre-wrap; word-break: break-word; max-height: 200px; overflow-y: auto;"></div>
+                            <div id="viewPostContent" style="margin-top: 0.5rem; padding: 1rem; background: var(--color-bg-base, #f3f4f6); border: 1px solid var(--color-border); border-radius: var(--radius-sm); font-size: 0.9rem; color: var(--color-text-primary); white-space: pre-wrap; word-break: break-word; max-height: 200px; overflow-y: auto;"></div>
                         </div>
                     </div>
                     <div style="margin-top: 1.5rem; display: flex; justify-content: flex-end;">
@@ -91,7 +91,7 @@ class ScheduledPostsTable extends HTMLElement {
                 const tr = document.createElement('tr');
                 tr.style.borderBottom = '1px solid var(--color-border)';
                 
-                const timeString = timezoneService.formatUtcToLocal(post.publish_at);
+                const timeString = timezoneService.formatUtcToLocal(post.publish_at, { timeZoneName: undefined });
                 
                 // Only render Threads SVG logo for threads, otherwise mobile icon
                 const platformHtml = post.platform === 'threads' 
@@ -111,7 +111,7 @@ class ScheduledPostsTable extends HTMLElement {
                     <td style="padding: 1rem; max-width: 280px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">
                         ${truncatedContent}
                     </td>
-                    <td style="padding: 1rem; color: var(--color-text-secondary); font-size: 0.8125rem;">
+                    <td style="padding: 1rem; color: var(--color-text-secondary); font-size: 0.8125rem; white-space: nowrap;">
                         ${timeString}
                     </td>
                     <td style="padding: 1rem;">

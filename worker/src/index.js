@@ -2533,34 +2533,34 @@ export default {
 
                                 await env.DB.prepare(
                                     `INSERT INTO publish_logs (schedule_id, social_account_id, status, error_message, external_post_id, response_payload, published_at) 
-                                     VALUES (NULL, ?, 'success', NULL, ?, ?, ?)`
-                                ).bind(socialAccount.id, result.provider_post_id, JSON.stringify(result), nowStr).run();
-
-                                return new Response(JSON.stringify({ success: true, message: 'Published successfully', result }), { status: 200, headers: corsHeaders });
-                            } else {
-                                await env.DB.prepare(
-                                    `UPDATE scheduled_posts 
-                                     SET status = 'failed', error_message = ? 
-                                     WHERE id = ?`
-                                ).bind(result.error_message, spId).run();
-
-                                await env.DB.prepare(
-                                    `INSERT INTO publish_logs (schedule_id, social_account_id, status, error_message, response_payload, published_at) 
-                                     VALUES (NULL, ?, 'failed', ?, ?, (datetime('now')))`
-                                ).bind(socialAccount.id, result.error_message, JSON.stringify(result)).run();
-
-                                return new Response(JSON.stringify({ success: false, message: result.error_message }), { status: 400, headers: corsHeaders });
-                            }
-                        } catch (err) {
-                            await env.DB.prepare("UPDATE scheduled_posts SET status = 'failed', error_message = ? WHERE id = ?").bind(err.message, spId).run();
-                            
-                            // Insert into logs
-                            if (scheduledPost.account_id) {
-                                await env.DB.prepare(
-                                    `INSERT INTO publish_logs (schedule_id, social_account_id, status, error_message, response_payload, published_at) 
-                                     VALUES (NULL, ?, 'failed', ?, ?, (datetime('now')))`
-                                ).bind(scheduledPost.account_id, err.message, JSON.stringify({ error: err.message })).run();
-                            }
+                                     VALUES (?, ?, 'success', NULL, ?, ?, ?)`
+                                ).bind(spId, socialAccount.id, result.provider_post_id, JSON.stringify(result), nowStr).run();
+ 
+                                 return new Response(JSON.stringify({ success: true, message: 'Published successfully', result }), { status: 200, headers: corsHeaders });
+                             } else {
+                                 await env.DB.prepare(
+                                     `UPDATE scheduled_posts 
+                                      SET status = 'failed', error_message = ? 
+                                      WHERE id = ?`
+                                 ).bind(result.error_message, spId).run();
+ 
+                                 await env.DB.prepare(
+                                     `INSERT INTO publish_logs (schedule_id, social_account_id, status, error_message, response_payload, published_at) 
+                                      VALUES (?, ?, 'failed', ?, ?, (datetime('now')))`
+                                 ).bind(spId, socialAccount.id, result.error_message, JSON.stringify(result)).run();
+ 
+                                 return new Response(JSON.stringify({ success: false, message: result.error_message }), { status: 400, headers: corsHeaders });
+                             }
+                         } catch (err) {
+                             await env.DB.prepare("UPDATE scheduled_posts SET status = 'failed', error_message = ? WHERE id = ?").bind(err.message, spId).run();
+                             
+                             // Insert into logs
+                             if (scheduledPost.account_id) {
+                                 await env.DB.prepare(
+                                     `INSERT INTO publish_logs (schedule_id, social_account_id, status, error_message, response_payload, published_at) 
+                                      VALUES (?, ?, 'failed', ?, ?, (datetime('now')))`
+                                 ).bind(spId, scheduledPost.account_id, err.message, JSON.stringify({ error: err.message })).run();
+                             }
 
                             return new Response(JSON.stringify({ success: false, message: err.message }), { status: 500, headers: corsHeaders });
                         }

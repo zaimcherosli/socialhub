@@ -134,6 +134,45 @@ export class ThreadsPublisher extends PublisherInterface {
 
                 const containerId = containerData.id;
 
+                // Poll container status to verify it's finished processing before publishing
+                let isReady = false;
+                let attempts = 0;
+                while (!isReady && attempts < 15) {
+                    attempts++;
+                    const statusRes = await fetch(`https://graph.threads.net/v1.0/${containerId}?fields=status,error_message&access_token=${accessToken}`);
+                    const statusData = await statusRes.json().catch(() => ({}));
+                    
+                    if (statusData.status === 'FINISHED') {
+                        isReady = true;
+                        break;
+                    } else if (statusData.status === 'ERROR') {
+                        console.error(`[ThreadsPublisher] Container failed processing: ${statusData.error_message}`);
+                        return {
+                            success: false,
+                            provider: 'threads',
+                            provider_post_id: null,
+                            published_at: null,
+                            error_code: 'API_ERROR',
+                            error_message: statusData.error_message || `Container processing error for part ${i + 1}.`,
+                            retryable: false
+                        };
+                    }
+                    
+                    await new Promise(resolve => setTimeout(resolve, 1000));
+                }
+
+                if (!isReady) {
+                    return {
+                        success: false,
+                        provider: 'threads',
+                        provider_post_id: null,
+                        published_at: null,
+                        error_code: 'TIMEOUT',
+                        error_message: `Container for part ${i + 1} remained unfinished after 15 seconds.`,
+                        retryable: true
+                    };
+                }
+
                 const publishUrl = new URL(`https://graph.threads.net/v1.0/${threadsAccountId}/threads_publish`);
                 publishUrl.searchParams.set('creation_id', containerId);
                 publishUrl.searchParams.set('access_token', accessToken);

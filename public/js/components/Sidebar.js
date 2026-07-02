@@ -54,7 +54,7 @@ class Sidebar extends HTMLElement {
                                 <polyline points="6 9 12 15 18 9"></polyline>
                             </svg>
                         </button>
-                        <div class="dropdown-menu" id="workspaceDropdownMenu" style="display: none; position: absolute; top: 100%; left: 0; right: 0; margin-top: 0.25rem; background: var(--color-bg-primary); border: 1px solid var(--color-border); border-radius: var(--radius-sm); box-shadow: var(--shadow-md); z-index: 100; max-height: 250px; overflow-y: auto; padding: 0.5rem 0;">
+                        <div class="dropdown-menu" id="workspaceDropdownMenu" style="display: none; position: absolute; top: 100%; left: 0; right: 0; margin-top: 0.25rem; background: var(--color-bg-primary); border: 1px solid var(--color-border); border-radius: var(--radius-sm); box-shadow: var(--shadow-md); z-index: 9999; max-height: 250px; overflow-y: auto; padding: 0.5rem 0;">
                             <div style="padding: 0.5rem 1rem; font-size: 0.7rem; color: var(--color-text-tertiary); text-transform: uppercase; font-weight: 700; letter-spacing: 0.05em;">Switch Workspace</div>
                             <div id="workspaceListItems"></div>
                             <div style="border-top: 1px solid var(--color-border); margin: 0.5rem 0;"></div>
@@ -178,7 +178,7 @@ class Sidebar extends HTMLElement {
                         <div class="user-info" style="flex: 1; min-width: 0; display: flex; flex-direction: column;">
                             <span class="user-name" id="sidebarUserName">John Doe</span>
                             <span class="user-plan">Admin Pro</span>
-                            <span class="user-version" style="font-size: 0.65rem; color: var(--color-text-tertiary); font-weight: 500; margin-top: 0.1rem;">v0.13.1</span>
+                            <span class="user-version" style="font-size: 0.65rem; color: var(--color-text-tertiary); font-weight: 500; margin-top: 0.1rem;">v0.13.4</span>
                         </div>
                         <button class="header-action-btn" id="btnSidebarLogout" title="Logout" style="padding: 0.35rem; color: var(--color-danger); background: none; border: none; cursor: pointer; display: flex; align-items: center; justify-content: center;">
                             <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
@@ -280,7 +280,8 @@ class Sidebar extends HTMLElement {
                 ? 'http://localhost:8787'
                 : window.location.origin;
 
-            const token = localStorage.getItem('socialhub_token');
+            // Read token using the same key as sessionService (socialhub_jwt)
+            const token = localStorage.getItem('socialhub_jwt') || sessionStorage.getItem('socialhub_jwt');
             if (!token) return;
 
             // 1. Get list of workspaces

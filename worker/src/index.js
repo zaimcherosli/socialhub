@@ -502,7 +502,7 @@ export default {
             const payload = await verifyJWT(token, jwtSecret);
             if (!payload || !payload.sub) return null;            if (!env.DB) return { uuid: payload.sub, email: payload.email, name: payload.name, role: payload.role };
 
-            return await env.DB.prepare("SELECT id, uuid, name, email, role, status FROM users WHERE uuid = ?")
+            return await env.DB.prepare("SELECT id, uuid, name, email, role, status, active_workspace_id FROM users WHERE uuid = ?")
                 .bind(payload.sub)
                 .first();
         };
@@ -517,13 +517,42 @@ export default {
 
         const getActiveWorkspace = async (user) => {
             if (!user) return null;
-            return await env.DB.prepare(
+
+            // Ensure active_workspace_id column exists (idempotent auto-migration)
+            try {
+                await env.DB.prepare("ALTER TABLE users ADD COLUMN active_workspace_id INTEGER REFERENCES workspaces(id) ON DELETE SET NULL").run();
+            } catch (_) { /* column already exists */ }
+
+            // If user has active workspace selected, verify and return it
+            if (user.active_workspace_id) {
+                const ws = await env.DB.prepare(
+                    `SELECT m.role, w.id as workspace_id, w.uuid, w.name, w.slug, w.subscription_plan, w.subscription_status
+                     FROM workspace_members m
+                     JOIN workspaces w ON m.workspace_id = w.id
+                     WHERE m.user_id = ? AND w.id = ?`
+                ).bind(user.id, user.active_workspace_id).first();
+                if (ws) return ws;
+            }
+
+            // Fallback to first available workspace
+            const fallbackWs = await env.DB.prepare(
                 `SELECT m.role, w.id as workspace_id, w.uuid, w.name, w.slug, w.subscription_plan, w.subscription_status
                  FROM workspace_members m
                  JOIN workspaces w ON m.workspace_id = w.id
                  WHERE m.user_id = ?
                  ORDER BY w.id ASC`
             ).bind(user.id).first();
+
+            if (fallbackWs) {
+                try {
+                    await env.DB.prepare("UPDATE users SET active_workspace_id = ? WHERE id = ?")
+                        .bind(fallbackWs.workspace_id, user.id)
+                        .run();
+                    user.active_workspace_id = fallbackWs.workspace_id;
+                } catch (_) {}
+            }
+
+            return fallbackWs;
         };
 
         const logActivity = async (workspaceId, userId, action, details) => {
@@ -1264,6 +1293,89 @@ export default {
                     } catch (e) {
                         return new Response(JSON.stringify({ message: e.message }), { status: 500, headers: corsHeaders });
                     }
+                }
+
+                case '/api/workspaces': {
+                    const user = await getAuthUser();
+                    if (!user) return new Response(JSON.stringify({ message: 'Unauthorized session' }), { status: 401, headers: corsHeaders });
+                    if (!env.DB) return new Response(JSON.stringify({ message: 'Database missing' }), { status: 500, headers: corsHeaders });
+
+                    if (request.method === 'GET') {
+                        const { results } = await env.DB.prepare(
+                            `SELECT w.id, w.uuid, w.name, w.slug, w.subscription_plan, w.subscription_status, m.role
+                             FROM workspace_members m
+                             JOIN workspaces w ON m.workspace_id = w.id
+                             WHERE m.user_id = ?
+                             ORDER BY w.id ASC`
+                        ).bind(user.id).all();
+                        return new Response(JSON.stringify({ success: true, workspaces: results }), { status: 200, headers: corsHeaders });
+                    }
+
+                    if (request.method === 'POST') {
+                        const activeWorkspace = await getActiveWorkspace(user);
+                        if (!activeWorkspace) return new Response(JSON.stringify({ message: 'No active workspace found' }), { status: 404, headers: corsHeaders });
+
+                        // Check if current workspace has a premium plan (pro, agency, enterprise)
+                        if (!['pro', 'agency', 'enterprise'].includes(activeWorkspace.subscription_plan)) {
+                            return new Response(JSON.stringify({ message: 'Upgrade to PRO plan to create multiple workspaces!' }), { status: 403, headers: corsHeaders });
+                        }
+
+                        const { name, slug } = await request.json();
+                        if (!name || !name.trim()) return new Response(JSON.stringify({ message: 'Workspace name is required' }), { status: 400, headers: corsHeaders });
+                        
+                        const wsName = name.trim();
+                        const wsSlug = slug ? slug.trim().toLowerCase() : `workspace-${Date.now()}`;
+
+                        try {
+                            const wsUuid = crypto.randomUUID();
+                            const wsResult = await env.DB.prepare(
+                                `INSERT INTO workspaces (uuid, name, slug, subscription_plan, subscription_status)
+                                 VALUES (?, ?, ?, 'free', 'active')`
+                            ).bind(wsUuid, wsName, wsSlug).run();
+                            const newWsId = wsResult.meta.last_row_id;
+
+                            // Add user as owner
+                            await env.DB.prepare(
+                                `INSERT INTO workspace_members (workspace_id, user_id, role)
+                                 VALUES (?, ?, 'owner')`
+                            ).bind(newWsId, user.id).run();
+
+                            // Auto-switch to this workspace
+                            await env.DB.prepare("UPDATE users SET active_workspace_id = ? WHERE id = ?").bind(newWsId, user.id).run();
+
+                            await logActivity(newWsId, user.id, 'create_workspace', `Created workspace "${wsName}"`);
+
+                            return new Response(JSON.stringify({ success: true, message: 'Workspace created and switched successfully!' }), { status: 201, headers: corsHeaders });
+                        } catch (e) {
+                            return new Response(JSON.stringify({ message: 'Slug already taken or creation failed' }), { status: 400, headers: corsHeaders });
+                        }
+                    }
+
+                    return new Response(JSON.stringify({ error: 'Method not allowed' }), { status: 405, headers: corsHeaders });
+                }
+
+                case '/api/workspaces/switch': {
+                    const user = await getAuthUser();
+                    if (!user) return new Response(JSON.stringify({ message: 'Unauthorized session' }), { status: 401, headers: corsHeaders });
+                    if (!env.DB) return new Response(JSON.stringify({ message: 'Database missing' }), { status: 500, headers: corsHeaders });
+
+                    if (request.method !== 'POST') return new Response(JSON.stringify({ error: 'Method not allowed' }), { status: 405, headers: corsHeaders });
+
+                    const { workspace_id } = await request.json();
+                    if (!workspace_id) return new Response(JSON.stringify({ message: 'Workspace ID is required' }), { status: 400, headers: corsHeaders });
+
+                    // Verify membership
+                    const member = await env.DB.prepare(
+                        "SELECT id FROM workspace_members WHERE workspace_id = ? AND user_id = ?"
+                    ).bind(workspace_id, user.id).first();
+
+                    if (!member) {
+                        return new Response(JSON.stringify({ message: 'Forbidden: You are not a member of this workspace' }), { status: 403, headers: corsHeaders });
+                    }
+
+                    await env.DB.prepare("UPDATE users SET active_workspace_id = ? WHERE id = ?").bind(workspace_id, user.id).run();
+                    
+                    return new Response(JSON.stringify({ success: true, message: 'Workspace switched successfully' }), { status: 200, headers: corsHeaders });
                 }
 
                 case '/api/workspaces/me': {

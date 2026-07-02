@@ -6,6 +6,7 @@ class Sidebar extends HTMLElement {
         this.render();
         this.setActiveLink();
         this.initCloseButton();
+        this.initWorkspaceSwitcher();
     }
 
     render() {
@@ -34,6 +35,63 @@ class Sidebar extends HTMLElement {
                             <line x1="6" y1="6" x2="18" y2="18"></line>
                         </svg>
                     </button>
+                </div>
+
+                <!-- Workspace Switcher Section -->
+                <div class="workspace-switcher-container" style="padding: 0 1.25rem 1rem 1.25rem; border-bottom: 1px solid var(--color-border); margin-bottom: 1rem;">
+                    <div class="dropdown" style="position: relative; width: 100%;">
+                        <button class="btn btn-secondary" id="workspaceDropdownBtn" style="width: 100%; display: flex; align-items: center; justify-content: space-between; padding: 0.5rem 0.75rem; font-size: 0.85rem; font-weight: 600; text-align: left; background: var(--color-bg-secondary); border: 1px solid var(--color-border); border-radius: var(--radius-sm); color: var(--color-text-primary); cursor: pointer; box-shadow: var(--shadow-sm);">
+                            <span style="display: flex; align-items: center; gap: 0.5rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">
+                                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="color: var(--color-primary); flex-shrink: 0;">
+                                    <rect x="3" y="3" width="7" height="9" rx="1" />
+                                    <rect x="14" y="3" width="7" height="5" rx="1" />
+                                    <rect x="14" y="12" width="7" height="9" rx="1" />
+                                    <rect x="3" y="16" width="7" height="5" rx="1" />
+                                </svg>
+                                <span id="currentWorkspaceName" style="overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">Loading...</span>
+                            </span>
+                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink: 0; margin-left: 0.25rem;">
+                                <polyline points="6 9 12 15 18 9"></polyline>
+                            </svg>
+                        </button>
+                        <div class="dropdown-menu" id="workspaceDropdownMenu" style="display: none; position: absolute; top: 100%; left: 0; right: 0; margin-top: 0.25rem; background: var(--color-bg-primary); border: 1px solid var(--color-border); border-radius: var(--radius-sm); box-shadow: var(--shadow-md); z-index: 100; max-height: 250px; overflow-y: auto; padding: 0.5rem 0;">
+                            <div style="padding: 0.5rem 1rem; font-size: 0.7rem; color: var(--color-text-tertiary); text-transform: uppercase; font-weight: 700; letter-spacing: 0.05em;">Switch Workspace</div>
+                            <div id="workspaceListItems"></div>
+                            <div style="border-top: 1px solid var(--color-border); margin: 0.5rem 0;"></div>
+                            <button class="dropdown-item" id="btnCreateWorkspace" style="width: 100%; text-align: left; padding: 0.5rem 1rem; background: none; border: none; font-size: 0.85rem; font-weight: 600; color: var(--color-primary); cursor: pointer; display: flex; align-items: center; gap: 0.5rem;">
+                                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                                    <line x1="12" y1="5" x2="12" y2="19"></line>
+                                    <line x1="5" y1="12" x2="19" y2="12"></line>
+                                </svg>
+                                Create Workspace
+                            </button>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Create Workspace Modal Component -->
+                <div class="modal-backdrop" id="createWorkspaceModal" style="display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.55); z-index: 9999; align-items: center; justify-content: center; backdrop-filter: blur(4px);">
+                    <div class="card" style="width: 100%; max-width: 400px; padding: 1.5rem; margin: 1rem; border-radius: var(--radius-md); box-shadow: var(--shadow-lg); background: var(--color-bg-primary); border: 1px solid var(--color-border);">
+                        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.25rem;">
+                            <h3 style="font-size: 1.15rem; font-weight: 700; color: var(--color-text-primary); margin: 0;">Create Workspace</h3>
+                            <button id="closeCreateWorkspaceModal" style="background: none; border: none; cursor: pointer; color: var(--color-text-tertiary); display: flex; align-items: center; justify-content: center; padding: 0.25rem;">
+                                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                    <line x1="18" y1="6" x2="6" y2="18"></line>
+                                    <line x1="6" y1="6" x2="18" y2="18"></line>
+                                </svg>
+                            </button>
+                        </div>
+                        <form id="createWorkspaceForm" style="display: flex; flex-direction: column; gap: 1.25rem;">
+                            <div>
+                                <label style="display: block; font-size: 0.85rem; font-weight: 600; color: var(--color-text-secondary); margin-bottom: 0.5rem;">Workspace Name</label>
+                                <input type="text" id="newWorkspaceNameInput" class="form-input" placeholder="e.g. Zaim Pro Workspace" required style="width: 100%; padding: 0.6rem 0.75rem; box-sizing: border-box;">
+                            </div>
+                            <div style="display: flex; gap: 0.75rem; justify-content: flex-end;">
+                                <button type="button" id="btnCancelCreateWorkspace" class="btn btn-secondary" style="cursor: pointer;">Cancel</button>
+                                <button type="submit" class="btn btn-primary" style="cursor: pointer;">Create</button>
+                            </div>
+                        </form>
+                    </div>
                 </div>
 
                 <nav class="sidebar-nav">
@@ -120,7 +178,7 @@ class Sidebar extends HTMLElement {
                         <div class="user-info" style="flex: 1; min-width: 0; display: flex; flex-direction: column;">
                             <span class="user-name" id="sidebarUserName">John Doe</span>
                             <span class="user-plan">Admin Pro</span>
-                            <span class="user-version" style="font-size: 0.65rem; color: var(--color-text-tertiary); font-weight: 500; margin-top: 0.1rem;">v0.12.0</span>
+                            <span class="user-version" style="font-size: 0.65rem; color: var(--color-text-tertiary); font-weight: 500; margin-top: 0.1rem;">v0.13.0</span>
                         </div>
                         <button class="header-action-btn" id="btnSidebarLogout" title="Logout" style="padding: 0.35rem; color: var(--color-danger); background: none; border: none; cursor: pointer; display: flex; align-items: center; justify-content: center;">
                             <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
@@ -185,6 +243,181 @@ class Sidebar extends HTMLElement {
             });
         } else {
             console.warn('⚠️ Sidebar Close Button not found!');
+        }
+    }
+
+    async initWorkspaceSwitcher() {
+        const btnToggle = this.querySelector('#workspaceDropdownBtn');
+        const menu = this.querySelector('#workspaceDropdownMenu');
+        const listContainer = this.querySelector('#workspaceListItems');
+        const currentNameEl = this.querySelector('#currentWorkspaceName');
+        const btnCreate = this.querySelector('#btnCreateWorkspace');
+        const modal = this.querySelector('#createWorkspaceModal');
+        const form = this.querySelector('#createWorkspaceForm');
+        const btnCancel = this.querySelector('#btnCancelCreateWorkspace');
+        const btnCloseModal = this.querySelector('#closeCreateWorkspaceModal');
+        const nameInput = this.querySelector('#newWorkspaceNameInput');
+
+        if (!btnToggle || !menu) return;
+
+        // Toggle dropdown open/close
+        btnToggle.addEventListener('click', (e) => {
+            e.stopPropagation();
+            const isOpen = menu.style.display === 'block';
+            menu.style.display = isOpen ? 'none' : 'block';
+        });
+
+        // Close dropdown when clicking outside
+        document.addEventListener('click', () => {
+            menu.style.display = 'none';
+        });
+
+        menu.addEventListener('click', (e) => e.stopPropagation());
+
+        // Fetch user workspaces
+        try {
+            const apiBase = window.location.origin.includes('localhost') || window.location.origin.includes('127.0.0.1')
+                ? 'http://localhost:8787'
+                : window.location.origin;
+
+            const token = localStorage.getItem('socialhub_token');
+            if (!token) return;
+
+            // 1. Get list of workspaces
+            const res = await fetch(`${apiBase}/api/workspaces`, {
+                headers: { 'Authorization': `Bearer ${token}` }
+            });
+            const data = await res.json();
+
+            // 2. Get active workspace info
+            const meRes = await fetch(`${apiBase}/api/workspaces/me`, {
+                headers: { 'Authorization': `Bearer ${token}` }
+            });
+            const meData = await meRes.json();
+
+            if (meData.success && meData.workspace) {
+                currentNameEl.textContent = meData.workspace.name;
+                // Update workspace role/plan badge in sidebar footer
+                const badgeEl = this.querySelector('.user-plan');
+                if (badgeEl) {
+                    badgeEl.textContent = `${meData.workspace.subscription_plan.toUpperCase()} (${meData.workspace.role.toUpperCase()})`;
+                }
+            }
+
+            if (data.success && data.workspaces) {
+                listContainer.innerHTML = '';
+                data.workspaces.forEach(ws => {
+                    const isCurrent = meData.success && meData.workspace && ws.id === meData.workspace.workspace_id;
+                    const item = document.createElement('button');
+                    item.className = 'dropdown-item';
+                    item.style.cssText = `
+                        width: 100%;
+                        text-align: left;
+                        padding: 0.6rem 1rem;
+                        background: none;
+                        border: none;
+                        font-size: 0.85rem;
+                        font-weight: ${isCurrent ? '700' : '500'};
+                        color: ${isCurrent ? 'var(--color-primary)' : 'var(--color-text-primary)'};
+                        cursor: pointer;
+                        display: flex;
+                        align-items: center;
+                        justify-content: space-between;
+                        gap: 0.5rem;
+                        transition: background var(--transition-fast);
+                    `;
+                    item.addEventListener('mouseenter', () => item.style.background = 'var(--color-bg-secondary)');
+                    item.addEventListener('mouseleave', () => item.style.background = 'none');
+
+                    item.innerHTML = `
+                        <span style="overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">${ws.name}</span>
+                        ${isCurrent ? `
+                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="color: var(--color-primary); flex-shrink: 0;">
+                                <polyline points="20 6 9 17 4 12"></polyline>
+                            </svg>
+                        ` : ''}
+                    `;
+
+                    // Switch event
+                    if (!isCurrent) {
+                        item.addEventListener('click', async () => {
+                            try {
+                                const switchRes = await fetch(`${apiBase}/api/workspaces/switch`, {
+                                    method: 'POST',
+                                    headers: {
+                                        'Authorization': `Bearer ${token}`,
+                                        'Content-Type': 'application/json'
+                                    },
+                                    body: JSON.stringify({ workspace_id: ws.id })
+                                });
+                                const switchData = await switchRes.json();
+                                if (switchData.success) {
+                                    window.location.reload();
+                                } else {
+                                    alert(switchData.message || 'Failed to switch workspace.');
+                                }
+                            } catch (err) {
+                                console.error('Error switching workspace:', err);
+                            }
+                        });
+                    }
+
+                    listContainer.appendChild(item);
+                });
+            }
+
+            // Create Workspace Modal Toggles
+            btnCreate.addEventListener('click', () => {
+                // Pre-check if current workspace is pro/agency/enterprise
+                if (meData.success && meData.workspace && !['pro', 'agency', 'enterprise'].includes(meData.workspace.subscription_plan)) {
+                    alert('⚠️ Ruang kerja (Workspace) tambahan hanya boleh ditambah jika anda melanggan pelan PRO, AGENCY, atau ENTERPRISE.\n\nSila upgrade pelan anda di halaman Settings.');
+                    menu.style.display = 'none';
+                    return;
+                }
+                modal.style.display = 'flex';
+                menu.style.display = 'none';
+                nameInput.focus();
+            });
+
+            const hideModal = () => {
+                modal.style.display = 'none';
+                nameInput.value = '';
+            };
+
+            btnCancel.addEventListener('click', hideModal);
+            btnCloseModal.addEventListener('click', hideModal);
+
+            form.addEventListener('submit', async (e) => {
+                e.preventDefault();
+                const name = nameInput.value.trim();
+                if (!name) return;
+
+                try {
+                    const createRes = await fetch(`${apiBase}/api/workspaces`, {
+                        method: 'POST',
+                        headers: {
+                            'Authorization': `Bearer ${token}`,
+                            'Content-Type': 'application/json'
+                        },
+                        body: JSON.stringify({
+                            name,
+                            slug: `workspace-${Date.now()}`
+                        })
+                    });
+                    const createData = await createRes.json();
+                    if (createData.success) {
+                        window.location.reload();
+                    } else {
+                        alert(createData.message || 'Failed to create workspace.');
+                    }
+                } catch (err) {
+                    console.error('Error creating workspace:', err);
+                    alert('An error occurred while creating workspace.');
+                }
+            });
+
+        } catch (err) {
+            console.error('Error listing workspaces:', err);
         }
     }
 }

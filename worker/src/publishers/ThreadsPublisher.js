@@ -161,7 +161,7 @@ export class ThreadsPublisher extends PublisherInterface {
 
                 // Add a small delay between publications to maintain order on the Threads timeline
                 if (i < chunks.length - 1) {
-                    await new Promise(resolve => setTimeout(resolve, 1000));
+                    await new Promise(resolve => setTimeout(resolve, 3000));
                 }
             }
 

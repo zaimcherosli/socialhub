@@ -948,6 +948,210 @@ export default {
                     }
                 }
 
+                case '/api/ai/quick-schedule': {
+                    const user = await getAuthUser();
+                    if (!user) return new Response(JSON.stringify({ message: 'Unauthorized session' }), { status: 401, headers: corsHeaders });
+                    if (!env.DB) return new Response(JSON.stringify({ message: 'Database missing' }), { status: 500, headers: corsHeaders });
+
+                    const activeWorkspace = await getActiveWorkspace(user);
+                    if (!activeWorkspace) return new Response(JSON.stringify({ message: 'No active workspace found' }), { status: 404, headers: corsHeaders });
+
+                    if (request.method !== 'POST') return new Response(JSON.stringify({ error: 'Method not allowed' }), { status: 405, headers: corsHeaders });
+                    if (activeWorkspace.role === 'viewer') return new Response(JSON.stringify({ message: 'Forbidden: Viewers cannot create content.' }), { status: 403, headers: corsHeaders });
+
+                    // Read workspace AI preferences from DB
+                    const wsAI = await env.DB.prepare(
+                        "SELECT ai_model, ai_api_key_enc FROM workspaces WHERE id = ?"
+                    ).bind(activeWorkspace.workspace_id).first().catch(() => null);
+
+                    const plan = activeWorkspace.subscription_plan;
+                    const maxCredits = PLANS[plan].ai_credits;
+
+                    const hasCustomKey = !!(wsAI?.ai_api_key_enc);
+                    const isDev = env.ENVIRONMENT === 'development';
+                    let currentCreditsUsed = 0;
+
+                    if (!hasCustomKey && !isDev) {
+                        const startOfMonth = new Date(new Date().getFullYear(), new Date().getMonth(), 1).toISOString();
+                        const creditsRes = await env.DB.prepare(
+                            "SELECT COUNT(*) as count FROM audit_logs WHERE workspace_id = ? AND action = 'ai_generate' AND created_at >= ?"
+                        ).bind(activeWorkspace.workspace_id, startOfMonth).first();
+
+                        currentCreditsUsed = creditsRes ? (creditsRes.count || 0) : 0;
+                        if (currentCreditsUsed >= maxCredits) {
+                            return new Response(JSON.stringify({ message: `AI credit limit reached: Your ${plan} plan allows up to ${maxCredits} AI generations per month. Please add your own API key in Settings to bypass this limit or upgrade your subscription.` }), { status: 403, headers: corsHeaders });
+                        }
+                    }
+
+                    try {
+                        const { url, tone, language } = await request.json();
+                        if (!url) {
+                            return new Response(JSON.stringify({ message: 'URL is required.' }), { status: 400, headers: corsHeaders });
+                        }
+
+                        let title = "";
+                        let description = "";
+                        let pageText = "";
+                        
+                        try {
+                            const finalUrl = url.trim();
+                            const res = await fetch(finalUrl, {
+                                headers: {
+                                    'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+                                    'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8',
+                                    'Accept-Language': 'en-US,en;q=0.9'
+                                },
+                                redirect: 'follow'
+                            });
+
+                            if (res.ok) {
+                                const html = await res.text();
+                                
+                                // Title extraction
+                                const titleMatch = html.match(/<title[^>]*>([\s\S]*?)<\/title>/i);
+                                if (titleMatch) title = titleMatch[1].trim();
+
+                                // Extract og:title
+                                const ogTitleMatch = html.match(/<meta[^>]+property=["']og:title["'][^>]+content=["']([^"']+)["']/i) ||
+                                                     html.match(/<meta[^>]+content=["']([^"']+)["'][^>]+property=["']og:title["']/i);
+                                if (ogTitleMatch) title = ogTitleMatch[1].trim();
+
+                                // Extract og:description
+                                const ogDescMatch = html.match(/<meta[^>]+property=["']og:description["'][^>]+content=["']([^"']+)["']/i) ||
+                                                    html.match(/<meta[^>]+content=["']([^"']+)["'][^>]+property=["']og:description["']/i);
+                                if (ogDescMatch) description = ogDescMatch[1].trim();
+
+                                // Extract description meta tag
+                                const descMatch = html.match(/<meta[^>]+name=["']description["'][^>]+content=["']([^"']+)["']/i) ||
+                                                  html.match(/<meta[^>]+content=["']([^"']+)["'][^>]+name=["']description["']/i);
+                                if (descMatch && !description) description = descMatch[1].trim();
+
+                                let bodyText = html.replace(/<script[^>]*>([\s\S]*?)<\/script>/gi, '')
+                                                   .replace(/<style[^>]*>([\s\S]*?)<\/style>/gi, '')
+                                                   .replace(/<[^>]+>/g, ' ')
+                                                   .replace(/\s+/g, ' ')
+                                                   .trim();
+                                pageText = bodyText.substring(0, 3000);
+                            }
+                        } catch (_) {
+                            // Scrape failed
+                        }
+
+                        // Check block signatures
+                        const decodeHtmlEntities = (str) => {
+                            if (!str) return "";
+                            return str.replace(/&#(\d+);/g, (match, dec) => String.fromCharCode(dec))
+                                      .replace(/&quot;/g, '"')
+                                      .replace(/&amp;/g, '&')
+                                      .replace(/&lt;/g, '<')
+                                      .replace(/&gt;/g, '>')
+                                      .replace(/&nbsp;/g, ' ');
+                        };
+
+                        const decodedTitle = decodeHtmlEntities(title);
+                        const decodedDesc = decodeHtmlEntities(description || pageText.substring(0, 500));
+                        const lowerText = (decodedTitle + " " + decodedDesc).toLowerCase();
+                        const isBlocked = !decodedTitle ||
+                                          lowerText.includes("enable javascript") || 
+                                          lowerText.includes("javascript is disabled") ||
+                                          lowerText.includes("cloudflare") ||
+                                          lowerText.includes("captcha") ||
+                                          lowerText.includes("security check") ||
+                                          lowerText.includes("access denied") ||
+                                          lowerText.includes("robot") ||
+                                          lowerText.includes("unsupported browser") ||
+                                          (decodedTitle.includes("Shopee") && decodedDesc.includes("JavaScript"));
+
+                        if (isBlocked) {
+                            return new Response(JSON.stringify({
+                                success: false,
+                                is_blocked: true,
+                                message: "Situs web menyekat bot automatik (bot protection). Sila isi nama & info produk secara manual."
+                            }), { status: 200, headers: corsHeaders });
+                        }
+
+                        // Build env-like object
+                        const aiEnv = { ...env };
+                        if (wsAI?.ai_model) {
+                            aiEnv.OPENROUTER_MODEL = wsAI.ai_model;
+                        }
+                        if (wsAI?.ai_api_key_enc) {
+                            try {
+                                const decrypted = await decryptToken(wsAI.ai_api_key_enc, encryptionSecret);
+                                if (decrypted) {
+                                    aiEnv.OPENROUTER_API_KEY = decrypted;
+                                    aiEnv.GEMINI_API_KEY = decrypted;
+                                    aiEnv.OPENAI_API_KEY = decrypted;
+                                }
+                            } catch (_) {
+                                aiEnv.OPENROUTER_API_KEY = wsAI.ai_api_key_enc;
+                                aiEnv.GEMINI_API_KEY = wsAI.ai_api_key_enc;
+                                aiEnv.OPENAI_API_KEY = wsAI.ai_api_key_enc;
+                            }
+                        }
+
+                        const provider = AIFactory.getProvider(aiEnv);
+                        const data = await provider.generateThreadStorm({
+                            title: decodedTitle,
+                            description: decodedDesc,
+                            url,
+                            tone: tone || 'Friendly & Casual',
+                            language: language || 'Bahasa Melayu'
+                        });
+
+                        if (!data || !data.threads || data.threads.length === 0) {
+                            throw new Error("AI failed to generate Thread Storm contents.");
+                        }
+
+                        const socialAccount = await env.DB.prepare(
+                            "SELECT id FROM social_accounts WHERE workspace_id = ? AND platform = 'threads' AND status = 'active' LIMIT 1"
+                        ).bind(activeWorkspace.workspace_id).first();
+
+                        if (!socialAccount) {
+                            return new Response(JSON.stringify({ message: 'No active Threads account connected in this workspace.' }), { status: 400, headers: corsHeaders });
+                        }
+
+                        let publishAt = new Date(Date.now() + 10 * 60 * 1000); // 10 minutes from now
+                        const lastPost = await env.DB.prepare(
+                            "SELECT publish_at FROM scheduled_posts WHERE workspace_id = ? AND status = 'scheduled' ORDER BY publish_at DESC LIMIT 1"
+                        ).bind(activeWorkspace.workspace_id).first();
+
+                        if (lastPost && lastPost.publish_at) {
+                            const lastTime = new Date(lastPost.publish_at);
+                            if (lastTime.getTime() > Date.now()) {
+                                publishAt = new Date(lastTime.getTime() + 4 * 60 * 60 * 1000); // stagger by 4 hours
+                            }
+                        }
+
+                        let fullContent = data.threads.join('\n\n---thread-separator---\n\n');
+                        if (data.cta) {
+                            fullContent += `\n\n${data.cta}`;
+                        }
+                        if (data.hashtags && data.hashtags.length > 0) {
+                            const hashtagsStr = data.hashtags.map(h => h.startsWith('#') ? h : `#${h}`).join(' ');
+                            fullContent += `\n\n${hashtagsStr}`;
+                        }
+
+                        const publishTimeStr = publishAt.toISOString();
+                        await env.DB.prepare(
+                            `INSERT INTO scheduled_posts 
+                             (user_id, account_id, platform, content, media_urls, status, publish_at, timezone, retry_count, workspace_id, created_at, updated_at) 
+                             VALUES (?, ?, 'threads', ?, '[]', 'scheduled', ?, 'UTC', 0, ?, datetime('now'), datetime('now'))`
+                        ).bind(user.id, socialAccount.id, fullContent, publishTimeStr, activeWorkspace.workspace_id).run();
+
+                        await logActivity(activeWorkspace.workspace_id, user.id, 'quick_schedule', `Quick scheduled post from URL: ${url.substring(0, 30)}...`);
+
+                        return new Response(JSON.stringify({
+                            success: true,
+                            message: 'Post successfully generated and scheduled!',
+                            publish_at: publishTimeStr
+                        }), { status: 200, headers: corsHeaders });
+
+                    } catch (e) {
+                        return new Response(JSON.stringify({ message: e.message }), { status: 500, headers: corsHeaders });
+                    }
+                }
+
                 case '/api/ai/autopilot': {
                     const user = await getAuthUser();
                     if (!user) return new Response(JSON.stringify({ message: 'Unauthorized session' }), { status: 401, headers: corsHeaders });

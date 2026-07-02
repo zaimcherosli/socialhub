@@ -77,8 +77,8 @@ Provide the output in a strict JSON format with the following keys. Return ONLY 
         }
     }
 
-    async generateThreadStorm({ title, description, url, tone, language }) {
-        const prompt = `You are an expert social media copywriter specializing in Malaysian Malay (Bahasa Melayu Malaysia).
+    async generateThreadStorm({ title, description, url, tone, language, customInstructions }) {
+        let prompt = `You are an expert social media copywriter specializing in Malaysian Malay (Bahasa Melayu Malaysia).
 Your task is to write an engaging, high-converting social media thread storm (suitable for Threads platform) based on a product or video link.
 
 Details:
@@ -92,9 +92,13 @@ Guidelines:
 3. Return each section as a separate thread post.
 4. Each thread post MUST be under 450 characters.
 5. Provide a strong Call to Action (CTA) pointing to the product/video link.
-6. Provide relevant local hashtags.
+6. Provide relevant local hashtags.`;
 
-Output Format:
+        if (customInstructions && customInstructions.trim() !== '') {
+            prompt += `\n7. CRITICAL CUSTOM RULES & GUIDELINES: You MUST follow these specific instructions for hooks, content flow, tone, and CTA layout. Adhere to this strictly:\n${customInstructions}`;
+        }
+
+        prompt += `\n\nOutput Format:
 Provide the output in a strict JSON format with the following keys. Return ONLY the JSON object, with no markdown code blocks, explanations, or additional text:
 {
   "title": "A catchy title for the thread storm",

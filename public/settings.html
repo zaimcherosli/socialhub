@@ -430,6 +430,12 @@
                                 <p style="font-size: 0.72rem; color: var(--color-text-tertiary); margin-top: 0.35rem;">Used for all AI generations in your workspace. Leave blank to use the default key.</p>
                             </div>
 
+                            <div class="form-group" style="margin: 0;">
+                                <label class="form-label" for="customInstructions">Copywriting Guidelines / Knowledge Base</label>
+                                <textarea id="customInstructions" class="form-input" rows="6" placeholder="E.g. Formula menulis Hook: Mula dengan soalan provokatif. Formula Content: Tunjukkan faedah terbesar produk. Formula CTA: Gunakan kata kerja aktif..." style="width: 100%; resize: vertical; font-family: inherit; font-size: 0.8rem; height: auto;"></textarea>
+                                <p style="font-size: 0.72rem; color: var(--color-text-tertiary); margin-top: 0.35rem;">Enter your custom rules, hooks formulas, and knowledge. The AI copywriter will strictly follow these guidelines when writing your caption/thread storm.</p>
+                            </div>
+
                             <!-- AI Credit Usage -->
                             <div class="card" style="padding: 1rem; background: var(--color-bg-accent);">
                                 <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.5rem;">
@@ -565,7 +571,7 @@
             try {
                 const res = await apiClient.get('/ai/settings');
                 if (res.success) {
-                    const { model, has_api_key, credits_used, credits_max } = res;
+                    const { model, has_api_key, credits_used, credits_max, custom_ai_instructions } = res;
 
                     // Try to match a known model card
                     const knownRadio = document.querySelector(`input[value="${model}"]`);
@@ -586,6 +592,8 @@
                     }
 
                     if (has_api_key) keyInput.placeholder = 'API Key Saved •••••••';
+                    
+                    document.getElementById('customInstructions').value = custom_ai_instructions || '';
 
                     if (has_api_key) {
                         document.getElementById('creditBarFill').style.width = '100%';
@@ -625,7 +633,10 @@
             btn.innerHTML = `<span style="display:inline-block;width:14px;height:14px;border:2px solid #fff;border-top-color:transparent;border-radius:50%;animation:spin 0.8s linear infinite;margin-right:0.5rem;"></span>Saving...`;
 
             try {
-                const payload = { model: selectedModel };
+                const payload = { 
+                    model: selectedModel,
+                    custom_ai_instructions: document.getElementById('customInstructions').value.trim()
+                };
                 const apiKey = keyInput.value.trim();
                 if (apiKey && !apiKey.includes('•')) payload.api_key = apiKey;
 

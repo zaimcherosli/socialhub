@@ -553,11 +553,14 @@ export default {
                     try {
                         await env.DB.prepare("ALTER TABLE workspaces ADD COLUMN ai_api_key_enc TEXT").run();
                     } catch (_) { /* column already exists */ }
+                    try {
+                        await env.DB.prepare("ALTER TABLE workspaces ADD COLUMN custom_ai_instructions TEXT").run();
+                    } catch (_) { /* column already exists */ }
 
                     // GET: return current settings + usage
                     if (request.method === 'GET') {
                         const ws = await env.DB.prepare(
-                            "SELECT ai_model, ai_api_key_enc FROM workspaces WHERE id = ?"
+                            "SELECT ai_model, ai_api_key_enc, custom_ai_instructions FROM workspaces WHERE id = ?"
                         ).bind(activeWorkspace.workspace_id).first();
 
                         const plan = activeWorkspace.subscription_plan;
@@ -571,6 +574,7 @@ export default {
                             success: true,
                             model: ws?.ai_model || env.OPENROUTER_MODEL || 'meta-llama/llama-3.2-3b-instruct:free',
                             has_api_key: !!(ws?.ai_api_key_enc),
+                            custom_ai_instructions: ws?.custom_ai_instructions || '',
                             credits_used: creditsRes?.count || 0,
                             credits_max: maxCredits
                         }), { status: 200, headers: corsHeaders });
@@ -581,7 +585,7 @@ export default {
                         if (activeWorkspace.role === 'viewer') {
                             return new Response(JSON.stringify({ message: 'Forbidden: Viewers cannot change settings.' }), { status: 403, headers: corsHeaders });
                         }
-                        const { model, api_key } = await request.json();
+                        const { model, api_key, custom_ai_instructions } = await request.json();
                         if (!model) return new Response(JSON.stringify({ message: 'Model is required.' }), { status: 400, headers: corsHeaders });
 
                         let encKey = null;
@@ -596,12 +600,12 @@ export default {
 
                         if (encKey) {
                             await env.DB.prepare(
-                                "UPDATE workspaces SET ai_model = ?, ai_api_key_enc = ?, updated_at = (datetime('now')) WHERE id = ?"
-                            ).bind(model, encKey, activeWorkspace.workspace_id).run();
+                                "UPDATE workspaces SET ai_model = ?, ai_api_key_enc = ?, custom_ai_instructions = ?, updated_at = (datetime('now')) WHERE id = ?"
+                            ).bind(model, encKey, custom_ai_instructions || null, activeWorkspace.workspace_id).run();
                         } else {
                             await env.DB.prepare(
-                                "UPDATE workspaces SET ai_model = ?, updated_at = (datetime('now')) WHERE id = ?"
-                            ).bind(model, activeWorkspace.workspace_id).run();
+                                "UPDATE workspaces SET ai_model = ?, custom_ai_instructions = ?, updated_at = (datetime('now')) WHERE id = ?"
+                            ).bind(model, custom_ai_instructions || null, activeWorkspace.workspace_id).run();
                         }
 
                         await logActivity(activeWorkspace.workspace_id, user.id, 'update_ai_settings', `AI model changed to: ${model}`);
@@ -877,7 +881,7 @@ export default {
 
                     // Read workspace AI preferences from DB
                     const wsAI = await env.DB.prepare(
-                        "SELECT ai_model, ai_api_key_enc FROM workspaces WHERE id = ?"
+                        "SELECT ai_model, ai_api_key_enc, custom_ai_instructions FROM workspaces WHERE id = ?"
                     ).bind(activeWorkspace.workspace_id).first().catch(() => null);
 
                     const plan = activeWorkspace.subscription_plan;
@@ -932,7 +936,8 @@ export default {
                             description: scrapedDescription || "",
                             url,
                             tone: tone || 'Friendly & Casual',
-                            language: language || 'Bahasa Melayu'
+                            language: language || 'Bahasa Melayu',
+                            customInstructions: wsAI?.custom_ai_instructions || ""
                         });
 
                         await logActivity(activeWorkspace.workspace_id, user.id, 'ai_generate', `Generated thread storm from URL: ${url.substring(0, 30)}...`);
@@ -961,7 +966,7 @@ export default {
 
                     // Read workspace AI preferences from DB
                     const wsAI = await env.DB.prepare(
-                        "SELECT ai_model, ai_api_key_enc FROM workspaces WHERE id = ?"
+                        "SELECT ai_model, ai_api_key_enc, custom_ai_instructions FROM workspaces WHERE id = ?"
                     ).bind(activeWorkspace.workspace_id).first().catch(() => null);
 
                     const plan = activeWorkspace.subscription_plan;
@@ -1096,7 +1101,8 @@ export default {
                             description: decodedDesc,
                             url,
                             tone: tone || 'Friendly & Casual',
-                            language: language || 'Bahasa Melayu'
+                            language: language || 'Bahasa Melayu',
+                            customInstructions: wsAI?.custom_ai_instructions || ""
                         });
 
                         if (!data || !data.threads || data.threads.length === 0) {

@@ -442,7 +442,10 @@
                             <div class="form-group" style="margin: 0;">
                                 <label class="form-label" for="customInstructions">Copywriting Guidelines / Knowledge Base</label>
                                 <textarea id="customInstructions" class="form-input" rows="6" placeholder="E.g. Formula menulis Hook: Mula dengan soalan provokatif. Formula Content: Tunjukkan faedah terbesar produk. Formula CTA: Gunakan kata kerja aktif..." style="width: 100%; resize: vertical; font-family: inherit; font-size: 0.8rem; height: auto;"></textarea>
-                                <p style="font-size: 0.72rem; color: var(--color-text-tertiary); margin-top: 0.35rem;">Enter your custom rules, hooks formulas, and knowledge. The AI copywriter will strictly follow these guidelines when writing your caption/thread storm.</p>
+                                <div style="display: flex; justify-content: space-between; align-items: center; margin-top: 0.35rem;">
+                                    <p style="font-size: 0.72rem; color: var(--color-text-tertiary); margin: 0; flex: 1;">Enter your custom rules, hooks formulas, and knowledge. The AI copywriter will strictly follow these guidelines when writing your caption/thread storm.</p>
+                                    <div id="guidelinesAutoSaveStatus" style="font-size: 0.7rem; font-weight: 600; color: var(--color-text-secondary); opacity: 0; transition: opacity 0.2s; white-space: nowrap; margin-left: 0.5rem;"></div>
+                                </div>
                             </div>
 
                             <!-- AI Credit Usage -->
@@ -666,6 +669,47 @@
                 btn.disabled = false;
                 btn.innerHTML = `<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></svg> Save AI Settings`;
             }
+        });
+
+        // ── Auto-save Copywriting Guidelines / Knowledge Base ─
+        let guidelinesTimeout = null;
+        document.getElementById('customInstructions').addEventListener('input', () => {
+            const statusEl = document.getElementById('guidelinesAutoSaveStatus');
+            statusEl.textContent = 'Saving...';
+            statusEl.style.color = 'var(--color-text-secondary)';
+            statusEl.style.opacity = '1';
+
+            clearTimeout(guidelinesTimeout);
+            guidelinesTimeout = setTimeout(async () => {
+                try {
+                    const radioVal = document.querySelector('input[name="aiModel"]:checked')?.value;
+                    let selectedModel = radioVal || 'meta-llama/llama-3.2-3b-instruct:free';
+                    if (radioVal === 'custom') {
+                        selectedModel = document.getElementById('customModelId').value.trim() || 'meta-llama/llama-3.2-3b-instruct:free';
+                    }
+
+                    const payload = {
+                        model: selectedModel,
+                        custom_ai_instructions: document.getElementById('customInstructions').value.trim()
+                    };
+
+                    const res = await apiClient.post('/ai/settings', payload);
+                    if (res.success) {
+                        statusEl.textContent = '✓ Auto-saved guidelines';
+                        statusEl.style.color = 'var(--color-success, #22c55e)';
+                        setTimeout(() => {
+                            if (statusEl.textContent.includes('Auto-saved')) {
+                                statusEl.style.opacity = '0';
+                            }
+                        }, 3000);
+                    } else {
+                        throw new Error(res.message || 'Save failed');
+                    }
+                } catch (e) {
+                    statusEl.textContent = '❌ Auto-save failed';
+                    statusEl.style.color = 'var(--color-danger, #ef4444)';
+                }
+            }, 1200);
         });
 
         // ── Load Workspace Info ────────────────────────────────

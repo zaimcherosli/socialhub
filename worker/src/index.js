@@ -1842,6 +1842,56 @@ export default {
                     return new Response(JSON.stringify({ success: true, accounts: results }), { status: 200, headers: corsHeaders });
                 }
 
+                case '/api/system/test-threads': {
+                    if (request.method !== 'GET') return new Response(JSON.stringify({ error: 'Method not allowed' }), { status: 405, headers: corsHeaders });
+                    const user = await getAuthUser();
+                    if (!user) return new Response(JSON.stringify({ message: 'Unauthorized session' }), { status: 401, headers: corsHeaders });
+                    if (!env.DB) return new Response(JSON.stringify({ message: 'DB missing' }), { status: 500, headers: corsHeaders });
+
+                    const activeWorkspace = await getActiveWorkspace(user);
+                    if (!activeWorkspace) return new Response(JSON.stringify({ message: 'No active workspace' }), { status: 404, headers: corsHeaders });
+
+                    const threadsAccount = await env.DB.prepare(
+                        "SELECT * FROM social_accounts WHERE workspace_id = ? AND platform = 'threads' LIMIT 1"
+                    ).bind(activeWorkspace.workspace_id).first();
+
+                    if (!threadsAccount) {
+                        return new Response(JSON.stringify({ success: false, message: "No Threads account connected in this workspace." }), { status: 400, headers: corsHeaders });
+                    }
+
+                    const decryptedToken = await decryptToken(threadsAccount.access_token, encryptionSecret);
+                    if (!decryptedToken) {
+                        return new Response(JSON.stringify({ success: false, message: "Failed to decrypt Threads token." }), { status: 500, headers: corsHeaders });
+                    }
+
+                    // 1. Fetch profile info
+                    const profileRes = await fetch(`https://graph.threads.net/v1.0/me?fields=id,username,threads_profile_picture_url&access_token=${decryptedToken}`);
+                    const profileStatus = profileRes.status;
+                    const profileData = await profileRes.json().catch(() => ({}));
+
+                    // 2. Try creating container
+                    const containerRes = await fetch(`https://graph.threads.net/v1.0/${threadsAccount.account_id}/threads?media_type=TEXT&text=test_connection&access_token=${decryptedToken}`, {
+                        method: 'POST'
+                    });
+                    const containerStatus = containerRes.status;
+                    const containerData = await containerRes.json().catch(() => ({}));
+
+                    return new Response(JSON.stringify({
+                        success: true,
+                        account_name: threadsAccount.account_name,
+                        account_id: threadsAccount.account_id,
+                        token_preview: decryptedToken.substring(0, 15) + "..." + decryptedToken.substring(decryptedToken.length - 15),
+                        profile_api: {
+                            status: profileStatus,
+                            data: profileData
+                        },
+                        container_api: {
+                            status: containerStatus,
+                            data: containerData
+                        }
+                    }), { status: 200, headers: corsHeaders });
+                }
+
                 case '/api/system/debug-report': {
                     if (request.method !== 'GET') return new Response(JSON.stringify({ error: 'Method not allowed' }), { status: 405, headers: corsHeaders });
                     const user = await getAuthUser();

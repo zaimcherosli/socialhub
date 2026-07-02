@@ -117,9 +117,10 @@ class Sidebar extends HTMLElement {
                         <div class="avatar-holder">
                             <span class="avatar-letters" id="sidebarInitials">JD</span>
                         </div>
-                        <div class="user-info" style="flex: 1; min-width: 0;">
+                        <div class="user-info" style="flex: 1; min-width: 0; display: flex; flex-direction: column;">
                             <span class="user-name" id="sidebarUserName">John Doe</span>
                             <span class="user-plan">Admin Pro</span>
+                            <span class="user-version" style="font-size: 0.65rem; color: var(--color-text-tertiary); font-weight: 500; margin-top: 0.1rem;">v0.12.0</span>
                         </div>
                         <button class="header-action-btn" id="btnSidebarLogout" title="Logout" style="padding: 0.35rem; color: var(--color-danger); background: none; border: none; cursor: pointer; display: flex; align-items: center; justify-content: center;">
                             <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
@@ -128,9 +129,6 @@ class Sidebar extends HTMLElement {
                                 <line x1="21" y1="12" x2="9" y2="12"></line>
                             </svg>
                         </button>
-                    </div>
-                    <div class="sidebar-version" style="text-align: center; margin-top: 0.75rem; font-size: 0.65rem; color: var(--color-text-tertiary); letter-spacing: 0.05em; font-weight: 500;">
-                        v0.12.0
                     </div>
                 </div>
             </aside>

@@ -11,4 +11,13 @@ export class AIProvider {
     async generateCaption(promptOptions) {
         throw new Error("generateCaption must be implemented by subclasses");
     }
+
+    /**
+     * Generate thread storm copywriting from URL details.
+     * @param {object} options { title, description, url, tone, language }
+     * @returns {Promise<object>} JSON structure { title, threads: string[], cta, hashtags }
+     */
+    async generateThreadStorm(options) {
+        throw new Error("generateThreadStorm must be implemented by subclasses");
+    }
 }

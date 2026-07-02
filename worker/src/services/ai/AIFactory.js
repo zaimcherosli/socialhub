@@ -1,12 +1,24 @@
 import { OpenRouterProvider } from './OpenRouterProvider.js';
 import { GeminiProvider } from './GeminiProvider.js';
 import { CloudflareAIProvider } from './CloudflareAIProvider.js';
+import { OpenAIProvider } from './OpenAIProvider.js';
 
 export class AIFactory {
     static getProvider(env) {
         const model = env.OPENROUTER_MODEL || "";
         const hasGeminiKey = !!env.GEMINI_API_KEY;
         const hasOpenRouterKey = !!env.OPENROUTER_API_KEY;
+        const hasOpenAIKey = !!env.OPENAI_API_KEY;
+
+        const isDirectOpenAI = hasOpenAIKey && (
+            model.toLowerCase().includes("gpt-") || 
+            model.toLowerCase().startsWith("openai/")
+        );
+
+        if (isDirectOpenAI) {
+            const cleanModel = model.startsWith("openai/") ? model.substring(7) : model;
+            return new OpenAIProvider(env.OPENAI_API_KEY, cleanModel);
+        }
 
         const isCloudflare = model.toLowerCase().includes("cloudflare") || 
                              model.toLowerCase().includes("llama-3-8b") ||

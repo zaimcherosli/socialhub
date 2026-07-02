@@ -67,9 +67,10 @@
                 <!-- Left: Form Parameters -->
                 <div class="card" style="padding: 1.75rem; display: flex; flex-direction: column; gap: 1.25rem;">
                     <!-- Tab Headers -->
-                    <div style="display: flex; border-bottom: 1px solid var(--color-border); padding-bottom: 0.5rem; gap: 1.25rem; margin-bottom: 0.5rem;">
+                    <div style="display: flex; border-bottom: 1px solid var(--color-border); padding-bottom: 0.5rem; gap: 1.25rem; margin-bottom: 0.5rem; overflow-x: auto; white-space: nowrap;">
                         <button type="button" class="tab-btn active" id="tabSingle" style="background: none; border: none; font-size: 0.875rem; font-weight: 600; padding: 0.5rem 0.25rem; cursor: pointer; border-bottom: 2px solid var(--color-primary); color: var(--color-primary); transition: all var(--transition-fast);">Single Post</button>
                         <button type="button" class="tab-btn" id="tabAutopilot" style="background: none; border: none; font-size: 0.875rem; font-weight: 500; padding: 0.5rem 0.25rem; cursor: pointer; color: var(--color-text-secondary); transition: all var(--transition-fast);">AI Autopilot Planner 🚀</button>
+                        <button type="button" class="tab-btn" id="tabUrlPost" style="background: none; border: none; font-size: 0.875rem; font-weight: 500; padding: 0.5rem 0.25rem; cursor: pointer; color: var(--color-text-secondary); transition: all var(--transition-fast);">URL Auto-Post 🔗</button>
                     </div>
                     
                     <form id="aiGenerateForm" onsubmit="event.preventDefault();">
@@ -193,6 +194,66 @@
                             🚀 Generate & Schedule Autopilot
                         </button>
                     </form>
+
+                    <!-- URL Auto-Post Form (Hidden by default) -->
+                    <form id="aiUrlForm" style="display: none;" onsubmit="event.preventDefault();">
+                        <!-- Step 1: Input URL -->
+                        <div id="urlInputStep" style="display: flex; flex-direction: column; gap: 1rem;">
+                            <div class="form-group" style="margin: 0;">
+                                <label class="form-label" for="scrapeUrl">Product or Video Link (Shopee / TikTok)</label>
+                                <input type="url" id="scrapeUrl" class="form-input" placeholder="e.g. https://shopee.com.my/product-details..." style="width: 100%;" />
+                            </div>
+                            <button type="button" class="btn btn-primary" id="btnScrapeUrl" style="width: 100%; height: 44px; justify-content: center; font-weight: 600;">
+                                <span id="spinnerScrape" style="display: none; width: 16px; height: 16px; border: 2px solid white; border-top-color: transparent; border-radius: 50%; animation: spin 0.8s linear infinite; margin-right: 0.5rem;"></span>
+                                🔍 Retrieve Link Info
+                            </button>
+                        </div>
+
+                        <!-- Step 2: Edit Scraped Info & Generate (Hidden initially) -->
+                        <div id="urlDetailsStep" style="display: none; flex-direction: column; gap: 1rem;">
+                            <div style="background: var(--color-success-light, #f0fdf4); border: 1px solid var(--color-success-border, #bbf7d0); border-radius: var(--radius-xs); padding: 0.65rem 0.875rem; font-size: 0.75rem; color: var(--color-success, #16a34a); font-weight: 500;">
+                                Link analyzed! You can edit the title or description below to optimize the AI results.
+                            </div>
+                            
+                            <div class="form-group" style="margin: 0;">
+                                <label class="form-label" for="scrapedTitle">Product/Video Name</label>
+                                <input type="text" id="scrapedTitle" class="form-input" placeholder="Enter product name..." style="width: 100%;" />
+                            </div>
+                            
+                            <div class="form-group" style="margin: 0;">
+                                <label class="form-label" for="scrapedDescription">Product Details / Description</label>
+                                <textarea id="scrapedDescription" class="form-input" rows="4" placeholder="AI will use these details to write your copywriting..." style="width: 100%; resize: vertical;"></textarea>
+                            </div>
+
+                            <div class="form-group" style="margin: 0;">
+                                <label class="form-label" for="urlTone">Tone of Voice</label>
+                                <select id="urlTone" class="form-select" style="width: 100%;">
+                                    <option value="Friendly & Casual">Friendly & Casual (Santai & Mesra)</option>
+                                    <option value="Professional & Trustworthy">Professional & Trustworthy (Profesional)</option>
+                                    <option value="Bold & Assertive">Bold & Assertive</option>
+                                    <option value="Humorous & Witty">Humorous & Witty (Lawak / Menarik)</option>
+                                    <option value="Inspiring & Motivational">Inspiring & Motivational</option>
+                                </select>
+                            </div>
+
+                            <div class="form-group" style="margin: 0;">
+                                <label class="form-label" for="urlLanguage">Output Language</label>
+                                <select id="urlLanguage" class="form-select" style="width: 100%;">
+                                    <option value="Malay" selected>Malay (Bahasa Melayu)</option>
+                                    <option value="English">English</option>
+                                    <option value="Chinese">Chinese</option>
+                                </select>
+                            </div>
+
+                            <div style="display: flex; gap: 0.5rem; margin-top: 0.5rem;">
+                                <button type="button" class="btn btn-secondary btn-outline" id="btnBackToUrl" style="flex: 1; justify-content: center; height: 44px; border: 1px solid var(--color-border); background: transparent;">Back</button>
+                                <button type="button" class="btn btn-primary" id="btnGenerateThreads" style="flex: 2; justify-content: center; height: 44px; font-weight: 600;">
+                                    <span id="spinnerGenThreads" style="display: none; width: 16px; height: 16px; border: 2px solid white; border-top-color: transparent; border-radius: 50%; animation: spin 0.8s linear infinite; margin-right: 0.5rem;"></span>
+                                    ✨ Generate Threads
+                                </button>
+                            </div>
+                        </div>
+                    </form>
                 </div>
 
                 <!-- Right: Preview and Editing Panel -->
@@ -206,9 +267,21 @@
                             <input type="text" id="previewTitle" class="form-input" placeholder="Enter post title..." style="width: 100%;" />
                         </div>
 
-                        <div class="form-group">
+                        <!-- Standard Single Post Preview Fields (default) -->
+                        <div id="singlePostPreviewGroup" class="form-group">
                             <label class="form-label" for="previewCaption">Generated Caption</label>
                             <textarea id="previewCaption" class="form-input" rows="5" style="width: 100%; resize: vertical;"></textarea>
+                        </div>
+
+                        <!-- Thread Storm Preview & Editor Group (dynamic) -->
+                        <div id="threadStormPreviewGroup" style="display: none; flex-direction: column; gap: 0.75rem;">
+                            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.25rem;">
+                                <label class="form-label" style="margin: 0;">Thread Storm Items (Editable)</label>
+                                <button type="button" class="btn btn-secondary btn-outline" id="btnAddThreadItem" style="font-size: 0.72rem; padding: 0.25rem 0.5rem; height: 26px; border: 1px solid var(--color-border); background: transparent;">+ Add Thread</button>
+                            </div>
+                            <div id="threadStormCardsContainer" style="display: flex; flex-direction: column; gap: 0.75rem;">
+                                <!-- Dynamic Thread Cards will be inserted here -->
+                            </div>
                         </div>
 
                         <div class="form-group">
@@ -389,12 +462,22 @@
             }
         }
 
+        let currentMode = 'single'; // 'single' or 'threads'
+
         // Gather preview data
         function getPayloadData() {
             const title = outTitle.value.trim() || 'AI Generated Post';
+            let content = "";
+
+            if (currentMode === 'threads') {
+                const textareas = Array.from(document.querySelectorAll('#threadStormCardsContainer .thread-item-textarea'));
+                const threadContents = textareas.map(ta => ta.value.trim()).filter(Boolean);
+                content = threadContents.join('\n\n---thread-separator---\n\n');
+            } else {
+                content = outCaption.value.trim();
+            }
             
             // Format content: Caption + CTA + Hashtags
-            let content = outCaption.value.trim();
             if (outCTA.value.trim()) {
                 content += `\n\n${outCTA.value.trim()}`;
             }
@@ -514,36 +597,240 @@
             }
         });
 
-        // Tab switching logic
+        // Tab switching logic (updated to support 3 tabs)
         const tabSingle = document.getElementById('tabSingle');
         const tabAutopilot = document.getElementById('tabAutopilot');
+        const tabUrlPost = document.getElementById('tabUrlPost');
+        
         const aiGenerateForm = document.getElementById('aiGenerateForm');
         const aiAutopilotForm = document.getElementById('aiAutopilotForm');
+        const aiUrlForm = document.getElementById('aiUrlForm');
+
+        const singlePostPreviewGroup = document.getElementById('singlePostPreviewGroup');
+        const threadStormPreviewGroup = document.getElementById('threadStormPreviewGroup');
+
+        function selectTab(tab) {
+            [tabSingle, tabAutopilot, tabUrlPost].forEach(t => {
+                t.style.borderBottom = "none";
+                t.style.color = "var(--color-text-secondary)";
+                t.classList.remove('active');
+            });
+            tab.style.borderBottom = "2px solid var(--color-primary)";
+            tab.style.color = "var(--color-primary)";
+            tab.classList.add('active');
+        }
 
         tabSingle.addEventListener('click', () => {
-            tabSingle.style.borderBottom = "2px solid var(--color-primary)";
-            tabSingle.style.color = "var(--color-primary)";
-            tabSingle.classList.add('active');
-            
-            tabAutopilot.style.borderBottom = "none";
-            tabAutopilot.style.color = "var(--color-text-secondary)";
-            tabAutopilot.classList.remove('active');
-            
+            selectTab(tabSingle);
             aiGenerateForm.style.display = "block";
             aiAutopilotForm.style.display = "none";
+            aiUrlForm.style.display = "none";
+            
+            currentMode = 'single';
+            singlePostPreviewGroup.style.display = 'block';
+            threadStormPreviewGroup.style.display = 'none';
         });
 
         tabAutopilot.addEventListener('click', () => {
-            tabAutopilot.style.borderBottom = "2px solid var(--color-primary)";
-            tabAutopilot.style.color = "var(--color-primary)";
-            tabAutopilot.classList.add('active');
-            
-            tabSingle.style.borderBottom = "none";
-            tabSingle.style.color = "var(--color-text-secondary)";
-            tabSingle.classList.remove('active');
-            
+            selectTab(tabAutopilot);
             aiGenerateForm.style.display = "none";
             aiAutopilotForm.style.display = "block";
+            aiUrlForm.style.display = "none";
+            
+            currentMode = 'single';
+            singlePostPreviewGroup.style.display = 'block';
+            threadStormPreviewGroup.style.display = 'none';
+        });
+
+        tabUrlPost.addEventListener('click', () => {
+            selectTab(tabUrlPost);
+            aiGenerateForm.style.display = "none";
+            aiAutopilotForm.style.display = "none";
+            aiUrlForm.style.display = "block";
+            
+            currentMode = 'threads';
+            singlePostPreviewGroup.style.display = 'none';
+            threadStormPreviewGroup.style.display = 'flex';
+        });
+
+        // ── Thread Storm Cards Manager ─────────────────────────
+        const threadCardsContainer = document.getElementById('threadStormCardsContainer');
+        const btnAddThreadItem = document.getElementById('btnAddThreadItem');
+
+        function renderThreadStorm(threadsList) {
+            threadCardsContainer.innerHTML = '';
+            if (!threadsList || threadsList.length === 0) {
+                createThreadCard('', 0);
+            } else {
+                threadsList.forEach((text, index) => {
+                    createThreadCard(text, index);
+                });
+            }
+            reindexThreads();
+        }
+
+        function createThreadCard(text, index) {
+            const card = document.createElement('div');
+            card.className = 'thread-card';
+            card.style.cssText = 'border: 1px solid var(--color-border); border-radius: var(--radius-xs); padding: 0.75rem 1rem; background: var(--color-bg-accent); display: flex; flex-direction: column; gap: 0.5rem;';
+            card.innerHTML = `
+                <div style="display: flex; justify-content: space-between; align-items: center;">
+                    <span style="font-size: 0.75rem; font-weight: 600; color: var(--color-primary);">Thread #${index + 1}</span>
+                    <button type="button" class="delete-thread-btn" style="background: none; border: none; cursor: pointer; color: var(--color-danger); padding: 0.2rem;" title="Delete this part">
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>
+                    </button>
+                </div>
+                <textarea class="form-input thread-item-textarea" rows="3" style="width: 100%; font-size: 0.85rem; resize: vertical;" placeholder="Tulis kandungan thread di sini...">${text}</textarea>
+                <div style="text-align: right; font-size: 0.7rem; color: var(--color-text-tertiary);" class="char-counter">0 / 450</div>
+            `;
+
+            const textarea = card.querySelector('.thread-item-textarea');
+            const counter = card.querySelector('.char-counter');
+            const updateCounter = () => {
+                const len = textarea.value.length;
+                counter.textContent = `${len} / 450`;
+                if (len > 450) {
+                    counter.style.color = 'var(--color-danger)';
+                } else {
+                    counter.style.color = 'var(--color-text-tertiary)';
+                }
+            };
+            textarea.addEventListener('input', updateCounter);
+            updateCounter();
+
+            card.querySelector('.delete-thread-btn').addEventListener('click', () => {
+                card.remove();
+                reindexThreads();
+            });
+
+            threadCardsContainer.appendChild(card);
+        }
+
+        function reindexThreads() {
+            const cards = threadCardsContainer.querySelectorAll('.thread-card');
+            cards.forEach((card, index) => {
+                card.querySelector('span').textContent = `Thread #${index + 1}`;
+            });
+        }
+
+        btnAddThreadItem.addEventListener('click', () => {
+            const index = threadCardsContainer.querySelectorAll('.thread-card').length;
+            createThreadCard('', index);
+            reindexThreads();
+        });
+
+        // ── URL Auto-Post Scraper Flow ─────────────────────────
+        const urlInputStep = document.getElementById('urlInputStep');
+        const urlDetailsStep = document.getElementById('urlDetailsStep');
+        const scrapeUrlInput = document.getElementById('scrapeUrl');
+        
+        const scrapedTitleInput = document.getElementById('scrapedTitle');
+        const scrapedDescTextarea = document.getElementById('scrapedDescription');
+        
+        const btnScrapeUrl = document.getElementById('btnScrapeUrl');
+        const spinnerScrape = document.getElementById('spinnerScrape');
+        
+        const btnBackToUrl = document.getElementById('btnBackToUrl');
+        const btnGenerateThreads = document.getElementById('btnGenerateThreads');
+        const spinnerGenThreads = document.getElementById('spinnerGenThreads');
+
+        btnScrapeUrl.addEventListener('click', async () => {
+            const urlVal = scrapeUrlInput.value.trim();
+            if (!urlVal) {
+                alert('Sila masukkan URL Shopee atau TikTok!');
+                return;
+            }
+
+            btnScrapeUrl.disabled = true;
+            spinnerScrape.style.display = 'inline-block';
+
+            try {
+                const res = await apiClient.post('/ai/scrape-url', { url: urlVal });
+                if (res.success) {
+                    scrapedTitleInput.value = res.title || '';
+                    scrapedDescTextarea.value = res.description || '';
+                    
+                    urlInputStep.style.display = 'none';
+                    urlDetailsStep.style.display = 'flex';
+                    
+                    notificationService.success('URL berjaya dianalisis!');
+                } else {
+                    // Fallback to manual entry
+                    scrapedTitleInput.value = '';
+                    scrapedDescTextarea.value = '';
+                    urlInputStep.style.display = 'none';
+                    urlDetailsStep.style.display = 'flex';
+                    notificationService.warning('Gagal menarik info secara automatik (Bot protection). Sila isi nama & info produk secara manual.');
+                }
+            } catch (err) {
+                // Fallback
+                scrapedTitleInput.value = '';
+                scrapedDescTextarea.value = '';
+                urlInputStep.style.display = 'none';
+                urlDetailsStep.style.display = 'flex';
+                notificationService.warning('Ralat rangkaian. Sila isi nama & info produk secara manual.');
+            } finally {
+                btnScrapeUrl.disabled = false;
+                spinnerScrape.style.display = 'none';
+            }
+        });
+
+        btnBackToUrl.addEventListener('click', () => {
+            urlInputStep.style.display = 'flex';
+            urlDetailsStep.style.display = 'none';
+        });
+
+        btnGenerateThreads.addEventListener('click', async () => {
+            const urlVal = scrapeUrlInput.value.trim();
+            const titleVal = scrapedTitleInput.value.trim();
+            const descVal = scrapedDescTextarea.value.trim();
+            const toneVal = document.getElementById('urlTone').value;
+            const langVal = document.getElementById('urlLanguage').value;
+
+            if (!titleVal) {
+                alert('Nama produk diperlukan!');
+                return;
+            }
+
+            btnGenerateThreads.disabled = true;
+            spinnerGenThreads.style.display = 'inline-block';
+
+            try {
+                const response = await apiClient.post('/ai/generate-threads-from-url', {
+                    url: urlVal,
+                    scrapedTitle: titleVal,
+                    scrapedDescription: descVal,
+                    tone: toneVal,
+                    language: langVal
+                });
+
+                if (response.success && response.result) {
+                    const data = response.result;
+                    
+                    // Populate outputs
+                    outTitle.value = data.title || `${titleVal} - Thread Storm`;
+                    outCTA.value = data.cta || `Check it out: ${urlVal}`;
+                    
+                    const hashtagsList = data.hashtags || [];
+                    outHashtags.value = hashtagsList.map(h => h.startsWith('#') ? h : `#${h}`).join(' ');
+
+                    // Render threads cards
+                    const threads = data.threads || [];
+                    renderThreadStorm(threads);
+
+                    emptyState.style.display = 'none';
+                    outputContainer.style.display = 'flex';
+                    
+                    notificationService.success('Copywriting Thread Storm berjaya dijana!');
+                } else {
+                    throw new Error(response.message || 'Generation failed');
+                }
+            } catch (err) {
+                notificationService.error(err.message || 'Ralat berlaku semasa menjana copywriting.');
+            } finally {
+                btnGenerateThreads.disabled = false;
+                spinnerGenThreads.style.display = 'none';
+            }
         });
 
         // Autopilot form generation handler

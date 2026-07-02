@@ -382,6 +382,13 @@
                                     <div class="model-desc">OpenAI · Premium quality output</div>
                                 </label>
 
+                                <label class="model-option-card" id="cardGpt4o" for="modelGpt4o">
+                                    <input type="radio" name="aiModel" id="modelGpt4o" value="openai/gpt-4o">
+                                    <span class="model-badge paid" style="background: #fae8ff; color: #a21caf;">Paid</span>
+                                    <div class="model-name">GPT-4o</div>
+                                    <div class="model-desc">OpenAI · Best Malaysian Malay!</div>
+                                </label>
+
                                 <label class="model-option-card" id="cardClaude" for="modelClaude">
                                     <input type="radio" name="aiModel" id="modelClaude" value="anthropic/claude-3-haiku">
                                     <span class="model-badge paid">Paid</span>
@@ -411,9 +418,9 @@
                         <!-- Right: API Key + Usage -->
                         <div style="display: flex; flex-direction: column; gap: 1.25rem;">
                             <div class="form-group" style="margin: 0;">
-                                <label class="form-label" for="openrouterKey">API Key (Gemini / OpenRouter)</label>
+                                <label class="form-label" for="openrouterKey">API Key (OpenAI / Gemini / OpenRouter)</label>
                                 <div class="api-key-input-wrap">
-                                    <input type="password" id="openrouterKey" class="form-input" placeholder="Enter Gemini or OpenRouter Key..." style="width: 100%;" autocomplete="off" />
+                                    <input type="password" id="openrouterKey" class="form-input" placeholder="Enter OpenAI, Gemini, or OpenRouter Key..." style="width: 100%;" autocomplete="off" />
                                     <button type="button" class="toggle-key-btn" id="btnToggleKey" title="Show/Hide key">
                                         <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" id="eyeIcon">
                                             <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/>
@@ -433,15 +440,18 @@
                                     <div class="credit-bar-fill" id="creditBarFill" style="width: 0%;"></div>
                                 </div>
                                 <p style="font-size: 0.72rem; color: var(--color-text-tertiary); margin: 0;">Add your own API key to bypass plan credit limits.</p>
-                            </div>
-
-                            <div class="api-key-buttons" style="display: flex; gap: 0.5rem; width: 100%;">
-                                <a href="https://aistudio.google.com/" target="_blank" class="btn btn-secondary" style="flex: 1; justify-content: center; font-size: 0.775rem;">
-                                    Get Gemini API Key
-                                </a>
-                                <a href="https://openrouter.ai/keys" target="_blank" class="btn btn-secondary btn-outline" style="flex: 1; justify-content: center; font-size: 0.775rem; border: 1px solid var(--color-border); background: transparent;">
-                                    Get OpenRouter Key
-                                </a>
+                                
+                                <div class="api-key-buttons" style="display: flex; gap: 0.35rem; width: 100%; margin-top: 1rem;">
+                                    <a href="https://platform.openai.com/api-keys" target="_blank" class="btn btn-secondary" style="flex: 1; justify-content: center; font-size: 0.7rem; padding: 0.5rem 0.25rem;">
+                                        Get OpenAI Key
+                                    </a>
+                                    <a href="https://aistudio.google.com/" target="_blank" class="btn btn-secondary btn-outline" style="flex: 1; justify-content: center; font-size: 0.7rem; padding: 0.5rem 0.25rem; border: 1px solid var(--color-border); background: transparent;">
+                                        Get Gemini Key
+                                    </a>
+                                    <a href="https://openrouter.ai/keys" target="_blank" class="btn btn-secondary btn-outline" style="flex: 1; justify-content: center; font-size: 0.7rem; padding: 0.5rem 0.25rem; border: 1px solid var(--color-border); background: transparent;">
+                                        Get OpenRouter Key
+                                    </a>
+                                </div>
                             </div>
                         </div>
                     </div>
@@ -575,7 +585,7 @@
                         }
                     }
 
-                    if (has_api_key) keyInput.placeholder = 'sk-or-v1-••••••• (saved)';
+                    if (has_api_key) keyInput.placeholder = 'API Key Saved •••••••';
 
                     if (has_api_key) {
                         document.getElementById('creditBarFill').style.width = '100%';

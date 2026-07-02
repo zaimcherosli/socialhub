@@ -112,4 +112,108 @@ Provide the output in a strict JSON format matching this schema:
             };
         }
     }
+
+    async generateThreadStorm({ title, description, url, tone, language }) {
+        const prompt = `You are an expert social media copywriter specializing in Malaysian Malay (Bahasa Melayu Malaysia).
+Your task is to write an engaging, high-converting social media thread storm (suitable for Threads platform) based on a product or video link.
+
+Details:
+- Product/Video Title: ${title}
+- Product/Video Description: ${description}
+- Reference URL: ${url}
+
+Guidelines:
+1. Write in natural, trendy Malaysian Malay (Bahasa Melayu Malaysia). Do NOT use Indonesian words (like 'bisa', 'kamu', 'ingin', 'yuk', 'butuh'). Use native Malaysian slangs or standard BM correctly (e.g. 'boleh', 'nak', 'perlu', 'korang').
+2. Since Threads allows multiple posts in a single thread (thread storm), divide the copywriting into sequential steps/points (e.g. introduction, key features, benefits, problem solved).
+3. Return each section as a separate thread post.
+4. Each thread post MUST be under 450 characters.
+5. Provide a strong Call to Action (CTA) pointing to the product/video link.
+6. Provide relevant local hashtags.
+
+Output Format:
+Provide the output in a strict JSON format with the following keys. Return ONLY the JSON object, with no markdown code blocks, explanations, or additional text:
+{
+  "title": "A catchy title for the thread storm",
+  "threads": [
+    "Thread 1 content...",
+    "Thread 2 content..."
+  ],
+  "cta": "Click the link to check it out: ${url}",
+  "hashtags": ["hashtag1", "hashtag2", "hashtag3"]
+}`;
+
+        console.log(`[CloudflareAIProvider] Executing generateThreadStorm with model: ${this.model}`);
+        const response = await this.ai.run(this.model, {
+            messages: [
+                {
+                    role: "system",
+                    content: "You are a professional social media marketing expert. You must write a high-converting, engaging social media post and return the output strictly in JSON format. Do not return any markdown wrappers, explanation, or other text."
+                },
+                {
+                    role: "user",
+                    content: prompt
+                }
+            ]
+        });
+
+        let rawText = "";
+        let parsedResult = null;
+
+        if (response.response && typeof response.response === 'object') {
+            parsedResult = response.response;
+        } else if (response.response) {
+            rawText = response.response;
+        } else if (response.choices && response.choices[0]) {
+            const msg = response.choices[0].message;
+            if (msg && msg.content) {
+                if (typeof msg.content === 'object') {
+                    parsedResult = msg.content;
+                } else {
+                    rawText = msg.content;
+                }
+            } else if (response.choices[0].text) {
+                if (typeof response.choices[0].text === 'object') {
+                    parsedResult = response.choices[0].text;
+                } else {
+                    rawText = response.choices[0].text;
+                }
+            }
+        }
+
+        if (parsedResult) {
+            return {
+                title: parsedResult.title || title,
+                threads: parsedResult.threads || [parsedResult.caption || ""],
+                cta: parsedResult.cta || "",
+                hashtags: parsedResult.hashtags || []
+            };
+        }
+
+        if (!rawText) {
+            throw new Error("Could not extract text response from Cloudflare Workers AI payload.");
+        }
+
+        rawText = rawText.trim();
+        let jsonStr = rawText;
+        if (jsonStr.startsWith("```json")) {
+            jsonStr = jsonStr.substring(7);
+        } else if (jsonStr.startsWith("```")) {
+            jsonStr = jsonStr.substring(3);
+        }
+        if (jsonStr.endsWith("```")) {
+            jsonStr = jsonStr.substring(0, jsonStr.length - 3);
+        }
+
+        try {
+            return JSON.parse(jsonStr.trim());
+        } catch (e) {
+            console.error("Failed to parse Cloudflare thread storm as JSON:", rawText);
+            return {
+                title: title,
+                threads: [rawText],
+                cta: "",
+                hashtags: []
+            };
+        }
+    }
 }

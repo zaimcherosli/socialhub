@@ -723,10 +723,12 @@ export default {
                                 if (decrypted) {
                                     aiEnv.OPENROUTER_API_KEY = decrypted;
                                     aiEnv.GEMINI_API_KEY = decrypted;
+                                    aiEnv.OPENAI_API_KEY = decrypted;
                                 }
                             } catch (_) {
                                 aiEnv.OPENROUTER_API_KEY = wsAI.ai_api_key_enc;
                                 aiEnv.GEMINI_API_KEY = wsAI.ai_api_key_enc;
+                                aiEnv.OPENAI_API_KEY = wsAI.ai_api_key_enc;
                             }
                         }
 
@@ -742,6 +744,177 @@ export default {
                         });
 
                         await logActivity(activeWorkspace.workspace_id, user.id, 'ai_generate', `Generated caption for business "${businessType}": ${product.substring(0, 30)}...`);
+
+                        return new Response(JSON.stringify({
+                            success: true,
+                            result,
+                            model_used: aiEnv.OPENROUTER_MODEL,
+                            credits_remaining: maxCredits - currentCreditsUsed - 1
+                        }), { status: 200, headers: corsHeaders });
+                    } catch (e) {
+                        return new Response(JSON.stringify({ message: e.message }), { status: 500, headers: corsHeaders });
+                    }
+                }
+
+                case '/api/ai/scrape-url': {
+                    const user = await getAuthUser();
+                    if (!user) return new Response(JSON.stringify({ message: 'Unauthorized session' }), { status: 401, headers: corsHeaders });
+                    if (request.method !== 'POST') return new Response(JSON.stringify({ error: 'Method not allowed' }), { status: 405, headers: corsHeaders });
+
+                    try {
+                        const { url } = await request.json();
+                        if (!url) {
+                            return new Response(JSON.stringify({ message: 'URL is required.' }), { status: 400, headers: corsHeaders });
+                        }
+
+                        console.log(`[Scraper] Scraping URL: ${url}`);
+                        const response = await fetch(url, {
+                            headers: {
+                                "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
+                            },
+                            redirect: "follow"
+                        });
+
+                        const finalUrl = response.url || url;
+                        let pageText = "";
+                        let title = "";
+                        let description = "";
+
+                        if (response.ok) {
+                            const html = await response.text();
+                            
+                            // Extract title
+                            const titleMatch = html.match(/<title[^>]*>([^<]+)<\/title>/i);
+                            if (titleMatch) {
+                                title = titleMatch[1].trim();
+                            }
+
+                            // Extract og:title
+                            const ogTitleMatch = html.match(/<meta[^>]+property=["']og:title["'][^>]+content=["']([^"']+)["']/i) ||
+                                                 html.match(/<meta[^>]+content=["']([^"']+)["'][^>]+property=["']og:title["']/i);
+                            if (ogTitleMatch) {
+                                title = ogTitleMatch[1].trim();
+                            }
+
+                            // Extract og:description
+                            const ogDescMatch = html.match(/<meta[^>]+property=["']og:description["'][^>]+content=["']([^"']+)["']/i) ||
+                                                html.match(/<meta[^>]+content=["']([^"']+)["'][^>]+property=["']og:description["']/i);
+                            if (ogDescMatch) {
+                                description = ogDescMatch[1].trim();
+                            }
+
+                            // Extract description meta tag
+                            const descMatch = html.match(/<meta[^>]+name=["']description["'][^>]+content=["']([^"']+)["']/i) ||
+                                              html.match(/<meta[^>]+content=["']([^"']+)["'][^>]+name=["']description["']/i);
+                            if (descMatch && !description) {
+                                description = descMatch[1].trim();
+                            }
+                            
+                            // Clean HTML tags and scripts to get raw text for AI context (up to 3000 chars)
+                            let bodyText = html.replace(/<script[^>]*>([\s\S]*?)<\/script>/gi, '')
+                                               .replace(/<style[^>]*>([\s\S]*?)<\/style>/gi, '')
+                                               .replace(/<[^>]+>/g, ' ')
+                                               .replace(/\s+/g, ' ')
+                                               .trim();
+                            pageText = bodyText.substring(0, 3000);
+                        }
+
+                        const decodeHtmlEntities = (str) => {
+                            if (!str) return "";
+                            return str.replace(/&#(\d+);/g, (match, dec) => String.fromCharCode(dec))
+                                      .replace(/&quot;/g, '"')
+                                      .replace(/&amp;/g, '&')
+                                      .replace(/&lt;/g, '<')
+                                      .replace(/&gt;/g, '>')
+                                      .replace(/&nbsp;/g, ' ');
+                        };
+
+                        return new Response(JSON.stringify({
+                            success: true,
+                            url: finalUrl,
+                            title: decodeHtmlEntities(title),
+                            description: decodeHtmlEntities(description || pageText.substring(0, 500))
+                        }), { status: 200, headers: corsHeaders });
+                    } catch (err) {
+                        return new Response(JSON.stringify({
+                            success: false,
+                            message: `Failed to scrape URL: ${err.message}`
+                        }), { status: 200, headers: corsHeaders });
+                    }
+                }
+
+                case '/api/ai/generate-threads-from-url': {
+                    const user = await getAuthUser();
+                    if (!user) return new Response(JSON.stringify({ message: 'Unauthorized session' }), { status: 401, headers: corsHeaders });
+                    if (!env.DB) return new Response(JSON.stringify({ message: 'Database missing' }), { status: 500, headers: corsHeaders });
+
+                    const activeWorkspace = await getActiveWorkspace(user);
+                    if (!activeWorkspace) return new Response(JSON.stringify({ message: 'No active workspace found' }), { status: 404, headers: corsHeaders });
+
+                    if (request.method !== 'POST') return new Response(JSON.stringify({ error: 'Method not allowed' }), { status: 405, headers: corsHeaders });
+                    if (activeWorkspace.role === 'viewer') return new Response(JSON.stringify({ message: 'Forbidden: Viewers cannot generate content.' }), { status: 403, headers: corsHeaders });
+
+                    // Read workspace AI preferences from DB
+                    const wsAI = await env.DB.prepare(
+                        "SELECT ai_model, ai_api_key_enc FROM workspaces WHERE id = ?"
+                    ).bind(activeWorkspace.workspace_id).first().catch(() => null);
+
+                    const plan = activeWorkspace.subscription_plan;
+                    const maxCredits = PLANS[plan].ai_credits;
+
+                    // Bypass monthly limits check if a workspace-specific API key is set, or if we are in local development
+                    const hasCustomKey = !!(wsAI?.ai_api_key_enc);
+                    const isDev = env.ENVIRONMENT === 'development';
+                    let currentCreditsUsed = 0;
+
+                    if (!hasCustomKey && !isDev) {
+                        const startOfMonth = new Date(new Date().getFullYear(), new Date().getMonth(), 1).toISOString();
+                        const creditsRes = await env.DB.prepare(
+                            "SELECT COUNT(*) as count FROM audit_logs WHERE workspace_id = ? AND action = 'ai_generate' AND created_at >= ?"
+                        ).bind(activeWorkspace.workspace_id, startOfMonth).first();
+
+                        currentCreditsUsed = creditsRes ? (creditsRes.count || 0) : 0;
+                        if (currentCreditsUsed >= maxCredits) {
+                            return new Response(JSON.stringify({ message: `AI credit limit reached: Your ${plan} plan allows up to ${maxCredits} AI generations per month. Please add your own API key in Settings to bypass this limit or upgrade your subscription.` }), { status: 403, headers: corsHeaders });
+                        }
+                    }
+
+                    try {
+                        const { url, scrapedTitle, scrapedDescription, tone, language } = await request.json();
+                        if (!url || !scrapedTitle) {
+                            return new Response(JSON.stringify({ message: 'URL and Title are required.' }), { status: 400, headers: corsHeaders });
+                        }
+
+                        // Build env-like object overriding with workspace preferences
+                        const aiEnv = { ...env };
+                        if (wsAI?.ai_model) {
+                            aiEnv.OPENROUTER_MODEL = wsAI.ai_model;
+                        }
+                        if (wsAI?.ai_api_key_enc) {
+                            try {
+                                const decrypted = await decryptToken(wsAI.ai_api_key_enc, encryptionSecret);
+                                if (decrypted) {
+                                    aiEnv.OPENROUTER_API_KEY = decrypted;
+                                    aiEnv.GEMINI_API_KEY = decrypted;
+                                    aiEnv.OPENAI_API_KEY = decrypted;
+                                }
+                            } catch (_) {
+                                aiEnv.OPENROUTER_API_KEY = wsAI.ai_api_key_enc;
+                                aiEnv.GEMINI_API_KEY = wsAI.ai_api_key_enc;
+                                aiEnv.OPENAI_API_KEY = wsAI.ai_api_key_enc;
+                            }
+                        }
+
+                        const provider = AIFactory.getProvider(aiEnv);
+                        const result = await provider.generateThreadStorm({
+                            title: scrapedTitle,
+                            description: scrapedDescription || "",
+                            url,
+                            tone: tone || 'Friendly & Casual',
+                            language: language || 'Bahasa Melayu'
+                        });
+
+                        await logActivity(activeWorkspace.workspace_id, user.id, 'ai_generate', `Generated thread storm from URL: ${url.substring(0, 30)}...`);
 
                         return new Response(JSON.stringify({
                             success: true,
@@ -785,10 +958,12 @@ export default {
                             if (decrypted) {
                                 aiEnv.OPENROUTER_API_KEY = decrypted;
                                 aiEnv.GEMINI_API_KEY = decrypted;
+                                aiEnv.OPENAI_API_KEY = decrypted;
                             }
                         } catch (_) {
                             aiEnv.OPENROUTER_API_KEY = wsAI.ai_api_key_enc;
                             aiEnv.GEMINI_API_KEY = wsAI.ai_api_key_enc;
+                            aiEnv.OPENAI_API_KEY = wsAI.ai_api_key_enc;
                         }
                     }
 

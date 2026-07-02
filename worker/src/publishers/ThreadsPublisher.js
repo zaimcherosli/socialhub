@@ -56,6 +56,12 @@ export class ThreadsPublisher extends PublisherInterface {
 
         // Helper: split text into chunks of <= 500 characters on paragraph/word bounds
         const splitTextIntoThreads = (text, limit = 500) => {
+            if (text.includes("---thread-separator---")) {
+                return text.split(/[\n\r]*---thread-separator---[\n\r]*/).map(c => c.trim()).filter(Boolean);
+            }
+            if (text.includes("[THREAD_DELIMITER]")) {
+                return text.split(/[\n\r]*\[THREAD_DELIMITER\][\n\r]*/).map(c => c.trim()).filter(Boolean);
+            }
             if (text.length <= limit) return [text];
             
             const paragraphs = text.split('\n');

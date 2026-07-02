@@ -1,21 +1,14 @@
 import { AIProvider } from './AIProvider.js';
 
-export class GeminiProvider extends AIProvider {
+export class OpenAIProvider extends AIProvider {
     constructor(apiKey, model) {
         super();
         this.apiKey = apiKey ? apiKey.replace(/^["']|["']$/g, '') : '';
-        // Auto-migrate deprecated models to gemini-2.5-flash
-        let targetModel = model || 'gemini-2.5-flash';
-        if (targetModel.includes('gemini-2.0-flash') || targetModel.includes('gemini-1.5-flash')) {
-            if (!targetModel.includes('/')) {
-                targetModel = 'gemini-2.5-flash';
-            }
-        }
-        this.model = targetModel;
+        this.model = model || "gpt-4o-mini";
     }
 
     async generateCaption({ businessType, product, targetAudience, goal, tone, language }) {
-        const prompt = `You are a professional social media marketing expert.
+        const prompt = `You are a professional social media marketing expert in Malaysia.
 Write a high-converting, engaging social media post based on the following details:
 - Business Type: ${businessType}
 - Product / Service: ${product}
@@ -24,47 +17,54 @@ Write a high-converting, engaging social media post based on the following detai
 - Tone of Voice: ${tone}
 - Language: ${language}
 
-IMPORTANT: The generated caption MUST be under 350 characters to ensure the total post length including CTA and hashtags stays strictly under 500 characters.
-
-Provide the output in a strict JSON format with the following keys:
+Provide the output in a strict JSON format with the following keys. Return ONLY the JSON object, with no markdown code blocks, explanations, or additional text:
 {
   "caption": "write the main post caption here, engaging and optimized for the specified tone",
   "cta": "write a strong call-to-action",
   "hashtags": ["hashtag1", "hashtag2", "hashtag3"]
 }`;
 
-        const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${this.model}:generateContent?key=${this.apiKey}`, {
+        const response = await fetch("https://api.openai.com/v1/chat/completions", {
             method: "POST",
             headers: {
+                "Authorization": `Bearer ${this.apiKey}`,
                 "Content-Type": "application/json"
             },
             body: JSON.stringify({
-                contents: [{
-                    parts: [{ text: prompt }]
-                }],
-                generationConfig: {
-                    responseMimeType: "application/json"
-                }
+                model: this.model,
+                messages: [
+                    { role: "user", content: prompt }
+                ],
+                temperature: 0.7
             })
         });
 
         if (!response.ok) {
             const errText = await response.text();
-            throw new Error(`Gemini API error: ${response.status} - ${errText}`);
+            throw new Error(`OpenAI API error: ${response.status} - ${errText}`);
         }
 
         const data = await response.json();
-        if (!data.candidates || data.candidates.length === 0 || 
-            !data.candidates[0].content || !data.candidates[0].content.parts || 
-            data.candidates[0].content.parts.length === 0) {
-            throw new Error("Invalid API response format from Gemini.");
+        if (!data.choices || data.choices.length === 0) {
+            throw new Error("Invalid API response format from OpenAI.");
         }
 
-        const rawText = data.candidates[0].content.parts[0].text.trim();
+        const rawText = data.choices[0].message.content.trim();
+        
+        let jsonStr = rawText;
+        if (jsonStr.startsWith("```json")) {
+            jsonStr = jsonStr.substring(7);
+        } else if (jsonStr.startsWith("```")) {
+            jsonStr = jsonStr.substring(3);
+        }
+        if (jsonStr.endsWith("```")) {
+            jsonStr = jsonStr.substring(0, jsonStr.length - 3);
+        }
+        
         try {
-            return JSON.parse(rawText);
+            return JSON.parse(jsonStr.trim());
         } catch (e) {
-            console.error("Failed to parse Gemini output as JSON:", rawText);
+            console.error("Failed to parse OpenAI output as JSON:", rawText);
             return {
                 caption: rawText,
                 cta: "",
@@ -102,38 +102,47 @@ Provide the output in a strict JSON format with the following keys. Return ONLY 
   "hashtags": ["hashtag1", "hashtag2", "hashtag3"]
 }`;
 
-        const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${this.model}:generateContent?key=${this.apiKey}`, {
+        const response = await fetch("https://api.openai.com/v1/chat/completions", {
             method: "POST",
             headers: {
+                "Authorization": `Bearer ${this.apiKey}`,
                 "Content-Type": "application/json"
             },
             body: JSON.stringify({
-                contents: [{
-                    parts: [{ text: prompt }]
-                }],
-                generationConfig: {
-                    responseMimeType: "application/json"
-                }
+                model: this.model,
+                messages: [
+                    { role: "user", content: prompt }
+                ],
+                temperature: 0.7
             })
         });
 
         if (!response.ok) {
             const errText = await response.text();
-            throw new Error(`Gemini API error: ${response.status} - ${errText}`);
+            throw new Error(`OpenAI API error: ${response.status} - ${errText}`);
         }
 
         const data = await response.json();
-        if (!data.candidates || data.candidates.length === 0 || 
-            !data.candidates[0].content || !data.candidates[0].content.parts || 
-            data.candidates[0].content.parts.length === 0) {
-            throw new Error("Invalid API response format from Gemini.");
+        if (!data.choices || data.choices.length === 0) {
+            throw new Error("Invalid API response format from OpenAI.");
         }
 
-        const rawText = data.candidates[0].content.parts[0].text.trim();
+        const rawText = data.choices[0].message.content.trim();
+        
+        let jsonStr = rawText;
+        if (jsonStr.startsWith("```json")) {
+            jsonStr = jsonStr.substring(7);
+        } else if (jsonStr.startsWith("```")) {
+            jsonStr = jsonStr.substring(3);
+        }
+        if (jsonStr.endsWith("```")) {
+            jsonStr = jsonStr.substring(0, jsonStr.length - 3);
+        }
+        
         try {
-            return JSON.parse(rawText);
+            return JSON.parse(jsonStr.trim());
         } catch (e) {
-            console.error("Failed to parse Gemini thread storm output as JSON:", rawText);
+            console.error("Failed to parse OpenAI thread storm as JSON:", rawText);
             return {
                 title: title,
                 threads: [rawText],

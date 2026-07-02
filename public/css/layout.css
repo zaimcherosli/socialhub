@@ -222,6 +222,8 @@ app-header {
     padding-top: 1.5rem;
     border-top: 1px solid var(--color-border);
     margin-top: auto;
+    display: flex;
+    flex-direction: column;
 }
 
 .user-avatar-row {

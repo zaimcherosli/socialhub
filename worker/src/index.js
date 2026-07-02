@@ -489,6 +489,13 @@ export default {
             'Content-Type': 'application/json'
         };
 
+        // Ensure active_workspace_id column exists in users table (idempotent entrypoint auto-migration)
+        if (env.DB) {
+            try {
+                await env.DB.prepare("ALTER TABLE users ADD COLUMN active_workspace_id INTEGER REFERENCES workspaces(id) ON DELETE SET NULL").run();
+            } catch (_) { /* column already exists */ }
+        }
+
         if (request.method === 'OPTIONS') {
             return new Response(null, { status: 204, headers: corsHeaders });
         }

@@ -829,11 +829,32 @@ export default {
                                       .replace(/&nbsp;/g, ' ');
                         };
 
+                        const decodedTitle = decodeHtmlEntities(title);
+                        const decodedDesc = decodeHtmlEntities(description || pageText.substring(0, 500));
+                        const lowerText = (decodedTitle + " " + decodedDesc).toLowerCase();
+                        const isBlocked = lowerText.includes("enable javascript") || 
+                                          lowerText.includes("javascript is disabled") ||
+                                          lowerText.includes("cloudflare") ||
+                                          lowerText.includes("captcha") ||
+                                          lowerText.includes("security check") ||
+                                          lowerText.includes("access denied") ||
+                                          lowerText.includes("robot") ||
+                                          lowerText.includes("unsupported browser") ||
+                                          (decodedTitle.includes("Shopee") && decodedDesc.includes("JavaScript"));
+
+                        if (isBlocked) {
+                            return new Response(JSON.stringify({
+                                success: false,
+                                is_blocked: true,
+                                message: "Situs web menyekat bot automatik (bot protection). Sila isi nama & info produk secara manual."
+                            }), { status: 200, headers: corsHeaders });
+                        }
+
                         return new Response(JSON.stringify({
                             success: true,
                             url: finalUrl,
-                            title: decodeHtmlEntities(title),
-                            description: decodeHtmlEntities(description || pageText.substring(0, 500))
+                            title: decodedTitle,
+                            description: decodedDesc
                         }), { status: 200, headers: corsHeaders });
                     } catch (err) {
                         return new Response(JSON.stringify({

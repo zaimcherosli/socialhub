@@ -760,7 +760,7 @@
                     scrapedDescTextarea.value = '';
                     urlInputStep.style.display = 'none';
                     urlDetailsStep.style.display = 'flex';
-                    notificationService.warning('Gagal menarik info secara automatik (Bot protection). Sila isi nama & info produk secara manual.');
+                    notificationService.warning(res.message || 'Gagal menarik info secara automatik (Bot protection). Sila isi nama & info produk secara manual.');
                 }
             } catch (err) {
                 // Fallback

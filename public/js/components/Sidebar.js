@@ -1,5 +1,4 @@
-/* SocialHub Custom Sidebar Web Component
-   Implements a light-DOM reusable component for easy global styling. */
+import { apiClient } from '../utils/api.js';
 
 class Sidebar extends HTMLElement {
     connectedCallback() {
@@ -178,7 +177,7 @@ class Sidebar extends HTMLElement {
                         <div class="user-info" style="flex: 1; min-width: 0; display: flex; flex-direction: column;">
                             <span class="user-name" id="sidebarUserName">John Doe</span>
                             <span class="user-plan">Admin Pro</span>
-                            <span class="user-version" style="font-size: 0.65rem; color: var(--color-text-tertiary); font-weight: 500; margin-top: 0.1rem;">v0.13.5</span>
+                            <span class="user-version" style="font-size: 0.65rem; color: var(--color-text-tertiary); font-weight: 500; margin-top: 0.1rem;">v0.13.6</span>
                         </div>
                         <button class="header-action-btn" id="btnSidebarLogout" title="Logout" style="padding: 0.35rem; color: var(--color-danger); background: none; border: none; cursor: pointer; display: flex; align-items: center; justify-content: center;">
                             <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
@@ -276,25 +275,11 @@ class Sidebar extends HTMLElement {
 
         // Fetch user workspaces
         try {
-            const apiBase = window.location.origin.includes('localhost') || window.location.origin.includes('127.0.0.1')
-                ? 'http://localhost:8787'
-                : window.location.origin;
-
-            // Read token using the same key as sessionService (socialhub_jwt)
-            const token = localStorage.getItem('socialhub_jwt') || sessionStorage.getItem('socialhub_jwt');
-            if (!token) return;
-
-            // 1. Get list of workspaces
-            const res = await fetch(`${apiBase}/api/workspaces`, {
-                headers: { 'Authorization': `Bearer ${token}` }
-            });
-            const data = await res.json();
+            // 1. Get list of workspaces using apiClient (handles token and correct base url automatically)
+            const data = await apiClient.get('/workspaces');
 
             // 2. Get active workspace info
-            const meRes = await fetch(`${apiBase}/api/workspaces/me`, {
-                headers: { 'Authorization': `Bearer ${token}` }
-            });
-            const meData = await meRes.json();
+            const meData = await apiClient.get('/workspaces/me');
 
             if (meData.success && meData.workspace) {
                 currentNameEl.textContent = meData.workspace.name;
@@ -343,15 +328,7 @@ class Sidebar extends HTMLElement {
                     if (!isCurrent) {
                         item.addEventListener('click', async () => {
                             try {
-                                const switchRes = await fetch(`${apiBase}/api/workspaces/switch`, {
-                                    method: 'POST',
-                                    headers: {
-                                        'Authorization': `Bearer ${token}`,
-                                        'Content-Type': 'application/json'
-                                    },
-                                    body: JSON.stringify({ workspace_id: ws.id })
-                                });
-                                const switchData = await switchRes.json();
+                                const switchData = await apiClient.post('/workspaces/switch', { workspace_id: ws.id });
                                 if (switchData.success) {
                                     window.location.reload();
                                 } else {
@@ -394,18 +371,10 @@ class Sidebar extends HTMLElement {
                 if (!name) return;
 
                 try {
-                    const createRes = await fetch(`${apiBase}/api/workspaces`, {
-                        method: 'POST',
-                        headers: {
-                            'Authorization': `Bearer ${token}`,
-                            'Content-Type': 'application/json'
-                        },
-                        body: JSON.stringify({
-                            name,
-                            slug: `workspace-${Date.now()}`
-                        })
+                    const createData = await apiClient.post('/workspaces', {
+                        name,
+                        slug: `workspace-${Date.now()}`
                     });
-                    const createData = await createRes.json();
                     if (createData.success) {
                         window.location.reload();
                     } else {

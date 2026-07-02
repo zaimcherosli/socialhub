@@ -196,6 +196,14 @@
             align-items: start;
         }
 
+        /* Diagnostics Grid */
+        .diagnostics-grid {
+            display: grid;
+            grid-template-columns: 2fr 1fr;
+            gap: 1.5rem;
+            align-items: start;
+        }
+
         /* Responsive */
         @media (max-width: 1024px) {
             .model-option-grid { grid-template-columns: repeat(2, 1fr); }
@@ -207,6 +215,7 @@
             .ai-settings-inner { grid-template-columns: 1fr; }
             .model-option-grid { grid-template-columns: repeat(2, 1fr); }
             .settings-card { padding: 1.25rem; }
+            .diagnostics-grid { grid-template-columns: 1fr; }
         }
 
         @media (max-width: 480px) {
@@ -495,7 +504,7 @@
                         </div>
                     </div>
 
-                    <div style="display: grid; grid-template-columns: 2fr 1fr; gap: 1.5rem; align-items: start;">
+                    <div class="diagnostics-grid">
                         <!-- Left: Recent System Errors -->
                         <div>
                             <h4 style="font-size: 0.85rem; font-weight: 600; margin: 0 0 0.75rem 0; color: var(--color-text-primary);">Recent Publishing Failures</h4>

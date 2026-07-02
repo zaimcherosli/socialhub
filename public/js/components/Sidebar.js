@@ -38,7 +38,7 @@ class Sidebar extends HTMLElement {
                 </div>
 
                 <!-- Workspace Switcher Section -->
-                <div class="workspace-switcher-container" style="padding: 0 1.25rem 1rem 1.25rem; border-bottom: 1px solid var(--color-border); margin-bottom: 1rem;">
+                <div class="workspace-switcher-container" style="position: relative; z-index: 999; padding: 0 1.25rem 1rem 1.25rem; border-bottom: 1px solid var(--color-border); margin-bottom: 1rem;">
                     <div class="dropdown" style="position: relative; width: 100%;">
                         <button class="btn btn-secondary" id="workspaceDropdownBtn" style="width: 100%; display: flex; align-items: center; justify-content: space-between; padding: 0.5rem 0.75rem; font-size: 0.85rem; font-weight: 600; text-align: left; background: var(--color-bg-secondary); border: 1px solid var(--color-border); border-radius: var(--radius-sm); color: var(--color-text-primary); cursor: pointer; box-shadow: var(--shadow-sm);">
                             <span style="display: flex; align-items: center; gap: 0.5rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">
@@ -178,7 +178,7 @@ class Sidebar extends HTMLElement {
                         <div class="user-info" style="flex: 1; min-width: 0; display: flex; flex-direction: column;">
                             <span class="user-name" id="sidebarUserName">John Doe</span>
                             <span class="user-plan">Admin Pro</span>
-                            <span class="user-version" style="font-size: 0.65rem; color: var(--color-text-tertiary); font-weight: 500; margin-top: 0.1rem;">v0.13.4</span>
+                            <span class="user-version" style="font-size: 0.65rem; color: var(--color-text-tertiary); font-weight: 500; margin-top: 0.1rem;">v0.13.5</span>
                         </div>
                         <button class="header-action-btn" id="btnSidebarLogout" title="Logout" style="padding: 0.35rem; color: var(--color-danger); background: none; border: none; cursor: pointer; display: flex; align-items: center; justify-content: center;">
                             <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">

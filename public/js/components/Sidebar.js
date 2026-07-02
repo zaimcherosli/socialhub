@@ -129,6 +129,10 @@ class Sidebar extends HTMLElement {
                             </svg>
                         </button>
                     </div>
+                    <div class="sidebar-version-row" style="display: flex; justify-content: space-between; align-items: center; margin-top: 0.75rem; padding-top: 0.5rem; border-top: 1px solid var(--color-border); font-size: 0.65rem; color: var(--color-text-tertiary);">
+                        <span>SocialHub App</span>
+                        <span style="background: var(--color-bg-accent); padding: 0.1rem 0.35rem; border-radius: 4px; font-weight: 600; letter-spacing: 0.05em; color: var(--color-text-secondary);">v0.12.0</span>
+                    </div>
                 </div>
             </aside>
         `;

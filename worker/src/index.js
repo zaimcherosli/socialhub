@@ -2194,7 +2194,7 @@ export default {
                     if (!provider) return Response.redirect(`${frontendOrigin}/accounts.html?error=provider_missing`, 302);
                     if (!env.DB) return Response.redirect(`${frontendOrigin}/accounts.html?error=db_missing`, 302);
 
-                    const user = await env.DB.prepare("SELECT id FROM users WHERE uuid = ?").bind(userUuid).first();
+                    const user = await env.DB.prepare("SELECT id, active_workspace_id FROM users WHERE uuid = ?").bind(userUuid).first();
                     if (!user) return Response.redirect(`${frontendOrigin}/accounts.html?error=user_not_found`, 302);
 
                     const activeWorkspace = await getActiveWorkspace(user);

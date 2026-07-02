@@ -250,7 +250,7 @@ const OAuthProviders = {
             return url.toString() + '#weblink';
         },
         async exchangeCode(code, redirectUri, clientId, clientSecret) {
-            if (clientId.includes("mock") || code.includes("mock") || redirectUri.includes("localhost") || redirectUri.includes("127.0.0.1")) {
+            if ((clientId && clientId.includes("mock")) || (code && code.includes("mock")) || (redirectUri && (redirectUri.includes("localhost") || redirectUri.includes("127.0.0.1")))) {
                 return {
                     access_token: `mock-threads-token-${Date.now()}`,
                     refresh_token: "threads-mock-refresh-token",
@@ -2056,6 +2056,13 @@ export default {
                     const code = url.searchParams.get('code');
                     const state = url.searchParams.get('state');
                     const frontendOrigin = env.FRONTEND_ORIGIN || "http://localhost:5173";
+
+                    // Handle OAuth error or cancellation from Meta/Threads
+                    const oauthError = url.searchParams.get('error') || url.searchParams.get('error_reason');
+                    if (oauthError || !code) {
+                        const errorDesc = url.searchParams.get('error_description') || oauthError || 'auth_cancelled';
+                        return Response.redirect(`${frontendOrigin}/accounts.html?error=${encodeURIComponent(errorDesc)}`, 302);
+                    }
 
                     if (!state) return Response.redirect(`${frontendOrigin}/accounts.html?error=state_missing`, 302);
 

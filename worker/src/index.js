@@ -3191,7 +3191,33 @@ export default {
                     if (url.pathname === '/api/users/me') {
                         const user = await getAuthUser();
                         if (!user) return new Response(JSON.stringify({ message: 'Unauthorized' }), { status: 401, headers: corsHeaders });
-                        return new Response(JSON.stringify({ success: true, user }), { status: 200, headers: corsHeaders });
+
+                        if (request.method === 'GET') {
+                            return new Response(JSON.stringify({ success: true, user }), { status: 200, headers: corsHeaders });
+                        }
+
+                        if (request.method === 'PUT') {
+                            const { name } = await request.json();
+                            if (!name || !name.trim()) return new Response(JSON.stringify({ message: 'Name is required' }), { status: 400, headers: corsHeaders });
+
+                            const newName = name.trim();
+                            await env.DB.prepare(
+                                "UPDATE users SET name = ?, updated_at = (datetime('now')) WHERE id = ?"
+                            ).bind(newName, user.id).run();
+
+                            // Re-generate JWT with new name
+                            const now = Math.floor(Date.now() / 1000);
+                            const expiration = now + (24 * 60 * 60); 
+                            const token = await signJWT({ sub: user.uuid, email: user.email, name: newName, role: user.role, exp: expiration }, jwtSecret);
+
+                            return new Response(JSON.stringify({
+                                success: true,
+                                token,
+                                user: { uuid: user.uuid, name: newName, email: user.email, role: user.role }
+                            }), { status: 200, headers: corsHeaders });
+                        }
+
+                        return new Response(JSON.stringify({ error: 'Method not allowed' }), { status: 405, headers: corsHeaders });
                     }
 
                     if (url.pathname === '/api/health') {

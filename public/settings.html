@@ -541,6 +541,7 @@
     <script type="module">
         import { apiClient } from './js/utils/api.js';
         import { sessionService } from './js/services/sessionService.js';
+        import { authService } from './js/services/authService.js';
 
         // ── Helpers ────────────────────────────────────────────
         function showStatus(id, ms = 3000) {
@@ -690,20 +691,48 @@
         }
         window.handleSaveWorkspace = handleSaveWorkspace;
 
-        function handleSaveProfile() { showStatus('profileSaveStatus'); }
+        async function handleSaveProfile() {
+            const nameInput = document.getElementById('profileName');
+            const name = nameInput.value.trim();
+            if (!name) { alert('Name is required.'); return; }
+
+            const btn = document.querySelector('#profileSettingsForm button[type="submit"]');
+            btn.disabled = true;
+            btn.textContent = 'Saving...';
+
+            try {
+                const res = await apiClient.put('/users/me', { name });
+                if (res.success && res.token) {
+                    const rememberMe = !!localStorage.getItem('socialhub_jwt');
+                    sessionService.saveToken(res.token, rememberMe);
+
+                    const nameEl = document.getElementById('sidebarUserName');
+                    if (nameEl) nameEl.textContent = name;
+
+                    showStatus('profileSaveStatus');
+                } else {
+                    alert(res.message || 'Failed to save profile.');
+                }
+            } catch (e) {
+                alert(e.message || 'Error occurred while saving profile.');
+            } finally {
+                btn.disabled = false;
+                btn.textContent = 'Save Profile';
+            }
+        }
         window.handleSaveProfile = handleSaveProfile;
 
         // ── Load user email from session ───────────────────────
         async function loadUserInfo() {
             try {
-                const session = await sessionService.getSession?.();
-                if (session?.user?.email) {
-                    document.getElementById('profileEmail').value = session.user.email;
+                const user = await authService.getSession();
+                if (user) {
+                    document.getElementById('profileEmail').value = user.email || '';
+                    document.getElementById('profileName').value = user.name || '';
                 }
-                if (session?.user?.name) {
-                    document.getElementById('profileName').value = session.user.name;
-                }
-            } catch(e) {}
+            } catch(e) {
+                console.warn('Failed to load user session:', e.message);
+            }
         }
 
         // ── Diagnostics & Debug Report ──────────────────────────

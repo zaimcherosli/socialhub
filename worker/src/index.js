@@ -300,9 +300,13 @@ const OAuthProviders = {
 
             const profileResponse = await fetch(`https://graph.threads.net/v1.0/me?fields=id,username&access_token=${finalToken}`);
             let accountName = `@threads_user_${accountId}`;
+            let correctAccountId = accountId.toString();
             if (profileResponse.ok) {
                 const profile = await profileResponse.json();
                 accountName = `@${profile.username}`;
+                if (profile.id) {
+                    correctAccountId = profile.id.toString();
+                }
             }
 
             return {
@@ -310,7 +314,7 @@ const OAuthProviders = {
                 refresh_token: data.refresh_token || "threads-no-refresh-token",
                 expires_in: expiresIn,
                 account_name: accountName,
-                account_id: accountId.toString()
+                account_id: correctAccountId
             };
         }
     },

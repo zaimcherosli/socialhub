@@ -211,7 +211,7 @@
                         </div>
 
                         <!-- Facebook Card -->
-                        <div class="card account-card">
+                        <div class="card account-card" style="display: none;">
                             <div>
                                 <div class="platform-header">
                                     <div class="platform-badge-logo facebook">f</div>
@@ -226,7 +226,7 @@
                         </div>
 
                         <!-- Instagram Card -->
-                        <div class="card account-card">
+                        <div class="card account-card" style="display: none;">
                             <div>
                                 <div class="platform-header">
                                     <div class="platform-badge-logo instagram">IG</div>
@@ -318,17 +318,20 @@
                 const accounts = await socialService.getAccounts();
                 grid.innerHTML = ''; // Clear loading state
 
-                if (accounts.length === 0) {
+                // Filter to only show Threads for testing focus
+                const threadsAccounts = accounts.filter(acc => acc.platform === 'threads');
+
+                if (threadsAccounts.length === 0) {
                     grid.innerHTML = `
                         <div class="empty-state">
-                            <h3 class="card-title" style="margin-bottom: 0.25rem;">No accounts connected</h3>
-                            <p style="font-size: 0.8125rem; color: var(--color-text-tertiary);">Connect your social profiles below to start scheduling posts.</p>
+                            <h3 class="card-title" style="margin-bottom: 0.25rem;">No Threads accounts connected</h3>
+                            <p style="font-size: 0.8125rem; color: var(--color-text-tertiary);">Connect your Threads profile below to start scheduling posts.</p>
                         </div>
                     `;
                     return;
                 }
 
-                accounts.forEach(account => {
+                threadsAccounts.forEach(account => {
                     const card = document.createElement('div');
                     card.className = 'card account-card';
                     

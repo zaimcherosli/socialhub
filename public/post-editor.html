@@ -553,7 +553,7 @@
                 }
                 
                 connectedAccounts.forEach(acc => {
-                    if (acc.status !== 'active') return;
+                    if (acc.status !== 'active' || acc.platform !== 'threads') return;
                     
                     const label = document.createElement('label');
                     label.style.display = 'flex';

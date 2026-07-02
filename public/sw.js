@@ -1,4 +1,4 @@
-const CACHE_NAME = 'socialhub-cache-v7';
+const CACHE_NAME = 'socialhub-cache-v8';
 const ASSETS_TO_CACHE = [
   '/',
   '/dashboard.html',
@@ -81,7 +81,8 @@ self.addEventListener('install', (event) => {
       );
     })
   );
-  self.skipWaiting();
+  // Do NOT call skipWaiting() here — wait for app to signal SKIP_WAITING
+  // so the in-app update toast can control when to activate the new SW.
 });
 
 self.addEventListener('activate', (event) => {
@@ -150,5 +151,13 @@ self.addEventListener('fetch', (event) => {
         });
       })
     );
+  }
+});
+
+// Receive SKIP_WAITING command from the app when user approves the update
+self.addEventListener('message', (event) => {
+  if (event.data && event.data.type === 'SKIP_WAITING') {
+    console.log('[Service Worker] SKIP_WAITING received — activating new version now');
+    self.skipWaiting();
   }
 });

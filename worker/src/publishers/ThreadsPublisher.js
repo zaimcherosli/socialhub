@@ -112,10 +112,24 @@ export class ThreadsPublisher extends PublisherInterface {
                 let retryDelay = 5000;
 
                 // Retry loop for container creation to handle Meta/Threads propagation delay
+                // Check if the chunkText contains an image URL (camera emoji + url pattern)
+                const imgUrlMatch = chunkText.match(/📷\s*(https?:\/\/\S+)/i);
+                const hasImage = !!imgUrlMatch;
+                const imageUrl = hasImage ? imgUrlMatch[1].trim() : null;
+                const cleanedText = hasImage ? chunkText.replace(/📷\s*https?:\/\/\S+/gi, '').trim() : chunkText;
+
                 for (let attempt = 1; attempt <= 4; attempt++) {
                     const containerUrl = new URL(`https://graph.threads.net/v1.0/${threadsAccountId}/threads`);
-                    containerUrl.searchParams.set('media_type', 'TEXT');
-                    containerUrl.searchParams.set('text', chunkText);
+                    if (hasImage && imageUrl) {
+                        containerUrl.searchParams.set('media_type', 'IMAGE');
+                        containerUrl.searchParams.set('image_url', imageUrl);
+                        if (cleanedText) {
+                            containerUrl.searchParams.set('text', cleanedText);
+                        }
+                    } else {
+                        containerUrl.searchParams.set('media_type', 'TEXT');
+                        containerUrl.searchParams.set('text', chunkText);
+                    }
                     containerUrl.searchParams.set('access_token', accessToken);
                     
                     if (lastPostId) {

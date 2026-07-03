@@ -996,6 +996,12 @@ export default {
                             formatInstructions = `must be a standard single post, under 350 characters.`;
                         }
 
+                        // Add workspace-specific copywriting guidelines if defined
+                        let customGuidelinesBlock = "";
+                        if (wsAI?.custom_ai_instructions) {
+                            customGuidelinesBlock = `\n4. Follow these workspace-specific copywriting guidelines/knowledge base closely:\n${wsAI.custom_ai_instructions}`;
+                        }
+
                         const systemPrompt = `You are a professional social media marketing expert in Malaysia.
 Generate a high-converting, engaging post based on the following product details:
 - Product info/niche: ${productContext}
@@ -1006,7 +1012,7 @@ Generate a high-converting, engaging post based on the following product details
 CRITICAL RULES:
 1. Under no circumstances should you mention or include the price of the product (such as RMxx, pricing range, etc.) in the copywriting. Do not reveal the price. Focus on making the audience curious so they click the link.
 2. The copywriting ${formatInstructions}
-3. If writing in Malay, use natural Malaysian Malay slangs/vocabulary (e.g. 'korang', 'je', 'boleh', 'nak', 'weyh') instead of formal Indonesian words ('kamu', 'bisa', 'yuk', 'sih', 'deh').
+3. If writing in Malay, use natural Malaysian Malay slangs/vocabulary (e.g. 'korang', 'je', 'boleh', 'nak', 'weyh') instead of formal Indonesian words ('kamu', 'bisa', 'yuk', 'sih', 'deh').${customGuidelinesBlock}
 
 Provide the output in a strict JSON format with the following keys. Return ONLY the JSON object, with no markdown code blocks or extra explanations:
 {

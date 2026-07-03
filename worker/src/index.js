@@ -764,11 +764,13 @@ export default {
                                     aiEnv.OPENROUTER_API_KEY = decrypted;
                                     aiEnv.GEMINI_API_KEY = decrypted;
                                     aiEnv.OPENAI_API_KEY = decrypted;
+                                    aiEnv._workspaceKeySet = true;
                                 }
                             } catch (_) {
                                 aiEnv.OPENROUTER_API_KEY = wsAI.ai_api_key_enc;
                                 aiEnv.GEMINI_API_KEY = wsAI.ai_api_key_enc;
                                 aiEnv.OPENAI_API_KEY = wsAI.ai_api_key_enc;
+                                aiEnv._workspaceKeySet = true;
                             }
                         }
 
@@ -958,11 +960,13 @@ export default {
                                     aiEnv.OPENROUTER_API_KEY = decrypted;
                                     aiEnv.GEMINI_API_KEY = decrypted;
                                     aiEnv.OPENAI_API_KEY = decrypted;
+                                    aiEnv._workspaceKeySet = true;
                                 }
                             } catch (_) {
                                 aiEnv.OPENROUTER_API_KEY = wsAI.ai_api_key_enc;
                                 aiEnv.GEMINI_API_KEY = wsAI.ai_api_key_enc;
                                 aiEnv.OPENAI_API_KEY = wsAI.ai_api_key_enc;
+                                aiEnv._workspaceKeySet = true;
                             }
                         }
 
@@ -1123,11 +1127,13 @@ export default {
                                     aiEnv.OPENROUTER_API_KEY = decrypted;
                                     aiEnv.GEMINI_API_KEY = decrypted;
                                     aiEnv.OPENAI_API_KEY = decrypted;
+                                    aiEnv._workspaceKeySet = true;
                                 }
                             } catch (_) {
                                 aiEnv.OPENROUTER_API_KEY = wsAI.ai_api_key_enc;
                                 aiEnv.GEMINI_API_KEY = wsAI.ai_api_key_enc;
                                 aiEnv.OPENAI_API_KEY = wsAI.ai_api_key_enc;
+                                aiEnv._workspaceKeySet = true;
                             }
                         }
 
@@ -1226,11 +1232,13 @@ export default {
                                 aiEnv.OPENROUTER_API_KEY = decrypted;
                                 aiEnv.GEMINI_API_KEY = decrypted;
                                 aiEnv.OPENAI_API_KEY = decrypted;
+                                aiEnv._workspaceKeySet = true;
                             }
                         } catch (_) {
                             aiEnv.OPENROUTER_API_KEY = wsAI.ai_api_key_enc;
                             aiEnv.GEMINI_API_KEY = wsAI.ai_api_key_enc;
                             aiEnv.OPENAI_API_KEY = wsAI.ai_api_key_enc;
+                            aiEnv._workspaceKeySet = true;
                         }
                     }
 

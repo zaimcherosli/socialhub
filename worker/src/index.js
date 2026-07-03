@@ -810,57 +810,26 @@ export default {
                         }
 
                         console.log(`[Scraper] Scraping URL: ${url}`);
-                        const response = await fetch(url, {
-                            headers: {
-                                "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
-                            },
-                            redirect: "follow"
-                        });
 
-                        const finalUrl = response.url || url;
-                        let pageText = "";
-                        let title = "";
-                        let description = "";
+                        // Helper: extract keywords from URL slug as fallback
+                        const extractSlugKeywords = (rawUrl) => {
+                            try {
+                                const u = new URL(rawUrl);
+                                // Combine pathname + search for richer context
+                                const slug = (u.pathname + ' ' + u.search)
+                                    .replace(/[-_/]/g, ' ')
+                                    .replace(/\.htm.*$/i, '')
+                                    .replace(/\d{5,}/g, '') // remove long IDs
+                                    .replace(/[^a-zA-Z ]/g, ' ')
+                                    .replace(/\s+/g, ' ')
+                                    .trim();
+                                // Clean up common noise words and capitalise
+                                const words = slug.split(' ').filter(w => w.length > 2 && !['www','com','my','html','for','sale','buy','the','and','with'].includes(w.toLowerCase()));
+                                return words.map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(' ');
+                            } catch (_) { return ''; }
+                        };
 
-                        if (response.ok) {
-                            const html = await response.text();
-                            
-                            // Extract title
-                            const titleMatch = html.match(/<title[^>]*>([^<]+)<\/title>/i);
-                            if (titleMatch) {
-                                title = titleMatch[1].trim();
-                            }
-
-                            // Extract og:title
-                            const ogTitleMatch = html.match(/<meta[^>]+property=["']og:title["'][^>]+content=["']([^"']+)["']/i) ||
-                                                 html.match(/<meta[^>]+content=["']([^"']+)["'][^>]+property=["']og:title["']/i);
-                            if (ogTitleMatch) {
-                                title = ogTitleMatch[1].trim();
-                            }
-
-                            // Extract og:description
-                            const ogDescMatch = html.match(/<meta[^>]+property=["']og:description["'][^>]+content=["']([^"']+)["']/i) ||
-                                                html.match(/<meta[^>]+content=["']([^"']+)["'][^>]+property=["']og:description["']/i);
-                            if (ogDescMatch) {
-                                description = ogDescMatch[1].trim();
-                            }
-
-                            // Extract description meta tag
-                            const descMatch = html.match(/<meta[^>]+name=["']description["'][^>]+content=["']([^"']+)["']/i) ||
-                                              html.match(/<meta[^>]+content=["']([^"']+)["'][^>]+name=["']description["']/i);
-                            if (descMatch && !description) {
-                                description = descMatch[1].trim();
-                            }
-                            
-                            // Clean HTML tags and scripts to get raw text for AI context (up to 3000 chars)
-                            let bodyText = html.replace(/<script[^>]*>([\s\S]*?)<\/script>/gi, '')
-                                               .replace(/<style[^>]*>([\s\S]*?)<\/style>/gi, '')
-                                               .replace(/<[^>]+>/g, ' ')
-                                               .replace(/\s+/g, ' ')
-                                               .trim();
-                            pageText = bodyText.substring(0, 3000);
-                        }
-
+                        // Helper: decode HTML entities
                         const decodeHtmlEntities = (str) => {
                             if (!str) return "";
                             return str.replace(/&#(\d+);/g, (match, dec) => String.fromCharCode(dec))
@@ -871,24 +840,116 @@ export default {
                                       .replace(/&nbsp;/g, ' ');
                         };
 
-                        const decodedTitle = decodeHtmlEntities(title);
-                        const decodedDesc = decodeHtmlEntities(description || pageText.substring(0, 500));
-                        const lowerText = (decodedTitle + " " + decodedDesc).toLowerCase();
-                        const isBlocked = lowerText.includes("enable javascript") || 
-                                          lowerText.includes("javascript is disabled") ||
-                                          lowerText.includes("cloudflare") ||
-                                          lowerText.includes("captcha") ||
-                                          lowerText.includes("security check") ||
-                                          lowerText.includes("access denied") ||
-                                          lowerText.includes("robot") ||
-                                          lowerText.includes("unsupported browser") ||
-                                          (decodedTitle.includes("Shopee") && decodedDesc.includes("JavaScript"));
+                        let finalUrl = url;
+                        let pageText = "";
+                        let title = "";
+                        let description = "";
 
-                        if (isBlocked) {
+                        try {
+                            const response = await fetch(url, {
+                                headers: {
+                                    'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36',
+                                    'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,*/*;q=0.8',
+                                    'Accept-Language': 'ms-MY,ms;q=0.9,en-MY;q=0.8,en;q=0.7',
+                                    'Accept-Encoding': 'gzip, deflate, br',
+                                    'Cache-Control': 'no-cache',
+                                    'Referer': new URL(url).origin + '/',
+                                    'Sec-Fetch-Mode': 'navigate',
+                                    'Sec-Fetch-Site': 'none',
+                                    'Sec-Fetch-Dest': 'document',
+                                    'Upgrade-Insecure-Requests': '1'
+                                },
+                                redirect: 'follow'
+                            });
+
+                            finalUrl = response.url || url;
+
+                            if (response.ok) {
+                                const html = await response.text();
+
+                                // Extract <title>
+                                const titleMatch = html.match(/<title[^>]*>([\s\S]*?)<\/title>/i);
+                                if (titleMatch) title = titleMatch[1].trim();
+
+                                // Prefer og:title over <title>
+                                const ogTitleMatch = html.match(/<meta[^>]+property=["']og:title["'][^>]+content=["']([^"']+)["']/i) ||
+                                                     html.match(/<meta[^>]+content=["']([^"']+)["'][^>]+property=["']og:title["']/i);
+                                if (ogTitleMatch) title = ogTitleMatch[1].trim();
+
+                                // og:description
+                                const ogDescMatch = html.match(/<meta[^>]+property=["']og:description["'][^>]+content=["']([^"']+)["']/i) ||
+                                                    html.match(/<meta[^>]+content=["']([^"']+)["'][^>]+property=["']og:description["']/i);
+                                if (ogDescMatch) description = ogDescMatch[1].trim();
+
+                                // name=description fallback
+                                if (!description) {
+                                    const descMatch = html.match(/<meta[^>]+name=["']description["'][^>]+content=["']([^"']+)["']/i) ||
+                                                      html.match(/<meta[^>]+content=["']([^"']+)["'][^>]+name=["']description["']/i);
+                                    if (descMatch) description = descMatch[1].trim();
+                                }
+
+                                // JSON-LD extraction for richer structured data (Product / ItemPage / RealEstateListing)
+                                if (!description || description.length < 50) {
+                                    const jsonLdMatches = [...html.matchAll(/<script[^>]+type=["']application\/ld\+json["'][^>]*>([\s\S]*?)<\/script>/gi)];
+                                    for (const match of jsonLdMatches) {
+                                        try {
+                                            const ld = JSON.parse(match[1]);
+                                            const objs = Array.isArray(ld) ? ld : [ld];
+                                            for (const obj of objs) {
+                                                if (!title && obj.name) title = obj.name;
+                                                if (!description && obj.description) description = obj.description.substring(0, 500);
+                                                // Also pull address, offers info for property/real-estate
+                                                if (obj.address) {
+                                                    const addr = typeof obj.address === 'string' ? obj.address : [obj.address.streetAddress, obj.address.addressLocality, obj.address.addressRegion].filter(Boolean).join(', ');
+                                                    if (addr) description = (description || '') + ' Location: ' + addr;
+                                                }
+                                                if (description) break;
+                                            }
+                                        } catch (_) {}
+                                        if (description) break;
+                                    }
+                                }
+
+                                // Body text fallback
+                                if (!description || !title) {
+                                    let bodyText = html
+                                        .replace(/<script[^>]*>[\s\S]*?<\/script>/gi, '')
+                                        .replace(/<style[^>]*>[\s\S]*?<\/style>/gi, '')
+                                        .replace(/<[^>]+>/g, ' ')
+                                        .replace(/\s+/g, ' ')
+                                        .trim();
+                                    pageText = bodyText.substring(0, 3000);
+                                }
+                            }
+                        } catch (_) {
+                            // Network/fetch error - will fall through to URL slug fallback
+                        }
+
+                        let decodedTitle = decodeHtmlEntities(title);
+                        let decodedDesc = decodeHtmlEntities(description || pageText.substring(0, 500));
+
+                        // URL slug fallback: if scrape returned nothing useful, parse keywords from the URL itself
+                        if (!decodedTitle || decodedTitle.length < 5) {
+                            decodedTitle = extractSlugKeywords(url);
+                        }
+
+                        const lowerText = (decodedTitle + ' ' + decodedDesc).toLowerCase();
+                        const isBlocked = lowerText.includes('enable javascript') ||
+                                          lowerText.includes('javascript is disabled') ||
+                                          lowerText.includes('cloudflare') ||
+                                          lowerText.includes('captcha') ||
+                                          lowerText.includes('security check') ||
+                                          lowerText.includes('access denied') ||
+                                          lowerText.includes('robot') ||
+                                          lowerText.includes('unsupported browser') ||
+                                          (decodedTitle.includes('Shopee') && decodedDesc.includes('JavaScript'));
+
+                        // Only report blocked if we truly have nothing from URL slug either
+                        if (isBlocked && !decodedTitle) {
                             return new Response(JSON.stringify({
                                 success: false,
                                 is_blocked: true,
-                                message: "Situs web menyekat bot automatik (bot protection). Sila isi nama & info produk secara manual."
+                                message: 'Situs web menyekat bot automatik (bot protection). Sila isi nama & info produk secara manual.'
                             }), { status: 200, headers: corsHeaders });
                         }
 
@@ -1335,48 +1396,99 @@ CRITICAL TONE RULES:
                         let description = "";
                         let pageText = "";
                         
+                        // Helper: extract keywords from URL slug as fallback
+                        const extractSlugKeywords = (rawUrl) => {
+                            try {
+                                const u = new URL(rawUrl);
+                                const slug = (u.pathname + ' ' + u.search)
+                                    .replace(/[-_/]/g, ' ')
+                                    .replace(/\.htm.*$/i, '')
+                                    .replace(/\d{5,}/g, '')
+                                    .replace(/[^a-zA-Z ]/g, ' ')
+                                    .replace(/\s+/g, ' ')
+                                    .trim();
+                                const words = slug.split(' ').filter(w => w.length > 2 && !['www','com','my','html','for','sale','buy','the','and','with'].includes(w.toLowerCase()));
+                                return words.map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(' ');
+                            } catch (_) { return ''; }
+                        };
+
                         try {
                             const finalUrl = url.trim();
                             const res = await fetch(finalUrl, {
                                 headers: {
-                                    'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
-                                    'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8',
-                                    'Accept-Language': 'en-US,en;q=0.9'
+                                    'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36',
+                                    'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,*/*;q=0.8',
+                                    'Accept-Language': 'ms-MY,ms;q=0.9,en-MY;q=0.8,en;q=0.7',
+                                    'Accept-Encoding': 'gzip, deflate, br',
+                                    'Cache-Control': 'no-cache',
+                                    'Referer': new URL(url.trim()).origin + '/',
+                                    'Sec-Fetch-Mode': 'navigate',
+                                    'Sec-Fetch-Site': 'none',
+                                    'Sec-Fetch-Dest': 'document',
+                                    'Upgrade-Insecure-Requests': '1'
                                 },
                                 redirect: 'follow'
                             });
 
                             if (res.ok) {
                                 const html = await res.text();
-                                
+
                                 // Title extraction
                                 const titleMatch = html.match(/<title[^>]*>([\s\S]*?)<\/title>/i);
                                 if (titleMatch) title = titleMatch[1].trim();
 
-                                // Extract og:title
+                                // og:title (overrides <title>)
                                 const ogTitleMatch = html.match(/<meta[^>]+property=["']og:title["'][^>]+content=["']([^"']+)["']/i) ||
                                                      html.match(/<meta[^>]+content=["']([^"']+)["'][^>]+property=["']og:title["']/i);
                                 if (ogTitleMatch) title = ogTitleMatch[1].trim();
 
-                                // Extract og:description
+                                // og:description
                                 const ogDescMatch = html.match(/<meta[^>]+property=["']og:description["'][^>]+content=["']([^"']+)["']/i) ||
                                                     html.match(/<meta[^>]+content=["']([^"']+)["'][^>]+property=["']og:description["']/i);
                                 if (ogDescMatch) description = ogDescMatch[1].trim();
 
-                                // Extract description meta tag
-                                const descMatch = html.match(/<meta[^>]+name=["']description["'][^>]+content=["']([^"']+)["']/i) ||
-                                                  html.match(/<meta[^>]+content=["']([^"']+)["'][^>]+name=["']description["']/i);
-                                if (descMatch && !description) description = descMatch[1].trim();
+                                // name=description fallback
+                                if (!description) {
+                                    const descMatch = html.match(/<meta[^>]+name=["']description["'][^>]+content=["']([^"']+)["']/i) ||
+                                                      html.match(/<meta[^>]+content=["']([^"']+)["'][^>]+name=["']description["']/i);
+                                    if (descMatch) description = descMatch[1].trim();
+                                }
 
-                                let bodyText = html.replace(/<script[^>]*>([\s\S]*?)<\/script>/gi, '')
-                                                   .replace(/<style[^>]*>([\s\S]*?)<\/style>/gi, '')
+                                // JSON-LD structured data extraction
+                                if (!description || description.length < 50) {
+                                    const jsonLdMatches = [...html.matchAll(/<script[^>]+type=["']application\/ld\+json["'][^>]*>([\s\S]*?)<\/script>/gi)];
+                                    for (const match of jsonLdMatches) {
+                                        try {
+                                            const ld = JSON.parse(match[1]);
+                                            const objs = Array.isArray(ld) ? ld : [ld];
+                                            for (const obj of objs) {
+                                                if (!title && obj.name) title = obj.name;
+                                                if (!description && obj.description) description = obj.description.substring(0, 500);
+                                                if (obj.address) {
+                                                    const addr = typeof obj.address === 'string' ? obj.address : [obj.address.streetAddress, obj.address.addressLocality, obj.address.addressRegion].filter(Boolean).join(', ');
+                                                    if (addr) description = (description || '') + ' Location: ' + addr;
+                                                }
+                                                if (description) break;
+                                            }
+                                        } catch (_) {}
+                                        if (description) break;
+                                    }
+                                }
+
+                                let bodyText = html.replace(/<script[^>]*>[\s\S]*?<\/script>/gi, '')
+                                                   .replace(/<style[^>]*>[\s\S]*?<\/style>/gi, '')
                                                    .replace(/<[^>]+>/g, ' ')
                                                    .replace(/\s+/g, ' ')
                                                    .trim();
                                 pageText = bodyText.substring(0, 3000);
                             }
                         } catch (_) {
-                            // Scrape failed
+                            // Scrape failed — will fall through to URL slug fallback
+                        }
+
+                        // URL slug fallback: if scrape returned nothing useful, parse keywords from URL
+                        if (!title || title.length < 5) {
+                            title = extractSlugKeywords(url);
                         }
 
                         // Check block signatures
@@ -1441,10 +1553,24 @@ CRITICAL TONE RULES:
 - Write exactly like a real human writing a personal post on Threads, NOT like an AI assistant.
 - Mix English and Malay naturally (Bahasa Rojak/Manglish). E.g. use terms like 'literally', 'our financial', 'time tu', 'which is', 'I mean'.
 - Use repeated letters in words for emotional or casual emphasis (e.g. 'neverrrrr', 'sapaaaa', 'lajuuuuu'). Do NOT hardcode, anchor, or overuse specific slangs like 'weyh' or 'weh'.
-- The opening hook MUST be a direct statement, reflection, or opinion (not a question like "Korang tahu tak..."). 
+- The opening hook MUST be a direct statement, reflection, or opinion (not a question like "Korang tahu tak...").
 - Keep sentences short, conversational, and punchy.
 - DO NOT use any emojis in the main hook caption. Avoid emoji spam entirely.`;
                             combinedInstructions = combinedInstructions ? `${combinedInstructions}\n${toneRules}` : toneRules;
+                        }
+
+                        // URL slug fallback for url-autoposter-direct: if description still empty after scrape
+                        const extractSlugKeywordsQ = (rawUrl) => {
+                            try {
+                                const u = new URL(rawUrl);
+                                const slug = (u.pathname + ' ' + u.search).replace(/[-_/]/g, ' ').replace(/\.htm.*$/i, '').replace(/\d{5,}/g, '').replace(/[^a-zA-Z ]/g, ' ').replace(/\s+/g, ' ').trim();
+                                const words = slug.split(' ').filter(w => w.length > 2 && !['www','com','my','html','for','sale','buy','the','and','with'].includes(w.toLowerCase()));
+                                return words.map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(' ');
+                            } catch (_) { return ''; }
+                        };
+                        if (!decodedTitle || decodedTitle.length < 5) {
+                            const slugFallback = extractSlugKeywordsQ(url);
+                            if (slugFallback) title = slugFallback;
                         }
 
                         const provider = AIFactory.getProvider(aiEnv);

@@ -1009,7 +1009,7 @@ export default {
                     }
 
                     try {
-                        const { url, context, tone, language, postFormat, timezoneOffset, index, triggerType, triggerThreshold } = await request.json();
+                        const { url, mediaUrl, context, tone, language, postFormat, timezoneOffset, index, triggerType, triggerThreshold } = await request.json();
                         if (!url) {
                             return new Response(JSON.stringify({ message: 'URL is required.' }), { status: 400, headers: corsHeaders });
                         }
@@ -1105,7 +1105,28 @@ export default {
                                 }
                             }
                         } catch (_) {
-                            // Scrape failed — fall through to existing context/slug fallback
+                            // Scrape failed
+                        }
+
+                        // If secondary mediaUrl is provided, fetch it to scrape and override the image
+                        if (mediaUrl) {
+                            try {
+                                const mediaRes = await fetch(mediaUrl.trim(), {
+                                    headers: {
+                                        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36'
+                                    },
+                                    redirect: 'follow'
+                                });
+                                if (mediaRes.ok) {
+                                    const mediaHtml = await mediaRes.text();
+                                    const mediaMetas = extractMetaTags(mediaHtml);
+                                    if (mediaMetas.image) {
+                                        scrapedImage = mediaMetas.image;
+                                    }
+                                }
+                            } catch (_) {
+                                // Scrape failed
+                            }
                         }
 
                         // Decode HTML entities in scraped content

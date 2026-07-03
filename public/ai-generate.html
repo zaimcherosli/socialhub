@@ -902,20 +902,25 @@
             const jobs = [];
             let pendingContext = [];
 
-            for (const line of allLines) {
-                const urlMatch = line.match(/(https?:\/\/[^\s]+)/);
-                if (urlMatch) {
-                    const url = urlMatch[1];
-                    // Same-line text before/after URL also goes into context
-                    const sameLineCtx = line.replace(url, '').replace(/\s+/g, ' ').trim();
-                    const fullContext = [...pendingContext, sameLineCtx].filter(Boolean).join(' ').replace(/\s+/g, ' ').trim();
-                    jobs.push({ url, context: fullContext });
-                    pendingContext = []; // reset after each URL
-                } else if (line !== '') {
-                    pendingContext.push(line);
-                }
-                // blank lines are simply skipped (not used as block separators)
-            }
+             for (const line of allLines) {
+                 const urlMatches = [...line.matchAll(/(https?:\/\/[^\s,]+)/g)];
+                 if (urlMatches.length > 0) {
+                     const url = urlMatches[0][1];
+                     const mediaUrl = urlMatches.length > 1 ? urlMatches[1][1] : null;
+ 
+                     let sameLineCtx = line;
+                     urlMatches.forEach(m => {
+                         sameLineCtx = sameLineCtx.replace(m[1], '');
+                     });
+                     sameLineCtx = sameLineCtx.replace(/,/g, '').replace(/\s+/g, ' ').trim();
+ 
+                     const fullContext = [...pendingContext, sameLineCtx].filter(Boolean).join(' ').replace(/\s+/g, ' ').trim();
+                     jobs.push({ url, mediaUrl, context: fullContext });
+                     pendingContext = []; // reset after each block
+                 } else if (line !== '') {
+                     pendingContext.push(line);
+                 }
+             }
 
             if (jobs.length === 0) {
                 notificationService.error('Sila masukkan sekurang-kurangnya satu pautan yang sah!');
@@ -931,12 +936,13 @@
             let failCount = 0;
 
             for (let i = 0; i < jobs.length; i++) {
-                const { url, context } = jobs[i];
+                const { url, mediaUrl, context } = jobs[i];
                 progressStatusText.textContent = `Memproses pautan ${i + 1} dari ${jobs.length}...`;
-
+ 
                 try {
                     const response = await apiClient.post('/ai/url-autoposter-direct', {
                         url,
+                        mediaUrl,
                         context,
                         tone: toneVal,
                         language: langVal,

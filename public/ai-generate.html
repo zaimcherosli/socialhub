@@ -894,25 +894,53 @@
             progressModal.style.display = 'flex';
             progressBarFill.style.width = '0%';
             progressPercentText.textContent = '0% Complete';
-            progressStatusText.textContent = `Memulakan proses untuk ${lines.length} pautan...`;
+            // --- Smart Block Parsing ---
+            // Group consecutive lines into blocks separated by blank lines OR by URL occurrence.
+            // Each block that contains at least one URL becomes a job: all non-URL lines = context, URL = url.
+            const blocks = [];
+            let currentBlock = [];
+            rawText.split('\n').forEach(rawLine => {
+                const trimmed = rawLine.trim();
+                if (trimmed === '') {
+                    // blank line = end of block
+                    if (currentBlock.length > 0) { blocks.push(currentBlock); currentBlock = []; }
+                } else {
+                    currentBlock.push(trimmed);
+                }
+            });
+            if (currentBlock.length > 0) blocks.push(currentBlock);
+
+            // Flatten blocks into jobs: each block that has a URL becomes one job
+            const jobs = [];
+            for (const block of blocks) {
+                const urlLines = block.filter(l => /(https?:\/\/[^\s]+)/.test(l));
+                const contextLines = block.filter(l => !/(https?:\/\/[^\s]+)/.test(l));
+                for (const urlLine of urlLines) {
+                    const urlMatch = urlLine.match(/(https?:\/\/[^\s]+)/);
+                    const url = urlMatch[1];
+                    // Same-line text (before/after URL) + all non-URL lines in the block = context
+                    const sameLineCtx = urlLine.replace(url, '').replace(/\s+/g, ' ').trim();
+                    const fullContext = [...contextLines, sameLineCtx].filter(Boolean).join(' ').replace(/\s+/g, ' ').trim();
+                    jobs.push({ url, context: fullContext });
+                }
+            }
+
+            if (jobs.length === 0) {
+                notificationService.error('Sila masukkan sekurang-kurangnya satu pautan yang sah!');
+                btnBulkSchedule.disabled = false;
+                spinnerBulk.style.display = 'none';
+                progressModal.style.display = 'none';
+                return;
+            }
+
+            progressStatusText.textContent = `Memulakan proses untuk ${jobs.length} pautan...`;
 
             let successCount = 0;
             let failCount = 0;
 
-            for (let i = 0; i < lines.length; i++) {
-                const line = lines[i];
-                progressStatusText.textContent = `Memproses pautan ${i + 1} dari ${lines.length}...`;
-
-                // Extract URL using Regex
-                const urlMatch = line.match(/(https?:\/\/[^\s]+)/);
-                if (!urlMatch) {
-                    failCount++;
-                    continue;
-                }
-
-                const url = urlMatch[1];
-                // Context is the line with the URL removed
-                const context = line.replace(url, '').replace(/\s+/g, ' ').trim();
+            for (let i = 0; i < jobs.length; i++) {
+                const { url, context } = jobs[i];
+                progressStatusText.textContent = `Memproses pautan ${i + 1} dari ${jobs.length}...`;
 
                 try {
                     const response = await apiClient.post('/ai/url-autoposter-direct', {
@@ -933,12 +961,12 @@
                         failCount++;
                     }
                 } catch (err) {
-                    console.error("Bulk item failed:", err);
+                    console.error('Bulk item failed:', err);
                     failCount++;
                 }
 
                 // Update Progress UI
-                const percent = Math.round(((i + 1) / lines.length) * 100);
+                const percent = Math.round(((i + 1) / jobs.length) * 100);
                 progressBarFill.style.width = `${percent}%`;
                 progressPercentText.textContent = `${percent}% Complete`;
             }

@@ -1015,14 +1015,21 @@ export default {
                         // Extract context or fallback to URL slug parsing
                         let productContext = context || "";
                         if (!productContext) {
-                            // Quick URL Slug parsing as backup
-                            const cleanUrl = url.split('?')[0];
-                            const slugMatch = cleanUrl.match(/\/([a-zA-Z0-9-]{10,})\-i\./) || cleanUrl.match(/\/([a-zA-Z0-9-]{10,})$/);
-                            if (slugMatch) {
-                                productContext = slugMatch[1].replace(/-/g, ' ');
-                            } else {
-                                productContext = "produk di pautan kongsi";
-                            }
+                            try {
+                                const u = new URL(url);
+                                const slug = (u.pathname + ' ' + u.search)
+                                    .replace(/[-_/]/g, ' ')
+                                    .replace(/\.htm.*$/i, '')
+                                    .replace(/\d{5,}/g, '') // remove long numeric IDs
+                                    .replace(/[^a-zA-Z ]/g, ' ')
+                                    .replace(/\s+/g, ' ')
+                                    .trim();
+                                const stopWords = ['www','com','my','html','for','sale','buy','the','and','with','share','listing','item','product','page'];
+                                const words = slug.split(' ').filter(w => w.length > 2 && !stopWords.includes(w.toLowerCase()));
+                                productContext = words.map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(' ');
+                            } catch (_) {}
+                            // Last resort fallback if URL slug also yields nothing
+                            if (!productContext) productContext = "produk Malaysia";
                         }
 
                         // Determine schedule time (staggered from tomorrow morning)

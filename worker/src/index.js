@@ -1178,8 +1178,20 @@ export default {
                             const whatsappNum = activeWorkspace.whatsapp_number.replace(/\D/g, ''); // digits only
 
                             let productTitle = scrapedTitle || "";
-                            if (!productTitle && productContext) {
-                                productTitle = productContext.split('\n')[0].substring(0, 50);
+                            
+                            // Clean up generic Telegram channel titles or channel owner names
+                            const isGenericTelegramTitle = /Telegram|View\s*@|Listing\s*|Hartanah|bammad|Zaimarni/i.test(productTitle);
+                            if (isGenericTelegramTitle && scrapedDescription) {
+                                const titleLines = scrapedDescription.split('\n')
+                                    .map(l => l.replace(/[✅✨🏠📌🔥*]/g, '').trim())
+                                    .filter(l => l.length > 5 && !/WTS|WTL|FOR\s*SALE|FOR\s*RENT|LEASE|NEW\s*LISTING/i.test(l));
+                                if (titleLines.length > 0) {
+                                    productTitle = titleLines[0].substring(0, 80).trim();
+                                }
+                            }
+
+                            if ((!productTitle || productTitle.trim() === "") && productContext) {
+                                productTitle = productContext.split('\n')[0].substring(0, 80);
                             }
 
                             let locationInfo = "";
@@ -1192,7 +1204,7 @@ export default {
                             }
 
                             const priceRegex = /RM\s?[\d,]+(\.\d{2})?/i;
-                            const priceMatch = (scrapedDescription || "").match(priceRegex);
+                            const priceMatch = (scrapedDescription || "").match(priceRegex) || (productContext || "").match(priceRegex);
                             const priceText = priceMatch ? ` (${priceMatch[0].trim()})` : "";
 
                             let greetingText = `Hai, saya berminat dengan ${productTitle.trim()}`;
@@ -1253,10 +1265,14 @@ Generate a high-converting, engaging post based on the following product/propert
 - Language: ${language || 'Malay'}
 
 CRITICAL RULES:
-1. Under no circumstances should you mention or include the price of the product (such as RMxx, pricing range, etc.) in the copywriting. Do not reveal the price. Focus on making the audience curious so they click the link.
-2. The copywriting ${formatInstructions}
-3. If writing in Malay, use natural, casual, and conversational Malaysian Malay slangs/vocabulary (e.g. 'korang', 'je', 'boleh', 'nak') instead of formal Indonesian words ('kamu', 'bisa', 'yuk', 'sih', 'deh'). Do NOT always start the hooks with the same word (e.g. vary the opening hooks and sentence structure so they do not all start with 'weyh' or 'weh').
-4. Focus on the ACTUAL product/property details (type, location, size, features, facilities) from the product info above. DO NOT write about the seller name, channel name, or listing source/platform name. Write as if YOU personally found or own this product/property.${customGuidelinesBlock}
+1. For general physical products (like Shopee, Lazada, TikTok Shop), DO NOT include the price (e.g. RMxx) in the copywriting. Keep the price secret to make the audience curious so they click the link.
+2. For real estate, houses, apartments, or property listings (like PropMall, Mudah, Telegram real estate channels), you MUST include the property price (e.g. RM 325,000 or RM 325k) in the copywriting to attract buyers.
+3. The copywriting ${formatInstructions}
+4. If writing in Malay, use natural, casual, and conversational Malaysian Malay slangs/vocabulary (e.g. 'korang', 'je', 'boleh', 'nak') instead of formal Indonesian words ('kamu', 'bisa', 'yuk', 'sih', 'deh'). Do NOT always start the hooks with the same word (e.g. vary the opening hooks and sentence structure so they do not all start with 'weyh' or 'weh').
+5. Focus on the ACTUAL product/property details (type, location, size, features, facilities) from the product info above. DO NOT write about the seller name, channel name, or listing source/platform name. Write as if YOU personally found or own this product/property.
+6. For real estate/properties, include specific hashtags based on transaction type:
+   - If the property is for sale (contains WTS, Sale, Jual), include: #jualbelirumah #jualrumah #rumahuntukdijual #hartanahuntukdijual
+   - If the property is for rent/lease (contains WTL, Rent, Sewa, Lease), include: #sewahartanah #sewarumah #rumahsewa #sewakondominium${customGuidelinesBlock}
 
 Provide the output in a strict JSON format with the following keys. Return ONLY the JSON object, with no markdown code blocks or extra explanations:
 {
@@ -1328,7 +1344,30 @@ Provide the output in a strict JSON format with the following keys. Return ONLY 
 
                         const caption = parsed.caption || parsed.text || parsed.content || "";
                         const rawHashtags = parsed.hashtags || parsed.tags || [];
-                        const hashtagsText = Array.isArray(rawHashtags) ? rawHashtags.join(' ') : (typeof rawHashtags === 'string' ? rawHashtags : '');
+                        let hashtagsText = Array.isArray(rawHashtags) ? rawHashtags.join(' ') : (typeof rawHashtags === 'string' ? rawHashtags : '');
+
+                        // Programmatic topics/hashtags injection for real estate listings
+                        const lowerCtx = (productContext || "").toLowerCase();
+                        const isProperty = lowerCtx.includes("apartment") || lowerCtx.includes("semi d") || lowerCtx.includes("teres") || lowerCtx.includes("kondo") || lowerCtx.includes("house") || lowerCtx.includes("property") || lowerCtx.includes("hartanah") || lowerCtx.includes("bilik") || lowerCtx.includes("sqft") || url.includes("propmall") || url.includes("mudah");
+
+                        if (isProperty) {
+                            const isSale = lowerCtx.includes("wts") || lowerCtx.includes("sale") || lowerCtx.includes("jual");
+                            const isRent = lowerCtx.includes("wtl") || lowerCtx.includes("rent") || lowerCtx.includes("sewa") || lowerCtx.includes("lease");
+
+                            const saleTags = ["#jualbelirumah", "#jualrumah", "#rumahuntukdijual", "#hartanahuntukdijual"];
+                            const rentTags = ["#sewahartanah", "#sewarumah", "#rumahsewa", "#sewakondominium"];
+
+                            let extraTags = [];
+                            if (isSale) {
+                                extraTags = saleTags.filter(t => !hashtagsText.toLowerCase().includes(t.toLowerCase()));
+                            } else if (isRent) {
+                                extraTags = rentTags.filter(t => !hashtagsText.toLowerCase().includes(t.toLowerCase()));
+                            }
+
+                            if (extraTags.length > 0) {
+                                hashtagsText = (hashtagsText + " " + extraTags.join(" ")).trim();
+                            }
+                        }
 
                         // Retrieve dynamic CTA from AI and sanitize
                         let finalCtaText = parsed.cta ? parsed.cta.trim() : "";

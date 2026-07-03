@@ -2674,8 +2674,8 @@ CRITICAL TONE RULES:
 
                                         await env.DB.prepare(
                                             `INSERT INTO publish_logs (schedule_id, social_account_id, status, error_message, external_post_id, response_payload, published_at) 
-                                             VALUES (NULL, ?, 'success', NULL, ?, ?, ?)`
-                                        ).bind(socialAccount.id, result.provider_post_id, JSON.stringify(result), completedAt).run();
+                                             VALUES (?, ?, 'success', NULL, ?, ?, ?)`
+                                        ).bind(post.id, socialAccount.id, result.provider_post_id, JSON.stringify(result), completedAt).run();
                                     } else {
                                         throw new Error(result.error_message);
                                     }
@@ -2691,8 +2691,8 @@ CRITICAL TONE RULES:
                                         await env.DB.prepare("UPDATE scheduled_posts SET status = 'scheduled', publish_at = ?, retry_count = ?, error_message = ?, updated_at = (datetime('now')) WHERE id = ?").bind(retryTime.toISOString(), newRetryCount, err.message, post.id).run();
                                     }
 
-                                    await env.DB.prepare("INSERT INTO publish_logs (schedule_id, social_account_id, status, error_message, response_payload, published_at) VALUES (NULL, ?, 'failed', ?, ?, (datetime('now')))")
-                                        .bind(post.account_id, err.message, JSON.stringify({ error: err.message }))
+                                    await env.DB.prepare("INSERT INTO publish_logs (schedule_id, social_account_id, status, error_message, response_payload, published_at) VALUES (?, ?, 'failed', ?, ?, (datetime('now')))")
+                                        .bind(post.id, post.account_id, err.message, JSON.stringify({ error: err.message }))
                                         .run();
                                 }
                             }
@@ -3400,40 +3400,40 @@ CRITICAL TONE RULES:
                                 const nowStr = new Date().toISOString();
                                 await env.DB.prepare(
                                     `UPDATE scheduled_posts 
-                                     SET status = 'published', published_at = ?, error_message = NULL 
-                                     WHERE id = ?`
-                                ).bind(nowStr, spId).run();
+                                      SET status = 'published', published_at = ?, external_post_id = ?, error_message = NULL, updated_at = (datetime('now'))
+                                      WHERE id = ?`
+                                 ).bind(nowStr, result.provider_post_id, spId).run();
 
-                                await env.DB.prepare(
-                                    `INSERT INTO publish_logs (schedule_id, social_account_id, status, error_message, external_post_id, response_payload, published_at) 
-                                     VALUES (NULL, ?, 'success', NULL, ?, ?, ?)`
-                                 ).bind(socialAccount.id, result.provider_post_id, JSON.stringify(result), nowStr).run();
+                                 await env.DB.prepare(
+                                     `INSERT INTO publish_logs (schedule_id, social_account_id, status, error_message, external_post_id, response_payload, published_at) 
+                                      VALUES (?, ?, 'success', NULL, ?, ?, ?)`
+                                 ).bind(spId, socialAccount.id, result.provider_post_id, JSON.stringify(result), nowStr).run();
  
                                  return new Response(JSON.stringify({ success: true, message: 'Published successfully', result }), { status: 200, headers: corsHeaders });
                              } else {
                                  await env.DB.prepare(
                                      `UPDATE scheduled_posts 
-                                      SET status = 'failed', error_message = ? 
+                                      SET status = 'failed', error_message = ?, updated_at = (datetime('now'))
                                       WHERE id = ?`
                                  ).bind(result.error_message, spId).run();
  
                                  await env.DB.prepare(
                                      `INSERT INTO publish_logs (schedule_id, social_account_id, status, error_message, response_payload, published_at) 
-                                      VALUES (NULL, ?, 'failed', ?, ?, (datetime('now')))`
-                                 ).bind(socialAccount.id, result.error_message, JSON.stringify(result)).run();
+                                      VALUES (?, ?, 'failed', ?, ?, (datetime('now')))`
+                                 ).bind(spId, socialAccount.id, result.error_message, JSON.stringify(result)).run();
  
                                  return new Response(JSON.stringify({ success: false, message: result.error_message }), { status: 400, headers: corsHeaders });
                              }
                          } catch (err) {
-                            await env.DB.prepare("UPDATE scheduled_posts SET status = 'failed', error_message = ? WHERE id = ?").bind(err.message, spId).run();
-                            
-                            // Insert into logs
-                            if (scheduledPost.account_id) {
-                                await env.DB.prepare(
-                                    `INSERT INTO publish_logs (schedule_id, social_account_id, status, error_message, response_payload, published_at) 
-                                     VALUES (NULL, ?, 'failed', ?, ?, (datetime('now')))`
-                                ).bind(scheduledPost.account_id, err.message, JSON.stringify({ error: err.message })).run();
-                            }
+                             await env.DB.prepare("UPDATE scheduled_posts SET status = 'failed', error_message = ?, updated_at = (datetime('now')) WHERE id = ?").bind(err.message, spId).run();
+                             
+                             // Insert into logs
+                             if (scheduledPost && scheduledPost.account_id) {
+                                 await env.DB.prepare(
+                                     `INSERT INTO publish_logs (schedule_id, social_account_id, status, error_message, response_payload, published_at) 
+                                      VALUES (?, ?, 'failed', ?, ?, (datetime('now')))`
+                                 ).bind(spId, scheduledPost.account_id, err.message, JSON.stringify({ error: err.message })).run();
+                             }
 
                             return new Response(JSON.stringify({ success: false, message: err.message }), { status: 500, headers: corsHeaders });
                         }
@@ -3986,6 +3986,49 @@ CRITICAL TONE RULES:
         
         const nowStr = new Date().toISOString();
 
+        // 0. Recover stuck 'publishing' posts (timeout/aborted connection recovery)
+        try {
+            const tenMinsAgo = new Date(Date.now() - 10 * 60 * 1000).toISOString();
+            const stuckPosts = await env.DB.prepare(
+                `SELECT * FROM scheduled_posts 
+                 WHERE status = 'publishing' 
+                 AND (updated_at <= ? OR (updated_at IS NULL AND publish_at <= ?))`
+            ).bind(tenMinsAgo, tenMinsAgo).all();
+
+            if (stuckPosts.results && stuckPosts.results.length > 0) {
+                console.log(`[Cron] Found ${stuckPosts.results.length} posts stuck in publishing status. Recovering...`);
+                for (const post of stuckPosts.results) {
+                    const timeWindowStart = new Date(new Date(post.publish_at).getTime() - 5 * 60 * 1000).toISOString();
+                    const timeWindowEnd = new Date(new Date(post.publish_at).getTime() + 15 * 60 * 1000).toISOString();
+
+                    const successLog = await env.DB.prepare(
+                        `SELECT * FROM publish_logs 
+                         WHERE social_account_id = ? AND status = 'success' 
+                         AND (schedule_id = ? OR (published_at >= ? AND published_at <= ?))
+                         ORDER BY id DESC LIMIT 1`
+                    ).bind(post.account_id, post.id, timeWindowStart, timeWindowEnd).first().catch(() => null);
+
+                    if (successLog) {
+                        console.log(`[Cron] Post ID: ${post.id} was actually published successfully (Log ID: ${successLog.id}). Updating status...`);
+                        await env.DB.prepare(
+                            `UPDATE scheduled_posts 
+                             SET status = 'published', published_at = ?, external_post_id = ?, error_message = NULL, updated_at = (datetime('now'))
+                             WHERE id = ?`
+                        ).bind(successLog.published_at, successLog.external_post_id, post.id).run();
+                    } else {
+                        console.log(`[Cron] Post ID: ${post.id} failed/timed out. Marking as failed.`);
+                        await env.DB.prepare(
+                            `UPDATE scheduled_posts 
+                             SET status = 'failed', error_message = 'Publishing timed out or worker execution was aborted.', updated_at = (datetime('now'))
+                             WHERE id = ?`
+                        ).bind(post.id).run();
+                    }
+                }
+            }
+        } catch (recoverErr) {
+            console.error("[Cron] Stuck posts recovery error:", recoverErr.message);
+        }
+
         // 1. Process legacy publish_queue (if any exist)
         try {
             const { results } = await env.DB.prepare(
@@ -4071,8 +4114,8 @@ CRITICAL TONE RULES:
                             // Audit Log
                             await env.DB.prepare(
                                 `INSERT INTO publish_logs (schedule_id, social_account_id, status, error_message, external_post_id, response_payload, published_at) 
-                                 VALUES (NULL, ?, 'success', NULL, ?, ?, ?)`
-                            ).bind(socialAccount.id, result.provider_post_id, JSON.stringify(result), completedAt).run();
+                                 VALUES (?, ?, 'success', NULL, ?, ?, ?)`
+                            ).bind(post.id, socialAccount.id, result.provider_post_id, JSON.stringify(result), completedAt).run();
 
                             console.log(`[Cron] Post ID: ${post.id} successfully published in ${duration}ms.`);
 
@@ -4128,8 +4171,8 @@ CRITICAL TONE RULES:
 
                         await env.DB.prepare(
                             `INSERT INTO publish_logs (schedule_id, social_account_id, status, error_message, response_payload, published_at) 
-                             VALUES (NULL, ?, 'failed', ?, ?, (datetime('now')))`
-                        ).bind(post.account_id, err.message, JSON.stringify({ error: err.message, duration_ms: duration })).run();
+                             VALUES (?, ?, 'failed', ?, ?, (datetime('now')))`
+                        ).bind(post.id, post.account_id, err.message, JSON.stringify({ error: err.message, duration_ms: duration })).run();
                     }
                 }
             }

@@ -1259,10 +1259,10 @@ export default {
                             postFormat
                         });
 
-                        // Find connected account for this user & platform
+                        // Find connected account for this workspace & platform
                         const socialAccount = await env.DB.prepare(
-                            "SELECT id FROM social_accounts WHERE user_id = ? AND platform = ? AND status = 'active' LIMIT 1"
-                        ).bind(user.id, platform || 'threads').first();
+                            "SELECT id FROM social_accounts WHERE workspace_id = ? AND platform = ? AND status = 'active' LIMIT 1"
+                        ).bind(activeWorkspace.workspace_id, platform || 'threads').first();
 
                         const accountId = socialAccount ? socialAccount.id : null;
                         const finalStatus = accountId ? 'scheduled' : 'draft';

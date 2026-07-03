@@ -514,6 +514,41 @@ export default {
                 .first();
         };
 
+        const extractMetaTags = (html) => {
+            let title = "";
+            let description = "";
+            let image = "";
+
+            try {
+                // Extract <head> section to avoid parsing the massive <body>
+                const headMatch = html.match(/<head[^>]*>([\s\S]*?)<\/head>/i);
+                const headHtml = headMatch ? headMatch[1] : html.substring(0, 100000);
+
+                // Extract meta tags from <head> using simple non-backtracking regex
+                const metaTags = headHtml.match(/<meta\s+[^>]+>/gi) || [];
+                
+                for (const tag of metaTags) {
+                    const property = (tag.match(/property=["']([^"']+)["']/i) || tag.match(/name=["']([^"']+)["']/i))?.[1];
+                    const content = tag.match(/content=["']([^"']+)["']/i)?.[1];
+                    
+                    if (property && content) {
+                        const propLower = property.toLowerCase();
+                        if (propLower === 'og:title') {
+                            title = content.trim();
+                        } else if (propLower === 'og:description') {
+                            description = content.trim().substring(0, 1500);
+                        } else if (propLower === 'description' && !description) {
+                            description = content.trim().substring(0, 1500);
+                        } else if (propLower === 'og:image') {
+                            image = content.trim();
+                        }
+                    }
+                }
+            } catch (_) {}
+
+            return { title, description, image };
+        };
+
         const PLANS = {
             free: { accounts: 1, posts: 10, ai_credits: 15, storage: 50 * 1024 * 1024, features: ['calendar', 'queue', 'ai_assistant'] },
             starter: { accounts: 3, posts: 50, ai_credits: 10, storage: 500 * 1024 * 1024, features: ['calendar', 'queue', 'ai_assistant'] },
@@ -871,31 +906,14 @@ export default {
                             if (response.ok) {
                                 const html = await response.text();
 
-                                // Extract <title>
-                                const titleMatch = html.match(/<title[^>]*>([\s\S]*?)<\/title>/i);
-                                if (titleMatch) title = titleMatch[1].trim();
+                                 // Extract <title>
+                                 const titleMatch = html.match(/<title[^>]*>([\s\S]*?)<\/title>/i);
+                                 if (titleMatch) title = titleMatch[1].trim();
 
-                                // Prefer og:title over <title>
-                                const ogTitleMatch = html.match(/<meta[^>]+property=["']og:title["'][^>]+content=["']([^"']+)["']/i) ||
-                                                     html.match(/<meta[^>]+content=["']([^"']+)["'][^>]+property=["']og:title["']/i);
-                                if (ogTitleMatch) title = ogTitleMatch[1].trim();
-
-                                // og:description (supports multi-line content like Telegram)
-                                const ogDescMatch = html.match(/<meta[^>]+property=["']og:description["'][^>]+content=["']([\s\S]*?)["']\s*\/?>/i) ||
-                                                    html.match(/<meta[^>]+content=["']([\s\S]*?)["'][^>]+property=["']og:description["']/i);
-                                if (ogDescMatch) description = ogDescMatch[1].trim().substring(0, 1500);
-
-                                // name=description fallback
-                                if (!description) {
-                                    const descMatch = html.match(/<meta[^>]+name=["']description["'][^>]+content=["']([\s\S]*?)["']\s*\/?>/i) ||
-                                                      html.match(/<meta[^>]+content=["']([\s\S]*?)["'][^>]+name=["']description["']/i);
-                                    if (descMatch) description = descMatch[1].trim().substring(0, 1500);
-                                }
-
-                                // og:image
-                                const ogImageMatch = html.match(/<meta[^>]+property=["']og:image["'][^>]+content=["']([^"']+)["']/i) ||
-                                                     html.match(/<meta[^>]+content=["']([^"']+)["'][^>]+property=["']og:image["']/i);
-                                if (ogImageMatch) image = ogImageMatch[1].trim();
+                                 const metas = extractMetaTags(html);
+                                 if (metas.title) title = metas.title;
+                                 if (metas.description) description = metas.description;
+                                 if (metas.image) image = metas.image;
 
                                 // JSON-LD extraction for richer structured data (Product / ItemPage / RealEstateListing)
                                 if (!description || description.length < 50) {
@@ -1049,27 +1067,10 @@ export default {
                             if (scrapeRes.ok) {
                                 const html = await scrapeRes.text();
 
-                                // og:title
-                                const ogTitleM = html.match(/<meta[^>]+property=["']og:title["'][^>]+content=["']([^"']+)["']/i) ||
-                                                 html.match(/<meta[^>]+content=["']([^"']+)["'][^>]+property=["']og:title["']/i);
-                                if (ogTitleM) scrapedTitle = ogTitleM[1].trim();
-
-                                // og:description (multi-line support for Telegram etc.)
-                                const ogDescM = html.match(/<meta[^>]+property=["']og:description["'][^>]+content=["']([\s\S]*?)["']\s*\/?>/i) ||
-                                                html.match(/<meta[^>]+content=["']([\s\S]*?)["'][^>]+property=["']og:description["']/i);
-                                if (ogDescM) scrapedDescription = ogDescM[1].trim().substring(0, 1500);
-
-                                // meta name=description fallback
-                                if (!scrapedDescription) {
-                                    const metaDescM = html.match(/<meta[^>]+name=["']description["'][^>]+content=["']([\s\S]*?)["']\s*\/?>/i) ||
-                                                      html.match(/<meta[^>]+content=["']([\s\S]*?)["'][^>]+name=["']description["']/i);
-                                    if (metaDescM) scrapedDescription = metaDescM[1].trim().substring(0, 1500);
-                                }
-
-                                // og:image
-                                const ogImageM = html.match(/<meta[^>]+property=["']og:image["'][^>]+content=["']([^"']+)["']/i) ||
-                                                 html.match(/<meta[^>]+content=["']([^"']+)["'][^>]+property=["']og:image["']/i);
-                                if (ogImageM) scrapedImage = ogImageM[1].trim();
+                                 const metas = extractMetaTags(html);
+                                 if (metas.title) scrapedTitle = metas.title;
+                                 if (metas.description) scrapedDescription = metas.description;
+                                 if (metas.image) scrapedImage = metas.image;
 
                                 // JSON-LD extraction
                                 if (!scrapedDescription || scrapedDescription.length < 50) {
@@ -1655,26 +1656,13 @@ CRITICAL TONE RULES:
                             if (res.ok) {
                                 const html = await res.text();
 
-                                // Title extraction
-                                const titleMatch = html.match(/<title[^>]*>([\s\S]*?)<\/title>/i);
-                                if (titleMatch) title = titleMatch[1].trim();
+                                 // Title extraction
+                                 const titleMatch = html.match(/<title[^>]*>([\s\S]*?)<\/title>/i);
+                                 if (titleMatch) title = titleMatch[1].trim();
 
-                                // og:title (overrides <title>)
-                                const ogTitleMatch = html.match(/<meta[^>]+property=["']og:title["'][^>]+content=["']([^"']+)["']/i) ||
-                                                     html.match(/<meta[^>]+content=["']([^"']+)["'][^>]+property=["']og:title["']/i);
-                                if (ogTitleMatch) title = ogTitleMatch[1].trim();
-
-                                // og:description (supports multi-line content like Telegram)
-                                const ogDescMatch = html.match(/<meta[^>]+property=["']og:description["'][^>]+content=["']([\s\S]*?)["']\s*\/?>/i) ||
-                                                    html.match(/<meta[^>]+content=["']([\s\S]*?)["'][^>]+property=["']og:description["']/i);
-                                if (ogDescMatch) description = ogDescMatch[1].trim().substring(0, 1500);
-
-                                // name=description fallback
-                                if (!description) {
-                                    const descMatch = html.match(/<meta[^>]+name=["']description["'][^>]+content=["']([\s\S]*?)["']\s*\/?>/i) ||
-                                                      html.match(/<meta[^>]+content=["']([\s\S]*?)["'][^>]+name=["']description["']/i);
-                                    if (descMatch) description = descMatch[1].trim().substring(0, 1500);
-                                }
+                                 const metas = extractMetaTags(html);
+                                 if (metas.title) title = metas.title;
+                                 if (metas.description) description = metas.description;
 
                                 // JSON-LD structured data extraction
                                 if (!description || description.length < 50) {

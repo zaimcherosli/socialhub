@@ -1017,6 +1017,7 @@ CRITICAL RULES:
 Provide the output in a strict JSON format with the following keys. Return ONLY the JSON object, with no markdown code blocks or extra explanations:
 {
   "caption": "write the caption here (include thread separators if thread storm)",
+  "cta": "write a creative and engaging call to action phrase here matching the product platform (e.g. Shopee/TikTok/Lazada) without including the URL link itself. If workspace copywriting guidelines/knowledge base are provided, follow them to write this CTA phrase.",
   "hashtags": ["hashtag1", "hashtag2", "hashtag3"]
 }`;
 
@@ -1040,7 +1041,7 @@ Provide the output in a strict JSON format with the following keys. Return ONLY 
                                     contents: [{ parts: [{ text: systemPrompt }] }],
                                     generationConfig: { responseMimeType: "application/json" }
                                 })
-                            });
+                             });
                             if (res.ok) {
                                 const data = await res.json();
                                 responseText = data.candidates?.[0]?.content?.parts?.[0]?.text || "";
@@ -1085,22 +1086,13 @@ Provide the output in a strict JSON format with the following keys. Return ONLY 
                         const rawHashtags = parsed.hashtags || parsed.tags || [];
                         const hashtagsText = Array.isArray(rawHashtags) ? rawHashtags.join(' ') : (typeof rawHashtags === 'string' ? rawHashtags : '');
 
-                        // Determine the platform for the CTA dynamically based on the URL
-                        let platformCta = "Shopee";
-                        const lowerUrl = url.toLowerCase();
-                        if (lowerUrl.includes("tiktok.com")) {
-                            platformCta = "TikTok";
-                        } else if (lowerUrl.includes("lazada.com.my") || lowerUrl.includes("lazada.co")) {
-                            platformCta = "Lazada";
-                        } else if (lowerUrl.includes("shopee.com") || lowerUrl.includes("shopee.co")) {
-                            platformCta = "Shopee";
-                        } else {
-                            platformCta = "sini";
-                        }
+                        // Retrieve dynamic CTA from AI and sanitize
+                        let finalCtaText = parsed.cta ? parsed.cta.trim() : "";
+                        finalCtaText = finalCtaText.replace(/➡️/g, '').replace(/->/g, '').replace(/:$/g, '').trim();
 
-                        const ctaText = platformCta === "sini" 
-                            ? `Dapatkan di sini! ➡️ ${url}` 
-                            : `Dapatkan di ${platformCta} sekarang! ➡️ ${url}`;
+                        const ctaText = finalCtaText 
+                            ? `${finalCtaText} ➡️ ${url}` 
+                            : `Dapatkan di sini! ➡️ ${url}`;
                         
                         let fullContent = "";
                         if (postFormat === 'short_thread' || postFormat === 'deep_thread') {

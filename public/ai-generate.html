@@ -894,35 +894,27 @@
             progressModal.style.display = 'flex';
             progressBarFill.style.width = '0%';
             progressPercentText.textContent = '0% Complete';
-            // --- Smart Block Parsing ---
-            // Group consecutive lines into blocks separated by blank lines OR by URL occurrence.
-            // Each block that contains at least one URL becomes a job: all non-URL lines = context, URL = url.
-            const blocks = [];
-            let currentBlock = [];
-            rawText.split('\n').forEach(rawLine => {
-                const trimmed = rawLine.trim();
-                if (trimmed === '') {
-                    // blank line = end of block
-                    if (currentBlock.length > 0) { blocks.push(currentBlock); currentBlock = []; }
-                } else {
-                    currentBlock.push(trimmed);
-                }
-            });
-            if (currentBlock.length > 0) blocks.push(currentBlock);
-
-            // Flatten blocks into jobs: each block that has a URL becomes one job
+            // --- Forward-Accumulation URL Parsing ---
+            // Scan line-by-line. Accumulate all non-URL lines as pending context.
+            // When a URL line is found, attach all accumulated context (from start or previous URL) to that URL.
+            // This ensures multi-paragraph listings with the URL at the bottom are fully captured.
+            const allLines = rawText.split('\n').map(l => l.trim());
             const jobs = [];
-            for (const block of blocks) {
-                const urlLines = block.filter(l => /(https?:\/\/[^\s]+)/.test(l));
-                const contextLines = block.filter(l => !/(https?:\/\/[^\s]+)/.test(l));
-                for (const urlLine of urlLines) {
-                    const urlMatch = urlLine.match(/(https?:\/\/[^\s]+)/);
+            let pendingContext = [];
+
+            for (const line of allLines) {
+                const urlMatch = line.match(/(https?:\/\/[^\s]+)/);
+                if (urlMatch) {
                     const url = urlMatch[1];
-                    // Same-line text (before/after URL) + all non-URL lines in the block = context
-                    const sameLineCtx = urlLine.replace(url, '').replace(/\s+/g, ' ').trim();
-                    const fullContext = [...contextLines, sameLineCtx].filter(Boolean).join(' ').replace(/\s+/g, ' ').trim();
+                    // Same-line text before/after URL also goes into context
+                    const sameLineCtx = line.replace(url, '').replace(/\s+/g, ' ').trim();
+                    const fullContext = [...pendingContext, sameLineCtx].filter(Boolean).join(' ').replace(/\s+/g, ' ').trim();
                     jobs.push({ url, context: fullContext });
+                    pendingContext = []; // reset after each URL
+                } else if (line !== '') {
+                    pendingContext.push(line);
                 }
+                // blank lines are simply skipped (not used as block separators)
             }
 
             if (jobs.length === 0) {

@@ -1100,7 +1100,7 @@ CRITICAL RULES:
 Provide the output in a strict JSON format with the following keys. Return ONLY the JSON object, with no markdown code blocks or extra explanations:
 {
   "caption": "write the caption here (include thread separators if thread storm)",
-  "cta": "write a creative and engaging call to action phrase here matching the product platform (e.g. Shopee/TikTok/Lazada) without including the URL link itself. If workspace copywriting guidelines/knowledge base are provided, follow them to write this CTA phrase.",
+  "cta": "write a creative and engaging call to action phrase that naturally fits the product or service described above, without mentioning specific platform names (do not say Shopee, Lazada, TikTok unless the product context explicitly mentions them). Do not include the URL itself. If workspace copywriting guidelines/knowledge base are provided, follow them to write this CTA phrase.",
   "hashtags": ["hashtag1", "hashtag2", "hashtag3"]
 }`;
 

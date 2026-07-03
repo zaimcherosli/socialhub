@@ -847,6 +847,7 @@ export default {
                         let pageText = "";
                         let title = "";
                         let description = "";
+                        let image = "";
 
                         try {
                             const response = await fetch(url, {
@@ -890,6 +891,11 @@ export default {
                                                       html.match(/<meta[^>]+content=["']([\s\S]*?)["'][^>]+name=["']description["']/i);
                                     if (descMatch) description = descMatch[1].trim().substring(0, 1500);
                                 }
+
+                                // og:image
+                                const ogImageMatch = html.match(/<meta[^>]+property=["']og:image["'][^>]+content=["']([^"']+)["']/i) ||
+                                                     html.match(/<meta[^>]+content=["']([^"']+)["'][^>]+property=["']og:image["']/i);
+                                if (ogImageMatch) image = ogImageMatch[1].trim();
 
                                 // JSON-LD extraction for richer structured data (Product / ItemPage / RealEstateListing)
                                 if (!description || description.length < 50) {
@@ -960,7 +966,8 @@ export default {
                             success: true,
                             url: finalUrl,
                             title: decodedTitle,
-                            description: decodedDesc
+                            description: decodedDesc,
+                            image: image
                         }), { status: 200, headers: corsHeaders });
                     } catch (err) {
                         return new Response(JSON.stringify({
@@ -1021,6 +1028,7 @@ export default {
                         // Always try to scrape URL for richer product details
                         let scrapedTitle = "";
                         let scrapedDescription = "";
+                        let scrapedImage = "";
                         try {
                             const scrapeRes = await fetch(url, {
                                 headers: {
@@ -1057,6 +1065,11 @@ export default {
                                                       html.match(/<meta[^>]+content=["']([\s\S]*?)["'][^>]+name=["']description["']/i);
                                     if (metaDescM) scrapedDescription = metaDescM[1].trim().substring(0, 1500);
                                 }
+
+                                // og:image
+                                const ogImageM = html.match(/<meta[^>]+property=["']og:image["'][^>]+content=["']([^"']+)["']/i) ||
+                                                 html.match(/<meta[^>]+content=["']([^"']+)["'][^>]+property=["']og:image["']/i);
+                                if (ogImageM) scrapedImage = ogImageM[1].trim();
 
                                 // JSON-LD extraction
                                 if (!scrapedDescription || scrapedDescription.length < 50) {
@@ -1399,12 +1412,13 @@ Provide the output in a strict JSON format with the following keys. Return ONLY 
                             ).run();
                             
                             const parentId = result.meta.last_row_id;
-                            
+                            const imageSuffix = scrapedImage ? `\n\n📷 ${scrapedImage}` : "";
+
                             // 2. Insert subsequent slides as child posts waiting for trigger
                             for (let i = 1; i < cards.length; i++) {
                                 let slideText = cards[i];
                                 if (i === cards.length - 1) {
-                                    slideText = `${slideText}\n\n${ctaText}\n\n${hashtagsText}`.trim();
+                                    slideText = `${slideText}\n\n${ctaText}\n\n${hashtagsText}${imageSuffix}`.trim();
                                 }
                                 
                                 await env.DB.prepare(
@@ -1423,18 +1437,19 @@ Provide the output in a strict JSON format with the following keys. Return ONLY 
                                 ).run();
                             }
                         } else {
+                            const imageSuffix = scrapedImage ? `\n\n📷 ${scrapedImage}` : "";
                             // Standard single post or non-conditional thread storm insertion
                             let fullContent = "";
                             if (postFormat === 'short_thread' || postFormat === 'deep_thread') {
                                 if (cards.length > 0) {
                                     const lastCardIdx = cards.length - 1;
-                                    cards[lastCardIdx] = `${cards[lastCardIdx]}\n\n${ctaText}\n\n${hashtagsText}`.trim();
+                                    cards[lastCardIdx] = `${cards[lastCardIdx]}\n\n${ctaText}\n\n${hashtagsText}${imageSuffix}`.trim();
                                     fullContent = cards.join('\n---thread-separator---\n');
                                 } else {
-                                    fullContent = `${caption}\n\n${ctaText}\n\n${hashtagsText}`.trim();
+                                    fullContent = `${caption}\n\n${ctaText}\n\n${hashtagsText}${imageSuffix}`.trim();
                                 }
                             } else {
-                                fullContent = `${caption}\n\n${ctaText}\n\n${hashtagsText}`.trim();
+                                fullContent = `${caption}\n\n${ctaText}\n\n${hashtagsText}${imageSuffix}`.trim();
                             }
 
                             await env.DB.prepare(

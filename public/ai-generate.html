@@ -243,13 +243,27 @@
                     <!-- Autopilot Campaign Form (Hidden by default) -->
                     <form id="aiAutopilotForm" style="display: none;" onsubmit="event.preventDefault();">
                         <div class="form-group" style="margin-bottom: 1rem;">
-                            <label class="form-label" for="autoNiche">Business Niche & Description</label>
-                            <textarea id="autoNiche" class="form-input" rows="3" placeholder="e.g. Kedai kopi hipster di Bangi yang menjual espresso premium dan pastri..." style="width: 100%; resize: vertical;" required></textarea>
+                            <label class="form-label" for="autoNiche">Business Niche / Description / Problem</label>
+                            <textarea id="autoNiche" class="form-input" rows="3" placeholder="e.g. Kedai kopi hipster di Bangi. Masalah: Pekerja pejabat susah dapat kopi berkualiti awal pagi." style="width: 100%; resize: vertical;" required></textarea>
                         </div>
 
                         <div class="form-group" style="margin-bottom: 1rem;">
-                            <label class="form-label" for="autoAudience">Target Audience</label>
-                            <input type="text" id="autoAudience" class="form-input" placeholder="e.g. coffee lovers, students, busy office workers" style="width: 100%;" />
+                            <label class="form-label" for="autoAudience">Target Audience & Solution</label>
+                            <input type="text" id="autoAudience" class="form-input" placeholder="e.g. coffee lovers, busy office workers. Solusi: Servis drive-thru pantas bermula 7 pagi." style="width: 100%;" />
+                        </div>
+
+                        <div class="form-group" style="margin-bottom: 1rem;">
+                            <label class="form-label" for="autoCta">CTA Link / WhatsApp (Optional)</label>
+                            <input type="text" id="autoCta" class="form-input" placeholder="e.g. https://shopee.com.my/yourproduct or https://wa.me/..." style="width: 100%;" />
+                        </div>
+
+                        <div class="form-group" style="margin-bottom: 1rem;">
+                            <label class="form-label" for="autoFormat">Post Format</label>
+                            <select id="autoFormat" class="form-select" style="width: 100%;">
+                                <option value="single" selected>Single Post (Short)</option>
+                                <option value="short_thread">Short Thread (2-3 posts per thread)</option>
+                                <option value="deep_thread">Deep-Dive Thread (3-5 posts per thread)</option>
+                            </select>
                         </div>
 
                         <div class="form-group" style="margin-bottom: 1rem;">
@@ -993,6 +1007,8 @@
             const count = parseInt(document.getElementById('autoCount').value);
             const frequency = parseInt(document.getElementById('autoFrequency').value);
             const language = document.getElementById('autoLanguage').value;
+            const ctaLink = document.getElementById('autoCta').value.trim();
+            const postFormat = document.getElementById('autoFormat').value;
             const timezoneOffset = new Date().getTimezoneOffset();
 
             if (!niche) {
@@ -1011,7 +1027,9 @@
                     count,
                     frequency,
                     language,
-                    timezoneOffset
+                    timezoneOffset,
+                    ctaLink,
+                    postFormat
                 });
 
                 if (response.success) {

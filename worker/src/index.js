@@ -1211,7 +1211,7 @@ export default {
                     if (request.method !== 'POST') return new Response(JSON.stringify({ error: 'Method not allowed' }), { status: 405, headers: corsHeaders });
                     if (activeWorkspace.role === 'viewer') return new Response(JSON.stringify({ message: 'Forbidden: Viewers cannot create content.' }), { status: 403, headers: corsHeaders });
 
-                    const { niche, targetAudience, platform, count, language, timezoneOffset, frequency } = await request.json();
+                    const { niche, targetAudience, platform, count, language, timezoneOffset, frequency, ctaLink, postFormat } = await request.json();
                     if (!niche) {
                         return new Response(JSON.stringify({ message: 'Business niche is required.' }), { status: 400, headers: corsHeaders });
                     }
@@ -1254,7 +1254,9 @@ export default {
                             count: parseInt(count) || 3,
                             language: language || 'Bahasa Melayu',
                             timezoneOffset: parseInt(timezoneOffset) || -480,
-                            frequency: parseInt(frequency) || 1
+                            frequency: parseInt(frequency) || 1,
+                            ctaLink,
+                            postFormat
                         });
 
                         // Find connected account for this user & platform

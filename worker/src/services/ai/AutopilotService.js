@@ -3,8 +3,30 @@ export class AutopilotService {
         this.provider = provider;
     }
 
-    async generateAutopilotCampaign({ niche, targetAudience, platform, count, language, timezoneOffset, frequency }) {
-        console.log(`[AutopilotService] Starting autopilot campaign generation for niche: "${niche}", count: ${count}, frequency: ${frequency}`);
+    async generateAutopilotCampaign({ niche, targetAudience, platform, count, language, timezoneOffset, frequency, ctaLink, postFormat }) {
+        console.log(`[AutopilotService] Starting autopilot campaign generation for niche: "${niche}", count: ${count}, frequency: ${frequency}, format: ${postFormat}, ctaLink: ${ctaLink}`);
+
+        let formatInstructions = "";
+        if (postFormat === 'short_thread') {
+            formatInstructions = `
+- Each post in the calendar MUST be a Thread Storm (berangkai) consisting of exactly 2 to 3 thread posts/slides.
+- Split the slides of each thread storm using the exact separator string '---thread-separator---'. For example: 'Slide 1 content\\n---thread-separator---\\nSlide 2 content\\n---thread-separator---\\nSlide 3 content'.
+- Each individual slide/card in the thread storm must be under 300 characters.`;
+        } else if (postFormat === 'deep_thread') {
+            formatInstructions = `
+- Each post in the calendar MUST be a deep-dive Thread Storm (berangkai) consisting of exactly 3 to 5 thread posts/slides.
+- Split the slides of each thread storm using the exact separator string '---thread-separator---'. For example: 'Slide 1 content\\n---thread-separator---\\nSlide 2 content\\n---thread-separator---\\nSlide 3 content\\n---thread-separator---\\nSlide 4 content'.
+- Each individual slide/card in the thread storm must be under 300 characters.`;
+        } else {
+            formatInstructions = `
+- Each post in the calendar must be a single post.
+- The caption text must be under 350 characters.`;
+        }
+
+        let ctaInstructions = "A compelling call to action.";
+        if (ctaLink && ctaLink.trim() !== '') {
+            ctaInstructions = `A compelling call to action directing the user to this link: ${ctaLink}. Example: 'Klik link ini untuk info lanjut: ${ctaLink}'.`;
+        }
 
         // Custom prompt requesting a JSON array of posts
         const prompt = `You are a professional social media marketing expert and content planner.
@@ -30,8 +52,8 @@ Example valid format:
 ]
 
 Each object in the JSON array must contain exactly these keys:
-- caption: The caption text for the post (written in ${language} language, tailored for local Malaysian audience if Malay, avoiding Indonesian vocabulary. The caption MUST be under 350 characters to ensure the total post length including CTA and hashtags stays strictly under 500 characters).
-- cta: A compelling call to action.
+- caption: The caption text for the post (written in ${language} language, tailored for local Malaysian audience if Malay, avoiding Indonesian vocabulary. ${formatInstructions}).
+- cta: ${ctaInstructions}
 - hashtags: An array of 3 relevant hashtags.
 
 Ensure that the posts are diverse (e.g. one educational/value post, one promotional/sales post, one engaging/question post).`;

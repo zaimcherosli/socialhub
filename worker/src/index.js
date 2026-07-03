@@ -1085,8 +1085,22 @@ Provide the output in a strict JSON format with the following keys. Return ONLY 
                         const rawHashtags = parsed.hashtags || parsed.tags || [];
                         const hashtagsText = Array.isArray(rawHashtags) ? rawHashtags.join(' ') : (typeof rawHashtags === 'string' ? rawHashtags : '');
 
-                        // Append affiliate link at the end of the post (or last thread item)
-                        const ctaText = `Dapatkan di Shopee sekarang! ➡️ ${url}`;
+                        // Determine the platform for the CTA dynamically based on the URL
+                        let platformCta = "Shopee";
+                        const lowerUrl = url.toLowerCase();
+                        if (lowerUrl.includes("tiktok.com")) {
+                            platformCta = "TikTok";
+                        } else if (lowerUrl.includes("lazada.com.my") || lowerUrl.includes("lazada.co")) {
+                            platformCta = "Lazada";
+                        } else if (lowerUrl.includes("shopee.com") || lowerUrl.includes("shopee.co")) {
+                            platformCta = "Shopee";
+                        } else {
+                            platformCta = "sini";
+                        }
+
+                        const ctaText = platformCta === "sini" 
+                            ? `Dapatkan di sini! ➡️ ${url}` 
+                            : `Dapatkan di ${platformCta} sekarang! ➡️ ${url}`;
                         
                         let fullContent = "";
                         if (postFormat === 'short_thread' || postFormat === 'deep_thread') {

@@ -876,16 +876,16 @@ export default {
                                                      html.match(/<meta[^>]+content=["']([^"']+)["'][^>]+property=["']og:title["']/i);
                                 if (ogTitleMatch) title = ogTitleMatch[1].trim();
 
-                                // og:description
-                                const ogDescMatch = html.match(/<meta[^>]+property=["']og:description["'][^>]+content=["']([^"']+)["']/i) ||
-                                                    html.match(/<meta[^>]+content=["']([^"']+)["'][^>]+property=["']og:description["']/i);
-                                if (ogDescMatch) description = ogDescMatch[1].trim();
+                                // og:description (supports multi-line content like Telegram)
+                                const ogDescMatch = html.match(/<meta[^>]+property=["']og:description["'][^>]+content=["']([\s\S]*?)["']\s*\/?>/i) ||
+                                                    html.match(/<meta[^>]+content=["']([\s\S]*?)["'][^>]+property=["']og:description["']/i);
+                                if (ogDescMatch) description = ogDescMatch[1].trim().substring(0, 1500);
 
                                 // name=description fallback
                                 if (!description) {
-                                    const descMatch = html.match(/<meta[^>]+name=["']description["'][^>]+content=["']([^"']+)["']/i) ||
-                                                      html.match(/<meta[^>]+content=["']([^"']+)["'][^>]+name=["']description["']/i);
-                                    if (descMatch) description = descMatch[1].trim();
+                                    const descMatch = html.match(/<meta[^>]+name=["']description["'][^>]+content=["']([\s\S]*?)["']\s*\/?>/i) ||
+                                                      html.match(/<meta[^>]+content=["']([\s\S]*?)["'][^>]+name=["']description["']/i);
+                                    if (descMatch) description = descMatch[1].trim().substring(0, 1500);
                                 }
 
                                 // JSON-LD extraction for richer structured data (Product / ItemPage / RealEstateListing)
@@ -1449,16 +1449,16 @@ CRITICAL TONE RULES:
                                                      html.match(/<meta[^>]+content=["']([^"']+)["'][^>]+property=["']og:title["']/i);
                                 if (ogTitleMatch) title = ogTitleMatch[1].trim();
 
-                                // og:description
-                                const ogDescMatch = html.match(/<meta[^>]+property=["']og:description["'][^>]+content=["']([^"']+)["']/i) ||
-                                                    html.match(/<meta[^>]+content=["']([^"']+)["'][^>]+property=["']og:description["']/i);
-                                if (ogDescMatch) description = ogDescMatch[1].trim();
+                                // og:description (supports multi-line content like Telegram)
+                                const ogDescMatch = html.match(/<meta[^>]+property=["']og:description["'][^>]+content=["']([\s\S]*?)["']\s*\/?>/i) ||
+                                                    html.match(/<meta[^>]+content=["']([\s\S]*?)["'][^>]+property=["']og:description["']/i);
+                                if (ogDescMatch) description = ogDescMatch[1].trim().substring(0, 1500);
 
                                 // name=description fallback
                                 if (!description) {
-                                    const descMatch = html.match(/<meta[^>]+name=["']description["'][^>]+content=["']([^"']+)["']/i) ||
-                                                      html.match(/<meta[^>]+content=["']([^"']+)["'][^>]+name=["']description["']/i);
-                                    if (descMatch) description = descMatch[1].trim();
+                                    const descMatch = html.match(/<meta[^>]+name=["']description["'][^>]+content=["']([\s\S]*?)["']\s*\/?>/i) ||
+                                                      html.match(/<meta[^>]+content=["']([\s\S]*?)["'][^>]+name=["']description["']/i);
+                                    if (descMatch) description = descMatch[1].trim().substring(0, 1500);
                                 }
 
                                 // JSON-LD structured data extraction

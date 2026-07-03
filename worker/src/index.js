@@ -2674,8 +2674,8 @@ CRITICAL TONE RULES:
 
                                         await env.DB.prepare(
                                             `INSERT INTO publish_logs (schedule_id, social_account_id, status, error_message, external_post_id, response_payload, published_at) 
-                                             VALUES (?, ?, 'success', NULL, ?, ?, ?)`
-                                        ).bind(post.id, socialAccount.id, result.provider_post_id, JSON.stringify(result), completedAt).run();
+                                 VALUES (NULL, ?, 'success', NULL, ?, ?, ?)`
+                                        ).bind(socialAccount.id, result.provider_post_id, JSON.stringify(result), completedAt).run();
                                     } else {
                                         throw new Error(result.error_message);
                                     }
@@ -2692,7 +2692,7 @@ CRITICAL TONE RULES:
                                     }
 
                                     await env.DB.prepare("INSERT INTO publish_logs (schedule_id, social_account_id, status, error_message, response_payload, published_at) VALUES (?, ?, 'failed', ?, ?, (datetime('now')))")
-                                        .bind(post.id, post.account_id, err.message, JSON.stringify({ error: err.message }))
+                                        .bind(post.account_id, err.message, JSON.stringify({ error: err.message }))
                                         .run();
                                 }
                             }
@@ -3406,8 +3406,8 @@ CRITICAL TONE RULES:
 
                                  await env.DB.prepare(
                                      `INSERT INTO publish_logs (schedule_id, social_account_id, status, error_message, external_post_id, response_payload, published_at) 
-                                      VALUES (?, ?, 'success', NULL, ?, ?, ?)`
-                                 ).bind(spId, socialAccount.id, result.provider_post_id, JSON.stringify(result), nowStr).run();
+                                 VALUES (NULL, ?, 'success', NULL, ?, ?, ?)`
+                                 ).bind(socialAccount.id, result.provider_post_id, JSON.stringify(result), nowStr).run();
  
                                  return new Response(JSON.stringify({ success: true, message: 'Published successfully', result }), { status: 200, headers: corsHeaders });
                              } else {
@@ -3419,8 +3419,8 @@ CRITICAL TONE RULES:
  
                                  await env.DB.prepare(
                                      `INSERT INTO publish_logs (schedule_id, social_account_id, status, error_message, response_payload, published_at) 
-                                      VALUES (?, ?, 'failed', ?, ?, (datetime('now')))`
-                                 ).bind(spId, socialAccount.id, result.error_message, JSON.stringify(result)).run();
+                                 VALUES (NULL, ?, 'failed', ?, ?, (datetime('now')))`
+                                 ).bind(socialAccount.id, result.error_message, JSON.stringify(result)).run();
  
                                  return new Response(JSON.stringify({ success: false, message: result.error_message }), { status: 400, headers: corsHeaders });
                              }
@@ -3431,8 +3431,8 @@ CRITICAL TONE RULES:
                              if (scheduledPost && scheduledPost.account_id) {
                                  await env.DB.prepare(
                                      `INSERT INTO publish_logs (schedule_id, social_account_id, status, error_message, response_payload, published_at) 
-                                      VALUES (?, ?, 'failed', ?, ?, (datetime('now')))`
-                                 ).bind(spId, scheduledPost.account_id, err.message, JSON.stringify({ error: err.message })).run();
+                                 VALUES (NULL, ?, 'failed', ?, ?, (datetime('now')))`
+                                 ).bind(scheduledPost.account_id, err.message, JSON.stringify({ error: err.message })).run();
                              }
 
                             return new Response(JSON.stringify({ success: false, message: err.message }), { status: 500, headers: corsHeaders });
@@ -4114,8 +4114,8 @@ CRITICAL TONE RULES:
                             // Audit Log
                             await env.DB.prepare(
                                 `INSERT INTO publish_logs (schedule_id, social_account_id, status, error_message, external_post_id, response_payload, published_at) 
-                                 VALUES (?, ?, 'success', NULL, ?, ?, ?)`
-                            ).bind(post.id, socialAccount.id, result.provider_post_id, JSON.stringify(result), completedAt).run();
+                                 VALUES (NULL, ?, 'success', NULL, ?, ?, ?)`
+                            ).bind(socialAccount.id, result.provider_post_id, JSON.stringify(result), completedAt).run();
 
                             console.log(`[Cron] Post ID: ${post.id} successfully published in ${duration}ms.`);
 
@@ -4171,8 +4171,8 @@ CRITICAL TONE RULES:
 
                         await env.DB.prepare(
                             `INSERT INTO publish_logs (schedule_id, social_account_id, status, error_message, response_payload, published_at) 
-                             VALUES (?, ?, 'failed', ?, ?, (datetime('now')))`
-                        ).bind(post.id, post.account_id, err.message, JSON.stringify({ error: err.message, duration_ms: duration })).run();
+                                 VALUES (NULL, ?, 'failed', ?, ?, (datetime('now')))`
+                        ).bind(post.account_id, err.message, JSON.stringify({ error: err.message, duration_ms: duration })).run();
                     }
                 }
             }

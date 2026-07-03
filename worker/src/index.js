@@ -1012,15 +1012,111 @@ export default {
                             }
                         }
 
-                        // Extract context or fallback to URL slug parsing
+                        // Extract context from frontend or scrape URL for product details
                         let productContext = context || "";
+                        
+                        // Always try to scrape URL for richer product details
+                        let scrapedTitle = "";
+                        let scrapedDescription = "";
+                        try {
+                            const scrapeRes = await fetch(url, {
+                                headers: {
+                                    'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36',
+                                    'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,*/*;q=0.8',
+                                    'Accept-Language': 'ms-MY,ms;q=0.9,en-MY;q=0.8,en;q=0.7',
+                                    'Accept-Encoding': 'gzip, deflate, br',
+                                    'Cache-Control': 'no-cache',
+                                    'Referer': new URL(url).origin + '/',
+                                    'Sec-Fetch-Mode': 'navigate',
+                                    'Sec-Fetch-Site': 'none',
+                                    'Sec-Fetch-Dest': 'document',
+                                    'Upgrade-Insecure-Requests': '1'
+                                },
+                                redirect: 'follow'
+                            });
+
+                            if (scrapeRes.ok) {
+                                const html = await scrapeRes.text();
+
+                                // og:title
+                                const ogTitleM = html.match(/<meta[^>]+property=["']og:title["'][^>]+content=["']([^"']+)["']/i) ||
+                                                 html.match(/<meta[^>]+content=["']([^"']+)["'][^>]+property=["']og:title["']/i);
+                                if (ogTitleM) scrapedTitle = ogTitleM[1].trim();
+
+                                // og:description (multi-line support for Telegram etc.)
+                                const ogDescM = html.match(/<meta[^>]+property=["']og:description["'][^>]+content=["']([\s\S]*?)["']\s*\/?>/i) ||
+                                                html.match(/<meta[^>]+content=["']([\s\S]*?)["'][^>]+property=["']og:description["']/i);
+                                if (ogDescM) scrapedDescription = ogDescM[1].trim().substring(0, 1500);
+
+                                // meta name=description fallback
+                                if (!scrapedDescription) {
+                                    const metaDescM = html.match(/<meta[^>]+name=["']description["'][^>]+content=["']([\s\S]*?)["']\s*\/?>/i) ||
+                                                      html.match(/<meta[^>]+content=["']([\s\S]*?)["'][^>]+name=["']description["']/i);
+                                    if (metaDescM) scrapedDescription = metaDescM[1].trim().substring(0, 1500);
+                                }
+
+                                // JSON-LD extraction
+                                if (!scrapedDescription || scrapedDescription.length < 50) {
+                                    const jsonLdMatches = [...html.matchAll(/<script[^>]+type=["']application\/ld\+json["'][^>]*>([\s\S]*?)<\/script>/gi)];
+                                    for (const m of jsonLdMatches) {
+                                        try {
+                                            const ld = JSON.parse(m[1]);
+                                            const objs = Array.isArray(ld) ? ld : [ld];
+                                            for (const obj of objs) {
+                                                if (!scrapedTitle && obj.name) scrapedTitle = obj.name;
+                                                if (!scrapedDescription && obj.description) scrapedDescription = obj.description.substring(0, 1000);
+                                                if (obj.address) {
+                                                    const addr = typeof obj.address === 'string' ? obj.address : [obj.address.streetAddress, obj.address.addressLocality, obj.address.addressRegion].filter(Boolean).join(', ');
+                                                    if (addr) scrapedDescription = (scrapedDescription || '') + ' Location: ' + addr;
+                                                }
+                                                if (scrapedDescription) break;
+                                            }
+                                        } catch (_) {}
+                                        if (scrapedDescription) break;
+                                    }
+                                }
+
+                                // Body text fallback
+                                if (!scrapedDescription) {
+                                    let bodyText = html
+                                        .replace(/<script[^>]*>[\s\S]*?<\/script>/gi, '')
+                                        .replace(/<style[^>]*>[\s\S]*?<\/style>/gi, '')
+                                        .replace(/<[^>]+>/g, ' ')
+                                        .replace(/\s+/g, ' ')
+                                        .trim();
+                                    scrapedDescription = bodyText.substring(0, 1500);
+                                }
+                            }
+                        } catch (_) {
+                            // Scrape failed — fall through to existing context/slug fallback
+                        }
+
+                        // Decode HTML entities in scraped content
+                        const decodeEntities = (str) => {
+                            if (!str) return "";
+                            return str.replace(/&#(\d+);/g, (m, d) => String.fromCharCode(d))
+                                      .replace(/&quot;/g, '"').replace(/&amp;/g, '&')
+                                      .replace(/&lt;/g, '<').replace(/&gt;/g, '>')
+                                      .replace(/&nbsp;/g, ' ');
+                        };
+                        scrapedTitle = decodeEntities(scrapedTitle);
+                        scrapedDescription = decodeEntities(scrapedDescription);
+
+                        // Combine: frontend context + scraped data for maximum richness
+                        if (scrapedDescription) {
+                            productContext = productContext
+                                ? `${productContext}\n\nScraped from URL:\n${scrapedTitle ? scrapedTitle + '\n' : ''}${scrapedDescription}`
+                                : `${scrapedTitle ? scrapedTitle + '\n' : ''}${scrapedDescription}`;
+                        }
+
+                        // URL slug fallback only if we still have nothing
                         if (!productContext) {
                             try {
                                 const u = new URL(url);
                                 const slug = (u.pathname + ' ' + u.search)
                                     .replace(/[-_/]/g, ' ')
                                     .replace(/\.htm.*$/i, '')
-                                    .replace(/\d{5,}/g, '') // remove long numeric IDs
+                                    .replace(/\d{5,}/g, '')
                                     .replace(/[^a-zA-Z ]/g, ' ')
                                     .replace(/\s+/g, ' ')
                                     .trim();
@@ -1028,7 +1124,6 @@ export default {
                                 const words = slug.split(' ').filter(w => w.length > 2 && !stopWords.includes(w.toLowerCase()));
                                 productContext = words.map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(' ');
                             } catch (_) {}
-                            // Last resort fallback if URL slug also yields nothing
                             if (!productContext) productContext = "produk Malaysia";
                         }
 
@@ -1086,8 +1181,8 @@ CRITICAL TONE RULES:
                         }
 
                         const systemPrompt = `You are a professional social media marketing expert in Malaysia.
-Generate a high-converting, engaging post based on the following product details:
-- Product info/niche: ${productContext}
+Generate a high-converting, engaging post based on the following product/property details:
+- Product/property info: ${productContext}
 - Target Platform: Threads
 - ${toneInstruction}
 - Language: ${language || 'Malay'}
@@ -1095,7 +1190,8 @@ Generate a high-converting, engaging post based on the following product details
 CRITICAL RULES:
 1. Under no circumstances should you mention or include the price of the product (such as RMxx, pricing range, etc.) in the copywriting. Do not reveal the price. Focus on making the audience curious so they click the link.
 2. The copywriting ${formatInstructions}
-3. If writing in Malay, use natural, casual, and conversational Malaysian Malay slangs/vocabulary (e.g. 'korang', 'je', 'boleh', 'nak') instead of formal Indonesian words ('kamu', 'bisa', 'yuk', 'sih', 'deh'). Do NOT always start the hooks with the same word (e.g. vary the opening hooks and sentence structure so they do not all start with 'weyh' or 'weh').${customGuidelinesBlock}
+3. If writing in Malay, use natural, casual, and conversational Malaysian Malay slangs/vocabulary (e.g. 'korang', 'je', 'boleh', 'nak') instead of formal Indonesian words ('kamu', 'bisa', 'yuk', 'sih', 'deh'). Do NOT always start the hooks with the same word (e.g. vary the opening hooks and sentence structure so they do not all start with 'weyh' or 'weh').
+4. Focus on the ACTUAL product/property details (type, location, size, features, facilities) from the product info above. DO NOT write about the seller name, channel name, or listing source/platform name. Write as if YOU personally found or own this product/property.${customGuidelinesBlock}
 
 Provide the output in a strict JSON format with the following keys. Return ONLY the JSON object, with no markdown code blocks or extra explanations:
 {

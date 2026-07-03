@@ -529,11 +529,14 @@ export default {
             try {
                 await env.DB.prepare("ALTER TABLE users ADD COLUMN active_workspace_id INTEGER REFERENCES workspaces(id) ON DELETE SET NULL").run();
             } catch (_) { /* column already exists */ }
+            try {
+                await env.DB.prepare("ALTER TABLE workspaces ADD COLUMN whatsapp_number TEXT DEFAULT NULL").run();
+            } catch (_) { /* column already exists */ }
 
             // If user has active workspace selected, verify and return it
             if (user.active_workspace_id) {
                 const ws = await env.DB.prepare(
-                    `SELECT m.role, w.id as workspace_id, w.uuid, w.name, w.slug, w.subscription_plan, w.subscription_status
+                    `SELECT m.role, w.id as workspace_id, w.uuid, w.name, w.slug, w.subscription_plan, w.subscription_status, w.whatsapp_number
                      FROM workspace_members m
                      JOIN workspaces w ON m.workspace_id = w.id
                      WHERE m.user_id = ? AND w.id = ?`
@@ -543,7 +546,7 @@ export default {
 
             // Fallback to first available workspace
             const fallbackWs = await env.DB.prepare(
-                `SELECT m.role, w.id as workspace_id, w.uuid, w.name, w.slug, w.subscription_plan, w.subscription_status
+                `SELECT m.role, w.id as workspace_id, w.uuid, w.name, w.slug, w.subscription_plan, w.subscription_status, w.whatsapp_number
                  FROM workspace_members m
                  JOIN workspaces w ON m.workspace_id = w.id
                  WHERE m.user_id = ?
@@ -1149,6 +1152,68 @@ export default {
                         const accountId = socialAccount ? socialAccount.id : null;
                         const finalStatus = accountId ? 'scheduled' : 'draft';
 
+                        // Domain routing & WhatsApp link auto-generation
+                        const isEcommerceOrMarketplace = (rawUrl) => {
+                            try {
+                                const u = new URL(rawUrl);
+                                const hostname = u.hostname.toLowerCase();
+                                const ecommerceDomains = [
+                                    'shopee.com', 'shopee.com.my', 'shopee.co.id', 'shopee.sg',
+                                    'tiktok.com', 'vt.tiktok.com',
+                                    'lazada.com', 'lazada.com.my',
+                                    'mudah.my', 'www.mudah.my',
+                                    'propmall.my', 'www.propmall.my'
+                                ];
+                                return ecommerceDomains.some(d => hostname === d || hostname.endsWith('.' + d));
+                            } catch (_) {
+                                return false;
+                            }
+                        };
+
+                        let finalCtaUrl = url;
+                        let linkType = 'product';
+
+                        if (!isEcommerceOrMarketplace(url) && activeWorkspace.whatsapp_number) {
+                            linkType = 'whatsapp';
+                            const whatsappNum = activeWorkspace.whatsapp_number.replace(/\D/g, ''); // digits only
+
+                            let productTitle = scrapedTitle || "";
+                            if (!productTitle && productContext) {
+                                productTitle = productContext.split('\n')[0].substring(0, 50);
+                            }
+
+                            let locationInfo = "";
+                            if (scrapedDescription) {
+                                const locMatch = scrapedDescription.match(/Location:\s*([^\n,]+)/i) || 
+                                                 scrapedDescription.match(/Lokasi:\s*([^\n,]+)/i);
+                                if (locMatch) {
+                                    locationInfo = locMatch[1].trim();
+                                }
+                            }
+
+                            const priceRegex = /RM\s?[\d,]+(\.\d{2})?/i;
+                            const priceMatch = (scrapedDescription || "").match(priceRegex);
+                            const priceText = priceMatch ? ` (${priceMatch[0].trim()})` : "";
+
+                            let greetingText = `Hai, saya berminat dengan ${productTitle.trim()}`;
+                            if (locationInfo) {
+                                greetingText += ` di ${locationInfo}`;
+                            }
+                            if (priceText) {
+                                greetingText += priceText;
+                            }
+                            greetingText += `. Boleh bagi details?`;
+
+                            finalCtaUrl = `https://wa.me/${whatsappNum}?text=${encodeURIComponent(greetingText)}`;
+                        }
+
+                        let ctaPromptInstructions = "";
+                        if (linkType === 'whatsapp') {
+                            ctaPromptInstructions = `write a creative and engaging call to action phrase asking the user to WhatsApp or contact for more details (e.g. "Berminat? WhatsApp saya sekarang!", "Hubungi saya untuk details lanjut!", etc.). Do NOT include the URL link itself. If workspace copywriting guidelines/knowledge base are provided, follow them to write this CTA phrase.`;
+                        } else {
+                            ctaPromptInstructions = `write a creative and engaging call to action phrase that naturally fits the product or service described above, without mentioning specific platform names (do not say Shopee, Lazada, TikTok unless the product context explicitly mentions them). Do not include the URL itself. If workspace copywriting guidelines/knowledge base are provided, follow them to write this CTA phrase.`;
+                        }
+
                         // Compile the AI copywriting generation prompt
                         let formatInstructions = "";
                         if (postFormat === 'short_thread') {
@@ -1196,7 +1261,7 @@ CRITICAL RULES:
 Provide the output in a strict JSON format with the following keys. Return ONLY the JSON object, with no markdown code blocks or extra explanations:
 {
   "caption": "write the caption here (include thread separators if thread storm)",
-  "cta": "write a creative and engaging call to action phrase that naturally fits the product or service described above, without mentioning specific platform names (do not say Shopee, Lazada, TikTok unless the product context explicitly mentions them). Do not include the URL itself. If workspace copywriting guidelines/knowledge base are provided, follow them to write this CTA phrase.",
+  "cta": "${ctaPromptInstructions.replace(/"/g, '\\"')}",
   "hashtags": ["hashtag1", "hashtag2", "hashtag3"]
 }`;
 
@@ -1270,8 +1335,8 @@ Provide the output in a strict JSON format with the following keys. Return ONLY 
                         finalCtaText = finalCtaText.replace(/➡️/g, '').replace(/->/g, '').replace(/:$/g, '').trim();
 
                         const ctaText = finalCtaText 
-                            ? `${finalCtaText} ➡️ ${url}` 
-                            : `Dapatkan di sini! ➡️ ${url}`;
+                            ? `${finalCtaText} ➡️ ${finalCtaUrl}` 
+                            : (linkType === 'whatsapp' ? `WhatsApp saya untuk info lanjut! ➡️ ${finalCtaUrl}` : `Dapatkan di sini! ➡️ ${finalCtaUrl}`);
                         
                         // Insert into DB
                         const hasTrigger = triggerType === 'views' || triggerType === 'likes';
@@ -1959,15 +2024,15 @@ CRITICAL TONE RULES:
                         if (activeWorkspace.role !== 'owner') {
                             return new Response(JSON.stringify({ message: 'Forbidden: Only the workspace Owner can update details.' }), { status: 403, headers: corsHeaders });
                         }
-                        const { name, slug } = await request.json();
+                        const { name, slug, whatsapp_number } = await request.json();
                         if (!name || !slug) return new Response(JSON.stringify({ message: 'Name and slug are required' }), { status: 400, headers: corsHeaders });
 
                         try {
                             await env.DB.prepare(
-                                "UPDATE workspaces SET name = ?, slug = ?, updated_at = (datetime('now')) WHERE id = ?"
-                            ).bind(name.trim(), slug.trim().toLowerCase(), activeWorkspace.workspace_id).run();
+                                "UPDATE workspaces SET name = ?, slug = ?, whatsapp_number = ?, updated_at = (datetime('now')) WHERE id = ?"
+                            ).bind(name.trim(), slug.trim().toLowerCase(), whatsapp_number ? whatsapp_number.trim() : null, activeWorkspace.workspace_id).run();
 
-                            await logActivity(activeWorkspace.workspace_id, user.id, 'update_workspace', `Renamed workspace to "${name}"`);
+                            await logActivity(activeWorkspace.workspace_id, user.id, 'update_workspace', `Renamed workspace to "${name}" and updated settings`);
                             return new Response(JSON.stringify({ success: true, message: 'Workspace updated successfully' }), { status: 200, headers: corsHeaders });
                         } catch (e) {
                             return new Response(JSON.stringify({ message: 'Slug already taken or update failed' }), { status: 400, headers: corsHeaders });

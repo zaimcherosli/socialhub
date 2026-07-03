@@ -307,6 +307,11 @@
                                 <input type="text" id="workspaceSlug" class="form-input" placeholder="your-brand" style="border: none; border-radius: 0; flex: 1;" />
                             </div>
                         </div>
+                        <div class="form-group">
+                            <label class="form-label" for="workspaceWhatsapp">WhatsApp Number (For Auto-CTA)</label>
+                            <input type="text" id="workspaceWhatsapp" class="form-input" placeholder="e.g. 60108118559" style="width: 100%;" />
+                            <p style="font-size: 0.72rem; color: var(--color-text-tertiary); margin-top: 0.35rem;">Enter international format without '+' or spaces. e.g. 60108118559. Used to auto-generate WhatsApp links in CTA for non-ecommerce listings (like Telegram links).</p>
+                        </div>
                         <div class="save-btn-row">
                             <button type="submit" class="btn btn-primary">Save Workspace</button>
                             <span class="save-status" id="workspaceSaveStatus">
@@ -719,6 +724,7 @@
                 if (res.success && res.workspace) {
                     document.getElementById('workspaceName').value = res.workspace.name || '';
                     document.getElementById('workspaceSlug').value = res.workspace.slug || '';
+                    document.getElementById('workspaceWhatsapp').value = res.workspace.whatsapp_number || '';
                 }
             } catch (e) { console.warn('Workspace load error:', e.message); }
         }
@@ -726,9 +732,10 @@
         async function handleSaveWorkspace() {
             const name = document.getElementById('workspaceName').value.trim();
             const slug = document.getElementById('workspaceSlug').value.trim();
+            const whatsapp_number = document.getElementById('workspaceWhatsapp').value.trim();
             if (!name || !slug) { alert('Name and slug are required.'); return; }
             try {
-                const res = await apiClient.put('/workspaces/me', { name, slug });
+                const res = await apiClient.put('/workspaces/me', { name, slug, whatsapp_number });
                 if (res.success) showStatus('workspaceSaveStatus');
                 else alert(res.message || 'Failed to save workspace.');
             } catch (e) { alert(e.message || 'Error occurred.'); }

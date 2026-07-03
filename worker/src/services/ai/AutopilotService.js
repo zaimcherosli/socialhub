@@ -92,11 +92,10 @@ Ensure that the posts are diverse (e.g. one educational/value post, one promotio
                 body: JSON.stringify({
                     model: this.provider.model || "gpt-4o-mini",
                     messages: [
-                        { role: "system", content: "You are a professional social media marketing expert. You must output strictly a JSON array." },
+                        { role: "system", content: "You are a professional social media marketing expert. You must output strictly a valid JSON array of post objects, each with keys: caption, cta, hashtags. Do not wrap in any object." },
                         { role: "user", content: prompt }
                     ],
-                    temperature: 0.7,
-                    response_format: { type: "json_object" }
+                    temperature: 0.7
                 })
             });
             if (!res.ok) {
@@ -197,12 +196,18 @@ Ensure that the posts are diverse (e.g. one educational/value post, one promotio
             const utcHour = localHour + (offset / 60);
             date.setUTCHours(utcHour, 0, 0, 0);
 
-            // Merge caption, cta and hashtags
-            const hashtagsText = Array.isArray(post.hashtags) ? post.hashtags.join(' ') : '';
-            const fullContent = `${post.caption}\n\n${post.cta}\n\n${hashtagsText}`.trim();
+            // Normalize field names — different AI providers may use different keys
+            const caption = post.caption || post.text || post.content || post.body || post.post || '';
+            const cta = post.cta || post.call_to_action || post.callToAction || post.action || '';
+            const rawHashtags = post.hashtags || post.tags || post.hash_tags || [];
+            const hashtagsText = Array.isArray(rawHashtags) ? rawHashtags.join(' ') : (typeof rawHashtags === 'string' ? rawHashtags : '');
+
+            // Build full content — skip empty sections gracefully
+            const parts = [caption, cta, hashtagsText].filter(p => p && p.trim() !== '');
+            const fullContent = parts.join('\n\n').trim();
 
             return {
-                content: fullContent,
+                content: fullContent || `Post ${idx + 1}`,
                 publish_at: date.toISOString()
             };
         });

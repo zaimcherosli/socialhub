@@ -36,12 +36,16 @@ Each object in the JSON array must contain exactly these keys:
 
 Ensure that the posts are diverse (e.g. one educational/value post, one promotional/sales post, one engaging/question post).`;
 
-        // Call the AI provider
+        // Call the AI provider based on its type
         let responseText = "";
-        if (typeof this.provider.ai?.run === 'function') {
-            // Cloudflare AI Provider
+
+        const providerName = this.provider.constructor?.name || '';
+        console.log(`[AutopilotService] Detected provider: ${providerName}`);
+
+        if (providerName === 'CloudflareAIProvider' || typeof this.provider.ai?.run === 'function') {
+            // ── Cloudflare AI ──────────────────────────────────────────────────────
             console.log(`[AutopilotService] Calling Cloudflare AI with model: ${this.provider.model}`);
-            const res = await this.provider.ai.run(this.provider.model, {
+            const res = await this.provider.ai.run(this.provider.model || '@cf/meta/llama-3.2-3b-instruct', {
                 messages: [
                     { role: "system", content: "You are a professional social media marketing expert. You must output strictly a JSON array." },
                     { role: "user", content: prompt }
@@ -54,8 +58,9 @@ Ensure that the posts are diverse (e.g. one educational/value post, one promotio
             } else {
                 responseText = res.response || JSON.stringify(res);
             }
-        } else {
-            // Gemini Provider
+
+        } else if (providerName === 'GeminiProvider') {
+            // ── Gemini ─────────────────────────────────────────────────────────────
             console.log(`[AutopilotService] Calling Gemini API with model: ${this.provider.model}`);
             const url = `https://generativelanguage.googleapis.com/v1beta/models/${this.provider.model}:generateContent?key=${this.provider.apiKey}`;
             const res = await fetch(url, {
@@ -74,6 +79,64 @@ Ensure that the posts are diverse (e.g. one educational/value post, one promotio
             }
             const data = await res.json();
             responseText = data.candidates?.[0]?.content?.parts?.[0]?.text || "";
+
+        } else if (providerName === 'OpenAIProvider') {
+            // ── OpenAI ─────────────────────────────────────────────────────────────
+            console.log(`[AutopilotService] Calling OpenAI API with model: ${this.provider.model}`);
+            const res = await fetch("https://api.openai.com/v1/chat/completions", {
+                method: "POST",
+                headers: {
+                    "Authorization": `Bearer ${this.provider.apiKey}`,
+                    "Content-Type": "application/json"
+                },
+                body: JSON.stringify({
+                    model: this.provider.model || "gpt-4o-mini",
+                    messages: [
+                        { role: "system", content: "You are a professional social media marketing expert. You must output strictly a JSON array." },
+                        { role: "user", content: prompt }
+                    ],
+                    temperature: 0.7,
+                    response_format: { type: "json_object" }
+                })
+            });
+            if (!res.ok) {
+                const errText = await res.text();
+                throw new Error(`OpenAI API error: ${res.status} - ${errText}`);
+            }
+            const data = await res.json();
+            responseText = data.choices?.[0]?.message?.content || "";
+
+        } else if (providerName === 'OpenRouterProvider') {
+            // ── OpenRouter ─────────────────────────────────────────────────────────
+            console.log(`[AutopilotService] Calling OpenRouter API with model: ${this.provider.model}`);
+            const res = await fetch("https://openrouter.ai/api/v1/chat/completions", {
+                method: "POST",
+                headers: {
+                    "Authorization": `Bearer ${this.provider.apiKey}`,
+                    "Content-Type": "application/json",
+                    "HTTP-Referer": "https://socialhub.zaimrosli.my",
+                    "X-Title": "SocialHub Autopilot"
+                },
+                body: JSON.stringify({
+                    model: this.provider.model || "meta-llama/llama-3.2-3b-instruct:free",
+                    messages: [
+                        { role: "system", content: "You are a professional social media marketing expert. You must output strictly a JSON array." },
+                        { role: "user", content: prompt }
+                    ],
+                    temperature: 0.7
+                })
+            });
+            if (!res.ok) {
+                const errText = await res.text();
+                throw new Error(`OpenRouter API error: ${res.status} - ${errText}`);
+            }
+            const data = await res.json();
+            responseText = data.choices?.[0]?.message?.content || "";
+
+        } else {
+            // ── Unknown provider — fallback to generic generateCaption-style call ──
+            console.warn(`[AutopilotService] Unknown provider type "${providerName}", attempting generic call.`);
+            throw new Error(`Unsupported AI provider type: ${providerName}. Please configure a valid API key in Settings.`);
         }
 
         if (!responseText) {
@@ -82,15 +145,29 @@ Ensure that the posts are diverse (e.g. one educational/value post, one promotio
 
         // Clean up markdown block wrapper if present
         const cleaned = responseText.replace(/```json/i, '').replace(/```/g, '').trim();
-        let campaignPosts;
+
+        // Handle OpenAI JSON object wrapper (response_format: json_object may wrap array)
+        let parsedRaw;
         try {
-            campaignPosts = JSON.parse(cleaned);
+            parsedRaw = JSON.parse(cleaned);
         } catch (e) {
             console.error("[AutopilotService] JSON Parse failed for raw response:", responseText);
             throw new Error("Failed to parse AI response as a valid JSON array.");
         }
 
-        if (!Array.isArray(campaignPosts)) {
+        // If AI returned { posts: [...] } or { campaigns: [...] } wrapper, unwrap it
+        let campaignPosts;
+        if (Array.isArray(parsedRaw)) {
+            campaignPosts = parsedRaw;
+        } else if (typeof parsedRaw === 'object' && parsedRaw !== null) {
+            // Try to find an array property
+            const arrayProp = Object.values(parsedRaw).find(v => Array.isArray(v));
+            if (arrayProp) {
+                campaignPosts = arrayProp;
+            } else {
+                throw new Error("AI response did not return a JSON array.");
+            }
+        } else {
             throw new Error("AI response did not return a JSON array.");
         }
 

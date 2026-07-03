@@ -906,6 +906,218 @@ export default {
                     }
                 }
 
+                case '/api/ai/url-autoposter-direct': {
+                    const user = await getAuthUser();
+                    if (!user) return new Response(JSON.stringify({ message: 'Unauthorized session' }), { status: 401, headers: corsHeaders });
+                    if (request.method !== 'POST') return new Response(JSON.stringify({ error: 'Method not allowed' }), { status: 405, headers: corsHeaders });
+                    if (!env.DB) return new Response(JSON.stringify({ message: 'Database missing' }), { status: 500, headers: corsHeaders });
+
+                    const activeWorkspace = await getActiveWorkspace(user);
+                    if (!activeWorkspace) return new Response(JSON.stringify({ message: 'No active workspace found' }), { status: 404, headers: corsHeaders });
+
+                    if (activeWorkspace.role === 'viewer') {
+                        return new Response(JSON.stringify({ message: 'Forbidden: Viewers cannot create content.' }), { status: 403, headers: corsHeaders });
+                    }
+
+                    try {
+                        const { url, context, tone, language, postFormat, timezoneOffset, index } = await request.json();
+                        if (!url) {
+                            return new Response(JSON.stringify({ message: 'URL is required.' }), { status: 400, headers: corsHeaders });
+                        }
+
+                        // Get custom instructions from workspace settings
+                        const wsAI = await env.DB.prepare(
+                            "SELECT ai_model, ai_api_key_enc, custom_ai_instructions FROM workspaces WHERE id = ?"
+                        ).bind(activeWorkspace.workspace_id).first().catch(() => null);
+
+                        const aiEnv = { ...env };
+                        if (wsAI?.ai_model) {
+                            aiEnv.OPENROUTER_MODEL = wsAI.ai_model;
+                        }
+                        if (wsAI?.ai_api_key_enc) {
+                            try {
+                                const decrypted = await decryptToken(wsAI.ai_api_key_enc, encryptionSecret);
+                                if (decrypted) {
+                                    aiEnv.OPENROUTER_API_KEY = decrypted;
+                                    aiEnv.GEMINI_API_KEY = decrypted;
+                                    aiEnv.OPENAI_API_KEY = decrypted;
+                                    aiEnv._workspaceKeySet = true;
+                                }
+                            } catch (_) {
+                                aiEnv.OPENROUTER_API_KEY = wsAI.ai_api_key_enc;
+                                aiEnv.GEMINI_API_KEY = wsAI.ai_api_key_enc;
+                                aiEnv.OPENAI_API_KEY = wsAI.ai_api_key_enc;
+                                aiEnv._workspaceKeySet = true;
+                            }
+                        }
+
+                        // Extract context or fallback to URL slug parsing
+                        let productContext = context || "";
+                        if (!productContext) {
+                            // Quick URL Slug parsing as backup
+                            const cleanUrl = url.split('?')[0];
+                            const slugMatch = cleanUrl.match(/\/([a-zA-Z0-9-]{10,})\-i\./) || cleanUrl.match(/\/([a-zA-Z0-9-]{10,})$/);
+                            if (slugMatch) {
+                                productContext = slugMatch[1].replace(/-/g, ' ');
+                            } else {
+                                productContext = "produk di pautan kongsi";
+                            }
+                        }
+
+                        // Determine schedule time (staggered from tomorrow morning)
+                        const idx = parseInt(index) || 0;
+                        const daysAhead = Math.floor(idx / 3) + 1; // 3 posts per day default
+                        const timeIndex = idx % 3;
+                        const optimalHours = [9, 12, 18]; // 9 AM, 12 PM, 6 PM
+                        const localHour = optimalHours[timeIndex];
+
+                        const offset = typeof timezoneOffset === 'number' ? timezoneOffset : -480; // default UTC+8
+                        const date = new Date();
+                        date.setUTCDate(date.getUTCDate() + daysAhead);
+                        const utcHour = localHour + (offset / 60);
+                        date.setUTCHours(utcHour, 0, 0, 0);
+                        const publishAt = date.toISOString();
+
+                        // Resolve social account
+                        const socialAccount = await env.DB.prepare(
+                            "SELECT id FROM social_accounts WHERE workspace_id = ? AND platform = 'threads' AND status = 'active' LIMIT 1"
+                        ).bind(activeWorkspace.workspace_id).first().catch(() => null);
+
+                        const accountId = socialAccount ? socialAccount.id : null;
+                        const finalStatus = accountId ? 'scheduled' : 'draft';
+
+                        // Compile the AI copywriting generation prompt
+                        let formatInstructions = "";
+                        if (postFormat === 'short_thread') {
+                            formatInstructions = `MUST be a Thread Storm (berangkai) consisting of exactly 2 to 3 posts/slides. Split different slides using the exact separator string '---thread-separator---'. For example: 'Slide 1 content\\n---thread-separator---\\nSlide 2 content\\n---thread-separator---\\nSlide 3 content'. Each individual slide must be under 300 characters.`;
+                        } else if (postFormat === 'deep_thread') {
+                            formatInstructions = `MUST be a deep-dive Thread Storm (berangkai) consisting of exactly 3 to 5 posts/slides. Split different slides using the exact separator string '---thread-separator---'. For example: 'Slide 1 content\\n---thread-separator---\\nSlide 2 content\\n---thread-separator---\\nSlide 3 content\\n---thread-separator---\\nSlide 4 content'. Each individual slide must be under 300 characters.`;
+                        } else {
+                            formatInstructions = `must be a standard single post, under 350 characters.`;
+                        }
+
+                        const systemPrompt = `You are a professional social media marketing expert in Malaysia.
+Generate a high-converting, engaging post based on the following product details:
+- Product info/niche: ${productContext}
+- Target Platform: Threads
+- Tone: ${tone || 'Friendly & Casual'}
+- Language: ${language || 'Malay'}
+
+CRITICAL RULES:
+1. Under no circumstances should you mention or include the price of the product (such as RMxx, pricing range, etc.) in the copywriting. Do not reveal the price. Focus on making the audience curious so they click the link.
+2. The copywriting ${formatInstructions}
+3. If writing in Malay, use natural Malaysian Malay slangs/vocabulary (e.g. 'korang', 'je', 'boleh', 'nak', 'weyh') instead of formal Indonesian words ('kamu', 'bisa', 'yuk', 'sih', 'deh').
+
+Provide the output in a strict JSON format with the following keys. Return ONLY the JSON object, with no markdown code blocks or extra explanations:
+{
+  "caption": "write the caption here (include thread separators if thread storm)",
+  "hashtags": ["hashtag1", "hashtag2", "hashtag3"]
+}`;
+
+                        const provider = AIFactory.getProvider(aiEnv);
+                        
+                        let responseText = "";
+                        if (provider.constructor?.name === 'CloudflareAIProvider' || typeof provider.ai?.run === 'function') {
+                            const res = await provider.ai.run(provider.model || '@cf/meta/llama-3.2-3b-instruct', {
+                                messages: [
+                                    { role: "system", content: "You must output strictly a JSON object." },
+                                    { role: "user", content: systemPrompt }
+                                ]
+                            });
+                            responseText = typeof res === 'string' ? res : (res.choices?.[0]?.message?.content || res.response || JSON.stringify(res));
+                        } else if (provider.constructor?.name === 'GeminiProvider') {
+                            const genUrl = `https://generativelanguage.googleapis.com/v1beta/models/${provider.model}:generateContent?key=${provider.apiKey}`;
+                            const res = await fetch(genUrl, {
+                                method: "POST",
+                                headers: { "Content-Type": "application/json" },
+                                body: JSON.stringify({
+                                    contents: [{ parts: [{ text: systemPrompt }] }],
+                                    generationConfig: { responseMimeType: "application/json" }
+                                })
+                            });
+                            if (res.ok) {
+                                const data = await res.json();
+                                responseText = data.candidates?.[0]?.content?.parts?.[0]?.text || "";
+                            }
+                        } else {
+                            // OpenAI or OpenRouter
+                            const endpoint = provider.constructor?.name === 'OpenAIProvider' 
+                                ? "https://api.openai.com/v1/chat/completions" 
+                                : "https://openrouter.ai/api/v1/chat/completions";
+                            const headers = {
+                                "Authorization": `Bearer ${provider.apiKey}`,
+                                "Content-Type": "application/json"
+                            };
+                            if (provider.constructor?.name === 'OpenRouterProvider') {
+                                headers["HTTP-Referer"] = "https://socialhub.zaimrosli.my";
+                                headers["X-Title"] = "SocialHub Autoposter";
+                            }
+                            const res = await fetch(endpoint, {
+                                method: "POST",
+                                headers,
+                                body: JSON.stringify({
+                                    model: provider.model,
+                                    messages: [{ role: "user", content: systemPrompt }],
+                                    temperature: 0.7
+                                })
+                            });
+                            if (res.ok) {
+                                const data = await res.json();
+                                responseText = data.choices?.[0]?.message?.content || "";
+                            }
+                        }
+
+                        if (!responseText) {
+                            throw new Error("AI provider returned empty response.");
+                        }
+
+                        // Clean up markdown block wrapping
+                        const cleaned = responseText.replace(/```json/i, '').replace(/```/g, '').trim();
+                        const parsed = JSON.parse(cleaned);
+
+                        const caption = parsed.caption || parsed.text || parsed.content || "";
+                        const rawHashtags = parsed.hashtags || parsed.tags || [];
+                        const hashtagsText = Array.isArray(rawHashtags) ? rawHashtags.join(' ') : (typeof rawHashtags === 'string' ? rawHashtags : '');
+
+                        // Append affiliate link at the end of the post (or last thread item)
+                        const ctaText = `Dapatkan di Shopee sekarang! ➡️ ${url}`;
+                        
+                        let fullContent = "";
+                        if (postFormat === 'short_thread' || postFormat === 'deep_thread') {
+                            // If it's a thread storm, append hashtags and CTA to the very last thread card
+                            const cards = caption.split(/[\n\r]*---thread-separator---[\n\r]*/).map(c => c.trim()).filter(Boolean);
+                            if (cards.length > 0) {
+                                const lastCardIdx = cards.length - 1;
+                                cards[lastCardIdx] = `${cards[lastCardIdx]}\n\n${ctaText}\n\n${hashtagsText}`.trim();
+                                fullContent = cards.join('\n---thread-separator---\n');
+                            } else {
+                                fullContent = `${caption}\n\n${ctaText}\n\n${hashtagsText}`.trim();
+                            }
+                        } else {
+                            fullContent = `${caption}\n\n${ctaText}\n\n${hashtagsText}`.trim();
+                        }
+
+                        // Insert into DB
+                        await env.DB.prepare(
+                            `INSERT INTO scheduled_posts (user_id, workspace_id, account_id, platform, content, status, publish_at, created_at, updated_at)
+                             VALUES (?, ?, ?, ?, ?, ?, ?, (datetime('now')), (datetime('now')))`
+                        ).bind(
+                            user.id,
+                            activeWorkspace.workspace_id,
+                            accountId,
+                            'threads',
+                            fullContent,
+                            finalStatus,
+                            publishAt
+                        ).run();
+
+                        return new Response(JSON.stringify({ success: true, status: finalStatus, publishAt }), { status: 200, headers: corsHeaders });
+                    } catch (err) {
+                        console.error("Autoposter direct endpoint failed:", err);
+                        return new Response(JSON.stringify({ success: false, message: err.message }), { status: 200, headers: corsHeaders });
+                    }
+                }
+
                 case '/api/ai/generate-threads-from-url': {
                     const user = await getAuthUser();
                     if (!user) return new Response(JSON.stringify({ message: 'Unauthorized session' }), { status: 401, headers: corsHeaders });

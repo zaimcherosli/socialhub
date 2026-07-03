@@ -920,7 +920,7 @@ export default {
                     }
 
                     try {
-                        const { url, context, tone, language, postFormat, timezoneOffset, index } = await request.json();
+                        const { url, context, tone, language, postFormat, timezoneOffset, index, triggerType, triggerThreshold } = await request.json();
                         if (!url) {
                             return new Response(JSON.stringify({ message: 'URL is required.' }), { status: 400, headers: corsHeaders });
                         }
@@ -996,6 +996,21 @@ export default {
                             formatInstructions = `must be a standard single post, under 350 characters.`;
                         }
 
+                        // Add specific tone instructions
+                        let toneInstruction = "";
+                        if (tone === 'Ultra-Realistic Malay') {
+                            toneInstruction = `Tone: Ultra-Realistic Malaysian Malay.
+CRITICAL TONE RULES:
+- Write exactly like a real human writing a personal post on Threads, NOT like an AI assistant.
+- Mix English and Malay naturally (Bahasa Rojak/Manglish). E.g. use terms like 'literally', 'our financial', 'time tu', 'which is', 'I mean'.
+- Use repeated letters in words for emotional or casual emphasis (e.g. 'neverrrrr', 'sapaaaa', 'lajuuuuu'). Do NOT hardcode, anchor, or overuse specific slangs like 'weyh' or 'weh'.
+- The opening hook MUST be a direct statement, reflection, or opinion (not a question like "Korang tahu tak..."). 
+- Keep sentences short, conversational, and punchy.
+- DO NOT use any emojis in the main hook caption. Avoid emoji spam entirely.`;
+                        } else {
+                            toneInstruction = `- Tone: ${tone || 'Friendly & Casual'}`;
+                        }
+
                         // Add workspace-specific copywriting guidelines if defined
                         let customGuidelinesBlock = "";
                         if (wsAI?.custom_ai_instructions) {
@@ -1006,7 +1021,7 @@ export default {
 Generate a high-converting, engaging post based on the following product details:
 - Product info/niche: ${productContext}
 - Target Platform: Threads
-- Tone: ${tone || 'Friendly & Casual'}
+- ${toneInstruction}
 - Language: ${language || 'Malay'}
 
 CRITICAL RULES:
@@ -1094,34 +1109,79 @@ Provide the output in a strict JSON format with the following keys. Return ONLY 
                             ? `${finalCtaText} ➡️ ${url}` 
                             : `Dapatkan di sini! ➡️ ${url}`;
                         
-                        let fullContent = "";
-                        if (postFormat === 'short_thread' || postFormat === 'deep_thread') {
-                            // If it's a thread storm, append hashtags and CTA to the very last thread card
-                            const cards = caption.split(/[\n\r]*---thread-separator---[\n\r]*/).map(c => c.trim()).filter(Boolean);
-                            if (cards.length > 0) {
-                                const lastCardIdx = cards.length - 1;
-                                cards[lastCardIdx] = `${cards[lastCardIdx]}\n\n${ctaText}\n\n${hashtagsText}`.trim();
-                                fullContent = cards.join('\n---thread-separator---\n');
+                        // Insert into DB
+                        const hasTrigger = triggerType === 'views' || triggerType === 'likes';
+                        const cards = (postFormat === 'short_thread' || postFormat === 'deep_thread')
+                            ? caption.split(/[\n\r]*---thread-separator---[\n\r]*/).map(c => c.trim()).filter(Boolean)
+                            : [];
+
+                        if (hasTrigger && cards.length > 1) {
+                            // 1. Insert Slide 1 (Parent)
+                            const result = await env.DB.prepare(
+                                `INSERT INTO scheduled_posts (user_id, workspace_id, account_id, platform, content, status, publish_at, created_at, updated_at)
+                                 VALUES (?, ?, ?, ?, ?, ?, ?, (datetime('now')), (datetime('now')))`
+                            ).bind(
+                                user.id,
+                                activeWorkspace.workspace_id,
+                                accountId,
+                                'threads',
+                                cards[0],
+                                finalStatus,
+                                publishAt
+                            ).run();
+                            
+                            const parentId = result.meta.last_row_id;
+                            
+                            // 2. Insert subsequent slides as child posts waiting for trigger
+                            for (let i = 1; i < cards.length; i++) {
+                                let slideText = cards[i];
+                                if (i === cards.length - 1) {
+                                    slideText = `${slideText}\n\n${ctaText}\n\n${hashtagsText}`.trim();
+                                }
+                                
+                                await env.DB.prepare(
+                                    `INSERT INTO scheduled_posts (user_id, workspace_id, account_id, platform, content, status, publish_at, trigger_type, trigger_threshold, parent_post_id, created_at, updated_at)
+                                     VALUES (?, ?, ?, ?, ?, 'waiting_trigger', ?, ?, ?, ?, (datetime('now')), (datetime('now')))`
+                                ).bind(
+                                    user.id,
+                                    activeWorkspace.workspace_id,
+                                    accountId,
+                                    'threads',
+                                    slideText,
+                                    publishAt,
+                                    triggerType,
+                                    parseInt(triggerThreshold) || 100,
+                                    parentId
+                                ).run();
+                            }
+                        } else {
+                            // Standard single post or non-conditional thread storm insertion
+                            let fullContent = "";
+                            if (postFormat === 'short_thread' || postFormat === 'deep_thread') {
+                                if (cards.length > 0) {
+                                    const lastCardIdx = cards.length - 1;
+                                    cards[lastCardIdx] = `${cards[lastCardIdx]}\n\n${ctaText}\n\n${hashtagsText}`.trim();
+                                    fullContent = cards.join('\n---thread-separator---\n');
+                                } else {
+                                    fullContent = `${caption}\n\n${ctaText}\n\n${hashtagsText}`.trim();
+                                }
                             } else {
                                 fullContent = `${caption}\n\n${ctaText}\n\n${hashtagsText}`.trim();
                             }
-                        } else {
-                            fullContent = `${caption}\n\n${ctaText}\n\n${hashtagsText}`.trim();
-                        }
 
-                        // Insert into DB
-                        await env.DB.prepare(
-                            `INSERT INTO scheduled_posts (user_id, workspace_id, account_id, platform, content, status, publish_at, created_at, updated_at)
-                             VALUES (?, ?, ?, ?, ?, ?, ?, (datetime('now')), (datetime('now')))`
-                        ).bind(
-                            user.id,
-                            activeWorkspace.workspace_id,
-                            accountId,
-                            'threads',
-                            fullContent,
-                            finalStatus,
-                            publishAt
-                        ).run();
+                            await env.DB.prepare(
+                                `INSERT INTO scheduled_posts (user_id, workspace_id, account_id, platform, content, status, publish_at, created_at, updated_at)
+                                 VALUES (?, ?, ?, ?, ?, ?, ?, (datetime('now')), (datetime('now')))`
+                            ).bind(
+                                user.id,
+                                activeWorkspace.workspace_id,
+                                accountId,
+                                'threads',
+                                fullContent,
+                                finalStatus,
+                                publishAt
+                            ).run();
+                        }
 
                         return new Response(JSON.stringify({ success: true, status: finalStatus, publishAt }), { status: 200, headers: corsHeaders });
                     } catch (err) {
@@ -1194,6 +1254,19 @@ Provide the output in a strict JSON format with the following keys. Return ONLY 
                             }
                         }
 
+                        let combinedInstructions = wsAI?.custom_ai_instructions || "";
+                        if (tone === 'Ultra-Realistic Malay') {
+                            const toneRules = `\nTone: Ultra-Realistic Malaysian Malay.
+CRITICAL TONE RULES:
+- Write exactly like a real human writing a personal post on Threads, NOT like an AI assistant.
+- Mix English and Malay naturally (Bahasa Rojak/Manglish). E.g. use terms like 'literally', 'our financial', 'time tu', 'which is', 'I mean'.
+- Use repeated letters in words for emotional or casual emphasis (e.g. 'neverrrrr', 'sapaaaa', 'lajuuuuu'). Do NOT hardcode, anchor, or overuse specific slangs like 'weyh' or 'weh'.
+- The opening hook MUST be a direct statement, reflection, or opinion (not a question like "Korang tahu tak..."). 
+- Keep sentences short, conversational, and punchy.
+- DO NOT use any emojis in the main hook caption. Avoid emoji spam entirely.`;
+                            combinedInstructions = combinedInstructions ? `${combinedInstructions}\n${toneRules}` : toneRules;
+                        }
+
                         const provider = AIFactory.getProvider(aiEnv);
                         const result = await provider.generateThreadStorm({
                             title: scrapedTitle,
@@ -1201,7 +1274,7 @@ Provide the output in a strict JSON format with the following keys. Return ONLY 
                             url,
                             tone: tone || 'Friendly & Casual',
                             language: language || 'Bahasa Melayu',
-                            customInstructions: wsAI?.custom_ai_instructions || ""
+                            customInstructions: combinedInstructions
                         });
 
                         await logActivity(activeWorkspace.workspace_id, user.id, 'ai_generate', `Generated thread storm from URL: ${url.substring(0, 30)}...`);
@@ -1361,6 +1434,19 @@ Provide the output in a strict JSON format with the following keys. Return ONLY 
                             }
                         }
 
+                        let combinedInstructions = wsAI?.custom_ai_instructions || "";
+                        if (tone === 'Ultra-Realistic Malay') {
+                            const toneRules = `\nTone: Ultra-Realistic Malaysian Malay.
+CRITICAL TONE RULES:
+- Write exactly like a real human writing a personal post on Threads, NOT like an AI assistant.
+- Mix English and Malay naturally (Bahasa Rojak/Manglish). E.g. use terms like 'literally', 'our financial', 'time tu', 'which is', 'I mean'.
+- Use repeated letters in words for emotional or casual emphasis (e.g. 'neverrrrr', 'sapaaaa', 'lajuuuuu'). Do NOT hardcode, anchor, or overuse specific slangs like 'weyh' or 'weh'.
+- The opening hook MUST be a direct statement, reflection, or opinion (not a question like "Korang tahu tak..."). 
+- Keep sentences short, conversational, and punchy.
+- DO NOT use any emojis in the main hook caption. Avoid emoji spam entirely.`;
+                            combinedInstructions = combinedInstructions ? `${combinedInstructions}\n${toneRules}` : toneRules;
+                        }
+
                         const provider = AIFactory.getProvider(aiEnv);
                         const data = await provider.generateThreadStorm({
                             title: decodedTitle,
@@ -1368,7 +1454,7 @@ Provide the output in a strict JSON format with the following keys. Return ONLY 
                             url,
                             tone: tone || 'Friendly & Casual',
                             language: language || 'Bahasa Melayu',
-                            customInstructions: wsAI?.custom_ai_instructions || ""
+                            customInstructions: combinedInstructions
                         });
 
                         if (!data || !data.threads || data.threads.length === 0) {
@@ -2027,30 +2113,77 @@ Provide the output in a strict JSON format with the following keys. Return ONLY 
                             return new Response(JSON.stringify({ message: `Subscription limit reached: Maximum ${limit} posts per month allowed on ${plan} plan.` }), { status: 403, headers: corsHeaders });
                         }
 
-                        const { title, content, targets, publish_at, timezone } = await request.json();
+                        const { title, content, targets, publish_at, timezone, triggerType, triggerThreshold } = await request.json();
                         
                         if (!content || !targets || !Array.isArray(targets) || targets.length === 0 || !publish_at) {
                             return new Response(JSON.stringify({ message: 'Missing required parameters' }), { status: 400, headers: corsHeaders });
                         }
 
                         const insertedIds = [];
+                        const hasTrigger = triggerType === 'views' || triggerType === 'likes';
                         
                         for (const target of targets) {
-                            const result = await env.DB.prepare(
-                                `INSERT INTO scheduled_posts (user_id, workspace_id, account_id, platform, content, media_urls, status, publish_at, timezone) 
-                                 VALUES (?, ?, ?, ?, ?, ?, 'scheduled', ?, ?)`
-                            ).bind(
-                                user.id, 
-                                activeWorkspace.workspace_id,
-                                target.accountId || null, 
-                                target.platform, 
-                                content, 
-                                JSON.stringify([]), 
-                                publish_at, 
-                                timezone || 'UTC'
-                            ).run();
-                            
-                            insertedIds.push(result.meta.last_row_id);
+                            const isThreads = target.platform === 'threads';
+                            const cards = (isThreads && hasTrigger && (content.includes('---thread-separator---') || content.includes('[THREAD_DELIMITER]')))
+                                ? content.split(/[\n\r]*(?:---thread-separator---|\[THREAD_DELIMITER\])[\n\r]*/).map(c => c.trim()).filter(Boolean)
+                                : [];
+
+                            if (isThreads && hasTrigger && cards.length > 1) {
+                                // 1. Insert Slide 1 (Parent)
+                                const result = await env.DB.prepare(
+                                    `INSERT INTO scheduled_posts (user_id, workspace_id, account_id, platform, content, media_urls, status, publish_at, timezone) 
+                                     VALUES (?, ?, ?, ?, ?, ?, 'scheduled', ?, ?)`
+                                ).bind(
+                                    user.id, 
+                                    activeWorkspace.workspace_id,
+                                    target.accountId || null, 
+                                    target.platform, 
+                                    cards[0], 
+                                    JSON.stringify([]), 
+                                    publish_at, 
+                                    timezone || 'UTC'
+                                ).run();
+                                
+                                const parentId = result.meta.last_row_id;
+                                insertedIds.push(parentId);
+
+                                // 2. Insert child slides as waiting_trigger
+                                for (let i = 1; i < cards.length; i++) {
+                                    await env.DB.prepare(
+                                        `INSERT INTO scheduled_posts (user_id, workspace_id, account_id, platform, content, media_urls, status, publish_at, timezone, trigger_type, trigger_threshold, parent_post_id) 
+                                         VALUES (?, ?, ?, ?, ?, ?, 'waiting_trigger', ?, ?, ?, ?, ?)`
+                                    ).bind(
+                                        user.id,
+                                        activeWorkspace.workspace_id,
+                                        target.accountId || null,
+                                        target.platform,
+                                        cards[i],
+                                        JSON.stringify([]),
+                                        publish_at,
+                                        timezone || 'UTC',
+                                        triggerType,
+                                        parseInt(triggerThreshold) || 100,
+                                        parentId
+                                    ).run();
+                                }
+                            } else {
+                                // Standard single post
+                                const result = await env.DB.prepare(
+                                    `INSERT INTO scheduled_posts (user_id, workspace_id, account_id, platform, content, media_urls, status, publish_at, timezone) 
+                                     VALUES (?, ?, ?, ?, ?, ?, 'scheduled', ?, ?)`
+                                ).bind(
+                                    user.id, 
+                                    activeWorkspace.workspace_id,
+                                    target.accountId || null, 
+                                    target.platform, 
+                                    content, 
+                                    JSON.stringify([]), 
+                                    publish_at, 
+                                    timezone || 'UTC'
+                                ).run();
+                                
+                                insertedIds.push(result.meta.last_row_id);
+                            }
                         }
 
                         await logActivity(activeWorkspace.workspace_id, user.id, 'schedule_posts', `Scheduled ${targets.length} posts targets.`);
@@ -2187,9 +2320,9 @@ Provide the output in a strict JSON format with the following keys. Return ONLY 
                                         const completedAt = new Date().toISOString();
                                         await env.DB.prepare(
                                             `UPDATE scheduled_posts 
-                                             SET status = 'published', published_at = ?, error_message = NULL, updated_at = (datetime('now'))
+                                             SET status = 'published', published_at = ?, external_post_id = ?, error_message = NULL, updated_at = (datetime('now'))
                                              WHERE id = ?`
-                                        ).bind(completedAt, post.id).run();
+                                        ).bind(completedAt, result.provider_post_id, post.id).run();
 
                                         await env.DB.prepare(
                                             `INSERT INTO publish_logs (schedule_id, social_account_id, status, error_message, external_post_id, response_payload, published_at) 
@@ -2219,11 +2352,10 @@ Provide the output in a strict JSON format with the following keys. Return ONLY 
 
                         // ==================== METRICS INSIGHTS SYNC LOOP ====================
                         const publishedPosts = await env.DB.prepare(
-                            `SELECT sp.*, sa.access_token as sa_access_token, sa.account_id as sa_account_id, pl.external_post_id
+                            `SELECT sp.*, sa.access_token as sa_access_token, sa.account_id as sa_account_id
                              FROM scheduled_posts sp
                              JOIN social_accounts sa ON sp.account_id = sa.id
-                             JOIN publish_logs pl ON sp.id = pl.schedule_id
-                             WHERE sp.status = 'published' AND sp.platform = 'threads'
+                             WHERE sp.status = 'published' AND sp.platform = 'threads' AND sp.external_post_id IS NOT NULL
                              AND (sp.last_insights_sync IS NULL OR sp.last_insights_sync <= ?)
                              ORDER BY sp.published_at DESC
                              LIMIT 10`
@@ -2266,6 +2398,33 @@ Provide the output in a strict JSON format with the following keys. Return ONLY 
                                     ).bind(views, likes, replies, reposts, new Date().toISOString(), post.id).run();
 
                                     console.log(`[CronSync] Synced insights for post ID ${post.id}: views=${views}, likes=${likes}`);
+
+                                    // Check if there are any child posts waiting for trigger from this parent
+                                    const nextChild = await env.DB.prepare(
+                                        `SELECT * FROM scheduled_posts 
+                                         WHERE parent_post_id = ? AND status = 'waiting_trigger'
+                                         ORDER BY id ASC LIMIT 1`
+                                    ).bind(post.id).first().catch(() => null);
+
+                                    if (nextChild) {
+                                        const threshold = nextChild.trigger_threshold || 100;
+                                        let isTriggered = false;
+                                        if (nextChild.trigger_type === 'views' && views >= threshold) {
+                                            isTriggered = true;
+                                        } else if (nextChild.trigger_type === 'likes' && likes >= threshold) {
+                                            isTriggered = true;
+                                        }
+
+                                        if (isTriggered) {
+                                            const completedAt = new Date().toISOString();
+                                            await env.DB.prepare(
+                                                `UPDATE scheduled_posts 
+                                                 SET status = 'scheduled', publish_at = ?, reply_to_external_id = ?, updated_at = (datetime('now'))
+                                                 WHERE id = ?`
+                                            ).bind(completedAt, post.external_post_id, nextChild.id).run();
+                                            console.log(`[CronSync] Trigger met! Released child post ID ${nextChild.id} under parent ${post.id}: type=${nextChild.trigger_type}, val=${nextChild.trigger_type === 'views' ? views : likes} >= ${threshold}`);
+                                        }
+                                    }
                                 } catch (insightErr) {
                                     console.error(`[CronSync] Failed to sync insights for post ${post.id}:`, insightErr.message);
                                 }
@@ -3545,7 +3704,8 @@ Provide the output in a strict JSON format with the following keys. Return ONLY 
                         const postObj = {
                             title: '',
                             caption: post.content,
-                            media: []
+                            media: [],
+                            reply_to_id: post.reply_to_external_id || null
                         };
 
                         const result = await publisher.publish(postObj, credentials);
@@ -3556,9 +3716,9 @@ Provide the output in a strict JSON format with the following keys. Return ONLY 
                             const completedAt = new Date().toISOString();
                             await env.DB.prepare(
                                 `UPDATE scheduled_posts 
-                                 SET status = 'published', published_at = ?, error_message = NULL, updated_at = (datetime('now'))
+                                 SET status = 'published', published_at = ?, external_post_id = ?, error_message = NULL, updated_at = (datetime('now'))
                                  WHERE id = ?`
-                            ).bind(completedAt, post.id).run();
+                            ).bind(completedAt, result.provider_post_id, post.id).run();
 
                             // Audit Log
                             await env.DB.prepare(
@@ -3567,6 +3727,22 @@ Provide the output in a strict JSON format with the following keys. Return ONLY 
                             ).bind(socialAccount.id, result.provider_post_id, JSON.stringify(result), completedAt).run();
 
                             console.log(`[Cron] Post ID: ${post.id} successfully published in ${duration}ms.`);
+
+                            // Chain reaction: Release the next child post in the thread queue immediately
+                            const nextChild = await env.DB.prepare(
+                                `SELECT id FROM scheduled_posts 
+                                 WHERE parent_post_id = ? AND status = 'waiting_trigger' 
+                                 ORDER BY id ASC LIMIT 1`
+                            ).bind(post.parent_post_id || post.id).first().catch(() => null);
+
+                            if (nextChild) {
+                                await env.DB.prepare(
+                                    `UPDATE scheduled_posts 
+                                     SET status = 'scheduled', publish_at = ?, reply_to_external_id = ?, updated_at = (datetime('now'))
+                                     WHERE id = ?`
+                                 ).bind(completedAt, result.provider_post_id, nextChild.id).run();
+                                console.log(`[Cron] Chain reaction: Released child post ID ${nextChild.id} as a reply to Thread ID ${result.provider_post_id}`);
+                            }
                         } else {
                             throw new Error(result.error_message || 'API Response Error');
                         }

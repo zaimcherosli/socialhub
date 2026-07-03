@@ -136,10 +136,10 @@ class PostComposer extends HTMLElement {
         // Handle Schedule saved event
         modal.addEventListener('schedule-saved', (e) => {
             const state = this.getComposerState();
-            const { time, timezone } = e.detail;
+            const { time, timezone, triggerType, triggerThreshold } = e.detail;
             
             this.dispatchEvent(new CustomEvent('schedule', {
-                detail: { ...state, publish_at: time, timezone }
+                detail: { ...state, publish_at: time, timezone, triggerType, triggerThreshold }
             }));
         });
     }

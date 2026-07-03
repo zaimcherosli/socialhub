@@ -48,6 +48,33 @@ class ScheduleModal extends HTMLElement {
                         </select>
                     </div>
 
+                    <!-- Conditional Release settings -->
+                    <div style="margin-top: 1rem; border-top: 1px dashed var(--color-border); padding-top: 1.25rem; margin-bottom: 1.5rem;">
+                        <label style="display: flex; align-items: center; gap: 0.5rem; font-size: 0.8125rem; font-weight: 600; cursor: pointer; color: var(--color-text-primary);">
+                            <input type="checkbox" id="modalEnableTrigger" style="width: 15px; height: 15px;" />
+                            Conditional Thread Release (Auto-Unlock)
+                        </label>
+                        
+                        <div id="modalTriggerFields" style="display: none; margin-top: 0.85rem; gap: 0.75rem; flex-direction: column;">
+                            <div style="display: flex; gap: 0.75rem;">
+                                <div style="flex: 1;">
+                                    <label class="form-label" for="modalTriggerType" style="display: block; margin-bottom: 0.35rem; font-size: 0.7rem; font-weight: 600; text-transform: uppercase;">Condition Type</label>
+                                    <select id="modalTriggerType" class="form-select" style="width: 100%;">
+                                        <option value="views">Views Count</option>
+                                        <option value="likes">Likes Count</option>
+                                    </select>
+                                </div>
+                                <div style="flex: 1;">
+                                    <label class="form-label" for="modalTriggerThreshold" style="display: block; margin-bottom: 0.35rem; font-size: 0.7rem; font-weight: 600; text-transform: uppercase;">Threshold Target</label>
+                                    <input type="number" id="modalTriggerThreshold" class="form-input" value="100" min="1" style="width: 100%;" />
+                                </div>
+                            </div>
+                            <p style="font-size: 0.72rem; color: var(--color-text-secondary); margin: 0; line-height: 1.45;">
+                                Slide pertama diterbitkan mengikut jadual. Slide/reply seterusnya akan dihantar secara automatik selepas slide pertama melepasi sasaran.
+                            </p>
+                        </div>
+                    </div>
+
                     <div style="display: flex; gap: 0.75rem; justify-content: flex-end;">
                         <button class="btn btn-secondary" id="btnCancelModal" style="padding: 0.5rem 1rem;">Cancel</button>
                         <button class="btn btn-primary" id="btnSaveModal" style="padding: 0.5rem 1rem;">Save Schedule</button>
@@ -96,6 +123,12 @@ class ScheduleModal extends HTMLElement {
             tzSelect.value = resolvedTz;
         }
 
+        const enableCheck = this.querySelector('#modalEnableTrigger');
+        const triggerFields = this.querySelector('#modalTriggerFields');
+        enableCheck.addEventListener('change', () => {
+            triggerFields.style.display = enableCheck.checked ? 'flex' : 'none';
+        });
+
         cancelBtn.addEventListener('click', () => this.hide());
         saveBtn.addEventListener('click', () => {
             const time = timeInput.value;
@@ -104,8 +137,18 @@ class ScheduleModal extends HTMLElement {
                 alert('Please select a valid date and time.');
                 return;
             }
+
+            const enableTrigger = enableCheck.checked;
+            const triggerType = enableTrigger ? this.querySelector('#modalTriggerType').value : null;
+            const triggerThreshold = enableTrigger ? parseInt(this.querySelector('#modalTriggerThreshold').value) || 100 : null;
+
             this.dispatchEvent(new CustomEvent('schedule-saved', {
-                detail: { time, timezone: tz }
+                detail: { 
+                    time, 
+                    timezone: tz,
+                    triggerType,
+                    triggerThreshold
+                }
             }));
             this.hide();
         });

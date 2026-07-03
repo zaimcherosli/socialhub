@@ -98,7 +98,7 @@ export class ThreadsPublisher extends PublisherInterface {
             const chunks = splitTextIntoThreads(post.caption, 500);
             console.log(`[ThreadsPublisher] Caption split into ${chunks.length} thread items.`);
             
-            let lastPostId = null;
+            let lastPostId = post.reply_to_id || null;
             let firstPostId = null;
             const threadsAccountId = credentials.account_id || 'me';
 
@@ -106,28 +106,53 @@ export class ThreadsPublisher extends PublisherInterface {
                 const chunkText = chunks[i];
                 console.log(`[ThreadsPublisher] Publishing chunk ${i + 1}/${chunks.length}: "${chunkText.substring(0, 30)}..."`);
                 
-                const containerUrl = new URL(`https://graph.threads.net/v1.0/${threadsAccountId}/threads`);
-                containerUrl.searchParams.set('media_type', 'TEXT');
-                containerUrl.searchParams.set('text', chunkText);
-                containerUrl.searchParams.set('access_token', accessToken);
-                
-                // Link subsequent posts as replies to build a thread storm
-                if (lastPostId) {
-                    containerUrl.searchParams.set('reply_to_id', lastPostId);
+                let containerData = null;
+                let containerRes = null;
+                let containerCreated = false;
+                let retryDelay = 5000;
+
+                // Retry loop for container creation to handle Meta/Threads propagation delay
+                for (let attempt = 1; attempt <= 4; attempt++) {
+                    const containerUrl = new URL(`https://graph.threads.net/v1.0/${threadsAccountId}/threads`);
+                    containerUrl.searchParams.set('media_type', 'TEXT');
+                    containerUrl.searchParams.set('text', chunkText);
+                    containerUrl.searchParams.set('access_token', accessToken);
+                    
+                    if (lastPostId) {
+                        containerUrl.searchParams.set('reply_to_id', lastPostId);
+                    }
+
+                    try {
+                        containerRes = await fetch(containerUrl.toString(), { method: 'POST' });
+                        containerData = await containerRes.json().catch(() => ({}));
+                        
+                        if (containerRes.ok && containerData.id) {
+                            containerCreated = true;
+                            break;
+                        }
+                    } catch (fetchErr) {
+                        containerData = { error: { message: fetchErr.message } };
+                    }
+
+                    const errMsg = containerData?.error?.message || 'Unknown error';
+                    console.warn(`[ThreadsPublisher] Container creation attempt ${attempt} failed for part ${i + 1}: ${errMsg}.`);
+                    
+                    if (attempt < 4) {
+                        console.log(`[ThreadsPublisher] Waiting ${retryDelay / 1000}s before retry...`);
+                        await new Promise(resolve => setTimeout(resolve, retryDelay));
+                        retryDelay += 5000; // Incremental backoff
+                    }
                 }
 
-                const containerRes = await fetch(containerUrl.toString(), { method: 'POST' });
-                const containerData = await containerRes.json();
-
-                if (!containerRes.ok || !containerData.id) {
-                    console.error(`[ThreadsPublisher] Media container creation failed for part ${i + 1}:`, containerData);
+                if (!containerCreated) {
+                    console.error(`[ThreadsPublisher] Media container creation failed permanently for part ${i + 1}:`, containerData);
                     return {
                         success: false,
                         provider: 'threads',
                         provider_post_id: null,
                         published_at: null,
                         error_code: 'API_ERROR',
-                        error_message: containerData.error?.message || `Failed to create container for part ${i + 1}.`,
+                        error_message: containerData?.error?.message || `Failed to create container for part ${i + 1}.`,
                         retryable: true
                     };
                 }
@@ -173,22 +198,48 @@ export class ThreadsPublisher extends PublisherInterface {
                     };
                 }
 
-                const publishUrl = new URL(`https://graph.threads.net/v1.0/${threadsAccountId}/threads_publish`);
-                publishUrl.searchParams.set('creation_id', containerId);
-                publishUrl.searchParams.set('access_token', accessToken);
+                let publishData = null;
+                let publishRes = null;
+                let publishSuccess = false;
+                let pubRetryDelay = 3000;
 
-                const publishRes = await fetch(publishUrl.toString(), { method: 'POST' });
-                const publishData = await publishRes.json();
+                // Retry loop for publication to handle transient Graph API publish timeouts/errors
+                for (let attempt = 1; attempt <= 3; attempt++) {
+                    const publishUrl = new URL(`https://graph.threads.net/v1.0/${threadsAccountId}/threads_publish`);
+                    publishUrl.searchParams.set('creation_id', containerId);
+                    publishUrl.searchParams.set('access_token', accessToken);
 
-                if (!publishRes.ok || !publishData.id) {
-                    console.error(`[ThreadsPublisher] Container publication failed for part ${i + 1}:`, publishData);
+                    try {
+                        publishRes = await fetch(publishUrl.toString(), { method: 'POST' });
+                        publishData = await publishRes.json().catch(() => ({}));
+
+                        if (publishRes.ok && publishData.id) {
+                            publishSuccess = true;
+                            break;
+                        }
+                    } catch (fetchErr) {
+                        publishData = { error: { message: fetchErr.message } };
+                    }
+
+                    const errMsg = publishData?.error?.message || 'Unknown error';
+                    console.warn(`[ThreadsPublisher] Publication attempt ${attempt} failed for part ${i + 1}: ${errMsg}.`);
+                    
+                    if (attempt < 3) {
+                        console.log(`[ThreadsPublisher] Waiting ${pubRetryDelay / 1000}s before retry...`);
+                        await new Promise(resolve => setTimeout(resolve, pubRetryDelay));
+                        pubRetryDelay += 3000;
+                    }
+                }
+
+                if (!publishSuccess) {
+                    console.error(`[ThreadsPublisher] Container publication failed permanently for part ${i + 1}:`, publishData);
                     return {
                         success: false,
                         provider: 'threads',
                         provider_post_id: null,
                         published_at: null,
                         error_code: 'API_ERROR',
-                        error_message: publishData.error?.message || `Failed to publish part ${i + 1}.`,
+                        error_message: publishData?.error?.message || `Failed to publish part ${i + 1}.`,
                         retryable: true
                     };
                 }
@@ -198,9 +249,9 @@ export class ThreadsPublisher extends PublisherInterface {
                     firstPostId = lastPostId;
                 }
 
-                // Add a small delay between publications to maintain order on the Threads timeline
+                // Add a small delay between publications to maintain order on the Threads timeline (increased to 5 seconds to help propagation)
                 if (i < chunks.length - 1) {
-                    await new Promise(resolve => setTimeout(resolve, 3000));
+                    await new Promise(resolve => setTimeout(resolve, 5000));
                 }
             }
 

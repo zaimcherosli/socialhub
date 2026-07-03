@@ -500,14 +500,16 @@
         });
 
         postsComposer.addEventListener('schedule', async (e) => {
-            const { title, content, targets, publish_at, timezone } = e.detail;
+            const { title, content, targets, publish_at, timezone, triggerType, triggerThreshold } = e.detail;
             try {
                 const res = await schedulerService.createScheduledPost({
                     title,
                     content,
                     targets,
                     publish_at: new Date(publish_at).toISOString(),
-                    timezone
+                    timezone,
+                    triggerType,
+                    triggerThreshold
                 });
 
                 if (res.success) {

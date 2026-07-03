@@ -44,6 +44,11 @@ class PublishStatusBadge extends HTMLElement {
                 bg = '#f3f4f6'; // grey-100
                 fg = '#9ca3af'; // grey-400
                 break;
+            case 'waiting_trigger':
+                bg = '#e0e7ff'; // indigo-100
+                fg = '#4f46e5'; // indigo-600
+                label = 'WAITING TRIGGER';
+                break;
         }
 
         this.innerHTML = `

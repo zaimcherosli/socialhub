@@ -36,7 +36,13 @@ export class AIFactory {
                              (!hasWorkspaceKey && env.AI);
 
         if (isCloudflare && env.AI) {
-            return new CloudflareAIProvider(env.AI, model);
+            const isCfModel = model.startsWith("@cf/") || 
+                             model.toLowerCase().includes("llama") || 
+                             model.toLowerCase().includes("mistral") || 
+                             model.toLowerCase().includes("gemma") || 
+                             model.toLowerCase().includes("qwen");
+            const cleanModel = isCfModel ? model : '@cf/meta/llama-3.2-3b-instruct';
+            return new CloudflareAIProvider(env.AI, cleanModel);
         }
 
         const isGemini = model.toLowerCase().includes("gemini") || hasGeminiKey;

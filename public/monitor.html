@@ -187,7 +187,7 @@
     <!-- Script imports -->
     <script type="module" src="js/app.js"></script>
     <script type="module">
-        import { scheduleService } from './js/services/scheduleService.js';
+        import { schedulerService } from './js/services/schedulerService.js';
         import { publishLogService } from './js/services/publishLogService.js';
         import { timezoneService } from './js/services/timezoneService.js';
 
@@ -202,7 +202,8 @@
             console.log('[Monitor] Querying queue lists and D1 audit metrics');
             try {
                 // 1. Fetch schedules queue to count live status cards
-                const schedules = await scheduleService.getSchedules();
+                const res = await schedulerService.getScheduledPosts();
+                const schedules = res.results || [];
                 
                 let queued = 0;
                 let publishing = 0;
@@ -211,7 +212,7 @@
                 let retrying = 0;
 
                 schedules.forEach(item => {
-                    if (item.status === 'queued') queued++;
+                    if (item.status === 'scheduled' || item.status === 'waiting_trigger') queued++;
                     if (item.status === 'publishing') publishing++;
                     if (item.status === 'published') completed++;
                     if (item.status === 'failed') failed++;

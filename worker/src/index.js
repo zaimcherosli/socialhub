@@ -475,6 +475,31 @@ const OAuthProviders = {
     }
 };
 
+// Helper: Clean up scraped title tags to remove branding suffixes and agent credentials
+const cleanScrapedTitle = (title) => {
+    if (!title) return "";
+    let clean = title.trim();
+
+    // 1. Remove agent credentials like PEA 1234, REN 12345, REA 1234, E(3)1234, etc.
+    clean = clean.replace(/\b(PEA|REN|REA|E|REN|PEA)\s?\d{3,6}\b/gi, '').trim();
+    clean = clean.replace(/\b[EPR]\(\d\)\s?\d{3,6}\b/gi, '').trim();
+
+    // 2. Remove common portals and branding suffixes
+    const portalsRegex = /\|\s*(Salah\s*Property|SalahProperty|PropMall|Mudah|PropertyGuru|iProperty|Telegram|Facebook|Instagram|TikTok)[^|]*$/i;
+    clean = clean.replace(portalsRegex, '').trim();
+
+    const portalsRegexDash = /-\s*(Salah\s*Property|SalahProperty|PropMall|Mudah|PropertyGuru|iProperty|Telegram|Facebook|Instagram|TikTok)[^-]*$/i;
+    clean = clean.replace(portalsRegexDash, '').trim();
+
+    // 3. Remove general trailing separator characters
+    clean = clean.replace(/[\s|—•-]$/, '').trim();
+    
+    // Clean double spaces
+    clean = clean.replace(/\s+/g, ' ').trim();
+
+    return clean;
+};
+
 export default {
     async fetch(request, env, ctx) {
         const url = new URL(request.url);
@@ -974,7 +999,7 @@ export default {
                             // Network/fetch error - will fall through to URL slug fallback
                         }
 
-                        let decodedTitle = decodeHtmlEntities(title);
+                        let decodedTitle = cleanScrapedTitle(decodeHtmlEntities(title));
                         let decodedDesc = decodeHtmlEntities(description || pageText.substring(0, 500));
 
                         // URL slug fallback: if scrape returned nothing useful, parse keywords from the URL itself
@@ -1159,7 +1184,7 @@ export default {
                                       .replace(/&lt;/g, '<').replace(/&gt;/g, '>')
                                       .replace(/&nbsp;/g, ' ');
                         };
-                        scrapedTitle = decodeEntities(scrapedTitle);
+                        scrapedTitle = cleanScrapedTitle(decodeEntities(scrapedTitle));
                         scrapedDescription = decodeEntities(scrapedDescription);
 
                         // Combine: frontend context + scraped data for maximum richness
@@ -1241,7 +1266,7 @@ export default {
                             linkType = 'whatsapp';
                             const whatsappNum = activeWorkspace.whatsapp_number.replace(/\D/g, ''); // digits only
 
-                            let productTitle = scrapedTitle || "";
+                            let productTitle = cleanScrapedTitle(scrapedTitle || "");
                             
                             // Clean up generic Telegram channel titles or channel owner names
                             const isGenericTelegramTitle = /Telegram|View\s*@|Listing\s*|Hartanah|bammad|Zaimarni|^AVAILABLE$|^WTS$|^WTL$|^FOR\s*SALE$|^FOR\s*RENT$/i.test(productTitle.trim());
@@ -1603,7 +1628,7 @@ CRITICAL TONE RULES:
 
                         const provider = AIFactory.getProvider(aiEnv);
                         const result = await provider.generateThreadStorm({
-                            title: scrapedTitle,
+                            title: cleanScrapedTitle(scrapedTitle),
                             description: scrapedDescription || "",
                             url,
                             tone: tone || 'Friendly & Casual',

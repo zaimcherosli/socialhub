@@ -150,8 +150,29 @@ CREATE TABLE IF NOT EXISTS scheduled_posts (
     created_at TEXT NOT NULL DEFAULT (datetime('now')),
     updated_at TEXT NOT NULL DEFAULT (datetime('now')),
     error_message TEXT,
-    worker_job_id TEXT
+    worker_job_id TEXT,
+    -- Threads Insights Metrics (synced via cron every minute)
+    views_count INTEGER DEFAULT 0,
+    likes_count INTEGER DEFAULT 0,
+    replies_count INTEGER DEFAULT 0,
+    reposts_count INTEGER DEFAULT 0,
+    quotes_count INTEGER DEFAULT 0,
+    reach_count INTEGER DEFAULT 0,
+    last_insights_sync TEXT
 );
 
 CREATE INDEX IF NOT EXISTS idx_scheduled_posts_user ON scheduled_posts(user_id);
 CREATE INDEX IF NOT EXISTS idx_scheduled_posts_status_time ON scheduled_posts(status, publish_at);
+
+-- Workspace-level analytics: follower count growth tracked per account over time
+CREATE TABLE IF NOT EXISTS workspace_analytics (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    workspace_id INTEGER NOT NULL,
+    account_id INTEGER,
+    platform TEXT DEFAULT 'threads',
+    followers_count INTEGER DEFAULT 0,
+    recorded_at TEXT NOT NULL DEFAULT (datetime('now'))
+);
+
+CREATE INDEX IF NOT EXISTS idx_workspace_analytics_workspace ON workspace_analytics(workspace_id, recorded_at DESC);
+

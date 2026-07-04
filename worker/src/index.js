@@ -563,6 +563,20 @@ export default {
             try {
                 await env.DB.prepare("ALTER TABLE users ADD COLUMN active_workspace_id INTEGER REFERENCES workspaces(id) ON DELETE SET NULL").run();
             } catch (_) { /* column already exists */ }
+            // Ensure new insights columns exist in scheduled_posts
+            try { await env.DB.prepare("ALTER TABLE scheduled_posts ADD COLUMN quotes_count INTEGER DEFAULT 0").run(); } catch (_) {}
+            try { await env.DB.prepare("ALTER TABLE scheduled_posts ADD COLUMN reach_count INTEGER DEFAULT 0").run(); } catch (_) {}
+            // Ensure workspace_analytics table exists for follower growth tracking
+            try {
+                await env.DB.prepare(`CREATE TABLE IF NOT EXISTS workspace_analytics (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    workspace_id INTEGER NOT NULL,
+                    account_id INTEGER,
+                    platform TEXT DEFAULT 'threads',
+                    followers_count INTEGER DEFAULT 0,
+                    recorded_at TEXT NOT NULL DEFAULT (datetime('now'))
+                )`).run();
+            } catch (_) {}
         }
 
         if (request.method === 'OPTIONS') {
@@ -2819,6 +2833,8 @@ CRITICAL TONE RULES:
                                     let likes = 0;
                                     let replies = 0;
                                     let reposts = 0;
+                                    let quotes = 0;
+                                    let reach = 0;
 
                                     if (decryptedAccessToken.includes('mock-threads-token') || env.ENVIRONMENT === 'development') {
                                         const hoursSincePublish = (Date.now() - new Date(post.published_at).getTime()) / (3600 * 1000);
@@ -2827,8 +2843,10 @@ CRITICAL TONE RULES:
                                         likes = Math.floor(views * (0.05 + Math.random() * 0.08));
                                         replies = Math.floor(likes * (0.05 + Math.random() * 0.1));
                                         reposts = Math.floor(likes * (0.02 + Math.random() * 0.05));
+                                        quotes = Math.floor(likes * (0.01 + Math.random() * 0.03));
+                                        reach = Math.floor(views * (0.6 + Math.random() * 0.3));
                                     } else {
-                                        const insightsUrl = `https://graph.threads.net/v1.0/${post.external_post_id}/insights?metric=views,likes,replies,reposts&access_token=${decryptedAccessToken}`;
+                                        const insightsUrl = `https://graph.threads.net/v1.0/${post.external_post_id}/insights?metric=views,likes,replies,reposts,quotes,reach&access_token=${decryptedAccessToken}`;
                                         const insightsRes = await fetch(insightsUrl);
                                         if (insightsRes.ok) {
                                             const data = await insightsRes.json();
@@ -2837,17 +2855,19 @@ CRITICAL TONE RULES:
                                                 likes = data.data.find(m => m.name === 'likes')?.values?.[0]?.value || 0;
                                                 replies = data.data.find(m => m.name === 'replies')?.values?.[0]?.value || 0;
                                                 reposts = data.data.find(m => m.name === 'reposts')?.values?.[0]?.value || 0;
+                                                quotes = data.data.find(m => m.name === 'quotes')?.values?.[0]?.value || 0;
+                                                reach = data.data.find(m => m.name === 'reach')?.values?.[0]?.value || 0;
                                             }
                                         }
                                     }
 
                                     await env.DB.prepare(
                                         `UPDATE scheduled_posts 
-                                         SET views_count = ?, likes_count = ?, replies_count = ?, reposts_count = ?, last_insights_sync = ?, updated_at = (datetime('now'))
+                                         SET views_count = ?, likes_count = ?, replies_count = ?, reposts_count = ?, quotes_count = ?, reach_count = ?, last_insights_sync = ?, updated_at = (datetime('now'))
                                          WHERE id = ?`
-                                    ).bind(views, likes, replies, reposts, new Date().toISOString(), post.id).run();
+                                    ).bind(views, likes, replies, reposts, quotes, reach, new Date().toISOString(), post.id).run();
 
-                                    console.log(`[CronSync] Synced insights for post ID ${post.id}: views=${views}, likes=${likes}`);
+                                    console.log(`[CronSync] Synced insights for post ID ${post.id}: views=${views}, likes=${likes}, quotes=${quotes}, reach=${reach}`);
 
                                     // Check if there are any child posts waiting for trigger from this parent
                                     const nextChild = await env.DB.prepare(
@@ -2879,6 +2899,50 @@ CRITICAL TONE RULES:
                                     console.error(`[CronSync] Failed to sync insights for post ${post.id}:`, insightErr.message);
                                 }
                             }
+                        }
+
+                        // ==================== FOLLOWER COUNT SYNC (per workspace account) ====================
+                        try {
+                            const threadAccounts = await env.DB.prepare(
+                                `SELECT DISTINCT sa.id as account_id, sa.access_token, sa.account_id as threads_user_id, sa.workspace_id
+                                 FROM social_accounts sa
+                                 WHERE sa.platform = 'threads' AND sa.access_token IS NOT NULL`
+                            ).all();
+
+                            if (threadAccounts.results && threadAccounts.results.length > 0) {
+                                for (const acct of threadAccounts.results) {
+                                    try {
+                                        const decryptedToken = await decryptToken(acct.access_token, encryptionSecret);
+                                        let followersCount = 0;
+
+                                        if (decryptedToken.includes('mock-threads-token') || env.ENVIRONMENT === 'development') {
+                                            // Mock: grow slowly over time
+                                            const lastRow = await env.DB.prepare(
+                                                `SELECT followers_count FROM workspace_analytics WHERE account_id = ? ORDER BY recorded_at DESC LIMIT 1`
+                                            ).bind(acct.account_id).first().catch(() => null);
+                                            followersCount = (lastRow?.followers_count || 100) + Math.floor(Math.random() * 5);
+                                        } else {
+                                            const profileUrl = `https://graph.threads.net/v1.0/${acct.threads_user_id}?fields=threads_profile_picture_url,threads_biography,followers_count&access_token=${decryptedToken}`;
+                                            const profileRes = await fetch(profileUrl);
+                                            if (profileRes.ok) {
+                                                const profileData = await profileRes.json();
+                                                followersCount = profileData.followers_count || 0;
+                                            }
+                                        }
+
+                                        await env.DB.prepare(
+                                            `INSERT INTO workspace_analytics (workspace_id, account_id, platform, followers_count, recorded_at)
+                                             VALUES (?, ?, 'threads', ?, datetime('now'))`
+                                        ).bind(acct.workspace_id, acct.account_id, followersCount).run();
+
+                                        console.log(`[CronSync] Follower count for account ${acct.account_id}: ${followersCount}`);
+                                    } catch (followerErr) {
+                                        console.error(`[CronSync] Failed to sync followers for account ${acct.account_id}:`, followerErr.message);
+                                    }
+                                }
+                            }
+                        } catch (followerSyncErr) {
+                            console.error('[CronSync] Follower sync block error:', followerSyncErr.message);
                         }
 
                         return new Response(JSON.stringify({

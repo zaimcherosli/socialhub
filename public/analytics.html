@@ -22,52 +22,99 @@
     <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.3/dist/chart.umd.min.js"></script>
 
     <style>
-        /* ── Analytics Layout ── */
+        /* ════════════════════════════════════════
+           ANALYTICS — MOBILE-FIRST DESIGN SYSTEM
+        ════════════════════════════════════════ */
+
+        /* ── Page Header ── */
+        .analytics-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            flex-wrap: wrap;
+            gap: 0.75rem;
+            margin-bottom: 1.25rem;
+        }
+        .analytics-title-group h1 {
+            font-size: 1.25rem;
+            font-weight: 800;
+            color: var(--color-text-primary);
+            margin: 0;
+            line-height: 1.2;
+        }
+        .analytics-title-group p {
+            font-size: 0.75rem;
+            color: var(--color-text-tertiary);
+            margin: 0.15rem 0 0;
+        }
         .analytics-period-tabs {
             display: flex;
-            gap: 0.5rem;
+            gap: 0.25rem;
             background: var(--color-bg-secondary);
-            padding: 0.25rem;
+            padding: 0.2rem;
             border-radius: var(--radius-md);
+            flex-shrink: 0;
         }
         .period-tab {
-            padding: 0.4rem 1rem;
+            padding: 0.35rem 0.85rem;
             border-radius: calc(var(--radius-md) - 2px);
             border: none;
             background: transparent;
             color: var(--color-text-secondary);
-            font-size: 0.8rem;
-            font-weight: 600;
+            font-size: 0.78rem;
+            font-weight: 700;
             cursor: pointer;
-            transition: all 0.2s ease;
+            transition: all 0.18s ease;
+            white-space: nowrap;
         }
         .period-tab.active {
             background: var(--color-bg-card);
             color: var(--color-primary);
             box-shadow: 0 1px 4px rgba(0,0,0,0.1);
         }
-        .period-tab:hover:not(.active) {
-            color: var(--color-text-primary);
+        .period-tab:hover:not(.active) { color: var(--color-text-primary); }
+
+        /* ── Section label ── */
+        .section-label {
+            font-size: 0.68rem;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 0.06em;
+            color: var(--color-text-tertiary);
+            margin-bottom: 0.6rem;
+            padding: 0 0.1rem;
         }
 
-        /* ── KPI Cards ── */
+        /* ── KPI GRID — 2 col mobile, 3 col tablet, 5 col desktop ── */
         .kpi-grid {
             display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(170px, 1fr));
-            gap: 1rem;
-            margin-bottom: 1.5rem;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 0.65rem;
+            margin-bottom: 1.25rem;
         }
+        @media (min-width: 480px) {
+            .kpi-grid { grid-template-columns: repeat(3, 1fr); }
+        }
+        @media (min-width: 900px) {
+            .kpi-grid { grid-template-columns: repeat(5, 1fr); gap: 0.85rem; }
+        }
+
         .kpi-card {
             background: var(--color-bg-card);
             border: 1px solid var(--color-border);
             border-radius: var(--radius-lg);
-            padding: 1.25rem 1.25rem 1rem;
+            padding: 0.9rem 0.9rem 0.75rem;
             display: flex;
             flex-direction: column;
-            gap: 0.25rem;
-            transition: box-shadow 0.2s;
+            gap: 0.2rem;
             position: relative;
             overflow: hidden;
+            transition: transform 0.15s ease, box-shadow 0.15s ease;
+            -webkit-tap-highlight-color: transparent;
+        }
+        .kpi-card:active { transform: scale(0.97); }
+        @media (hover: hover) {
+            .kpi-card:hover { box-shadow: 0 4px 18px rgba(0,0,0,0.09); transform: translateY(-1px); }
         }
         .kpi-card::before {
             content: '';
@@ -77,98 +124,141 @@
             background: var(--kpi-color, var(--color-primary));
             border-radius: var(--radius-lg) var(--radius-lg) 0 0;
         }
-        .kpi-card:hover { box-shadow: 0 4px 20px rgba(0,0,0,0.08); }
-        .kpi-icon {
-            font-size: 1.3rem;
-            margin-bottom: 0.25rem;
+        /* Special accent bg */
+        .kpi-card::after {
+            content: '';
+            position: absolute;
+            bottom: -10px; right: -10px;
+            width: 50px; height: 50px;
+            border-radius: 50%;
+            background: var(--kpi-color, var(--color-primary));
+            opacity: 0.05;
         }
+        .kpi-icon { font-size: 1.05rem; line-height: 1; }
         .kpi-label {
-            font-size: 0.72rem;
-            font-weight: 600;
+            font-size: 0.62rem;
+            font-weight: 700;
             color: var(--color-text-tertiary);
             text-transform: uppercase;
             letter-spacing: 0.04em;
+            margin-top: 0.1rem;
         }
         .kpi-value {
-            font-size: 1.75rem;
+            font-size: 1.5rem;
             font-weight: 800;
             font-family: var(--font-heading);
             color: var(--color-text-primary);
             line-height: 1.1;
         }
         .kpi-delta {
-            font-size: 0.72rem;
+            font-size: 0.65rem;
             font-weight: 600;
             display: flex;
             align-items: center;
-            gap: 0.2rem;
-            margin-top: 0.15rem;
+            gap: 0.15rem;
+            flex-wrap: wrap;
         }
         .kpi-delta.positive { color: #10b981; }
         .kpi-delta.negative { color: #ef4444; }
         .kpi-delta.neutral { color: var(--color-text-tertiary); }
+        .kpi-delta-muted { font-weight: 400; color: var(--color-text-tertiary) !important; }
 
-        /* ── Charts row ── */
-        .charts-row {
-            display: grid;
-            grid-template-columns: 2fr 1fr;
-            gap: 1.25rem;
-            margin-bottom: 1.5rem;
-        }
-        @media (max-width: 900px) { .charts-row { grid-template-columns: 1fr; } }
-
+        /* ── CHART CARDS ── */
         .chart-card {
             background: var(--color-bg-card);
             border: 1px solid var(--color-border);
             border-radius: var(--radius-lg);
-            padding: 1.5rem;
+            padding: 1rem;
+            margin-bottom: 0.75rem;
         }
+        @media (min-width: 480px) { .chart-card { padding: 1.25rem; } }
+
         .chart-card-header {
             display: flex;
             align-items: flex-start;
             justify-content: space-between;
-            margin-bottom: 1.25rem;
+            gap: 0.75rem;
+            margin-bottom: 1rem;
+            flex-wrap: wrap;
         }
         .chart-card-title {
-            font-size: 0.95rem;
+            font-size: 0.875rem;
             font-weight: 700;
             color: var(--color-text-primary);
+            line-height: 1.3;
         }
         .chart-card-subtitle {
-            font-size: 0.75rem;
+            font-size: 0.7rem;
             color: var(--color-text-tertiary);
-            margin-top: 0.2rem;
+            margin-top: 0.15rem;
         }
         .chart-legend {
             display: flex;
-            gap: 1rem;
+            gap: 0.75rem;
             flex-wrap: wrap;
+            flex-shrink: 0;
         }
         .legend-item {
             display: flex;
             align-items: center;
-            gap: 0.35rem;
-            font-size: 0.72rem;
+            gap: 0.3rem;
+            font-size: 0.68rem;
             color: var(--color-text-secondary);
             font-weight: 500;
         }
         .legend-dot {
-            width: 8px; height: 8px;
+            width: 7px; height: 7px;
             border-radius: 50%;
             flex-shrink: 0;
         }
-        .chart-wrap {
-            position: relative;
-            height: 220px;
+
+        /* ── CHARTS ROW (Views + Doughnut) ── */
+        .charts-row {
+            display: flex;
+            flex-direction: column;
+            gap: 0.75rem;
+            margin-bottom: 0.75rem;
+        }
+        @media (min-width: 780px) {
+            .charts-row {
+                display: grid;
+                grid-template-columns: 2fr 1fr;
+                gap: 0.85rem;
+            }
         }
 
-        /* ── Engagement Breakdown doughnut ── */
+        /* Chart canvas heights */
+        .chart-wrap { position: relative; height: 180px; }
+        @media (min-width: 480px) { .chart-wrap { height: 210px; } }
+        @media (min-width: 780px) { .chart-wrap { height: 230px; } }
+
+        .follower-chart-wrap { position: relative; height: 150px; }
+        @media (min-width: 480px) { .follower-chart-wrap { height: 175px; } }
+
+        /* ── DOUGHNUT ── */
+        .engagement-col {
+            display: flex;
+            flex-direction: column;
+        }
+        .engagement-body {
+            display: flex;
+            align-items: center;
+            gap: 1rem;
+        }
+        @media (max-width: 779px) {
+            .engagement-body { flex-direction: row; }
+        }
         .doughnut-wrap {
             position: relative;
-            height: 180px;
+            width: 130px;
+            height: 130px;
+            flex-shrink: 0;
             display: flex;
             align-items: center;
             justify-content: center;
+        }
+        @media (min-width: 780px) {
+            .doughnut-wrap { width: 100%; height: 160px; }
         }
         .doughnut-center {
             position: absolute;
@@ -176,129 +266,224 @@
             pointer-events: none;
         }
         .doughnut-center-value {
-            font-size: 1.4rem;
+            font-size: 1.15rem;
             font-weight: 800;
             font-family: var(--font-heading);
             color: var(--color-text-primary);
         }
         .doughnut-center-label {
-            font-size: 0.65rem;
+            font-size: 0.6rem;
             color: var(--color-text-tertiary);
             font-weight: 600;
         }
         .engagement-breakdown-list {
             display: flex;
             flex-direction: column;
-            gap: 0.6rem;
-            margin-top: 1rem;
+            gap: 0.5rem;
+            flex: 1;
         }
         .breakdown-row {
             display: flex;
             align-items: center;
             justify-content: space-between;
-            font-size: 0.8rem;
+            font-size: 0.78rem;
+            gap: 0.5rem;
         }
         .breakdown-label {
             display: flex;
             align-items: center;
-            gap: 0.4rem;
+            gap: 0.35rem;
             color: var(--color-text-secondary);
         }
         .breakdown-value {
             font-weight: 700;
             color: var(--color-text-primary);
+            font-size: 0.8rem;
+        }
+        .breakdown-bar-wrap {
+            flex: 1;
+            height: 4px;
+            background: var(--color-bg-secondary);
+            border-radius: 2px;
+            overflow: hidden;
+            max-width: 50px;
+        }
+        .breakdown-bar {
+            height: 100%;
+            border-radius: 2px;
+            transition: width 0.6s ease;
         }
 
-        /* ── Top Posts Table ── */
+        /* ── TOP POSTS — Mobile Card Layout ── */
         .top-posts-card {
             background: var(--color-bg-card);
             border: 1px solid var(--color-border);
             border-radius: var(--radius-lg);
-            padding: 1.5rem;
-            margin-bottom: 1.5rem;
+            padding: 1rem;
+            margin-bottom: 0.75rem;
+            overflow: hidden;
+        }
+        @media (min-width: 480px) { .top-posts-card { padding: 1.25rem; } }
+
+        /* Mobile: card list */
+        .post-mobile-list {
+            display: flex;
+            flex-direction: column;
+            gap: 0.6rem;
+            margin-top: 1rem;
+        }
+        .post-mobile-card {
+            background: var(--color-bg-secondary);
+            border-radius: var(--radius-md);
+            padding: 0.85rem;
+            border: 1px solid var(--color-border);
+            transition: background 0.15s;
+            -webkit-tap-highlight-color: transparent;
+        }
+        .post-mobile-card:active { background: var(--color-border); }
+        .post-mobile-rank {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            margin-bottom: 0.5rem;
+        }
+        .rank-badge {
+            font-size: 0.65rem;
+            font-weight: 800;
+            color: var(--color-primary);
+            background: var(--color-primary-light);
+            padding: 0.1rem 0.45rem;
+            border-radius: 99px;
+        }
+        .post-date-label {
+            font-size: 0.65rem;
+            color: var(--color-text-tertiary);
+            font-weight: 500;
+        }
+        .post-preview-text {
+            font-size: 0.8rem;
+            font-weight: 500;
+            color: var(--color-text-primary);
+            line-height: 1.4;
+            margin-bottom: 0.65rem;
+            display: -webkit-box;
+            -webkit-line-clamp: 2;
+            -webkit-box-orient: vertical;
+            overflow: hidden;
+        }
+        .post-metrics-grid {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 0.4rem;
+            margin-bottom: 0.6rem;
+        }
+        @media (min-width: 400px) {
+            .post-metrics-grid { grid-template-columns: repeat(4, 1fr); }
+        }
+        .post-metric-item {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            background: var(--color-bg-card);
+            border-radius: var(--radius-sm);
+            padding: 0.3rem 0.25rem;
+            border: 1px solid var(--color-border);
+        }
+        .post-metric-icon { font-size: 0.75rem; line-height: 1; }
+        .post-metric-val {
+            font-size: 0.72rem;
+            font-weight: 800;
+            color: var(--color-text-primary);
+            margin-top: 0.1rem;
+        }
+        .post-metric-key {
+            font-size: 0.55rem;
+            color: var(--color-text-tertiary);
+            font-weight: 600;
+            text-transform: uppercase;
+        }
+        .post-engagement-row {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+        .engagement-bar-bg {
+            flex: 1;
+            height: 5px;
+            background: var(--color-border);
+            border-radius: 3px;
+            overflow: hidden;
+        }
+        .engagement-bar {
+            height: 100%;
+            border-radius: 3px;
+            background: linear-gradient(90deg, #6366f1, #8b5cf6);
+            transition: width 0.8s ease;
+        }
+        .engagement-score-label {
+            font-size: 0.68rem;
+            font-weight: 800;
+            color: var(--color-primary);
+            white-space: nowrap;
+        }
+
+        /* Desktop table (hidden on mobile) */
+        .top-posts-table-wrap {
+            display: none;
+            overflow-x: auto;
+            -webkit-overflow-scrolling: touch;
+            margin-top: 1rem;
+        }
+        @media (min-width: 780px) {
+            .top-posts-table-wrap { display: block; }
+            .post-mobile-list { display: none; }
         }
         .top-posts-table {
             width: 100%;
             border-collapse: collapse;
-            font-size: 0.82rem;
-            margin-top: 1rem;
+            font-size: 0.8rem;
+            min-width: 680px;
         }
         .top-posts-table th {
             text-align: left;
-            padding: 0.5rem 0.75rem;
-            font-size: 0.7rem;
+            padding: 0.5rem 0.65rem;
+            font-size: 0.65rem;
             font-weight: 700;
             text-transform: uppercase;
             letter-spacing: 0.04em;
             color: var(--color-text-tertiary);
             border-bottom: 1px solid var(--color-border);
+            white-space: nowrap;
         }
         .top-posts-table td {
-            padding: 0.75rem 0.75rem;
-            border-bottom: 1px solid var(--color-border-light, #f0f0f0);
-            vertical-align: top;
+            padding: 0.65rem 0.65rem;
+            border-bottom: 1px solid var(--color-border);
+            vertical-align: middle;
         }
         .top-posts-table tr:last-child td { border-bottom: none; }
         .top-posts-table tr:hover td { background: var(--color-bg-secondary); }
         .post-content-cell {
-            max-width: 320px;
+            max-width: 240px;
             overflow: hidden;
             text-overflow: ellipsis;
             white-space: nowrap;
-            color: var(--color-text-primary);
             font-weight: 500;
+            color: var(--color-text-primary);
         }
         .metric-chip {
             display: inline-flex;
             align-items: center;
-            gap: 0.2rem;
-            padding: 0.15rem 0.4rem;
+            gap: 0.15rem;
+            padding: 0.12rem 0.35rem;
             border-radius: 99px;
-            font-size: 0.7rem;
+            font-size: 0.68rem;
             font-weight: 600;
             background: var(--color-bg-secondary);
             color: var(--color-text-secondary);
-        }
-        .engagement-bar-wrap {
-            display: flex;
-            align-items: center;
-            gap: 0.5rem;
-        }
-        .engagement-bar {
-            height: 6px;
-            border-radius: 3px;
-            background: linear-gradient(90deg, #6366f1, #8b5cf6);
-            transition: width 0.8s ease;
-        }
-        .engagement-bar-bg {
-            flex: 1;
-            height: 6px;
-            background: var(--color-bg-secondary);
-            border-radius: 3px;
-            overflow: hidden;
+            white-space: nowrap;
         }
 
-        /* ── Follower Growth full-width card ── */
-        .follower-card {
-            background: var(--color-bg-card);
-            border: 1px solid var(--color-border);
-            border-radius: var(--radius-lg);
-            padding: 1.5rem;
-            margin-bottom: 1.5rem;
-        }
-        .follower-chart-wrap { position: relative; height: 180px; }
-
-        /* ── Empty State ── */
-        .empty-analytics {
-            text-align: center;
-            padding: 3rem 1rem;
-            color: var(--color-text-tertiary);
-        }
-        .empty-analytics-icon { font-size: 3rem; margin-bottom: 0.75rem; }
-        .empty-analytics h3 { font-size: 1rem; font-weight: 700; color: var(--color-text-secondary); margin-bottom: 0.4rem; }
-        .empty-analytics p { font-size: 0.82rem; }
-
-        /* ── Skeleton loader ── */
+        /* ── Skeleton ── */
         .skeleton {
             background: linear-gradient(90deg, var(--color-bg-secondary) 25%, var(--color-border) 50%, var(--color-bg-secondary) 75%);
             background-size: 200% 100%;
@@ -307,12 +492,56 @@
         }
         @keyframes shimmer { 0% { background-position: 200% 0; } 100% { background-position: -200% 0; } }
 
-        /* ── Responsive ── */
-        @media (max-width: 640px) {
-            .kpi-grid { grid-template-columns: repeat(2, 1fr); }
-            .kpi-value { font-size: 1.4rem; }
-            .top-posts-table { font-size: 0.75rem; }
+        /* ── Empty State ── */
+        .empty-analytics {
+            text-align: center;
+            padding: 2rem 1rem;
+            color: var(--color-text-tertiary);
         }
+        .empty-analytics-icon { font-size: 2.5rem; margin-bottom: 0.6rem; }
+        .empty-analytics h3 { font-size: 0.9rem; font-weight: 700; color: var(--color-text-secondary); margin-bottom: 0.3rem; }
+        .empty-analytics p { font-size: 0.78rem; }
+
+        /* ── Pull-to-refresh feel on mobile ── */
+        @media (max-width: 479px) {
+            .analytics-title-group h1 { font-size: 1.1rem; }
+            .kpi-value { font-size: 1.3rem; }
+            .chart-card { padding: 0.85rem; }
+        }
+
+        /* ── Follower card ── */
+        .follower-card {
+            background: var(--color-bg-card);
+            border: 1px solid var(--color-border);
+            border-radius: var(--radius-lg);
+            padding: 1rem;
+            margin-bottom: 0.75rem;
+        }
+        @media (min-width: 480px) { .follower-card { padding: 1.25rem; } }
+
+        /* ── Floating refresh btn (mobile) ── */
+        .fab-refresh {
+            position: fixed;
+            bottom: calc(4rem + env(safe-area-inset-bottom, 0px));
+            right: 1rem;
+            width: 46px; height: 46px;
+            border-radius: 50%;
+            background: var(--color-primary);
+            color: white;
+            border: none;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            box-shadow: 0 4px 16px rgba(99,102,241,0.35);
+            z-index: 50;
+            transition: transform 0.2s ease;
+            -webkit-tap-highlight-color: transparent;
+        }
+        .fab-refresh:active { transform: scale(0.9); }
+        @media (min-width: 780px) { .fab-refresh { display: none; } }
+        .fab-refresh.spinning svg { animation: spin 0.8s linear infinite; }
+        @keyframes spin { to { transform: rotate(360deg); } }
     </style>
 </head>
 <body>
@@ -321,56 +550,41 @@
         <app-header></app-header>
         <app-bottom-nav></app-bottom-nav>
 
-        <main class="main-content animated-fade-in">
+        <main class="main-content animated-fade-in" style="padding-bottom: 5rem;">
 
             <!-- Page Header -->
-            <div class="page-header">
-                <div class="page-title-section">
-                    <h1 class="page-title">Analytics</h1>
-                    <p class="page-subtitle">Threads post performance, engagement metrics & follower growth.</p>
+            <div class="analytics-header">
+                <div class="analytics-title-group">
+                    <h1>Analytics</h1>
+                    <p>Threads performance &amp; follower growth</p>
                 </div>
-                <div class="page-actions">
-                    <div class="analytics-period-tabs" id="periodTabs">
-                        <button class="period-tab" data-days="7">7D</button>
-                        <button class="period-tab active" data-days="30">30D</button>
-                        <button class="period-tab" data-days="90">90D</button>
-                    </div>
+                <div class="analytics-period-tabs" id="periodTabs">
+                    <button class="period-tab" data-days="7">7D</button>
+                    <button class="period-tab active" data-days="30">30D</button>
+                    <button class="period-tab" data-days="90">90D</button>
                 </div>
             </div>
 
-            <!-- KPI Summary Cards -->
+            <!-- KPI Grid -->
+            <div class="section-label">Ringkasan</div>
             <div class="kpi-grid" id="kpiGrid">
-                <!-- Skeleton loading state -->
-                <div class="kpi-card" style="--kpi-color: #6366f1;">
-                    <div class="skeleton" style="height:20px; width:60%; margin-bottom:0.5rem;"></div>
-                    <div class="skeleton" style="height:36px; width:80%;"></div>
-                </div>
-                <div class="kpi-card" style="--kpi-color: #0ea5e9;">
-                    <div class="skeleton" style="height:20px; width:60%; margin-bottom:0.5rem;"></div>
-                    <div class="skeleton" style="height:36px; width:80%;"></div>
-                </div>
-                <div class="kpi-card" style="--kpi-color: #10b981;">
-                    <div class="skeleton" style="height:20px; width:60%; margin-bottom:0.5rem;"></div>
-                    <div class="skeleton" style="height:36px; width:80%;"></div>
-                </div>
-                <div class="kpi-card" style="--kpi-color: #f59e0b;">
-                    <div class="skeleton" style="height:20px; width:60%; margin-bottom:0.5rem;"></div>
-                    <div class="skeleton" style="height:36px; width:80%;"></div>
-                </div>
-                <div class="kpi-card" style="--kpi-color: #ec4899;">
-                    <div class="skeleton" style="height:20px; width:60%; margin-bottom:0.5rem;"></div>
-                    <div class="skeleton" style="height:36px; width:80%;"></div>
-                </div>
+                <!-- Skeleton -->
+                <div class="kpi-card"><div class="skeleton" style="height:14px;width:55%;margin-bottom:0.4rem;"></div><div class="skeleton" style="height:32px;width:70%;"></div></div>
+                <div class="kpi-card"><div class="skeleton" style="height:14px;width:55%;margin-bottom:0.4rem;"></div><div class="skeleton" style="height:32px;width:70%;"></div></div>
+                <div class="kpi-card"><div class="skeleton" style="height:14px;width:55%;margin-bottom:0.4rem;"></div><div class="skeleton" style="height:32px;width:70%;"></div></div>
+                <div class="kpi-card"><div class="skeleton" style="height:14px;width:55%;margin-bottom:0.4rem;"></div><div class="skeleton" style="height:32px;width:70%;"></div></div>
+                <div class="kpi-card"><div class="skeleton" style="height:14px;width:55%;margin-bottom:0.4rem;"></div><div class="skeleton" style="height:32px;width:70%;"></div></div>
             </div>
 
-            <!-- Charts Row: Views/Reach line + Engagement doughnut -->
+            <!-- Charts Row -->
+            <div class="section-label">Trend</div>
             <div class="charts-row">
-                <!-- Views & Reach Over Time -->
+                <!-- Views & Reach Line Chart -->
                 <div class="chart-card">
                     <div class="chart-card-header">
                         <div>
-                            <div class="chart-card-title">Views & Reach Over Time</div>
-                            <div class="chart-card-subtitle">Daily breakdown across all published posts</div>
+                            <div class="chart-card-title">Views &amp; Reach</div>
+                            <div class="chart-card-subtitle">Harian sepanjang tempoh dipilih</div>
                         </div>
                         <div class="chart-legend">
                             <div class="legend-item"><div class="legend-dot" style="background:#6366f1;"></div>Views</div>
@@ -382,33 +596,36 @@
                     </div>
                 </div>
 
-                <!-- Engagement Breakdown doughnut -->
-                <div class="chart-card">
-                    <div class="chart-card-header">
+                <!-- Engagement Doughnut -->
+                <div class="chart-card engagement-col">
+                    <div class="chart-card-header" style="margin-bottom:0.75rem;">
                         <div>
-                            <div class="chart-card-title">Engagement Breakdown</div>
+                            <div class="chart-card-title">Engagement</div>
                             <div class="chart-card-subtitle">Likes · Replies · Reposts · Quotes</div>
                         </div>
                     </div>
-                    <div class="doughnut-wrap">
-                        <canvas id="chartEngagement"></canvas>
-                        <div class="doughnut-center">
-                            <div class="doughnut-center-value" id="engagementRateCenter">—</div>
-                            <div class="doughnut-center-label">Eng. Rate</div>
+                    <div class="engagement-body">
+                        <div class="doughnut-wrap">
+                            <canvas id="chartEngagement"></canvas>
+                            <div class="doughnut-center">
+                                <div class="doughnut-center-value" id="engagementRateCenter">—</div>
+                                <div class="doughnut-center-label">Eng. Rate</div>
+                            </div>
                         </div>
-                    </div>
-                    <div class="engagement-breakdown-list" id="engagementBreakdownList">
-                        <!-- populated by JS -->
+                        <div class="engagement-breakdown-list" id="engagementBreakdownList">
+                            <!-- populated by JS -->
+                        </div>
                     </div>
                 </div>
             </div>
 
-            <!-- Follower Growth Chart -->
+            <!-- Follower Growth -->
+            <div class="section-label">Follower Growth</div>
             <div class="follower-card">
                 <div class="chart-card-header">
                     <div>
-                        <div class="chart-card-title">Follower Growth</div>
-                        <div class="chart-card-subtitle">Daily snapshot of connected Threads account followers</div>
+                        <div class="chart-card-title">Pertumbuhan Followers</div>
+                        <div class="chart-card-subtitle">Snapshot harian akaun Threads</div>
                     </div>
                     <div class="chart-legend">
                         <div class="legend-item"><div class="legend-dot" style="background:#10b981;"></div>Followers</div>
@@ -419,15 +636,23 @@
                 </div>
             </div>
 
-            <!-- Top Posts Table -->
+            <!-- Top Posts -->
+            <div class="section-label">Top Posts</div>
             <div class="top-posts-card">
                 <div class="chart-card-header" style="margin-bottom:0;">
                     <div>
-                        <div class="chart-card-title">🏆 Top Performing Posts</div>
-                        <div class="chart-card-subtitle">Ranked by engagement score (likes + replies×2 + reposts + quotes)</div>
+                        <div class="chart-card-title">🏆 Post Terbaik</div>
+                        <div class="chart-card-subtitle">Dirank mengikut skor engagement</div>
                     </div>
                 </div>
-                <div id="topPostsTableWrap">
+
+                <!-- Mobile cards -->
+                <div class="post-mobile-list" id="topPostsMobile">
+                    <!-- populated by JS -->
+                </div>
+
+                <!-- Desktop table -->
+                <div class="top-posts-table-wrap" id="topPostsDesktop">
                     <!-- populated by JS -->
                 </div>
             </div>
@@ -435,120 +660,85 @@
         </main>
     </div>
 
+    <!-- Mobile FAB refresh button -->
+    <button class="fab-refresh" id="fabRefresh" title="Refresh analytics">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M21.5 2v6h-6M21.34 15.57a10 10 0 1 1-.57-8.38"/>
+        </svg>
+    </button>
+
     <!-- App Bootstrap -->
     <script type="module" src="js/app.js"></script>
 
     <script type="module">
         import { analyticsService } from './js/services/analyticsService.js';
 
-        // ── State ──
         let currentDays = 30;
         let chartViewsReach = null;
         let chartEngagement = null;
         let chartFollowers = null;
 
-        // ── Helpers ──
-        const fmt = (n) => n >= 1000000 ? (n/1000000).toFixed(1)+'M' : n >= 1000 ? (n/1000).toFixed(1)+'K' : String(n||0);
-        const delta = (curr, prev) => {
-            if (!prev || prev === 0) return { pct: null, dir: 'neutral' };
-            const pct = ((curr - prev) / prev * 100).toFixed(1);
-            return { pct, dir: pct >= 0 ? 'positive' : 'negative' };
+        // ── Formatters ──
+        const fmt = (n) => {
+            n = Number(n) || 0;
+            if (n >= 1000000) return (n / 1000000).toFixed(1) + 'M';
+            if (n >= 1000) return (n / 1000).toFixed(1) + 'K';
+            return String(n);
         };
 
-        function makeDeltaHtml(curr, prev) {
-            const d = delta(curr, prev);
-            if (d.pct === null) return `<span class="kpi-delta neutral">— no prev data</span>`;
-            const icon = d.dir === 'positive' ? '↑' : '↓';
-            return `<span class="kpi-delta ${d.dir}">${icon} ${Math.abs(d.pct)}% <span style="font-weight:400;color:var(--color-text-tertiary);">vs prev period</span></span>`;
-        }
+        const fmtDelta = (curr, prev) => {
+            if (!prev || prev === 0) return `<span class="kpi-delta neutral">—</span>`;
+            const pct = ((curr - prev) / prev * 100).toFixed(1);
+            const dir = pct >= 0 ? 'positive' : 'negative';
+            const icon = pct >= 0 ? '↑' : '↓';
+            return `<span class="kpi-delta ${dir}">${icon} ${Math.abs(pct)}% <span class="kpi-delta-muted">vs sebelum</span></span>`;
+        };
 
-        function buildKpiCards(summary) {
-            const prevEngagements = summary.prev_engagements || 0;
-            const currEngagements = (summary.total_likes||0) + (summary.total_replies||0) + (summary.total_reposts||0) + (summary.total_quotes||0);
-
+        // ── KPI Cards ──
+        function buildKpiCards(s) {
+            const currEng = (s.total_likes||0) + (s.total_replies||0) + (s.total_reposts||0) + (s.total_quotes||0);
             const cards = [
-                {
-                    icon: '👁️', label: 'Total Views', value: fmt(summary.total_views),
-                    deltaHtml: makeDeltaHtml(summary.total_views, summary.prev_views),
-                    color: '#6366f1'
-                },
-                {
-                    icon: '📡', label: 'Total Reach', value: fmt(summary.total_reach),
-                    deltaHtml: makeDeltaHtml(summary.total_reach, summary.prev_reach),
-                    color: '#0ea5e9'
-                },
-                {
-                    icon: '📊', label: 'Engagement Rate', value: `${summary.engagement_rate}%`,
-                    deltaHtml: makeDeltaHtml(currEngagements, prevEngagements),
-                    color: '#10b981'
-                },
-                {
-                    icon: '👥', label: 'Followers', value: fmt(summary.followers_count),
-                    deltaHtml: `<span class="kpi-delta neutral">Current count</span>`,
-                    color: '#f59e0b'
-                },
-                {
-                    icon: '📝', label: 'Posts Published', value: fmt(summary.total_posts),
-                    deltaHtml: `<span class="kpi-delta neutral">in period</span>`,
-                    color: '#ec4899'
-                }
+                { icon: '👁️', label: 'Views',       value: fmt(s.total_views),      delta: fmtDelta(s.total_views, s.prev_views),       color: '#6366f1' },
+                { icon: '📡', label: 'Reach',        value: fmt(s.total_reach),      delta: fmtDelta(s.total_reach, s.prev_reach),        color: '#0ea5e9' },
+                { icon: '📊', label: 'Eng. Rate',    value: `${s.engagement_rate}%`, delta: fmtDelta(currEng, s.prev_engagements),        color: '#10b981' },
+                { icon: '👥', label: 'Followers',    value: fmt(s.followers_count),  delta: `<span class="kpi-delta neutral">Semasa</span>`, color: '#f59e0b' },
+                { icon: '📝', label: 'Posts',        value: fmt(s.total_posts),      delta: `<span class="kpi-delta neutral">Dalam tempoh</span>`, color: '#ec4899' },
             ];
-
             document.getElementById('kpiGrid').innerHTML = cards.map(c => `
                 <div class="kpi-card" style="--kpi-color:${c.color};">
                     <div class="kpi-icon">${c.icon}</div>
                     <div class="kpi-label">${c.label}</div>
                     <div class="kpi-value">${c.value}</div>
-                    ${c.deltaHtml}
-                </div>
-            `).join('');
+                    ${c.delta}
+                </div>`).join('');
         }
 
-        function getChartDefaults() {
-            const isDark = document.documentElement.getAttribute('data-theme') === 'dark';
+        // ── Chart defaults ──
+        function cd() {
+            const dark = document.documentElement.getAttribute('data-theme') === 'dark';
             return {
-                gridColor: isDark ? 'rgba(255,255,255,0.06)' : 'rgba(0,0,0,0.05)',
-                tickColor: isDark ? 'rgba(255,255,255,0.4)' : 'rgba(0,0,0,0.35)',
-                font: { family: 'Inter, system-ui, sans-serif', size: 11 }
+                grid: dark ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.05)',
+                tick: dark ? 'rgba(255,255,255,0.38)' : 'rgba(0,0,0,0.32)',
+                font: { family: 'Inter, system-ui, sans-serif', size: 10 }
             };
         }
 
+        // ── Views & Reach Chart ──
         function buildViewsReachChart(daily) {
             const ctx = document.getElementById('chartViewsReach').getContext('2d');
-            const cd = getChartDefaults();
+            const c = cd();
             const labels = daily.map(d => {
                 const dt = new Date(d.day);
-                return dt.toLocaleDateString('en-MY', { month:'short', day:'numeric' });
+                return dt.toLocaleDateString('ms-MY', { day: 'numeric', month: 'short' });
             });
-
             if (chartViewsReach) chartViewsReach.destroy();
             chartViewsReach = new Chart(ctx, {
                 type: 'line',
                 data: {
                     labels,
                     datasets: [
-                        {
-                            label: 'Views',
-                            data: daily.map(d => d.views),
-                            borderColor: '#6366f1',
-                            backgroundColor: 'rgba(99,102,241,0.08)',
-                            borderWidth: 2,
-                            pointRadius: 3,
-                            pointHoverRadius: 5,
-                            fill: true,
-                            tension: 0.4
-                        },
-                        {
-                            label: 'Reach',
-                            data: daily.map(d => d.reach),
-                            borderColor: '#0ea5e9',
-                            backgroundColor: 'rgba(14,165,233,0.06)',
-                            borderWidth: 2,
-                            pointRadius: 3,
-                            pointHoverRadius: 5,
-                            fill: true,
-                            tension: 0.4
-                        }
+                        { label: 'Views', data: daily.map(d => d.views), borderColor: '#6366f1', backgroundColor: 'rgba(99,102,241,0.07)', borderWidth: 2, pointRadius: window.innerWidth < 480 ? 0 : 3, pointHoverRadius: 4, fill: true, tension: 0.4 },
+                        { label: 'Reach', data: daily.map(d => d.reach), borderColor: '#0ea5e9', backgroundColor: 'rgba(14,165,233,0.05)', borderWidth: 2, pointRadius: window.innerWidth < 480 ? 0 : 3, pointHoverRadius: 4, fill: true, tension: 0.4 }
                     ]
                 },
                 options: {
@@ -556,228 +746,229 @@
                     interaction: { mode: 'index', intersect: false },
                     plugins: { legend: { display: false } },
                     scales: {
-                        x: {
-                            grid: { color: cd.gridColor },
-                            ticks: { color: cd.tickColor, font: cd.font, maxTicksLimit: 8 }
-                        },
-                        y: {
-                            grid: { color: cd.gridColor },
-                            ticks: { color: cd.tickColor, font: cd.font, callback: v => fmt(v) }
-                        }
+                        x: { grid: { color: c.grid }, ticks: { color: c.tick, font: c.font, maxTicksLimit: window.innerWidth < 480 ? 5 : 8 } },
+                        y: { grid: { color: c.grid }, ticks: { color: c.tick, font: c.font, callback: v => fmt(v) } }
                     }
                 }
             });
         }
 
-        function buildEngagementChart(summary) {
+        // ── Engagement Doughnut ──
+        function buildEngagementChart(s) {
             const ctx = document.getElementById('chartEngagement').getContext('2d');
-            const likes = summary.total_likes || 0;
-            const replies = summary.total_replies || 0;
-            const reposts = summary.total_reposts || 0;
-            const quotes = summary.total_quotes || 0;
+            const likes = s.total_likes || 0;
+            const replies = s.total_replies || 0;
+            const reposts = s.total_reposts || 0;
+            const quotes = s.total_quotes || 0;
             const total = likes + replies + reposts + quotes;
 
-            document.getElementById('engagementRateCenter').textContent = `${summary.engagement_rate}%`;
-
+            document.getElementById('engagementRateCenter').textContent = `${s.engagement_rate}%`;
             if (chartEngagement) chartEngagement.destroy();
 
-            if (total === 0) {
-                // No data — show placeholder
-                document.getElementById('chartEngagement').style.opacity = '0.3';
-                chartEngagement = new Chart(ctx, {
-                    type: 'doughnut',
-                    data: {
-                        datasets: [{ data: [1], backgroundColor: ['var(--color-border)'], borderWidth: 0 }]
+            const noData = total === 0;
+            chartEngagement = new Chart(ctx, {
+                type: 'doughnut',
+                data: {
+                    labels: ['Likes', 'Replies', 'Reposts', 'Quotes'],
+                    datasets: [{ data: noData ? [1] : [likes, replies, reposts, quotes], backgroundColor: noData ? ['#e5e7eb'] : ['#6366f1', '#0ea5e9', '#10b981', '#f59e0b'], borderWidth: 0, hoverOffset: 4 }]
+                },
+                options: {
+                    responsive: true, maintainAspectRatio: false,
+                    plugins: {
+                        legend: { display: false },
+                        tooltip: { enabled: !noData, callbacks: { label: (ctx) => ` ${ctx.label}: ${fmt(ctx.raw)} (${total ? ((ctx.raw/total)*100).toFixed(1) : 0}%)` } }
                     },
-                    options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false }, tooltip: { enabled: false } }, cutout: '72%' }
-                });
-            } else {
-                document.getElementById('chartEngagement').style.opacity = '1';
-                chartEngagement = new Chart(ctx, {
-                    type: 'doughnut',
-                    data: {
-                        labels: ['Likes', 'Replies', 'Reposts', 'Quotes'],
-                        datasets: [{
-                            data: [likes, replies, reposts, quotes],
-                            backgroundColor: ['#6366f1', '#0ea5e9', '#10b981', '#f59e0b'],
-                            borderWidth: 0,
-                            hoverOffset: 6
-                        }]
-                    },
-                    options: {
-                        responsive: true, maintainAspectRatio: false,
-                        plugins: {
-                            legend: { display: false },
-                            tooltip: {
-                                callbacks: {
-                                    label: (ctx) => ` ${ctx.label}: ${fmt(ctx.raw)} (${total ? ((ctx.raw/total)*100).toFixed(1) : 0}%)`
-                                }
-                            }
-                        },
-                        cutout: '72%'
-                    }
-                });
-            }
+                    cutout: '70%'
+                }
+            });
 
-            // Breakdown list
-            const breakdown = [
-                { label: 'Likes', icon: '❤️', value: likes, color: '#6366f1' },
-                { label: 'Replies', icon: '💬', value: replies, color: '#0ea5e9' },
-                { label: 'Reposts', icon: '🔁', value: reposts, color: '#10b981' },
-                { label: 'Quotes', icon: '🔖', value: quotes, color: '#f59e0b' },
+            const items = [
+                { label: 'Likes',   icon: '❤️', value: likes,   color: '#6366f1' },
+                { label: 'Replies', icon: '💬', value: replies,  color: '#0ea5e9' },
+                { label: 'Reposts', icon: '🔁', value: reposts,  color: '#10b981' },
+                { label: 'Quotes',  icon: '🔖', value: quotes,   color: '#f59e0b' },
             ];
-            document.getElementById('engagementBreakdownList').innerHTML = breakdown.map(b => `
+            const maxVal = Math.max(...items.map(i => i.value), 1);
+            document.getElementById('engagementBreakdownList').innerHTML = items.map(b => `
                 <div class="breakdown-row">
                     <div class="breakdown-label">
                         <div class="legend-dot" style="background:${b.color};"></div>
                         ${b.icon} ${b.label}
                     </div>
+                    <div class="breakdown-bar-wrap">
+                        <div class="breakdown-bar" style="width:${Math.round(b.value/maxVal*100)}%;background:${b.color};"></div>
+                    </div>
                     <div class="breakdown-value">${fmt(b.value)}</div>
-                </div>
-            `).join('');
+                </div>`).join('');
         }
 
-        function buildFollowerChart(followerHistory) {
+        // ── Follower Chart ──
+        function buildFollowerChart(history) {
             const ctx = document.getElementById('chartFollowers').getContext('2d');
-            const cd = getChartDefaults();
-            const labels = followerHistory.map(d => {
-                const dt = new Date(d.day);
-                return dt.toLocaleDateString('en-MY', { month:'short', day:'numeric' });
-            });
-
+            const c = cd();
             if (chartFollowers) chartFollowers.destroy();
-
-            if (!followerHistory.length) {
-                document.getElementById('chartFollowers').style.opacity = '0';
+            if (!history.length) {
+                document.getElementById('chartFollowers').closest('.follower-chart-wrap').innerHTML =
+                    `<div class="empty-analytics" style="padding:1.5rem 0;"><div class="empty-analytics-icon" style="font-size:2rem;">📈</div><p>Belum ada data follower lagi.<br>Akan dikemas kini setiap minit.</p></div>`;
                 return;
             }
-
+            const labels = history.map(d => new Date(d.day).toLocaleDateString('ms-MY', { day:'numeric', month:'short' }));
             chartFollowers = new Chart(ctx, {
                 type: 'line',
                 data: {
                     labels,
-                    datasets: [{
-                        label: 'Followers',
-                        data: followerHistory.map(d => d.followers),
-                        borderColor: '#10b981',
-                        backgroundColor: 'rgba(16,185,129,0.08)',
-                        borderWidth: 2.5,
-                        pointRadius: 3,
-                        pointHoverRadius: 5,
-                        fill: true,
-                        tension: 0.4
-                    }]
+                    datasets: [{ label: 'Followers', data: history.map(d => d.followers), borderColor: '#10b981', backgroundColor: 'rgba(16,185,129,0.07)', borderWidth: 2, pointRadius: window.innerWidth < 480 ? 0 : 3, pointHoverRadius: 4, fill: true, tension: 0.4 }]
                 },
                 options: {
                     responsive: true, maintainAspectRatio: false,
                     plugins: { legend: { display: false } },
                     scales: {
-                        x: {
-                            grid: { color: cd.gridColor },
-                            ticks: { color: cd.tickColor, font: cd.font, maxTicksLimit: 8 }
-                        },
-                        y: {
-                            grid: { color: cd.gridColor },
-                            ticks: { color: cd.tickColor, font: cd.font, callback: v => fmt(v) }
-                        }
+                        x: { grid: { color: c.grid }, ticks: { color: c.tick, font: c.font, maxTicksLimit: window.innerWidth < 480 ? 5 : 8 } },
+                        y: { grid: { color: c.grid }, ticks: { color: c.tick, font: c.font, callback: v => fmt(v) } }
                     }
                 }
             });
         }
 
-        function buildTopPostsTable(topPosts) {
-            const wrap = document.getElementById('topPostsTableWrap');
-            if (!topPosts.length) {
-                wrap.innerHTML = `
-                    <div class="empty-analytics">
-                        <div class="empty-analytics-icon">📭</div>
-                        <h3>No published posts yet</h3>
-                        <p>Start publishing Threads posts to see performance data here.</p>
-                    </div>`;
+        // ── Top Posts — Mobile cards ──
+        function buildTopPostsMobile(posts) {
+            const el = document.getElementById('topPostsMobile');
+            if (!posts.length) {
+                el.innerHTML = `<div class="empty-analytics"><div class="empty-analytics-icon">📭</div><h3>Tiada post lagi</h3><p>Post Threads pertama anda akan muncul di sini selepas diterbitkan.</p></div>`;
                 return;
             }
+            const maxScore = Math.max(...posts.map(p => p.engagement_score || 0), 1);
+            el.innerHTML = posts.map((p, i) => {
+                const pct = Math.round((p.engagement_score || 0) / maxScore * 100);
+                const date = new Date(p.published_at).toLocaleDateString('ms-MY', { day:'numeric', month:'short', year:'2-digit' });
+                const preview = (p.content || '—').replace(/\n/g, ' ');
+                return `
+                <div class="post-mobile-card">
+                    <div class="post-mobile-rank">
+                        <span class="rank-badge">#${i+1}</span>
+                        <span class="post-date-label">${date}</span>
+                    </div>
+                    <div class="post-preview-text">${preview}</div>
+                    <div class="post-metrics-grid">
+                        <div class="post-metric-item">
+                            <div class="post-metric-icon">👁️</div>
+                            <div class="post-metric-val">${fmt(p.views_count)}</div>
+                            <div class="post-metric-key">Views</div>
+                        </div>
+                        <div class="post-metric-item">
+                            <div class="post-metric-icon">📡</div>
+                            <div class="post-metric-val">${fmt(p.reach_count)}</div>
+                            <div class="post-metric-key">Reach</div>
+                        </div>
+                        <div class="post-metric-item">
+                            <div class="post-metric-icon">❤️</div>
+                            <div class="post-metric-val">${fmt(p.likes_count)}</div>
+                            <div class="post-metric-key">Likes</div>
+                        </div>
+                        <div class="post-metric-item">
+                            <div class="post-metric-icon">💬</div>
+                            <div class="post-metric-val">${fmt(p.replies_count)}</div>
+                            <div class="post-metric-key">Replies</div>
+                        </div>
+                    </div>
+                    <div class="post-engagement-row">
+                        <span style="font-size:0.62rem;color:var(--color-text-tertiary);white-space:nowrap;">Skor</span>
+                        <div class="engagement-bar-bg"><div class="engagement-bar" style="width:${pct}%;"></div></div>
+                        <span class="engagement-score-label">${fmt(p.engagement_score)}</span>
+                    </div>
+                </div>`;
+            }).join('');
+        }
 
-            const maxScore = Math.max(...topPosts.map(p => p.engagement_score || 0), 1);
-
-            wrap.innerHTML = `
+        // ── Top Posts — Desktop table ──
+        function buildTopPostsDesktop(posts) {
+            const el = document.getElementById('topPostsDesktop');
+            if (!posts.length) { el.innerHTML = ''; return; }
+            const maxScore = Math.max(...posts.map(p => p.engagement_score || 0), 1);
+            el.innerHTML = `
                 <table class="top-posts-table">
                     <thead>
                         <tr>
                             <th>#</th>
                             <th>Post</th>
-                            <th>Date</th>
+                            <th>Tarikh</th>
                             <th>👁️ Views</th>
                             <th>📡 Reach</th>
                             <th>❤️ Likes</th>
                             <th>💬 Replies</th>
                             <th>🔁 Reposts</th>
                             <th>🔖 Quotes</th>
-                            <th>Engagement</th>
+                            <th>Skor</th>
                         </tr>
                     </thead>
                     <tbody>
-                        ${topPosts.map((post, i) => {
-                            const barPct = maxScore > 0 ? Math.round((post.engagement_score / maxScore) * 100) : 0;
-                            const date = new Date(post.published_at).toLocaleDateString('en-MY', { day:'numeric', month:'short' });
-                            const preview = (post.content || '—').replace(/\n/g, ' ').substring(0, 80) + ((post.content||'').length > 80 ? '…' : '');
-                            return `
-                                <tr>
-                                    <td style="color:var(--color-text-tertiary);font-weight:700;width:32px;">${i+1}</td>
-                                    <td class="post-content-cell" title="${(post.content||'').replace(/"/g,'&quot;')}">${preview || '—'}</td>
-                                    <td style="color:var(--color-text-tertiary);white-space:nowrap;">${date}</td>
-                                    <td><span class="metric-chip">👁️ ${fmt(post.views_count)}</span></td>
-                                    <td><span class="metric-chip">📡 ${fmt(post.reach_count)}</span></td>
-                                    <td>${fmt(post.likes_count)}</td>
-                                    <td>${fmt(post.replies_count)}</td>
-                                    <td>${fmt(post.reposts_count)}</td>
-                                    <td>${fmt(post.quotes_count)}</td>
-                                    <td>
-                                        <div class="engagement-bar-wrap">
-                                            <div class="engagement-bar-bg">
-                                                <div class="engagement-bar" style="width:${barPct}%;"></div>
-                                            </div>
-                                            <span style="font-size:0.7rem;font-weight:700;color:var(--color-primary);min-width:24px;">${fmt(post.engagement_score)}</span>
+                        ${posts.map((p, i) => {
+                            const pct = Math.round((p.engagement_score || 0) / maxScore * 100);
+                            const date = new Date(p.published_at).toLocaleDateString('ms-MY', { day:'numeric', month:'short' });
+                            const preview = (p.content || '—').replace(/\n/g, ' ').substring(0, 70) + ((p.content||'').length > 70 ? '…' : '');
+                            return `<tr>
+                                <td style="color:var(--color-text-tertiary);font-weight:700;">${i+1}</td>
+                                <td class="post-content-cell" title="${(p.content||'').replace(/"/g,'&quot;')}">${preview}</td>
+                                <td style="color:var(--color-text-tertiary);white-space:nowrap;font-size:0.72rem;">${date}</td>
+                                <td><span class="metric-chip">👁️ ${fmt(p.views_count)}</span></td>
+                                <td><span class="metric-chip">📡 ${fmt(p.reach_count)}</span></td>
+                                <td>${fmt(p.likes_count)}</td>
+                                <td>${fmt(p.replies_count)}</td>
+                                <td>${fmt(p.reposts_count)}</td>
+                                <td>${fmt(p.quotes_count)}</td>
+                                <td>
+                                    <div style="display:flex;align-items:center;gap:0.4rem;">
+                                        <div class="engagement-bar-bg" style="min-width:50px;">
+                                            <div class="engagement-bar" style="width:${pct}%;"></div>
                                         </div>
-                                    </td>
-                                </tr>
-                            `;
+                                        <span style="font-size:0.68rem;font-weight:800;color:var(--color-primary);">${fmt(p.engagement_score)}</span>
+                                    </div>
+                                </td>
+                            </tr>`;
                         }).join('')}
                     </tbody>
                 </table>`;
         }
 
+        // ── Load ──
         async function loadAnalytics(days = 30) {
-            // Show skeleton
+            // Skeleton KPI
             document.getElementById('kpiGrid').innerHTML = Array(5).fill(`
                 <div class="kpi-card">
-                    <div class="skeleton" style="height:16px;width:50%;margin-bottom:0.5rem;"></div>
-                    <div class="skeleton" style="height:34px;width:70%;margin-bottom:0.35rem;"></div>
-                    <div class="skeleton" style="height:12px;width:60%;"></div>
+                    <div class="skeleton" style="height:13px;width:50%;margin-bottom:0.35rem;"></div>
+                    <div class="skeleton" style="height:30px;width:65%;margin-bottom:0.3rem;"></div>
+                    <div class="skeleton" style="height:11px;width:55%;"></div>
                 </div>`).join('');
+
+            const fab = document.getElementById('fabRefresh');
+            fab.classList.add('spinning');
 
             try {
                 const data = await analyticsService.getAnalytics(days);
-                if (!data.success) throw new Error(data.message || 'Failed to load analytics');
+                if (!data.success) throw new Error(data.message || 'Gagal muat analytics');
 
                 buildKpiCards(data.summary);
                 buildViewsReachChart(data.daily);
                 buildEngagementChart(data.summary);
                 buildFollowerChart(data.follower_history);
-                buildTopPostsTable(data.top_posts);
+                buildTopPostsMobile(data.top_posts);
+                buildTopPostsDesktop(data.top_posts);
 
             } catch (err) {
                 document.getElementById('kpiGrid').innerHTML = `
-                    <div class="kpi-card" style="grid-column:1/-1;">
-                        <div style="color:var(--color-danger);font-size:0.85rem;padding:0.5rem 0;">
-                            ⚠️ Failed to load analytics: ${err.message}
+                    <div class="kpi-card" style="grid-column:1/-1;--kpi-color:#ef4444;">
+                        <div style="color:var(--color-danger);font-size:0.8rem;padding:0.25rem 0;">
+                            ⚠️ ${err.message}
                         </div>
                     </div>`;
-                console.error('[Analytics] Load error:', err);
+                console.error('[Analytics]', err);
+            } finally {
+                fab.classList.remove('spinning');
             }
         }
 
-        // ── Period tab click handler ──
-        document.getElementById('periodTabs').addEventListener('click', (e) => {
+        // ── Period tabs ──
+        document.getElementById('periodTabs').addEventListener('click', e => {
             const btn = e.target.closest('.period-tab');
             if (!btn) return;
             document.querySelectorAll('.period-tab').forEach(t => t.classList.remove('active'));
@@ -786,7 +977,12 @@
             loadAnalytics(currentDays);
         });
 
-        // ── Initial load ──
+        // ── FAB refresh ──
+        document.getElementById('fabRefresh').addEventListener('click', () => {
+            loadAnalytics(currentDays);
+        });
+
+        // ── Init ──
         loadAnalytics(30);
     </script>
 </body>

@@ -1,4 +1,4 @@
-const CACHE_NAME = 'socialhub-cache-v50';
+const CACHE_NAME = 'socialhub-cache-v51';
 const ASSETS_TO_CACHE = [
   '/',
   '/dashboard.html',
@@ -79,8 +79,8 @@ self.addEventListener('install', (event) => {
       );
     })
   );
-  // Do NOT call skipWaiting() here — wait for app to signal SKIP_WAITING
-  // so the in-app update toast can control when to activate the new SW.
+  // Call skipWaiting directly to activate the new version immediately on next page reload
+  self.skipWaiting();
 });
 
 self.addEventListener('activate', (event) => {

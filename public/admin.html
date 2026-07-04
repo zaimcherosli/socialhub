@@ -1,0 +1,648 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Admin Console | SocialHub - Penjadual Media Sosial</title>
+    
+    <!-- Meta tags for SEO -->
+    <meta name="description" content="SocialHub SaaS Administration Portal.">
+    <meta name="author" content="SocialHub Team">
+
+    <!-- Auth Route Guard & Admin Role Verification -->
+    <script type="module">
+        import { sessionService } from './js/services/sessionService.js';
+        import { authService } from './js/services/authService.js';
+        
+        sessionService.requireAuth();
+        
+        // Extra check: must be admin to access admin console page
+        const user = await authService.getSession();
+        if (!user || user.role !== 'admin') {
+            alert('Akses disekat: Anda bukan pentadbir sistem (Admin).');
+            window.location.replace('dashboard.html');
+        }
+    </script>
+
+    <!-- CSS Stylesheets -->
+    <link rel="stylesheet" href="css/variables.css">
+    <link rel="stylesheet" href="css/layout.css">
+    <link rel="stylesheet" href="css/components.css">
+
+    <style>
+        .tabs-container {
+            display: flex;
+            gap: 0.5rem;
+            margin-bottom: 1.5rem;
+            border-bottom: 1px solid var(--color-border);
+            padding-bottom: 0.5rem;
+            overflow-x: auto;
+        }
+        .tab-btn {
+            background: none;
+            border: none;
+            padding: 0.6rem 1.2rem;
+            font-size: 0.875rem;
+            font-weight: 600;
+            color: var(--color-text-secondary);
+            cursor: pointer;
+            border-radius: var(--radius-sm);
+            transition: all var(--transition-fast);
+            white-space: nowrap;
+        }
+        .tab-btn:hover {
+            color: var(--color-text-primary);
+            background: var(--color-bg-secondary);
+        }
+        .tab-btn.active {
+            background: var(--color-primary);
+            color: #ffffff;
+        }
+        .admin-section {
+            display: none;
+            flex-direction: column;
+            gap: 1.5rem;
+        }
+        .admin-section.active {
+            display: flex;
+        }
+        .metrics-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+            gap: 1.5rem;
+            margin-bottom: 1.5rem;
+        }
+        .metric-card {
+            background: var(--color-bg-card);
+            border: 1px solid var(--color-border);
+            border-radius: var(--radius-md);
+            padding: 1.5rem;
+            display: flex;
+            flex-direction: column;
+            gap: 0.5rem;
+            box-shadow: var(--shadow-sm);
+        }
+        .metric-value {
+            font-size: 2.25rem;
+            font-weight: 700;
+            color: var(--color-text-primary);
+        }
+        .metric-label {
+            font-size: 0.75rem;
+            color: var(--color-text-tertiary);
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+        }
+        .admin-table-container {
+            background: var(--color-bg-card);
+            border: 1px solid var(--color-border);
+            border-radius: var(--radius-md);
+            overflow-x: auto;
+            box-shadow: var(--shadow-sm);
+        }
+        .admin-table {
+            width: 100%;
+            border-collapse: collapse;
+            text-align: left;
+            font-size: 0.875rem;
+        }
+        .admin-table th {
+            background: var(--color-bg-secondary);
+            padding: 1rem;
+            font-weight: 600;
+            color: var(--color-text-secondary);
+            border-bottom: 1px solid var(--color-border);
+            white-space: nowrap;
+        }
+        .admin-table td {
+            padding: 1rem;
+            border-bottom: 1px solid var(--color-border);
+            color: var(--color-text-primary);
+        }
+        .admin-table tr:last-child td {
+            border-bottom: none;
+        }
+        .admin-modal {
+            position: fixed;
+            inset: 0;
+            background: rgba(0,0,0,0.55);
+            z-index: 10000;
+            display: none;
+            align-items: center;
+            justify-content: center;
+            backdrop-filter: blur(4px);
+        }
+        .admin-modal-card {
+            background: var(--color-bg-primary);
+            border: 1px solid var(--color-border);
+            border-radius: var(--radius-md);
+            width: 100%;
+            max-width: 450px;
+            padding: 1.5rem;
+            box-shadow: var(--shadow-lg);
+            display: flex;
+            flex-direction: column;
+            gap: 1.25rem;
+        }
+        .search-container {
+            display: flex;
+            gap: 1rem;
+            margin-bottom: 1rem;
+        }
+        .search-input {
+            flex: 1;
+            padding: 0.6rem 0.8rem;
+            border: 1px solid var(--color-border);
+            border-radius: var(--radius-sm);
+            background: var(--color-bg-primary);
+            color: var(--color-text-primary);
+            font-size: 0.875rem;
+        }
+        .badge {
+            display: inline-block;
+            padding: 0.25rem 0.5rem;
+            font-size: 0.75rem;
+            font-weight: 600;
+            border-radius: var(--radius-sm);
+            text-transform: uppercase;
+        }
+        .badge.pro {
+            background-color: rgba(99, 102, 241, 0.15);
+            color: #6366f1;
+        }
+        .badge.free {
+            background-color: rgba(100, 116, 139, 0.15);
+            color: #64748b;
+        }
+        .badge.admin {
+            background-color: rgba(239, 68, 68, 0.15);
+            color: #ef4444;
+        }
+        .badge.user {
+            background-color: rgba(16, 185, 129, 0.15);
+            color: #10b981;
+        }
+    </style>
+</head>
+<body>
+
+    <div class="app-container">
+        <!-- Reusable Custom Sidebar Element -->
+        <app-sidebar></app-sidebar>
+
+        <!-- Reusable Custom Header Element -->
+        <app-header></app-header>
+
+        <!-- Reusable Custom Bottom Navigation Element -->
+        <app-bottom-nav></app-bottom-nav>
+
+        <!-- Main Content Panel -->
+        <main class="main-content animated-fade-in">
+            
+            <div class="page-header">
+                <div class="page-title-section">
+                    <h1 class="page-title" style="display: flex; align-items: center; gap: 0.5rem;">
+                        <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="var(--color-danger, #ef4444)" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                            <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>
+                        </svg>
+                        Admin Console
+                    </h1>
+                    <p class="page-subtitle">SaaS platform administration dashboard for user controls and resource monitoring.</p>
+                </div>
+            </div>
+
+            <!-- Tab Navigation Header -->
+            <div class="tabs-container">
+                <button class="tab-btn active" data-tab="overview">Overview</button>
+                <button class="tab-btn" data-tab="users">User Control</button>
+                <button class="tab-btn" data-tab="workspaces">Workspaces</button>
+                <button class="tab-btn" data-tab="logs">Audit Logs</button>
+            </div>
+
+            <!-- TAB 1: OVERVIEW -->
+            <div class="admin-section active" id="sec-overview">
+                <div class="metrics-grid">
+                    <div class="metric-card">
+                        <span class="metric-label">Total Registered Users</span>
+                        <span class="metric-value" id="val-total-users">-</span>
+                    </div>
+                    <div class="metric-card">
+                        <span class="metric-label">Total Workspaces</span>
+                        <span class="metric-value" id="val-total-workspaces">-</span>
+                    </div>
+                    <div class="metric-card">
+                        <span class="metric-label">Total Scheduled Posts</span>
+                        <span class="metric-value" id="val-total-posts">-</span>
+                    </div>
+                    <div class="metric-card">
+                        <span class="metric-label">Monthly AI Generates</span>
+                        <span class="metric-value" id="val-monthly-ai">-</span>
+                    </div>
+                </div>
+
+                <div class="card">
+                    <h3 style="margin-top: 0; margin-bottom: 1rem; font-size: 1rem; font-weight: 700;">Platform Operational Status</h3>
+                    <div style="display: flex; flex-direction: column; gap: 0.75rem; font-size: 0.875rem;">
+                        <div style="display: flex; justify-content: space-between; border-bottom: 1px solid var(--color-border); padding-bottom: 0.5rem;">
+                            <span style="color: var(--color-text-secondary);">D1 Database Link</span>
+                            <span style="font-weight: 600; color: var(--color-success);">Connected</span>
+                        </div>
+                        <div style="display: flex; justify-content: space-between; border-bottom: 1px solid var(--color-border); padding-bottom: 0.5rem;">
+                            <span style="color: var(--color-text-secondary);">Threads API Gateway</span>
+                            <span style="font-weight: 600; color: var(--color-success);">Ready</span>
+                        </div>
+                        <div style="display: flex; justify-content: space-between; padding-bottom: 0.25rem;">
+                            <span style="color: var(--color-text-secondary);">System Version</span>
+                            <span style="font-weight: 600; color: var(--color-text-tertiary);">v0.17.0</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- TAB 2: USERS CONTROL -->
+            <div class="admin-section" id="sec-users">
+                <div class="search-container">
+                    <input type="text" class="search-input" id="search-users" placeholder="Search by name, email, or role...">
+                </div>
+                <div class="admin-table-container">
+                    <table class="admin-table">
+                        <thead>
+                            <tr>
+                                <th>Name</th>
+                                <th>Email</th>
+                                <th>Active Workspace</th>
+                                <th>Role</th>
+                                <th>Created At</th>
+                                <th>Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody id="table-users-body">
+                            <tr><td colspan="6" style="text-align: center;">Loading users...</td></tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+            <!-- TAB 3: WORKSPACES -->
+            <div class="admin-section" id="sec-workspaces">
+                <div class="search-container">
+                    <input type="text" class="search-input" id="search-workspaces" placeholder="Search by workspace name or owner...">
+                </div>
+                <div class="admin-table-container">
+                    <table class="admin-table">
+                        <thead>
+                            <tr>
+                                <th>Workspace Name</th>
+                                <th>Owner Email</th>
+                                <th>Subscription Plan</th>
+                                <th>Status</th>
+                                <th>Created At</th>
+                                <th>Manage Plan</th>
+                            </tr>
+                        </thead>
+                        <tbody id="table-workspaces-body">
+                            <tr><td colspan="6" style="text-align: center;">Loading workspaces...</td></tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+            <!-- TAB 4: AUDIT LOGS -->
+            <div class="admin-section" id="sec-logs">
+                <div class="admin-table-container">
+                    <table class="admin-table">
+                        <thead>
+                            <tr>
+                                <th>Timestamp</th>
+                                <th>User</th>
+                                <th>Workspace</th>
+                                <th>Action</th>
+                                <th>Details</th>
+                            </tr>
+                        </thead>
+                        <tbody id="table-logs-body">
+                            <tr><td colspan="5" style="text-align: center;">Loading logs...</td></tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+        </main>
+    </div>
+
+    <!-- MODAL: RESET PASSWORD -->
+    <div class="admin-modal" id="reset-password-modal">
+        <div class="admin-modal-card">
+            <div style="display: flex; justify-content: space-between; align-items: center;">
+                <h3 style="margin: 0; font-size: 1.1rem; font-weight: 700;" id="reset-modal-title">Reset Password</h3>
+                <button class="header-action-btn" id="btn-close-reset-modal" style="background: none; border: none; cursor: pointer; color: var(--color-text-tertiary);">&times;</button>
+            </div>
+            <form id="reset-password-form" style="display: flex; flex-direction: column; gap: 1rem;">
+                <input type="hidden" id="reset-user-id">
+                <div>
+                    <label style="display: block; font-size: 0.85rem; font-weight: 600; margin-bottom: 0.5rem;">New Password</label>
+                    <input type="password" class="form-input" id="reset-new-password" placeholder="Min 8 characters" required style="width: 100%; box-sizing: border-box;">
+                </div>
+                <div style="display: flex; justify-content: flex-end; gap: 0.5rem; margin-top: 0.5rem;">
+                    <button type="button" class="btn btn-secondary" id="btn-cancel-reset-modal">Cancel</button>
+                    <button type="submit" class="btn btn-primary">Save Password</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <script type="module">
+        import { apiClient } from './js/utils/api.js';
+        import { notificationService } from './js/services/notificationService.js';
+        import './js/app.js';
+
+        // Variables
+        let usersData = [];
+        let workspacesData = [];
+
+        // Elements
+        const tabs = document.querySelectorAll('.tab-btn');
+        const sections = document.querySelectorAll('.admin-section');
+        const searchUsersInput = document.getElementById('search-users');
+        const searchWorkspacesInput = document.getElementById('search-workspaces');
+
+        // Modal Elements
+        const resetModal = document.getElementById('reset-password-modal');
+        const resetForm = document.getElementById('reset-password-form');
+        const resetUserIdInput = document.getElementById('reset-user-id');
+        const resetNewPasswordInput = document.getElementById('reset-new-password');
+        const resetModalTitle = document.getElementById('reset-modal-title');
+
+        // Tab Switching Logic
+        tabs.forEach(tab => {
+            tab.addEventListener('click', () => {
+                tabs.forEach(t => t.classList.remove('active'));
+                tab.classList.add('active');
+
+                const targetTab = tab.dataset.tab;
+                sections.forEach(sec => {
+                    if (sec.id === `sec-${targetTab}`) {
+                        sec.classList.add('active');
+                    } else {
+                        sec.classList.remove('active');
+                    }
+                });
+
+                // Load appropriate data on demand
+                if (targetTab === 'overview') loadOverview();
+                if (targetTab === 'users') loadUsers();
+                if (targetTab === 'workspaces') loadWorkspaces();
+                if (targetTab === 'logs') loadLogs();
+            });
+        });
+
+        // Initialize Page
+        loadOverview();
+
+        // 1. LOAD OVERVIEW
+        async function loadOverview() {
+            try {
+                const res = await apiClient.get('/admin/stats');
+                if (res.success && res.stats) {
+                    document.getElementById('val-total-users').textContent = res.stats.users;
+                    document.getElementById('val-total-workspaces').textContent = res.stats.workspaces;
+                    document.getElementById('val-total-posts').textContent = res.stats.scheduled_posts;
+                    document.getElementById('val-monthly-ai').textContent = res.stats.ai_usage_monthly;
+                }
+            } catch (err) {
+                console.error('Error fetching admin stats:', err);
+            }
+        }
+
+        // 2. LOAD USERS
+        async function loadUsers() {
+            const tbody = document.getElementById('table-users-body');
+            tbody.innerHTML = `<tr><td colspan="6" style="text-align: center;">Loading users...</td></tr>`;
+            try {
+                const res = await apiClient.get('/admin/users');
+                if (res.success && res.users) {
+                    usersData = res.users;
+                    renderUsers(usersData);
+                }
+            } catch (err) {
+                tbody.innerHTML = `<tr><td colspan="6" style="text-align: center; color: var(--color-danger);">Failed to load users.</td></tr>`;
+            }
+        }
+
+        function renderUsers(users) {
+            const tbody = document.getElementById('table-users-body');
+            tbody.innerHTML = '';
+            if (users.length === 0) {
+                tbody.innerHTML = `<tr><td colspan="6" style="text-align: center;">No users found matching query.</td></tr>`;
+                return;
+            }
+
+            users.forEach(user => {
+                const tr = document.createElement('tr');
+                const cleanDate = new Date(user.created_at).toLocaleDateString();
+                const isUserAdmin = user.role === 'admin';
+
+                tr.innerHTML = `
+                    <td style="font-weight: 600;">${user.name}</td>
+                    <td>${user.email}</td>
+                    <td style="color: var(--color-text-secondary);">${user.workspace_name || 'None'}</td>
+                    <td><span class="badge ${user.role}">${user.role}</span></td>
+                    <td>${cleanDate}</td>
+                    <td>
+                        <div style="display: flex; gap: 0.5rem;">
+                            <button class="btn btn-secondary btn-reset-pw" data-id="${user.id}" data-name="${user.name}" style="padding: 0.35rem 0.6rem; font-size: 0.75rem; cursor: pointer;">Reset PW</button>
+                            <button class="btn btn-secondary btn-toggle-role" data-id="${user.id}" data-role="${user.role}" style="padding: 0.35rem 0.6rem; font-size: 0.75rem; cursor: pointer; border-color: ${isUserAdmin ? 'var(--color-danger)' : 'var(--color-success)'}; color: ${isUserAdmin ? 'var(--color-danger)' : 'var(--color-success)'};">
+                                ${isUserAdmin ? 'Demote User' : 'Make Admin'}
+                            </button>
+                        </div>
+                    </td>
+                `;
+                tbody.appendChild(tr);
+            });
+
+            // Bind password reset actions
+            tbody.querySelectorAll('.btn-reset-pw').forEach(btn => {
+                btn.addEventListener('click', () => {
+                    resetUserIdInput.value = btn.dataset.id;
+                    resetModalTitle.textContent = `Reset Password: ${btn.dataset.name}`;
+                    resetModal.style.display = 'flex';
+                    resetNewPasswordInput.focus();
+                });
+            });
+
+            // Bind role change actions
+            tbody.querySelectorAll('.btn-toggle-role').forEach(btn => {
+                btn.addEventListener('click', async () => {
+                    const id = btn.dataset.id;
+                    const currentRole = btn.dataset.role;
+                    const nextRole = currentRole === 'admin' ? 'user' : 'admin';
+                    const msg = `Adakah anda pasti mahu menukar role user ini kepada ${nextRole.toUpperCase()}?`;
+                    
+                    if (confirm(msg)) {
+                        try {
+                            const res = await apiClient.post(`/admin/users/${id}/role`, { role: nextRole });
+                            if (res.success) {
+                                notificationService.success(res.message);
+                                loadUsers();
+                            } else {
+                                notificationService.error(res.message);
+                            }
+                        } catch (err) {
+                            notificationService.error(err.message || 'Operation failed');
+                        }
+                    }
+                });
+            });
+        }
+
+        // Search Users filter
+        searchUsersInput.addEventListener('input', () => {
+            const query = searchUsersInput.value.toLowerCase().trim();
+            const filtered = usersData.filter(u => 
+                u.name.toLowerCase().includes(query) || 
+                u.email.toLowerCase().includes(query) || 
+                u.role.toLowerCase().includes(query)
+            );
+            renderUsers(filtered);
+        });
+
+        // Close password reset modal
+        const closeResetModal = () => {
+            resetModal.style.display = 'none';
+            resetNewPasswordInput.value = '';
+        };
+        document.getElementById('btn-close-reset-modal').addEventListener('click', closeResetModal);
+        document.getElementById('btn-cancel-reset-modal').addEventListener('click', closeResetModal);
+
+        // Submit password reset
+        resetForm.addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const id = resetUserIdInput.value;
+            const newPassword = resetNewPasswordInput.value.trim();
+
+            if (!newPassword) return;
+
+            try {
+                const res = await apiClient.post(`/admin/users/${id}/reset-password`, { newPassword });
+                if (res.success) {
+                    notificationService.success(res.message);
+                    closeResetModal();
+                } else {
+                    notificationService.error(res.message);
+                }
+            } catch (err) {
+                notificationService.error(err.message || 'Reset failed');
+            }
+        });
+
+        // 3. LOAD WORKSPACES
+        async function loadWorkspaces() {
+            const tbody = document.getElementById('table-workspaces-body');
+            tbody.innerHTML = `<tr><td colspan="6" style="text-align: center;">Loading workspaces...</td></tr>`;
+            try {
+                const res = await apiClient.get('/admin/workspaces');
+                if (res.success && res.workspaces) {
+                    workspacesData = res.workspaces;
+                    renderWorkspaces(workspacesData);
+                }
+            } catch (err) {
+                tbody.innerHTML = `<tr><td colspan="6" style="text-align: center; color: var(--color-danger);">Failed to load workspaces.</td></tr>`;
+            }
+        }
+
+        function renderWorkspaces(workspaces) {
+            const tbody = document.getElementById('table-workspaces-body');
+            tbody.innerHTML = '';
+            if (workspaces.length === 0) {
+                tbody.innerHTML = `<tr><td colspan="6" style="text-align: center;">No workspaces found matching query.</td></tr>`;
+                return;
+            }
+
+            workspaces.forEach(ws => {
+                const tr = document.createElement('tr');
+                const cleanDate = new Date(ws.created_at).toLocaleDateString();
+
+                tr.innerHTML = `
+                    <td style="font-weight: 600;">${ws.name}</td>
+                    <td>${ws.owner_email || '<span style="color: var(--color-text-tertiary);">No Owner</span>'}</td>
+                    <td><span class="badge ${ws.subscription_plan}">${ws.subscription_plan}</span></td>
+                    <td><span class="badge" style="background-color: rgba(16,185,129,0.15); color: #10b981;">Active</span></td>
+                    <td>${cleanDate}</td>
+                    <td>
+                        <select class="form-input change-ws-plan" data-id="${ws.id}" style="padding: 0.35rem 0.5rem; font-size: 0.75rem; border-radius: var(--radius-sm); cursor: pointer; width: auto; min-width: 100px;">
+                            <option value="free" ${ws.subscription_plan === 'free' ? 'selected' : ''}>Free</option>
+                            <option value="pro" ${ws.subscription_plan === 'pro' ? 'selected' : ''}>Pro</option>
+                            <option value="agency" ${ws.subscription_plan === 'agency' ? 'selected' : ''}>Agency</option>
+                            <option value="enterprise" ${ws.subscription_plan === 'enterprise' ? 'selected' : ''}>Enterprise</option>
+                        </select>
+                    </td>
+                `;
+                tbody.appendChild(tr);
+            });
+
+            // Bind change plan selects
+            tbody.querySelectorAll('.change-ws-plan').forEach(select => {
+                select.addEventListener('change', async () => {
+                    const wsId = select.dataset.id;
+                    const nextPlan = select.value;
+
+                    try {
+                        const res = await apiClient.post(`/admin/workspaces/${wsId}/plan`, { plan: nextPlan });
+                        if (res.success) {
+                            notificationService.success(res.message);
+                            loadWorkspaces();
+                        } else {
+                            notificationService.error(res.message);
+                        }
+                    } catch (err) {
+                        notificationService.error(err.message || 'Update failed');
+                    }
+                });
+            });
+        }
+
+        // Search Workspaces filter
+        searchWorkspacesInput.addEventListener('input', () => {
+            const query = searchWorkspacesInput.value.toLowerCase().trim();
+            const filtered = workspacesData.filter(w => 
+                w.name.toLowerCase().includes(query) || 
+                (w.owner_email || '').toLowerCase().includes(query) || 
+                w.subscription_plan.toLowerCase().includes(query)
+            );
+            renderWorkspaces(filtered);
+        });
+
+        // 4. LOAD AUDIT LOGS
+        async function loadLogs() {
+            const tbody = document.getElementById('table-logs-body');
+            tbody.innerHTML = `<tr><td colspan="5" style="text-align: center;">Loading logs...</td></tr>`;
+            try {
+                const res = await apiClient.get('/admin/logs');
+                if (res.success && res.logs) {
+                    tbody.innerHTML = '';
+                    if (res.logs.length === 0) {
+                        tbody.innerHTML = `<tr><td colspan="5" style="text-align: center;">No audit logs present.</td></tr>`;
+                        return;
+                    }
+
+                    res.logs.forEach(log => {
+                        const tr = document.createElement('tr');
+                        const cleanTime = new Date(log.created_at).toLocaleString();
+                        tr.innerHTML = `
+                            <td style="white-space: nowrap; color: var(--color-text-tertiary);">${cleanTime}</td>
+                            <td style="font-weight: 500;">${log.user_email || 'System'}</td>
+                            <td style="color: var(--color-text-secondary);">${log.workspace_name || 'Global'}</td>
+                            <td><span style="font-family: monospace; font-weight: 600; padding: 0.15rem 0.35rem; background: var(--color-bg-secondary); border-radius: var(--radius-sm); font-size: 0.75rem;">${log.action}</span></td>
+                            <td style="max-width: 300px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;" title="${log.details || ''}">${log.details || ''}</td>
+                        `;
+                        tbody.appendChild(tr);
+                    });
+                }
+            } catch (err) {
+                tbody.innerHTML = `<tr><td colspan="5" style="text-align: center; color: var(--color-danger);">Failed to load audit logs.</td></tr>`;
+            }
+        }
+    </script>
+</body>
+</html>

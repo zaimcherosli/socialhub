@@ -51,6 +51,32 @@ class App {
             if (sidebarInitialsEl) sidebarInitialsEl.textContent = initials;
             if (headerInitialsEl) headerInitialsEl.textContent = initials;
 
+            // Dynamically inject Admin Console navigation link if user is admin
+            if (user.role === 'admin') {
+                const navList = document.querySelector('.nav-list');
+                if (navList && !document.getElementById('adminNavLink')) {
+                    const li = document.createElement('li');
+                    li.id = 'adminNavLink';
+                    li.innerHTML = `
+                        <a href="admin.html" class="nav-item" data-route="admin" style="border-left: 3px solid var(--color-danger, #ef4444);">
+                            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="color: var(--color-danger, #ef4444);">
+                                <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>
+                            </svg>
+                            <span class="nav-label" style="color: var(--color-danger, #ef4444); font-weight: 600;">Admin Console</span>
+                        </a>
+                    `;
+                    navList.appendChild(li);
+                    
+                    // Re-evaluate active link highlight
+                    const path = window.location.pathname;
+                    const page = path.split('/').pop() || 'dashboard.html';
+                    if (page === 'admin.html') {
+                        const activeItem = li.querySelector('.nav-item');
+                        if (activeItem) activeItem.classList.add('active');
+                    }
+                }
+            }
+
             // Dynamically customize greeting on dashboard page
             const welcomeEl = document.querySelector('.page-subtitle');
             if (welcomeEl && (window.location.pathname.endsWith('dashboard.html') || window.location.pathname === '/' || window.location.pathname.endsWith('/'))) {

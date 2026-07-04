@@ -3371,6 +3371,89 @@ CRITICAL TONE RULES:
                     return new Response(JSON.stringify({ success: true, message: `Facebook Page "${resolvedPageName}" connected successfully!`, page_name: resolvedPageName }), { status: 200, headers: corsHeaders });
                 }
 
+                // ==================== SAAS ADMIN API ENDPOINTS ====================
+                case '/api/admin/stats': {
+                    if (request.method !== 'GET') return new Response(JSON.stringify({ error: 'Method not allowed' }), { status: 405, headers: corsHeaders });
+                    const user = await getAuthUser();
+                    if (!user) return new Response(JSON.stringify({ message: 'Unauthorized session' }), { status: 401, headers: corsHeaders });
+                    if (user.role !== 'admin') return new Response(JSON.stringify({ message: 'Forbidden: Admin access only' }), { status: 403, headers: corsHeaders });
+                    if (!env.DB) return new Response(JSON.stringify({ message: 'Database missing' }), { status: 500, headers: corsHeaders });
+
+                    const totalUsers = await env.DB.prepare("SELECT COUNT(*) as count FROM users").first();
+                    const totalWorkspaces = await env.DB.prepare("SELECT COUNT(*) as count FROM workspaces").first();
+                    const totalSchedules = await env.DB.prepare("SELECT COUNT(*) as count FROM scheduled_posts").first();
+                    
+                    // Monthly AI usage (count of ai_generate audit logs this month)
+                    const startOfMonth = new Date(new Date().getFullYear(), new Date().getMonth(), 1).toISOString();
+                    const monthlyAiUsage = await env.DB.prepare(
+                        "SELECT COUNT(*) as count FROM audit_logs WHERE action = 'ai_generate' AND created_at >= ?"
+                    ).bind(startOfMonth).first();
+
+                    return new Response(JSON.stringify({
+                        success: true,
+                        stats: {
+                            users: totalUsers?.count || 0,
+                            workspaces: totalWorkspaces?.count || 0,
+                            scheduled_posts: totalSchedules?.count || 0,
+                            ai_usage_monthly: monthlyAiUsage?.count || 0
+                        }
+                    }), { status: 200, headers: corsHeaders });
+                }
+
+                case '/api/admin/users': {
+                    if (request.method !== 'GET') return new Response(JSON.stringify({ error: 'Method not allowed' }), { status: 405, headers: corsHeaders });
+                    const user = await getAuthUser();
+                    if (!user) return new Response(JSON.stringify({ message: 'Unauthorized session' }), { status: 401, headers: corsHeaders });
+                    if (user.role !== 'admin') return new Response(JSON.stringify({ message: 'Forbidden: Admin access only' }), { status: 403, headers: corsHeaders });
+                    if (!env.DB) return new Response(JSON.stringify({ message: 'Database missing' }), { status: 500, headers: corsHeaders });
+
+                    const { results } = await env.DB.prepare(
+                        `SELECT u.id, u.uuid, u.name, u.email, u.role, u.status, u.created_at, u.last_login, w.name as workspace_name 
+                         FROM users u
+                         LEFT JOIN workspaces w ON u.active_workspace_id = w.id
+                         ORDER BY u.created_at DESC`
+                    ).all();
+
+                    return new Response(JSON.stringify({ success: true, users: results }), { status: 200, headers: corsHeaders });
+                }
+
+                case '/api/admin/workspaces': {
+                    if (request.method !== 'GET') return new Response(JSON.stringify({ error: 'Method not allowed' }), { status: 405, headers: corsHeaders });
+                    const user = await getAuthUser();
+                    if (!user) return new Response(JSON.stringify({ message: 'Unauthorized session' }), { status: 401, headers: corsHeaders });
+                    if (user.role !== 'admin') return new Response(JSON.stringify({ message: 'Forbidden: Admin access only' }), { status: 403, headers: corsHeaders });
+                    if (!env.DB) return new Response(JSON.stringify({ message: 'Database missing' }), { status: 500, headers: corsHeaders });
+
+                    const { results } = await env.DB.prepare(
+                        `SELECT w.id, w.name, w.subscription_plan, w.subscription_status, w.created_at, u.email as owner_email 
+                         FROM workspaces w
+                         LEFT JOIN workspace_members wm ON w.id = wm.workspace_id AND wm.role = 'owner'
+                         LEFT JOIN users u ON wm.user_id = u.id
+                         ORDER BY w.created_at DESC`
+                    ).all();
+
+                    return new Response(JSON.stringify({ success: true, workspaces: results }), { status: 200, headers: corsHeaders });
+                }
+
+                case '/api/admin/logs': {
+                    if (request.method !== 'GET') return new Response(JSON.stringify({ error: 'Method not allowed' }), { status: 405, headers: corsHeaders });
+                    const user = await getAuthUser();
+                    if (!user) return new Response(JSON.stringify({ message: 'Unauthorized session' }), { status: 401, headers: corsHeaders });
+                    if (user.role !== 'admin') return new Response(JSON.stringify({ message: 'Forbidden: Admin access only' }), { status: 403, headers: corsHeaders });
+                    if (!env.DB) return new Response(JSON.stringify({ message: 'Database missing' }), { status: 500, headers: corsHeaders });
+
+                    const { results } = await env.DB.prepare(
+                        `SELECT al.id, al.action, al.details, al.created_at, u.email as user_email, w.name as workspace_name 
+                         FROM audit_logs al
+                         LEFT JOIN users u ON al.user_id = u.id
+                         LEFT JOIN workspaces w ON al.workspace_id = w.id
+                         ORDER BY al.created_at DESC
+                         LIMIT 100`
+                    ).all();
+
+                    return new Response(JSON.stringify({ success: true, logs: results }), { status: 200, headers: corsHeaders });
+                }
+
                 case '/api/publish/logs': {
                     if (request.method !== 'GET') return new Response(JSON.stringify({ error: 'Method not allowed' }), { status: 405, headers: corsHeaders });
                     const user = await getAuthUser();
@@ -3393,6 +3476,103 @@ CRITICAL TONE RULES:
                 }
 
                 default: {
+                    // Match /api/admin/users/:id/reset-password
+                    const adminUserResetPwMatch = url.pathname.match(/^\/api\/admin\/users\/(\d+)\/reset-password$/);
+                    if (adminUserResetPwMatch) {
+                        if (request.method !== 'POST') return new Response(JSON.stringify({ error: 'Method not allowed' }), { status: 405, headers: corsHeaders });
+                        const targetUserId = parseInt(adminUserResetPwMatch[1]);
+                        const user = await getAuthUser();
+                        if (!user) return new Response(JSON.stringify({ message: 'Unauthorized session' }), { status: 401, headers: corsHeaders });
+                        if (user.role !== 'admin') return new Response(JSON.stringify({ message: 'Forbidden: Admin access only' }), { status: 403, headers: corsHeaders });
+                        if (!env.DB) return new Response(JSON.stringify({ message: 'Database missing' }), { status: 500, headers: corsHeaders });
+
+                        try {
+                            const { newPassword } = await request.json();
+                            if (!newPassword || newPassword.trim().length < 8) {
+                                return new Response(JSON.stringify({ message: 'Password must be at least 8 characters long' }), { status: 400, headers: corsHeaders });
+                            }
+
+                            const hashed = await hashPassword(newPassword.trim());
+                            const updateRes = await env.DB.prepare(
+                                "UPDATE users SET password_hash = ?, updated_at = (datetime('now')) WHERE id = ?"
+                            ).bind(hashed, targetUserId).run();
+
+                            if (updateRes.meta.changes === 0) {
+                                return new Response(JSON.stringify({ message: 'User not found' }), { status: 404, headers: corsHeaders });
+                            }
+
+                            await logActivity(null, user.id, 'admin_reset_password', `Admin reset password for user ID ${targetUserId}`);
+
+                            return new Response(JSON.stringify({ success: true, message: 'Password reset successfully' }), { status: 200, headers: corsHeaders });
+                        } catch (e) {
+                            return new Response(JSON.stringify({ message: e.message }), { status: 500, headers: corsHeaders });
+                        }
+                    }
+
+                    // Match /api/admin/users/:id/role
+                    const adminUserRoleMatch = url.pathname.match(/^\/api\/admin\/users\/(\d+)\/role$/);
+                    if (adminUserRoleMatch) {
+                        if (request.method !== 'POST') return new Response(JSON.stringify({ error: 'Method not allowed' }), { status: 405, headers: corsHeaders });
+                        const targetUserId = parseInt(adminUserRoleMatch[1]);
+                        const user = await getAuthUser();
+                        if (!user) return new Response(JSON.stringify({ message: 'Unauthorized session' }), { status: 401, headers: corsHeaders });
+                        if (user.role !== 'admin') return new Response(JSON.stringify({ message: 'Forbidden: Admin access only' }), { status: 403, headers: corsHeaders });
+                        if (!env.DB) return new Response(JSON.stringify({ message: 'Database missing' }), { status: 500, headers: corsHeaders });
+
+                        try {
+                            const { role } = await request.json();
+                            if (!['user', 'admin'].includes(role)) {
+                                return new Response(JSON.stringify({ message: 'Invalid role value' }), { status: 400, headers: corsHeaders });
+                            }
+
+                            const updateRes = await env.DB.prepare(
+                                "UPDATE users SET role = ?, updated_at = (datetime('now')) WHERE id = ?"
+                            ).bind(role, targetUserId).run();
+
+                            if (updateRes.meta.changes === 0) {
+                                return new Response(JSON.stringify({ message: 'User not found' }), { status: 404, headers: corsHeaders });
+                            }
+
+                            await logActivity(null, user.id, 'admin_change_role', `Admin changed role of user ID ${targetUserId} to ${role}`);
+
+                            return new Response(JSON.stringify({ success: true, message: `Role updated to ${role} successfully` }), { status: 200, headers: corsHeaders });
+                        } catch (e) {
+                            return new Response(JSON.stringify({ message: e.message }), { status: 500, headers: corsHeaders });
+                        }
+                    }
+
+                    // Match /api/admin/workspaces/:id/plan
+                    const adminWorkspacePlanMatch = url.pathname.match(/^\/api\/admin\/workspaces\/(\d+)\/plan$/);
+                    if (adminWorkspacePlanMatch) {
+                        if (request.method !== 'POST') return new Response(JSON.stringify({ error: 'Method not allowed' }), { status: 405, headers: corsHeaders });
+                        const wsId = parseInt(adminWorkspacePlanMatch[1]);
+                        const user = await getAuthUser();
+                        if (!user) return new Response(JSON.stringify({ message: 'Unauthorized session' }), { status: 401, headers: corsHeaders });
+                        if (user.role !== 'admin') return new Response(JSON.stringify({ message: 'Forbidden: Admin access only' }), { status: 403, headers: corsHeaders });
+                        if (!env.DB) return new Response(JSON.stringify({ message: 'Database missing' }), { status: 500, headers: corsHeaders });
+
+                        try {
+                            const { plan } = await request.json();
+                            if (!['free', 'pro', 'agency', 'enterprise'].includes(plan)) {
+                                return new Response(JSON.stringify({ message: 'Invalid plan value' }), { status: 400, headers: corsHeaders });
+                            }
+
+                            const updateRes = await env.DB.prepare(
+                                "UPDATE workspaces SET subscription_plan = ?, updated_at = (datetime('now')) WHERE id = ?"
+                            ).bind(plan, wsId).run();
+
+                            if (updateRes.meta.changes === 0) {
+                                return new Response(JSON.stringify({ message: 'Workspace not found' }), { status: 404, headers: corsHeaders });
+                            }
+
+                            await logActivity(wsId, user.id, 'admin_change_plan', `Admin changed workspace plan to ${plan}`);
+
+                            return new Response(JSON.stringify({ success: true, message: `Workspace plan updated to ${plan} successfully` }), { status: 200, headers: corsHeaders });
+                        } catch (e) {
+                            return new Response(JSON.stringify({ message: e.message }), { status: 500, headers: corsHeaders });
+                        }
+                    }
+
                     // Match /api/scheduled-posts/:id/publish
                     const spPublishMatch = url.pathname.match(/^\/api\/scheduled-posts\/(\d+)\/publish$/);
                     if (spPublishMatch) {

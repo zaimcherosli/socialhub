@@ -515,6 +515,35 @@ const extractPrice = (text) => {
     return "";
 };
 
+// Helper: Check if a URL points to a specific Telegram channel post
+const isTelegramPostUrl = (urlStr) => {
+    try {
+        const u = new URL(urlStr);
+        return (u.hostname === 't.me' || u.hostname === 'telegram.me') && /^\/[^\/]+\/\d+$/.test(u.pathname);
+    } catch (_) { return false; }
+};
+
+// Helper: Extract real listing title from Telegram post description fallback
+const extractTelegramTitle = (scrapedTitle, scrapedDescription) => {
+    if (!scrapedDescription) return scrapedTitle || "";
+    
+    // Clean emojis and markers
+    const titleLines = scrapedDescription.split('\n')
+        .map(l => l.replace(/[✅✨🏠📌🔥*‼️]/g, '').trim())
+        .filter(l => l.length > 5 && !/WTS|WTL|FOR\s*SALE|FOR\s*RENT|LEASE|NEW\s*LISTING|ASKING\s*PRICE/i.test(l));
+    
+    // Try to find the line that contains property type keywords (taman, apartment, terrace, etc.)
+    const propertyTypeRegex = /\b(?:Storey|Tingkat|Sty|Terrace|Teres|Semi-D|Semi\s*D|Bungalow|Banglo|Condo|Condominium|Kondominium|Apartment|Pangsapuri|Flat|Townhouse|House|Rumah|Suite|Office|Shoplot|Land|Tanah|Lot)\b/i;
+    const bestTitleLine = titleLines.find(l => propertyTypeRegex.test(l));
+    
+    if (bestTitleLine) {
+        return bestTitleLine.substring(0, 80).trim();
+    } else if (titleLines.length > 0) {
+        return titleLines[0].substring(0, 80).trim();
+    }
+    return scrapedTitle || "";
+};
+
 export default {
     async fetch(request, env, ctx) {
         const url = new URL(request.url);
@@ -1022,6 +1051,10 @@ export default {
                             decodedTitle = extractSlugKeywords(url);
                         }
 
+                        if (isTelegramPostUrl(url) || /Telegram|View\s*@|Listing\s*|Hartanah/i.test(decodedTitle)) {
+                            decodedTitle = extractTelegramTitle(decodedTitle, decodedDesc);
+                        }
+
                         const lowerText = (decodedTitle + ' ' + decodedDesc).toLowerCase();
                         const isBlocked = lowerText.includes('enable javascript') ||
                                           lowerText.includes('javascript is disabled') ||
@@ -1282,16 +1315,8 @@ export default {
                             const whatsappNum = activeWorkspace.whatsapp_number.replace(/\D/g, ''); // digits only
 
                             let productTitle = cleanScrapedTitle(scrapedTitle || "");
-                            
-                            // Clean up generic Telegram channel titles or channel owner names
-                            const isGenericTelegramTitle = /Telegram|View\s*@|Listing\s*|Hartanah|bammad|Zaimarni|^AVAILABLE$|^WTS$|^WTL$|^FOR\s*SALE$|^FOR\s*RENT$/i.test(productTitle.trim());
-                            if (isGenericTelegramTitle && scrapedDescription) {
-                                const titleLines = scrapedDescription.split('\n')
-                                    .map(l => l.replace(/[✅✨🏠📌🔥*]/g, '').trim())
-                                    .filter(l => l.length > 5 && !/WTS|WTL|FOR\s*SALE|FOR\s*RENT|LEASE|NEW\s*LISTING/i.test(l));
-                                if (titleLines.length > 0) {
-                                    productTitle = titleLines[0].substring(0, 80).trim();
-                                }
+                            if (isTelegramPostUrl(url) || /Telegram|View\s*@|Listing\s*|Hartanah/i.test(productTitle)) {
+                                productTitle = extractTelegramTitle(productTitle, scrapedDescription);
                             }
 
                             if ((!productTitle || productTitle.trim() === "") && productContext) {

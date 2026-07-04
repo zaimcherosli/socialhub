@@ -244,7 +244,7 @@ const OAuthProviders = {
             const url = new URL("https://threads.net/oauth/authorize");
             url.searchParams.set("client_id", clientId);
             url.searchParams.set("redirect_uri", redirectUri);
-            url.searchParams.set("scope", "threads_basic,threads_content_publish,threads_manage_replies");
+            url.searchParams.set("scope", "threads_basic,threads_content_publish,threads_manage_replies,threads_manage_insights");
             url.searchParams.set("response_type", "code");
             url.searchParams.set("state", state);
             return url.toString() + '#weblink';
@@ -3183,7 +3183,7 @@ CRITICAL TONE RULES:
                             authorizeUrl: authUrl,
                             client_id: clientId,
                             redirect_uri: redirectUri,
-                            scope: 'threads_basic,threads_content_publish',
+                            scope: 'threads_basic,threads_content_publish,threads_manage_insights',
                             response_type: 'code',
                             state: stateToken
                         });
@@ -4731,11 +4731,14 @@ CRITICAL TONE RULES:
                 for (const acct of threadAccounts.results) {
                     try {
                         const decryptedToken = await decryptToken(acct.access_token, encryptionSecret);
-                        const profileUrl = `https://graph.threads.net/v1.0/${acct.threads_user_id}?fields=followers_count&access_token=${decryptedToken}`;
+                        // Threads followers_count via threads_insights user endpoint
+                        const profileUrl = `https://graph.threads.net/v1.0/${acct.threads_user_id}/threads_insights?metric=followers_count&period=day&since=${Math.floor((Date.now() - 2 * 86400000) / 1000)}&until=${Math.floor(Date.now() / 1000)}&access_token=${decryptedToken}`;
                         const profileRes = await fetch(profileUrl);
                         if (profileRes.ok) {
                             const profileData = await profileRes.json();
-                            const followersCount = profileData.followers_count || 0;
+                            // followers_count returns array of values — take latest
+                            const metricData = profileData?.data?.[0];
+                            const followersCount = metricData?.values?.slice(-1)?.[0]?.value || 0;
                             await env.DB.prepare(
                                 `INSERT INTO workspace_analytics (workspace_id, account_id, platform, followers_count, recorded_at)
                                  VALUES (?, ?, 'threads', ?, datetime('now'))`

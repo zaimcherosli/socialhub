@@ -231,6 +231,63 @@ async function decryptToken(encryptedStr, secret) {
     }
 }
 
+async function syncHistoricalThreadsPosts(env, userId, workspaceId, socialAccountId, accessToken, threadsUserId) {
+    console.log(`[HistoricalSync] Initiated for workspace ${workspaceId}, account ${socialAccountId}`);
+    try {
+        const url = `https://graph.threads.net/v1.0/${threadsUserId}/threads?fields=id,media_product_type,media_type,permalink,text,timestamp,username&access_token=${accessToken}&limit=50`;
+        const res = await fetch(url);
+        if (!res.ok) {
+            const errText = await res.text();
+            console.error(`[HistoricalSync] Threads API error: ${errText}`);
+            return;
+        }
+        const data = await res.json();
+        if (!data || !Array.isArray(data.data)) {
+            console.warn(`[HistoricalSync] No posts returned from Threads API.`);
+            return;
+        }
+
+        console.log(`[HistoricalSync] Found ${data.data.length} posts on Threads. Syncing...`);
+        for (const thread of data.data) {
+            // Check if post already exists in scheduled_posts
+            const existing = await env.DB.prepare(
+                "SELECT id FROM scheduled_posts WHERE workspace_id = ? AND external_post_id = ?"
+            ).bind(workspaceId, thread.id).first().catch(() => null);
+
+            if (!existing) {
+                const pubDate = thread.timestamp ? new Date(thread.timestamp).toISOString() : new Date().toISOString();
+                
+                await env.DB.prepare(
+                    `INSERT INTO scheduled_posts (
+                        user_id, workspace_id, account_id, platform, content,
+                        status, publish_at, published_at, external_post_id, timezone, created_at, updated_at
+                    ) VALUES (?, ?, ?, 'threads', ?, 'published', ?, ?, ?, 'UTC', ?, ?)`
+                ).bind(
+                    userId,
+                    workspaceId,
+                    socialAccountId,
+                    thread.text || '',
+                    pubDate,
+                    pubDate,
+                    thread.id,
+                    pubDate,
+                    pubDate
+                ).run().catch(err => {
+                    console.error(`[HistoricalSync] Error inserting post ${thread.id}: ${err.message}`);
+                });
+            } else {
+                // If it exists but account_id is null (due to previous disconnect), relink it!
+                await env.DB.prepare(
+                    "UPDATE scheduled_posts SET account_id = ? WHERE id = ? AND account_id IS NULL"
+                ).bind(socialAccountId, existing.id).run().catch(() => {});
+            }
+        }
+        console.log(`[HistoricalSync] Sync completed for workspace ${workspaceId}`);
+    } catch (e) {
+        console.error(`[HistoricalSync] Unhandled error: ${e.message}`);
+    }
+}
+
 // Filename sanitizer
 function sanitizeFilename(name) {
     if (!name) return 'unnamed_file';
@@ -3285,6 +3342,10 @@ CRITICAL TONE RULES:
                     }
 
                     await logActivity(activeWorkspace.workspace_id, user.id, 'connect_account', `Connected ${platform} account: ${tokenData.account_name}`);
+                    
+                    if (platform === 'threads') {
+                        ctx.waitUntil(syncHistoricalThreadsPosts(env, user.id, activeWorkspace.workspace_id, savedAccountId, tokenData.access_token, tokenData.account_id));
+                    }
 
                     // If Facebook needs page selection, redirect to the page picker UI
                     if (tokenData.needsPageSelection) {
@@ -4302,6 +4363,9 @@ CRITICAL TONE RULES:
                         }
 
                         if (request.method === 'DELETE') {
+                            // Prevent cascade deletion of posts associated with this account by nullifying account_id first
+                            await env.DB.prepare("UPDATE scheduled_posts SET account_id = NULL WHERE account_id = ? AND workspace_id = ?").bind(accountId, activeWorkspace.workspace_id).run();
+                            
                             await env.DB.prepare("DELETE FROM social_accounts WHERE id = ? AND workspace_id = ?").bind(accountId, activeWorkspace.workspace_id).run();
                             await logActivity(activeWorkspace.workspace_id, user.id, 'disconnect_account', `Disconnected account ID ${accountId}`);
                             return new Response(JSON.stringify({ success: true, message: 'Account link deleted successfully' }), { status: 200, headers: corsHeaders });

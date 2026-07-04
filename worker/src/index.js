@@ -1187,19 +1187,26 @@ export default {
                             if (!productContext) productContext = "produk Malaysia";
                         }
 
-                        // Determine schedule time (staggered from tomorrow morning)
+                        // Determine schedule time using Queue-Based Auto-Staggering
                         const idx = parseInt(index) || 0;
-                        const daysAhead = Math.floor(idx / 3) + 1; // 3 posts per day default
-                        const timeIndex = idx % 3;
-                        const optimalHours = [9, 12, 18]; // 9 AM, 12 PM, 6 PM
-                        const localHour = optimalHours[timeIndex];
+                        const staggerMinutes = 30; // 30 minutes spacing
 
-                        const offset = typeof timezoneOffset === 'number' ? timezoneOffset : -480; // default UTC+8
-                        const date = new Date();
-                        date.setUTCDate(date.getUTCDate() + daysAhead);
-                        const utcHour = localHour + (offset / 60);
-                        date.setUTCHours(utcHour, 0, 0, 0);
-                        const publishAt = date.toISOString();
+                        // Find the latest scheduled post for this workspace
+                        const lastPost = await env.DB.prepare(
+                            "SELECT publish_at FROM scheduled_posts WHERE workspace_id = ? AND status = 'scheduled' ORDER BY publish_at DESC LIMIT 1"
+                        ).bind(activeWorkspace.workspace_id).first().catch(() => null);
+
+                        let baseTime = new Date(Date.now() + 15 * 60 * 1000); // default to 15 minutes from now
+                        if (lastPost && lastPost.publish_at) {
+                            const lastTime = new Date(lastPost.publish_at);
+                            if (lastTime.getTime() > Date.now()) {
+                                baseTime = lastTime;
+                            }
+                        }
+
+                        // Add stagger spacing based on the batch index (idx)
+                        const publishAtDate = new Date(baseTime.getTime() + (idx + 1) * staggerMinutes * 60 * 1000);
+                        const publishAt = publishAtDate.toISOString();
 
                         // Resolve social account
                         const socialAccount = await env.DB.prepare(

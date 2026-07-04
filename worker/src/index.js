@@ -500,6 +500,21 @@ const cleanScrapedTitle = (title) => {
     return clean;
 };
 
+// Helper: Extract price in RM format (e.g. RM1.63mil, RM1.5m, RM150k) from text
+const extractPrice = (text) => {
+    if (!text) return "";
+    const regex = /RM\s?(\d+[\d,.]*\s?(?:mil|million|m|k|b|juta)?)\b/i;
+    const match = text.match(regex);
+    if (match) {
+        let price = match[0].trim();
+        if (price.endsWith('.')) {
+            price = price.slice(0, -1);
+        }
+        return price;
+    }
+    return "";
+};
+
 export default {
     async fetch(request, env, ctx) {
         const url = new URL(request.url);
@@ -1292,9 +1307,8 @@ export default {
                                 }
                             }
 
-                            const priceRegex = /RM\s?[\d,.]+\s?[kKmM]?\b/i;
-                            const priceMatch = (scrapedDescription || "").match(priceRegex) || (productContext || "").match(priceRegex);
-                            const priceText = priceMatch ? ` (${priceMatch[0].trim()})` : "";
+                            const matchedPrice = extractPrice(scrapedDescription) || extractPrice(productContext);
+                            const priceText = matchedPrice ? ` (${matchedPrice})` : "";
 
                             let greetingText = `Hai, saya berminat dengan ${productTitle.trim()}`;
                             if (locationInfo) {

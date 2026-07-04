@@ -1215,7 +1215,7 @@ export default {
                             let productTitle = scrapedTitle || "";
                             
                             // Clean up generic Telegram channel titles or channel owner names
-                            const isGenericTelegramTitle = /Telegram|View\s*@|Listing\s*|Hartanah|bammad|Zaimarni/i.test(productTitle);
+                            const isGenericTelegramTitle = /Telegram|View\s*@|Listing\s*|Hartanah|bammad|Zaimarni|^AVAILABLE$|^WTS$|^WTL$|^FOR\s*SALE$|^FOR\s*RENT$/i.test(productTitle.trim());
                             if (isGenericTelegramTitle && scrapedDescription) {
                                 const titleLines = scrapedDescription.split('\n')
                                     .map(l => l.replace(/[✅✨🏠📌🔥*]/g, '').trim())
@@ -1238,7 +1238,7 @@ export default {
                                 }
                             }
 
-                            const priceRegex = /RM\s?[\d,]+(\.\d{2})?/i;
+                            const priceRegex = /RM\s?[\d,.]+\s?[kKmM]?\b/i;
                             const priceMatch = (scrapedDescription || "").match(priceRegex) || (productContext || "").match(priceRegex);
                             const priceText = priceMatch ? ` (${priceMatch[0].trim()})` : "";
 

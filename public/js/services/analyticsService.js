@@ -3,7 +3,7 @@ import { apiClient } from '../utils/api.js';
 
 export const analyticsService = {
     async getAnalytics(days = 30) {
-        return await apiClient.get(`/api/analytics?days=${days}`);
+        return await apiClient.get(`/analytics?days=${days}`);
     }
 };
 

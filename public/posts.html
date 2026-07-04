@@ -124,7 +124,67 @@
             grid-column: 1 / -1;
             width: 100%;
         }
+        .posts-slider-wrapper {
+            position: relative;
+            width: 100%;
+        }
+        .slider-pagination-dots {
+            display: none;
+        }
+
         @media (max-width: 768px) {
+            .posts-slider-wrapper {
+                overflow: hidden;
+            }
+            /* Override posts-layout-grid class when turned into a swiper */
+            .posts-slides-container {
+                display: flex !important;
+                flex-direction: row !important;
+                overflow-x: auto !important;
+                scroll-snap-type: x mandatory !important;
+                scroll-behavior: smooth !important;
+                gap: 0 !important;
+                width: 100% !important;
+                -webkit-overflow-scrolling: touch;
+            }
+            .posts-slides-container::-webkit-scrollbar {
+                display: none !important;
+            }
+            .posts-slides-container {
+                -ms-overflow-style: none !important;
+                scrollbar-width: none !important;
+            }
+            .post-slide-page {
+                flex: 0 0 100% !important;
+                width: 100% !important;
+                scroll-snap-align: start !important;
+                padding: 0.25rem !important;
+                box-sizing: border-box !important;
+                display: flex !important;
+                flex-direction: column !important;
+                gap: 1rem !important;
+            }
+            .slider-pagination-dots {
+                display: flex !important;
+                justify-content: center !important;
+                align-items: center !important;
+                gap: 0.5rem !important;
+                margin-top: 1.25rem !important;
+            }
+            .slider-dot {
+                width: 8px;
+                height: 8px;
+                border-radius: 50%;
+                background: var(--color-border);
+                transition: all var(--transition-fast);
+                cursor: pointer;
+            }
+            .slider-dot.active {
+                background: var(--color-primary);
+                width: 20px;
+                border-radius: 4px;
+            }
+
             .posts-layout-grid {
                 grid-template-columns: 1fr;
             }
@@ -250,11 +310,14 @@
             </div>
 
             <!-- List Grid/List Container -->
-            <div class="posts-layout-grid" id="postsContainer">
-                <div class="empty-posts-state" id="postsLoading">
-                    <span style="display: inline-block; width: 24px; height: 24px; border: 2px solid var(--color-primary); border-top-color: transparent; border-radius: 50%; animation: spin 0.8s linear infinite; margin-bottom: 0.5rem;"></span>
-                    <p>Loading posts...</p>
+            <div class="posts-slider-wrapper">
+                <div class="posts-layout-grid" id="postsContainer">
+                    <div class="empty-posts-state" id="postsLoading">
+                        <span style="display: inline-block; width: 24px; height: 24px; border: 2px solid var(--color-primary); border-top-color: transparent; border-radius: 50%; animation: spin 0.8s linear infinite; margin-bottom: 0.5rem;"></span>
+                        <p>Loading posts...</p>
+                    </div>
                 </div>
+                <div class="slider-pagination-dots" id="sliderPaginationDots"></div>
             </div>
 
         </main>
@@ -291,6 +354,96 @@
             }
         }
 
+        function createPostCardElement(post) {
+            const card = document.createElement('div');
+            card.className = 'card post-card-item';
+
+            const statusBadgeMap = {
+                draft: '<span class="badge badge-info">draft</span>',
+                scheduled: '<span class="badge badge-warning">scheduled</span>',
+                published: '<span class="badge badge-success">published</span>',
+                failed: '<span class="badge badge-danger">failed</span>'
+            };
+            
+            const badge = statusBadgeMap[post.status] || '<span class="badge">unknown</span>';
+            const createdDate = new Date(post.created_at).toLocaleDateString(undefined, { year: 'numeric', month: 'short', day: 'numeric' });
+            
+            const displayTitle = post.title || 'Untitled Draft';
+            const displayCaption = post.caption || '<span style="color: var(--color-text-tertiary); font-style: italic;">No caption provided.</span>';
+
+            if (viewMode === 'grid' || window.innerWidth <= 768) {
+                card.innerHTML = `
+                    <div class="post-card-body">
+                        <div class="platform-header" style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.5rem;">
+                            <h3 class="card-title" style="font-size: 0.95rem; font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; margin: 0;">${displayTitle}</h3>
+                            ${badge}
+                        </div>
+                        <p style="font-size: 0.8125rem; color: var(--color-text-secondary); line-height: 1.4; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; height: 2.8em; margin-bottom: 0.5rem; word-break: break-word;">
+                            ${displayCaption}
+                        </p>
+                        <div style="font-size: 0.7rem; color: var(--color-text-tertiary);">
+                            <span>Created: ${createdDate}</span>
+                        </div>
+                    </div>
+                    <div class="post-card-actions" style="margin-top: 0.75rem; display: flex; gap: 0.5rem; justify-content: flex-end;">
+                        <a href="post-editor.html?id=${post.id}" class="btn btn-secondary" style="padding: 0.35rem 0.65rem; font-size: 0.75rem;">Edit</a>
+                        <button class="btn btn-secondary btnDuplicate" data-id="${post.id}" style="padding: 0.35rem 0.65rem; font-size: 0.75rem;">Copy</button>
+                        <button class="btn btn-danger btn-icon btnDelete" data-id="${post.id}" style="padding: 0.35rem;" title="Delete Post">
+                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                <polyline points="3 6 5 6 21 6"></polyline>
+                                <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path>
+                            </svg>
+                        </button>
+                    </div>
+                `;
+            } else {
+                // List view
+                card.innerHTML = `
+                    <div class="post-card-body">
+                        <h3 class="card-title" style="font-size: 0.875rem; margin-bottom: 0;">${displayTitle}</h3>
+                        <p style="font-size: 0.8125rem; color: var(--color-text-secondary); margin-bottom: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; padding-right: 2rem;">
+                            ${displayCaption}
+                        </p>
+                        <div style="font-size: 0.75rem; color: var(--color-text-tertiary);">${createdDate}</div>
+                        <div>${badge}</div>
+                    </div>
+                    <div class="post-card-actions">
+                        <a href="post-editor.html?id=${post.id}" class="btn btn-secondary" style="padding: 0.4rem 0.75rem; font-size: 0.75rem;">Edit</a>
+                        <button class="btn btn-secondary btnDuplicate" data-id="${post.id}" style="padding: 0.4rem 0.75rem; font-size: 0.75rem;">Copy</button>
+                        <button class="btn btn-danger btn-icon btnDelete" data-id="${post.id}" style="padding: 0.4rem;" title="Delete Post">
+                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                <polyline points="3 6 5 6 21 6"></polyline>
+                                <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path>
+                            </svg>
+                        </button>
+                    </div>
+                `;
+            }
+            return card;
+        }
+
+        function renderPaginationDots(pagesCount) {
+            const dotsContainer = document.getElementById('sliderPaginationDots');
+            dotsContainer.innerHTML = '';
+            if (pagesCount <= 1) {
+                dotsContainer.style.display = 'none';
+                return;
+            }
+            dotsContainer.style.display = 'flex';
+            for (let i = 0; i < pagesCount; i++) {
+                const dot = document.createElement('div');
+                dot.className = i === 0 ? 'slider-dot active' : 'slider-dot';
+                dot.addEventListener('click', () => {
+                    const width = container.clientWidth;
+                    container.scrollTo({
+                        left: i * width,
+                        behavior: 'smooth'
+                    });
+                });
+                dotsContainer.appendChild(dot);
+            }
+        }
+
         function renderFilteredPosts() {
             const query = searchInput.value.toLowerCase().trim();
             const statusVal = statusFilter.value;
@@ -306,8 +459,15 @@
                 return matchesSearch && matchesStatus;
             });
 
-            // 2. Sort
+            // 2. Sort: prioritizing scheduled/draft at top, published/failed at bottom (if filter status is 'all')
             filtered.sort((a, b) => {
+                if (statusVal === 'all') {
+                    const statusPriority = { scheduled: 1, draft: 2, failed: 3, published: 4 };
+                    const pA = statusPriority[a.status] || 99;
+                    const pB = statusPriority[b.status] || 99;
+                    if (pA !== pB) return pA - pB;
+                }
+
                 if (sortVal === 'newest') {
                     return new Date(b.created_at) - new Date(a.created_at);
                 } else if (sortVal === 'oldest') {
@@ -319,86 +479,52 @@
             });
 
             // 3. Render
-            container.innerHTML = '';
-            container.className = viewMode === 'grid' ? 'posts-layout-grid' : 'posts-layout-list';
-
             if (filtered.length === 0) {
+                container.className = viewMode === 'grid' ? 'posts-layout-grid' : 'posts-layout-list';
                 container.innerHTML = `
                     <div class="empty-posts-state">
                         <p style="font-weight: 500; margin-bottom: 0.25rem;">No posts match your filters</p>
                         <p style="font-size: 0.8125rem; color: var(--color-text-tertiary);">Clear your search query or create a new draft.</p>
                     </div>
                 `;
+                document.getElementById('sliderPaginationDots').style.display = 'none';
                 return;
             }
 
-            filtered.forEach(post => {
-                const card = document.createElement('div');
-                card.className = 'card post-card-item';
-
-                const statusBadgeMap = {
-                    draft: '<span class="badge badge-info">draft</span>',
-                    scheduled: '<span class="badge badge-warning">scheduled</span>',
-                    published: '<span class="badge badge-success">published</span>',
-                    failed: '<span class="badge badge-danger">failed</span>'
-                };
-                
-                const badge = statusBadgeMap[post.status] || '<span class="badge">unknown</span>';
-                const createdDate = new Date(post.created_at).toLocaleDateString(undefined, { year: 'numeric', month: 'short', day: 'numeric' });
-                
-                const displayTitle = post.title || 'Untitled Draft';
-                const displayCaption = post.caption || '<span style="color: var(--color-text-tertiary); font-style: italic;">No caption provided.</span>';
-
-                if (viewMode === 'grid') {
-                    card.innerHTML = `
-                        <div class="post-card-body">
-                            <div class="platform-header">
-                                <h3 class="card-title" style="font-size: 1rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">${displayTitle}</h3>
-                                ${badge}
-                            </div>
-                            <p style="font-size: 0.875rem; color: var(--color-text-secondary); line-height: 1.4; display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden; height: 3.6em; margin-bottom: 1rem;">
-                                ${displayCaption}
-                            </p>
-                            <div style="font-size: 0.75rem; color: var(--color-text-tertiary);">
-                                <span>Created: ${createdDate}</span>
-                            </div>
-                        </div>
-                        <div class="post-card-actions">
-                            <a href="post-editor.html?id=${post.id}" class="btn btn-secondary" style="padding: 0.4rem 0.75rem; font-size: 0.75rem;">Edit</a>
-                            <button class="btn btn-secondary btnDuplicate" data-id="${post.id}" style="padding: 0.4rem 0.75rem; font-size: 0.75rem;">Copy</button>
-                            <button class="btn btn-danger btn-icon btnDelete" data-id="${post.id}" style="padding: 0.4rem;" title="Delete Post">
-                                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                                    <polyline points="3 6 5 6 21 6"></polyline>
-                                    <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path>
-                                </svg>
-                            </button>
-                        </div>
-                    `;
-                } else {
-                    // List view
-                    card.innerHTML = `
-                        <div class="post-card-body">
-                            <h3 class="card-title" style="font-size: 0.875rem; margin-bottom: 0;">${displayTitle}</h3>
-                            <p style="font-size: 0.8125rem; color: var(--color-text-secondary); margin-bottom: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; padding-right: 2rem;">
-                                ${displayCaption}
-                            </p>
-                            <div style="font-size: 0.75rem; color: var(--color-text-tertiary);">${createdDate}</div>
-                            <div>${badge}</div>
-                        </div>
-                        <div class="post-card-actions">
-                            <a href="post-editor.html?id=${post.id}" class="btn btn-secondary" style="padding: 0.4rem 0.75rem; font-size: 0.75rem;">Edit</a>
-                            <button class="btn btn-secondary btnDuplicate" data-id="${post.id}" style="padding: 0.4rem 0.75rem; font-size: 0.75rem;">Copy</button>
-                            <button class="btn btn-danger btn-icon btnDelete" data-id="${post.id}" style="padding: 0.4rem;" title="Delete Post">
-                                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                                    <polyline points="3 6 5 6 21 6"></polyline>
-                                    <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path>
-                                </svg>
-                            </button>
-                        </div>
-                    `;
+            if (window.innerWidth <= 768) {
+                // Mobile layout: chunk array into slides of 10 items
+                const chunkSize = 10;
+                const chunks = [];
+                for (let i = 0; i < filtered.length; i += chunkSize) {
+                    chunks.push(filtered.slice(i, i + chunkSize));
                 }
-                container.appendChild(card);
-            });
+
+                container.className = 'posts-slides-container';
+                container.innerHTML = '';
+
+                chunks.forEach((chunk, pageIndex) => {
+                    const slideDiv = document.createElement('div');
+                    slideDiv.className = 'post-slide-page';
+                    slideDiv.dataset.page = pageIndex;
+
+                    chunk.forEach(post => {
+                        const card = createPostCardElement(post);
+                        slideDiv.appendChild(card);
+                    });
+                    container.appendChild(slideDiv);
+                });
+
+                renderPaginationDots(chunks.length);
+            } else {
+                // Desktop normal rendering
+                container.className = viewMode === 'grid' ? 'posts-layout-grid' : 'posts-layout-list';
+                container.innerHTML = '';
+                filtered.forEach(post => {
+                    const card = createPostCardElement(post);
+                    container.appendChild(card);
+                });
+                document.getElementById('sliderPaginationDots').style.display = 'none';
+            }
 
             // Attach dynamic listeners
             document.querySelectorAll('.btnDuplicate').forEach(btn => {
@@ -522,6 +648,29 @@
             } catch (err) {
                 notificationService.error(`Scheduling failed: ${err.message}`);
             }
+        });
+        // Swipe paging event listener for mobile dots updates
+        container.addEventListener('scroll', () => {
+            if (window.innerWidth <= 768) {
+                const scrollLeft = container.scrollLeft;
+                const width = container.clientWidth;
+                if (width <= 0) return;
+                const activePage = Math.round(scrollLeft / width);
+                
+                const dots = document.querySelectorAll('.slider-dot');
+                dots.forEach((dot, idx) => {
+                    if (idx === activePage) {
+                        dot.classList.add('active');
+                    } else {
+                        dot.classList.remove('active');
+                    }
+                });
+            }
+        });
+
+        // Resize listener to re-layout correctly
+        window.addEventListener('resize', () => {
+            renderFilteredPosts();
         });
     </script>
 </body>

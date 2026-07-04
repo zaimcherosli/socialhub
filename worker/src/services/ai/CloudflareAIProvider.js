@@ -20,28 +20,41 @@ export class CloudflareAIProvider extends AIProvider {
 
     async generateCaption({ businessType, product, targetAudience, goal, tone, language }) {
         console.log(`[CloudflareAIProvider] Executing run with model: ${this.model}`);
-        const response = await this.ai.run(this.model, {
-            messages: [
-                {
-                    role: "system",
-                    content: "You are a professional social media marketing expert. You must write a high-converting, engaging social media post and return the output strictly in JSON format. Do not return any markdown wrappers, explanation, or other text. IMPORTANT: If the output language is Malay, you MUST write in standard Malaysian Malay (Bahasa Melayu Malaysia) for a local Malaysian audience. Strictly avoid Indonesian slang/vocabulary (e.g. use 'dipercayai' instead of 'terpercaya', 'tawaran' instead of 'penawaran', 'boleh' instead of 'bisa', 'perlu' instead of 'butuh', 'pelanggan' instead of 'nasabah'). IMPORTANT: The generated caption MUST be under 350 characters to ensure the total post length including CTA and hashtags stays strictly under 500 characters."
-                },
-                {
-                    role: "user",
-                    content: `Write a social media post based on these details:
-- Business Type: ${businessType}
-- Product / Service: ${product}
+        
+        let systemPrompt = "You are a professional social media copywriter. You must write an engaging post and return the output strictly in JSON format. Do not return any markdown wrappers, explanation, or other text. IMPORTANT: The generated caption MUST be under 350 characters.";
+        let userPrompt = `Write a social media post based on these details:
+- Topic/Category: ${businessType}
+- Content Focus: ${product}
 - Target Audience: ${targetAudience}
 - Goal: ${goal}
-- Tone of Voice: ${tone}
+- Tone: ${tone}
 - Language: ${language}
 
 Provide the output in a strict JSON format matching this schema:
 {
-  "caption": "write the main post caption here, engaging and optimized for the specified tone",
-  "cta": "write a strong call-to-action",
+  "caption": "write the main post caption here",
+  "cta": "write the call-to-action here",
   "hashtags": ["hashtag1", "hashtag2", "hashtag3"]
-}`
+}`;
+
+        if (tone?.toLowerCase().includes('malay') || language?.toLowerCase().includes('malay')) {
+            systemPrompt += ` CRITICAL MALAYSIAN CONVERSATIONAL RULES:
+1. Write like a real human posting on Threads or Instagram. Do NOT sound like a marketer, corporate bot, or formal translator.
+2. Avoid generic marketing phrases (e.g. do NOT use "Mari mulakan...", "Jangan lepaskan peluang...", "Semoga hari ini membawa keberkatan...").
+3. Use natural Malaysian conversational speech (Bahasa Melayu rojak / colloquial speech). Use local words/contractions naturally: 'je', 'lah', 'tau', 'ni', 'nak', 'korang', 'weyy'.
+4. For Islamic content (selawat/zikir), keep the tone gentle, personal, and friendly—like a close friend giving a gentle reminder.
+5. The Call to Action (cta) must NOT be promotional (e.g. avoid "Klik link di bio"). Instead, write a conversational CTA to get comments/replies, like a question or friendly prompt (e.g. "Korang dah selawat ke hari ni? Jom kongsi kat bawah 👇" or "Salam Jumaat korang. Dah bersedia untuk solat?").`;
+        }
+
+        const response = await this.ai.run(this.model, {
+            messages: [
+                {
+                    role: "system",
+                    content: systemPrompt
+                },
+                {
+                    role: "user",
+                    content: userPrompt
                 }
             ]
         });

@@ -8,19 +8,38 @@ export class OpenAIProvider extends AIProvider {
     }
 
     async generateCaption({ businessType, product, targetAudience, goal, tone, language }) {
-        const prompt = `You are a professional social media marketing expert in Malaysia.
-Write a high-converting, engaging social media post based on the following details:
-- Business Type: ${businessType}
-- Product / Service: ${product}
+        let prompt = `You are a social media copywriter.
+Write a highly engaging social media post based on these details:
+- Topic/Category: ${businessType}
+- Content Focus: ${product}
 - Target Audience: ${targetAudience}
 - Goal: ${goal}
-- Tone of Voice: ${tone}
+- Tone: ${tone}
 - Language: ${language}
 
-Provide the output in a strict JSON format with the following keys. Return ONLY the JSON object, with no markdown code blocks, explanations, or additional text:
+IMPORTANT length limit: The generated caption must be under 350 characters.
+
+`;
+
+        if (tone?.toLowerCase().includes('malay') || language?.toLowerCase().includes('malay')) {
+            prompt += `CRITICAL MALAYSIAN CONVERSATIONAL RULES:
+1. Write like a real human posting on Threads or Instagram. Do NOT sound like a marketer, corporate bot, or formal translator.
+2. Avoid generic marketing phrases (e.g. do NOT use "Mari mulakan...", "Jangan lepaskan peluang...", "Semoga hari ini membawa keberkatan...").
+3. Use natural Malaysian conversational speech (Bahasa Melayu rojak / colloquial speech). Use local words/contractions naturally: 'je', 'lah', 'tau', 'ni', 'nak', 'korang', 'weyy'.
+4. For Islamic content (selawat/zikir), keep the tone gentle, personal, and friendly—like a close friend giving a gentle reminder.
+5. The Call to Action (cta) must NOT be promotional (e.g. avoid "Klik link di bio"). Instead, write a conversational CTA to get comments/replies, like a question or friendly prompt (e.g. "Korang dah selawat ke hari ni? Jom kongsi kat bawah 👇" or "Salam Jumaat korang. Dah bersedia untuk solat?").
+`;
+        } else {
+            prompt += `GUIDELINES:
+1. Write in a natural, human tone matching the specified tone of voice.
+2. The CTA should be highly engaging and relevant to the post's goal.
+`;
+        }
+
+        prompt += `\nProvide the output in a strict JSON format with the following keys. Return ONLY the JSON object, with no markdown code blocks, explanations, or additional text:
 {
-  "caption": "write the main post caption here, engaging and optimized for the specified tone",
-  "cta": "write a strong call-to-action",
+  "caption": "write the main post caption here",
+  "cta": "write the call-to-action here",
   "hashtags": ["hashtag1", "hashtag2", "hashtag3"]
 }`;
 

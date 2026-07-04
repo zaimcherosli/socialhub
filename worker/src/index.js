@@ -2956,6 +2956,120 @@ CRITICAL TONE RULES:
                         return new Response(JSON.stringify({ success: false, message: err.message }), { status: 500, headers: corsHeaders });
                     }
                 }
+                // ==================== ANALYTICS API ====================
+
+                case '/api/analytics': {
+                    const user = await getAuthUser();
+                    if (!user) return new Response(JSON.stringify({ message: 'Unauthorized session' }), { status: 401, headers: corsHeaders });
+                    if (!env.DB) return new Response(JSON.stringify({ message: 'Database missing' }), { status: 500, headers: corsHeaders });
+
+                    const activeWorkspace = await getActiveWorkspace(user);
+                    if (!activeWorkspace) return new Response(JSON.stringify({ message: 'No active workspace found' }), { status: 404, headers: corsHeaders });
+
+                    try {
+                        const days = parseInt(url.searchParams.get('days') || '30');
+                        const since = new Date(Date.now() - days * 24 * 60 * 60 * 1000).toISOString();
+                        const wsId = activeWorkspace.workspace_id;
+
+                        // ── 1. Summary totals ──
+                        const totals = await env.DB.prepare(
+                            `SELECT
+                                COUNT(*) as total_posts,
+                                COALESCE(SUM(views_count), 0) as total_views,
+                                COALESCE(SUM(likes_count), 0) as total_likes,
+                                COALESCE(SUM(replies_count), 0) as total_replies,
+                                COALESCE(SUM(reposts_count), 0) as total_reposts,
+                                COALESCE(SUM(quotes_count), 0) as total_quotes,
+                                COALESCE(SUM(reach_count), 0) as total_reach
+                             FROM scheduled_posts
+                             WHERE workspace_id = ? AND status = 'published' AND published_at >= ?`
+                        ).bind(wsId, since).first();
+
+                        // Engagement rate = (likes + replies + reposts + quotes) / reach * 100
+                        const engagements = (totals.total_likes + totals.total_replies + totals.total_reposts + totals.total_quotes);
+                        const engagementRate = totals.total_reach > 0
+                            ? ((engagements / totals.total_reach) * 100).toFixed(2)
+                            : '0.00';
+
+                        // ── 2. Previous period for delta comparison ──
+                        const prevSince = new Date(Date.now() - days * 2 * 24 * 60 * 60 * 1000).toISOString();
+                        const prevTotals = await env.DB.prepare(
+                            `SELECT
+                                COALESCE(SUM(views_count), 0) as total_views,
+                                COALESCE(SUM(reach_count), 0) as total_reach,
+                                COALESCE(SUM(likes_count + replies_count + reposts_count + quotes_count), 0) as total_engagements
+                             FROM scheduled_posts
+                             WHERE workspace_id = ? AND status = 'published' AND published_at >= ? AND published_at < ?`
+                        ).bind(wsId, prevSince, since).first();
+
+                        // ── 3. Daily views + reach breakdown (for chart) ──
+                        const daily = await env.DB.prepare(
+                            `SELECT
+                                DATE(published_at) as day,
+                                COALESCE(SUM(views_count), 0) as views,
+                                COALESCE(SUM(reach_count), 0) as reach,
+                                COALESCE(SUM(likes_count), 0) as likes,
+                                COALESCE(SUM(replies_count + reposts_count + quotes_count), 0) as other_engagements,
+                                COUNT(*) as posts_count
+                             FROM scheduled_posts
+                             WHERE workspace_id = ? AND status = 'published' AND published_at >= ?
+                             GROUP BY DATE(published_at)
+                             ORDER BY day ASC`
+                        ).bind(wsId, since).all();
+
+                        // ── 4. Top posts by engagement score ──
+                        const topPosts = await env.DB.prepare(
+                            `SELECT id, content, published_at, platform,
+                                views_count, likes_count, replies_count, reposts_count, quotes_count, reach_count,
+                                (likes_count + replies_count * 2 + reposts_count + quotes_count) as engagement_score
+                             FROM scheduled_posts
+                             WHERE workspace_id = ? AND status = 'published' AND views_count > 0
+                             ORDER BY engagement_score DESC
+                             LIMIT 10`
+                        ).bind(wsId).all();
+
+                        // ── 5. Follower growth trend ──
+                        const followerHistory = await env.DB.prepare(
+                            `SELECT DATE(recorded_at) as day, MAX(followers_count) as followers
+                             FROM workspace_analytics
+                             WHERE workspace_id = ? AND recorded_at >= ?
+                             GROUP BY DATE(recorded_at)
+                             ORDER BY day ASC`
+                        ).bind(wsId, since).all();
+
+                        // Latest follower count
+                        const latestFollowers = await env.DB.prepare(
+                            `SELECT followers_count FROM workspace_analytics
+                             WHERE workspace_id = ? ORDER BY recorded_at DESC LIMIT 1`
+                        ).bind(wsId).first().catch(() => null);
+
+                        return new Response(JSON.stringify({
+                            success: true,
+                            period_days: days,
+                            summary: {
+                                total_posts: totals.total_posts || 0,
+                                total_views: totals.total_views || 0,
+                                total_reach: totals.total_reach || 0,
+                                total_likes: totals.total_likes || 0,
+                                total_replies: totals.total_replies || 0,
+                                total_reposts: totals.total_reposts || 0,
+                                total_quotes: totals.total_quotes || 0,
+                                engagement_rate: engagementRate,
+                                followers_count: latestFollowers?.followers_count || 0,
+                                prev_views: prevTotals?.total_views || 0,
+                                prev_reach: prevTotals?.total_reach || 0,
+                                prev_engagements: prevTotals?.total_engagements || 0,
+                            },
+                            daily: daily.results || [],
+                            top_posts: topPosts.results || [],
+                            follower_history: followerHistory.results || [],
+                        }), { status: 200, headers: corsHeaders });
+
+                    } catch (err) {
+                        console.error('[Analytics] Error:', err.message);
+                        return new Response(JSON.stringify({ success: false, message: err.message }), { status: 500, headers: corsHeaders });
+                    }
+                }
 
                 // ==================== MEDIA LIBRARY REST API ====================
 

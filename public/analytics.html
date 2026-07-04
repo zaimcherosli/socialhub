@@ -4,12 +4,10 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Analytics | SocialHub - Platform Scheduler</title>
-    
-    <!-- Meta tags for SEO -->
-    <meta name="description" content="Review growth statistics, post performance metrics, and connected account analysis logs for SocialHub.">
+    <meta name="description" content="Track your Threads post performance — views, reach, engagement rate, top posts, and follower growth over time.">
     <meta name="author" content="SocialHub Team">
 
-    <!-- Auth Route Guard: redirects to login.html instantly if user not authenticated -->
+    <!-- Auth Route Guard -->
     <script type="module">
         import { sessionService } from './js/services/sessionService.js';
         sessionService.requireAuth();
@@ -19,174 +17,777 @@
     <link rel="stylesheet" href="css/variables.css">
     <link rel="stylesheet" href="css/layout.css">
     <link rel="stylesheet" href="css/components.css">
+
+    <!-- Chart.js CDN -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.3/dist/chart.umd.min.js"></script>
+
     <style>
-        .analytics-chart-mock {
-            height: 200px;
-            width: 100%;
-            background: linear-gradient(180deg, var(--color-primary-light) 0%, transparent 100%);
-            border-radius: var(--radius-sm);
-            margin-top: 1rem;
+        /* ── Analytics Layout ── */
+        .analytics-period-tabs {
+            display: flex;
+            gap: 0.5rem;
+            background: var(--color-bg-secondary);
+            padding: 0.25rem;
+            border-radius: var(--radius-md);
+        }
+        .period-tab {
+            padding: 0.4rem 1rem;
+            border-radius: calc(var(--radius-md) - 2px);
+            border: none;
+            background: transparent;
+            color: var(--color-text-secondary);
+            font-size: 0.8rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.2s ease;
+        }
+        .period-tab.active {
+            background: var(--color-bg-card);
+            color: var(--color-primary);
+            box-shadow: 0 1px 4px rgba(0,0,0,0.1);
+        }
+        .period-tab:hover:not(.active) {
+            color: var(--color-text-primary);
+        }
+
+        /* ── KPI Cards ── */
+        .kpi-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(170px, 1fr));
+            gap: 1rem;
+            margin-bottom: 1.5rem;
+        }
+        .kpi-card {
+            background: var(--color-bg-card);
+            border: 1px solid var(--color-border);
+            border-radius: var(--radius-lg);
+            padding: 1.25rem 1.25rem 1rem;
+            display: flex;
+            flex-direction: column;
+            gap: 0.25rem;
+            transition: box-shadow 0.2s;
             position: relative;
             overflow: hidden;
-            display: flex;
-            align-items: flex-end;
-            padding: 0 1rem;
-            gap: 1.5rem;
         }
-
-        .chart-bar-mock {
-            flex: 1;
-            background: var(--color-primary);
-            border-top-left-radius: 4px;
-            border-top-right-radius: 4px;
-            opacity: 0.85;
-            transition: opacity var(--transition-fast);
-            position: relative;
-        }
-
-        .chart-bar-mock:hover {
-            opacity: 1;
-        }
-
-        .chart-bar-mock::before {
-            content: attr(data-value);
+        .kpi-card::before {
+            content: '';
             position: absolute;
-            top: -24px;
-            left: 50%;
-            transform: translateX(-50%);
-            font-size: 10px;
+            top: 0; left: 0; right: 0;
+            height: 3px;
+            background: var(--kpi-color, var(--color-primary));
+            border-radius: var(--radius-lg) var(--radius-lg) 0 0;
+        }
+        .kpi-card:hover { box-shadow: 0 4px 20px rgba(0,0,0,0.08); }
+        .kpi-icon {
+            font-size: 1.3rem;
+            margin-bottom: 0.25rem;
+        }
+        .kpi-label {
+            font-size: 0.72rem;
             font-weight: 600;
+            color: var(--color-text-tertiary);
+            text-transform: uppercase;
+            letter-spacing: 0.04em;
+        }
+        .kpi-value {
+            font-size: 1.75rem;
+            font-weight: 800;
+            font-family: var(--font-heading);
+            color: var(--color-text-primary);
+            line-height: 1.1;
+        }
+        .kpi-delta {
+            font-size: 0.72rem;
+            font-weight: 600;
+            display: flex;
+            align-items: center;
+            gap: 0.2rem;
+            margin-top: 0.15rem;
+        }
+        .kpi-delta.positive { color: #10b981; }
+        .kpi-delta.negative { color: #ef4444; }
+        .kpi-delta.neutral { color: var(--color-text-tertiary); }
+
+        /* ── Charts row ── */
+        .charts-row {
+            display: grid;
+            grid-template-columns: 2fr 1fr;
+            gap: 1.25rem;
+            margin-bottom: 1.5rem;
+        }
+        @media (max-width: 900px) { .charts-row { grid-template-columns: 1fr; } }
+
+        .chart-card {
+            background: var(--color-bg-card);
+            border: 1px solid var(--color-border);
+            border-radius: var(--radius-lg);
+            padding: 1.5rem;
+        }
+        .chart-card-header {
+            display: flex;
+            align-items: flex-start;
+            justify-content: space-between;
+            margin-bottom: 1.25rem;
+        }
+        .chart-card-title {
+            font-size: 0.95rem;
+            font-weight: 700;
+            color: var(--color-text-primary);
+        }
+        .chart-card-subtitle {
+            font-size: 0.75rem;
+            color: var(--color-text-tertiary);
+            margin-top: 0.2rem;
+        }
+        .chart-legend {
+            display: flex;
+            gap: 1rem;
+            flex-wrap: wrap;
+        }
+        .legend-item {
+            display: flex;
+            align-items: center;
+            gap: 0.35rem;
+            font-size: 0.72rem;
             color: var(--color-text-secondary);
+            font-weight: 500;
+        }
+        .legend-dot {
+            width: 8px; height: 8px;
+            border-radius: 50%;
+            flex-shrink: 0;
+        }
+        .chart-wrap {
+            position: relative;
+            height: 220px;
+        }
+
+        /* ── Engagement Breakdown doughnut ── */
+        .doughnut-wrap {
+            position: relative;
+            height: 180px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        .doughnut-center {
+            position: absolute;
+            text-align: center;
+            pointer-events: none;
+        }
+        .doughnut-center-value {
+            font-size: 1.4rem;
+            font-weight: 800;
+            font-family: var(--font-heading);
+            color: var(--color-text-primary);
+        }
+        .doughnut-center-label {
+            font-size: 0.65rem;
+            color: var(--color-text-tertiary);
+            font-weight: 600;
+        }
+        .engagement-breakdown-list {
+            display: flex;
+            flex-direction: column;
+            gap: 0.6rem;
+            margin-top: 1rem;
+        }
+        .breakdown-row {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            font-size: 0.8rem;
+        }
+        .breakdown-label {
+            display: flex;
+            align-items: center;
+            gap: 0.4rem;
+            color: var(--color-text-secondary);
+        }
+        .breakdown-value {
+            font-weight: 700;
+            color: var(--color-text-primary);
+        }
+
+        /* ── Top Posts Table ── */
+        .top-posts-card {
+            background: var(--color-bg-card);
+            border: 1px solid var(--color-border);
+            border-radius: var(--radius-lg);
+            padding: 1.5rem;
+            margin-bottom: 1.5rem;
+        }
+        .top-posts-table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 0.82rem;
+            margin-top: 1rem;
+        }
+        .top-posts-table th {
+            text-align: left;
+            padding: 0.5rem 0.75rem;
+            font-size: 0.7rem;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 0.04em;
+            color: var(--color-text-tertiary);
+            border-bottom: 1px solid var(--color-border);
+        }
+        .top-posts-table td {
+            padding: 0.75rem 0.75rem;
+            border-bottom: 1px solid var(--color-border-light, #f0f0f0);
+            vertical-align: top;
+        }
+        .top-posts-table tr:last-child td { border-bottom: none; }
+        .top-posts-table tr:hover td { background: var(--color-bg-secondary); }
+        .post-content-cell {
+            max-width: 320px;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+            color: var(--color-text-primary);
+            font-weight: 500;
+        }
+        .metric-chip {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.2rem;
+            padding: 0.15rem 0.4rem;
+            border-radius: 99px;
+            font-size: 0.7rem;
+            font-weight: 600;
+            background: var(--color-bg-secondary);
+            color: var(--color-text-secondary);
+        }
+        .engagement-bar-wrap {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+        .engagement-bar {
+            height: 6px;
+            border-radius: 3px;
+            background: linear-gradient(90deg, #6366f1, #8b5cf6);
+            transition: width 0.8s ease;
+        }
+        .engagement-bar-bg {
+            flex: 1;
+            height: 6px;
+            background: var(--color-bg-secondary);
+            border-radius: 3px;
+            overflow: hidden;
+        }
+
+        /* ── Follower Growth full-width card ── */
+        .follower-card {
+            background: var(--color-bg-card);
+            border: 1px solid var(--color-border);
+            border-radius: var(--radius-lg);
+            padding: 1.5rem;
+            margin-bottom: 1.5rem;
+        }
+        .follower-chart-wrap { position: relative; height: 180px; }
+
+        /* ── Empty State ── */
+        .empty-analytics {
+            text-align: center;
+            padding: 3rem 1rem;
+            color: var(--color-text-tertiary);
+        }
+        .empty-analytics-icon { font-size: 3rem; margin-bottom: 0.75rem; }
+        .empty-analytics h3 { font-size: 1rem; font-weight: 700; color: var(--color-text-secondary); margin-bottom: 0.4rem; }
+        .empty-analytics p { font-size: 0.82rem; }
+
+        /* ── Skeleton loader ── */
+        .skeleton {
+            background: linear-gradient(90deg, var(--color-bg-secondary) 25%, var(--color-border) 50%, var(--color-bg-secondary) 75%);
+            background-size: 200% 100%;
+            animation: shimmer 1.4s infinite;
+            border-radius: var(--radius-sm);
+        }
+        @keyframes shimmer { 0% { background-position: 200% 0; } 100% { background-position: -200% 0; } }
+
+        /* ── Responsive ── */
+        @media (max-width: 640px) {
+            .kpi-grid { grid-template-columns: repeat(2, 1fr); }
+            .kpi-value { font-size: 1.4rem; }
+            .top-posts-table { font-size: 0.75rem; }
         }
     </style>
 </head>
 <body>
-
     <div class="app-container">
         <app-sidebar></app-sidebar>
         <app-header></app-header>
+        <app-bottom-nav></app-bottom-nav>
 
         <main class="main-content animated-fade-in">
-            
+
             <!-- Page Header -->
             <div class="page-header">
                 <div class="page-title-section">
-                    <h1 class="page-title">Channel Analytics</h1>
-                    <p class="page-subtitle">Track impressions, engagement, and click-through rates across platforms.</p>
+                    <h1 class="page-title">Analytics</h1>
+                    <p class="page-subtitle">Threads post performance, engagement metrics & follower growth.</p>
                 </div>
                 <div class="page-actions">
-                    <button class="btn btn-secondary">
-                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                            <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M7 10l5 5 5-5M12 15V3"/>
-                        </svg>
-                        Export CSV
-                    </button>
-                    <select class="form-select" style="width: 160px; padding: 0.5rem 0.75rem;">
-                        <option>Last 7 Days</option>
-                        <option selected>Last 30 Days</option>
-                        <option>Last 90 Days</option>
-                    </select>
+                    <div class="analytics-period-tabs" id="periodTabs">
+                        <button class="period-tab" data-days="7">7D</button>
+                        <button class="period-tab active" data-days="30">30D</button>
+                        <button class="period-tab" data-days="90">90D</button>
+                    </div>
                 </div>
             </div>
 
-            <!-- Summary metrics -->
-            <div class="dashboard-metrics-grid">
-                
-                <!-- Stat 1 -->
-                <div class="card">
-                    <span class="card-subtitle">Total Reach</span>
-                    <h2 class="card-title" style="font-size: 2rem; font-weight: 700; margin-top: 0.5rem; font-family: var(--font-heading);">45,280</h2>
-                    <span style="font-size: 0.75rem; color: var(--color-success); font-weight: 600; display: inline-flex; align-items: center; gap: 0.25rem; margin-top: 0.25rem;">
-                        ↑ 12.4% <span style="color: var(--color-text-tertiary); font-weight: 400;">vs last month</span>
-                    </span>
+            <!-- KPI Summary Cards -->
+            <div class="kpi-grid" id="kpiGrid">
+                <!-- Skeleton loading state -->
+                <div class="kpi-card" style="--kpi-color: #6366f1;">
+                    <div class="skeleton" style="height:20px; width:60%; margin-bottom:0.5rem;"></div>
+                    <div class="skeleton" style="height:36px; width:80%;"></div>
                 </div>
-
-                <!-- Stat 2 -->
-                <div class="card">
-                    <span class="card-subtitle">Engagement Rate</span>
-                    <h2 class="card-title" style="font-size: 2rem; font-weight: 700; margin-top: 0.5rem; font-family: var(--font-heading);">4.82%</h2>
-                    <span style="font-size: 0.75rem; color: var(--color-success); font-weight: 600; display: inline-flex; align-items: center; gap: 0.25rem; margin-top: 0.25rem;">
-                        ↑ 0.35% <span style="color: var(--color-text-tertiary); font-weight: 400;">vs last month</span>
-                    </span>
+                <div class="kpi-card" style="--kpi-color: #0ea5e9;">
+                    <div class="skeleton" style="height:20px; width:60%; margin-bottom:0.5rem;"></div>
+                    <div class="skeleton" style="height:36px; width:80%;"></div>
                 </div>
-
-                <!-- Stat 3 -->
-                <div class="card">
-                    <span class="card-subtitle">Link Clicks</span>
-                    <h2 class="card-title" style="font-size: 2rem; font-weight: 700; margin-top: 0.5rem; font-family: var(--font-heading);">2,891</h2>
-                    <span style="font-size: 0.75rem; color: var(--color-warning); font-weight: 600; display: inline-flex; align-items: center; gap: 0.25rem; margin-top: 0.25rem;">
-                        ↓ 1.2% <span style="color: var(--color-text-tertiary); font-weight: 400;">vs last month</span>
-                    </span>
+                <div class="kpi-card" style="--kpi-color: #10b981;">
+                    <div class="skeleton" style="height:20px; width:60%; margin-bottom:0.5rem;"></div>
+                    <div class="skeleton" style="height:36px; width:80%;"></div>
                 </div>
-
-                <!-- Stat 4 -->
-                <div class="card">
-                    <span class="card-subtitle">Net Followers</span>
-                    <h2 class="card-title" style="font-size: 2rem; font-weight: 700; margin-top: 0.5rem; font-family: var(--font-heading);">+942</h2>
-                    <span style="font-size: 0.75rem; color: var(--color-success); font-weight: 600; display: inline-flex; align-items: center; gap: 0.25rem; margin-top: 0.25rem;">
-                        ↑ 8.1% <span style="color: var(--color-text-tertiary); font-weight: 400;">vs last month</span>
-                    </span>
+                <div class="kpi-card" style="--kpi-color: #f59e0b;">
+                    <div class="skeleton" style="height:20px; width:60%; margin-bottom:0.5rem;"></div>
+                    <div class="skeleton" style="height:36px; width:80%;"></div>
                 </div>
-
-            </div>
-
-            <!-- Visual Chart card -->
-            <div class="card" style="padding: 1.75rem;">
-                <h3 class="card-title">Audience Impressions</h3>
-                <p class="card-subtitle">Daily impressions breakdown across LinkedIn and Twitter.</p>
-                
-                <!-- Mock Graph bar columns -->
-                <div class="analytics-chart-mock">
-                    <div class="chart-bar-mock" style="height: 35%;" data-value="1.2k"></div>
-                    <div class="chart-bar-mock" style="height: 48%;" data-value="1.8k"></div>
-                    <div class="chart-bar-mock" style="height: 65%;" data-value="2.5k"></div>
-                    <div class="chart-bar-mock" style="height: 52%;" data-value="2.0k"></div>
-                    <div class="chart-bar-mock" style="height: 80%;" data-value="3.2k"></div>
-                    <div class="chart-bar-mock" style="height: 72%;" data-value="2.8k"></div>
-                    <div class="chart-bar-mock" style="height: 95%;" data-value="4.1k"></div>
+                <div class="kpi-card" style="--kpi-color: #ec4899;">
+                    <div class="skeleton" style="height:20px; width:60%; margin-bottom:0.5rem;"></div>
+                    <div class="skeleton" style="height:36px; width:80%;"></div>
                 </div>
             </div>
 
-            <!-- Performance Table details -->
-            <div class="card" style="padding: 1.75rem;">
-                <h3 class="card-title">Top Performing Posts</h3>
-                <p class="card-subtitle" style="margin-bottom: 1.25rem;">Sort and filter published posts based on conversion metrics.</p>
-                
-                <div class="table-container">
-                    <table class="table">
-                        <thead>
-                            <tr>
-                                <th>Post Content</th>
-                                <th>Channel</th>
-                                <th>Impressions</th>
-                                <th>Clicks</th>
-                                <th>Engagement</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            <tr>
-                                <td style="font-weight: 500;">Announcing our new features for SocialHub! 🚀</td>
-                                <td><span class="platform-pill linkedin" style="font-size: 10px; padding: 0.15rem 0.4rem;">LI</span></td>
-                                <td>14,250</td>
-                                <td>482</td>
-                                <td>5.8%</td>
-                            </tr>
-                            <tr>
-                                <td style="font-weight: 500;">Why Serverless is the future of SaaS pipelines... ⚡</td>
-                                <td><span class="platform-pill twitter" style="font-size: 10px; padding: 0.15rem 0.4rem;">X</span></td>
-                                <td>8,420</td>
-                                <td>304</td>
-                                <td>4.2%</td>
-                            </tr>
-                        </tbody>
-                    </table>
+            <!-- Charts Row: Views/Reach line + Engagement doughnut -->
+            <div class="charts-row">
+                <!-- Views & Reach Over Time -->
+                <div class="chart-card">
+                    <div class="chart-card-header">
+                        <div>
+                            <div class="chart-card-title">Views & Reach Over Time</div>
+                            <div class="chart-card-subtitle">Daily breakdown across all published posts</div>
+                        </div>
+                        <div class="chart-legend">
+                            <div class="legend-item"><div class="legend-dot" style="background:#6366f1;"></div>Views</div>
+                            <div class="legend-item"><div class="legend-dot" style="background:#0ea5e9;"></div>Reach</div>
+                        </div>
+                    </div>
+                    <div class="chart-wrap">
+                        <canvas id="chartViewsReach"></canvas>
+                    </div>
+                </div>
+
+                <!-- Engagement Breakdown doughnut -->
+                <div class="chart-card">
+                    <div class="chart-card-header">
+                        <div>
+                            <div class="chart-card-title">Engagement Breakdown</div>
+                            <div class="chart-card-subtitle">Likes · Replies · Reposts · Quotes</div>
+                        </div>
+                    </div>
+                    <div class="doughnut-wrap">
+                        <canvas id="chartEngagement"></canvas>
+                        <div class="doughnut-center">
+                            <div class="doughnut-center-value" id="engagementRateCenter">—</div>
+                            <div class="doughnut-center-label">Eng. Rate</div>
+                        </div>
+                    </div>
+                    <div class="engagement-breakdown-list" id="engagementBreakdownList">
+                        <!-- populated by JS -->
+                    </div>
+                </div>
+            </div>
+
+            <!-- Follower Growth Chart -->
+            <div class="follower-card">
+                <div class="chart-card-header">
+                    <div>
+                        <div class="chart-card-title">Follower Growth</div>
+                        <div class="chart-card-subtitle">Daily snapshot of connected Threads account followers</div>
+                    </div>
+                    <div class="chart-legend">
+                        <div class="legend-item"><div class="legend-dot" style="background:#10b981;"></div>Followers</div>
+                    </div>
+                </div>
+                <div class="follower-chart-wrap">
+                    <canvas id="chartFollowers"></canvas>
+                </div>
+            </div>
+
+            <!-- Top Posts Table -->
+            <div class="top-posts-card">
+                <div class="chart-card-header" style="margin-bottom:0;">
+                    <div>
+                        <div class="chart-card-title">🏆 Top Performing Posts</div>
+                        <div class="chart-card-subtitle">Ranked by engagement score (likes + replies×2 + reposts + quotes)</div>
+                    </div>
+                </div>
+                <div id="topPostsTableWrap">
+                    <!-- populated by JS -->
                 </div>
             </div>
 
         </main>
     </div>
 
-    <!-- ES Module Javascript Boilerplate -->
+    <!-- App Bootstrap -->
     <script type="module" src="js/app.js"></script>
+
+    <script type="module">
+        import { analyticsService } from './js/services/analyticsService.js';
+
+        // ── State ──
+        let currentDays = 30;
+        let chartViewsReach = null;
+        let chartEngagement = null;
+        let chartFollowers = null;
+
+        // ── Helpers ──
+        const fmt = (n) => n >= 1000000 ? (n/1000000).toFixed(1)+'M' : n >= 1000 ? (n/1000).toFixed(1)+'K' : String(n||0);
+        const delta = (curr, prev) => {
+            if (!prev || prev === 0) return { pct: null, dir: 'neutral' };
+            const pct = ((curr - prev) / prev * 100).toFixed(1);
+            return { pct, dir: pct >= 0 ? 'positive' : 'negative' };
+        };
+
+        function makeDeltaHtml(curr, prev) {
+            const d = delta(curr, prev);
+            if (d.pct === null) return `<span class="kpi-delta neutral">— no prev data</span>`;
+            const icon = d.dir === 'positive' ? '↑' : '↓';
+            return `<span class="kpi-delta ${d.dir}">${icon} ${Math.abs(d.pct)}% <span style="font-weight:400;color:var(--color-text-tertiary);">vs prev period</span></span>`;
+        }
+
+        function buildKpiCards(summary) {
+            const prevEngagements = summary.prev_engagements || 0;
+            const currEngagements = (summary.total_likes||0) + (summary.total_replies||0) + (summary.total_reposts||0) + (summary.total_quotes||0);
+
+            const cards = [
+                {
+                    icon: '👁️', label: 'Total Views', value: fmt(summary.total_views),
+                    deltaHtml: makeDeltaHtml(summary.total_views, summary.prev_views),
+                    color: '#6366f1'
+                },
+                {
+                    icon: '📡', label: 'Total Reach', value: fmt(summary.total_reach),
+                    deltaHtml: makeDeltaHtml(summary.total_reach, summary.prev_reach),
+                    color: '#0ea5e9'
+                },
+                {
+                    icon: '📊', label: 'Engagement Rate', value: `${summary.engagement_rate}%`,
+                    deltaHtml: makeDeltaHtml(currEngagements, prevEngagements),
+                    color: '#10b981'
+                },
+                {
+                    icon: '👥', label: 'Followers', value: fmt(summary.followers_count),
+                    deltaHtml: `<span class="kpi-delta neutral">Current count</span>`,
+                    color: '#f59e0b'
+                },
+                {
+                    icon: '📝', label: 'Posts Published', value: fmt(summary.total_posts),
+                    deltaHtml: `<span class="kpi-delta neutral">in period</span>`,
+                    color: '#ec4899'
+                }
+            ];
+
+            document.getElementById('kpiGrid').innerHTML = cards.map(c => `
+                <div class="kpi-card" style="--kpi-color:${c.color};">
+                    <div class="kpi-icon">${c.icon}</div>
+                    <div class="kpi-label">${c.label}</div>
+                    <div class="kpi-value">${c.value}</div>
+                    ${c.deltaHtml}
+                </div>
+            `).join('');
+        }
+
+        function getChartDefaults() {
+            const isDark = document.documentElement.getAttribute('data-theme') === 'dark';
+            return {
+                gridColor: isDark ? 'rgba(255,255,255,0.06)' : 'rgba(0,0,0,0.05)',
+                tickColor: isDark ? 'rgba(255,255,255,0.4)' : 'rgba(0,0,0,0.35)',
+                font: { family: 'Inter, system-ui, sans-serif', size: 11 }
+            };
+        }
+
+        function buildViewsReachChart(daily) {
+            const ctx = document.getElementById('chartViewsReach').getContext('2d');
+            const cd = getChartDefaults();
+            const labels = daily.map(d => {
+                const dt = new Date(d.day);
+                return dt.toLocaleDateString('en-MY', { month:'short', day:'numeric' });
+            });
+
+            if (chartViewsReach) chartViewsReach.destroy();
+            chartViewsReach = new Chart(ctx, {
+                type: 'line',
+                data: {
+                    labels,
+                    datasets: [
+                        {
+                            label: 'Views',
+                            data: daily.map(d => d.views),
+                            borderColor: '#6366f1',
+                            backgroundColor: 'rgba(99,102,241,0.08)',
+                            borderWidth: 2,
+                            pointRadius: 3,
+                            pointHoverRadius: 5,
+                            fill: true,
+                            tension: 0.4
+                        },
+                        {
+                            label: 'Reach',
+                            data: daily.map(d => d.reach),
+                            borderColor: '#0ea5e9',
+                            backgroundColor: 'rgba(14,165,233,0.06)',
+                            borderWidth: 2,
+                            pointRadius: 3,
+                            pointHoverRadius: 5,
+                            fill: true,
+                            tension: 0.4
+                        }
+                    ]
+                },
+                options: {
+                    responsive: true, maintainAspectRatio: false,
+                    interaction: { mode: 'index', intersect: false },
+                    plugins: { legend: { display: false } },
+                    scales: {
+                        x: {
+                            grid: { color: cd.gridColor },
+                            ticks: { color: cd.tickColor, font: cd.font, maxTicksLimit: 8 }
+                        },
+                        y: {
+                            grid: { color: cd.gridColor },
+                            ticks: { color: cd.tickColor, font: cd.font, callback: v => fmt(v) }
+                        }
+                    }
+                }
+            });
+        }
+
+        function buildEngagementChart(summary) {
+            const ctx = document.getElementById('chartEngagement').getContext('2d');
+            const likes = summary.total_likes || 0;
+            const replies = summary.total_replies || 0;
+            const reposts = summary.total_reposts || 0;
+            const quotes = summary.total_quotes || 0;
+            const total = likes + replies + reposts + quotes;
+
+            document.getElementById('engagementRateCenter').textContent = `${summary.engagement_rate}%`;
+
+            if (chartEngagement) chartEngagement.destroy();
+
+            if (total === 0) {
+                // No data — show placeholder
+                document.getElementById('chartEngagement').style.opacity = '0.3';
+                chartEngagement = new Chart(ctx, {
+                    type: 'doughnut',
+                    data: {
+                        datasets: [{ data: [1], backgroundColor: ['var(--color-border)'], borderWidth: 0 }]
+                    },
+                    options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false }, tooltip: { enabled: false } }, cutout: '72%' }
+                });
+            } else {
+                document.getElementById('chartEngagement').style.opacity = '1';
+                chartEngagement = new Chart(ctx, {
+                    type: 'doughnut',
+                    data: {
+                        labels: ['Likes', 'Replies', 'Reposts', 'Quotes'],
+                        datasets: [{
+                            data: [likes, replies, reposts, quotes],
+                            backgroundColor: ['#6366f1', '#0ea5e9', '#10b981', '#f59e0b'],
+                            borderWidth: 0,
+                            hoverOffset: 6
+                        }]
+                    },
+                    options: {
+                        responsive: true, maintainAspectRatio: false,
+                        plugins: {
+                            legend: { display: false },
+                            tooltip: {
+                                callbacks: {
+                                    label: (ctx) => ` ${ctx.label}: ${fmt(ctx.raw)} (${total ? ((ctx.raw/total)*100).toFixed(1) : 0}%)`
+                                }
+                            }
+                        },
+                        cutout: '72%'
+                    }
+                });
+            }
+
+            // Breakdown list
+            const breakdown = [
+                { label: 'Likes', icon: '❤️', value: likes, color: '#6366f1' },
+                { label: 'Replies', icon: '💬', value: replies, color: '#0ea5e9' },
+                { label: 'Reposts', icon: '🔁', value: reposts, color: '#10b981' },
+                { label: 'Quotes', icon: '🔖', value: quotes, color: '#f59e0b' },
+            ];
+            document.getElementById('engagementBreakdownList').innerHTML = breakdown.map(b => `
+                <div class="breakdown-row">
+                    <div class="breakdown-label">
+                        <div class="legend-dot" style="background:${b.color};"></div>
+                        ${b.icon} ${b.label}
+                    </div>
+                    <div class="breakdown-value">${fmt(b.value)}</div>
+                </div>
+            `).join('');
+        }
+
+        function buildFollowerChart(followerHistory) {
+            const ctx = document.getElementById('chartFollowers').getContext('2d');
+            const cd = getChartDefaults();
+            const labels = followerHistory.map(d => {
+                const dt = new Date(d.day);
+                return dt.toLocaleDateString('en-MY', { month:'short', day:'numeric' });
+            });
+
+            if (chartFollowers) chartFollowers.destroy();
+
+            if (!followerHistory.length) {
+                document.getElementById('chartFollowers').style.opacity = '0';
+                return;
+            }
+
+            chartFollowers = new Chart(ctx, {
+                type: 'line',
+                data: {
+                    labels,
+                    datasets: [{
+                        label: 'Followers',
+                        data: followerHistory.map(d => d.followers),
+                        borderColor: '#10b981',
+                        backgroundColor: 'rgba(16,185,129,0.08)',
+                        borderWidth: 2.5,
+                        pointRadius: 3,
+                        pointHoverRadius: 5,
+                        fill: true,
+                        tension: 0.4
+                    }]
+                },
+                options: {
+                    responsive: true, maintainAspectRatio: false,
+                    plugins: { legend: { display: false } },
+                    scales: {
+                        x: {
+                            grid: { color: cd.gridColor },
+                            ticks: { color: cd.tickColor, font: cd.font, maxTicksLimit: 8 }
+                        },
+                        y: {
+                            grid: { color: cd.gridColor },
+                            ticks: { color: cd.tickColor, font: cd.font, callback: v => fmt(v) }
+                        }
+                    }
+                }
+            });
+        }
+
+        function buildTopPostsTable(topPosts) {
+            const wrap = document.getElementById('topPostsTableWrap');
+            if (!topPosts.length) {
+                wrap.innerHTML = `
+                    <div class="empty-analytics">
+                        <div class="empty-analytics-icon">📭</div>
+                        <h3>No published posts yet</h3>
+                        <p>Start publishing Threads posts to see performance data here.</p>
+                    </div>`;
+                return;
+            }
+
+            const maxScore = Math.max(...topPosts.map(p => p.engagement_score || 0), 1);
+
+            wrap.innerHTML = `
+                <table class="top-posts-table">
+                    <thead>
+                        <tr>
+                            <th>#</th>
+                            <th>Post</th>
+                            <th>Date</th>
+                            <th>👁️ Views</th>
+                            <th>📡 Reach</th>
+                            <th>❤️ Likes</th>
+                            <th>💬 Replies</th>
+                            <th>🔁 Reposts</th>
+                            <th>🔖 Quotes</th>
+                            <th>Engagement</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        ${topPosts.map((post, i) => {
+                            const barPct = maxScore > 0 ? Math.round((post.engagement_score / maxScore) * 100) : 0;
+                            const date = new Date(post.published_at).toLocaleDateString('en-MY', { day:'numeric', month:'short' });
+                            const preview = (post.content || '—').replace(/\n/g, ' ').substring(0, 80) + ((post.content||'').length > 80 ? '…' : '');
+                            return `
+                                <tr>
+                                    <td style="color:var(--color-text-tertiary);font-weight:700;width:32px;">${i+1}</td>
+                                    <td class="post-content-cell" title="${(post.content||'').replace(/"/g,'&quot;')}">${preview || '—'}</td>
+                                    <td style="color:var(--color-text-tertiary);white-space:nowrap;">${date}</td>
+                                    <td><span class="metric-chip">👁️ ${fmt(post.views_count)}</span></td>
+                                    <td><span class="metric-chip">📡 ${fmt(post.reach_count)}</span></td>
+                                    <td>${fmt(post.likes_count)}</td>
+                                    <td>${fmt(post.replies_count)}</td>
+                                    <td>${fmt(post.reposts_count)}</td>
+                                    <td>${fmt(post.quotes_count)}</td>
+                                    <td>
+                                        <div class="engagement-bar-wrap">
+                                            <div class="engagement-bar-bg">
+                                                <div class="engagement-bar" style="width:${barPct}%;"></div>
+                                            </div>
+                                            <span style="font-size:0.7rem;font-weight:700;color:var(--color-primary);min-width:24px;">${fmt(post.engagement_score)}</span>
+                                        </div>
+                                    </td>
+                                </tr>
+                            `;
+                        }).join('')}
+                    </tbody>
+                </table>`;
+        }
+
+        async function loadAnalytics(days = 30) {
+            // Show skeleton
+            document.getElementById('kpiGrid').innerHTML = Array(5).fill(`
+                <div class="kpi-card">
+                    <div class="skeleton" style="height:16px;width:50%;margin-bottom:0.5rem;"></div>
+                    <div class="skeleton" style="height:34px;width:70%;margin-bottom:0.35rem;"></div>
+                    <div class="skeleton" style="height:12px;width:60%;"></div>
+                </div>`).join('');
+
+            try {
+                const data = await analyticsService.getAnalytics(days);
+                if (!data.success) throw new Error(data.message || 'Failed to load analytics');
+
+                buildKpiCards(data.summary);
+                buildViewsReachChart(data.daily);
+                buildEngagementChart(data.summary);
+                buildFollowerChart(data.follower_history);
+                buildTopPostsTable(data.top_posts);
+
+            } catch (err) {
+                document.getElementById('kpiGrid').innerHTML = `
+                    <div class="kpi-card" style="grid-column:1/-1;">
+                        <div style="color:var(--color-danger);font-size:0.85rem;padding:0.5rem 0;">
+                            ⚠️ Failed to load analytics: ${err.message}
+                        </div>
+                    </div>`;
+                console.error('[Analytics] Load error:', err);
+            }
+        }
+
+        // ── Period tab click handler ──
+        document.getElementById('periodTabs').addEventListener('click', (e) => {
+            const btn = e.target.closest('.period-tab');
+            if (!btn) return;
+            document.querySelectorAll('.period-tab').forEach(t => t.classList.remove('active'));
+            btn.classList.add('active');
+            currentDays = parseInt(btn.dataset.days);
+            loadAnalytics(currentDays);
+        });
+
+        // ── Initial load ──
+        loadAnalytics(30);
+    </script>
 </body>
 </html>

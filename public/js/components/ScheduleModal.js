@@ -163,6 +163,24 @@ class ScheduleModal extends HTMLElement {
         const overlay = this.querySelector('#scheduleModalWrapper');
         if (overlay) overlay.style.display = 'none';
     }
+
+    setRecommendedTime(hours, minutes) {
+        const timeInput = this.querySelector('#modalScheduleTime');
+        if (!timeInput) return;
+        
+        const target = new Date();
+        // Set to tomorrow at hours:minutes
+        target.setDate(target.getDate() + 1);
+        target.setHours(hours, minutes, 0, 0);
+        
+        const pad = (n) => String(n).padStart(2, '0');
+        const yyyy = target.getFullYear();
+        const mm = pad(target.getMonth() + 1);
+        const dd = pad(target.getDate());
+        const hh = pad(target.getHours());
+        const min = pad(target.getMinutes());
+        timeInput.value = `${yyyy}-${mm}-${dd}T${hh}:${min}`;
+    }
 }
 
 customElements.define('schedule-modal', ScheduleModal);

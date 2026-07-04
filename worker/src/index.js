@@ -784,9 +784,31 @@ export default {
                     }
 
                     try {
-                        const { businessType, product, targetAudience, goal, tone, language } = await request.json();
-                        if (!businessType || !product) {
-                            return new Response(JSON.stringify({ message: 'Business type and product/service are required.' }), { status: 400, headers: corsHeaders });
+                        let { businessType, product, targetAudience, goal, tone, language, presetType, customNote } = await request.json();
+
+                        if (presetType && presetType !== 'default') {
+                            language = 'Malay';
+                            tone = 'Ultra-Realistic Malay';
+                            targetAudience = 'Malaysian Threads users';
+                            goal = 'Engagement / Conversation';
+
+                            if (presetType === 'morning_greeting') {
+                                businessType = 'Casual Greeting';
+                                product = `Generate a very casual and short Malaysian morning greeting (e.g. "Assalamualaikum, selamat pagi. Dah bangun ke tu? Dah bersedia untuk Subuh/Tahajud?"). Keep it under 150 characters, mix English/Malay naturally (Bahasa Rojak). Do NOT use AI-like generic greetings. No emojis in the first line. ${customNote ? 'Additional topic/note: ' + customNote : ''}`;
+                            } else if (presetType === 'selawat') {
+                                businessType = 'Religious Remembrance';
+                                product = `Write a short, heart-touching Islamic reminder, selawat, or zikir for Malaysian Muslims on Threads. E.g. "Salam Jumaat korang. Banyakkan selawat hari ni...". Keep it gentle, simple, and under 200 characters. ${customNote ? 'Additional topic/note: ' + customNote : ''}`;
+                            } else if (presetType === 'engagement') {
+                                businessType = 'Conversation Starter';
+                                product = `Write a casual, funny, or thought-provoking random check-in question to spark replies and conversations on Threads. E.g. "Pagi-pagi ni korang sarapan apa?", "Korang team mandi pagi ke mandi sebelum tidur?". Keep it short and under 150 characters. ${customNote ? 'Additional topic/note: ' + customNote : ''}`;
+                            } else if (presetType === 'motivasi') {
+                                businessType = 'Inspirational Quote';
+                                product = `Write a short, powerful morning motivational quote or positive energy statement in Malaysian Malay. Keep it under 150 characters. ${customNote ? 'Additional topic/note: ' + customNote : ''}`;
+                            }
+                        } else {
+                            if (!businessType || !product) {
+                                return new Response(JSON.stringify({ message: 'Business type and product/service are required.' }), { status: 400, headers: corsHeaders });
+                            }
                         }
 
                         // Build env-like object overriding with workspace preferences
@@ -823,7 +845,7 @@ export default {
                             language: language || 'Bahasa Melayu'
                         });
 
-                        await logActivity(activeWorkspace.workspace_id, user.id, 'ai_generate', `Generated caption for business "${businessType}": ${product.substring(0, 30)}...`);
+                        await logActivity(activeWorkspace.workspace_id, user.id, 'ai_generate', `Generated caption for business "${businessType}": ${(product || '').substring(0, 30)}...`);
 
                         return new Response(JSON.stringify({
                             success: true,

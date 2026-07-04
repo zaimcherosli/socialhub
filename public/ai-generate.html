@@ -112,6 +112,35 @@
                 gap: 0.5rem !important;
             }
         }
+        /* Preset Chips */
+        .preset-chip {
+            padding: 0.4rem 0.85rem;
+            font-size: 0.75rem;
+            font-weight: 500;
+            border-radius: 20px;
+            border: 1px solid var(--color-border);
+            background: var(--color-bg-card);
+            color: var(--color-text-secondary);
+            cursor: pointer;
+            transition: all var(--transition-fast) ease;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            outline: none;
+        }
+
+        .preset-chip:hover {
+            border-color: var(--color-primary-light);
+            color: var(--color-primary);
+            background: rgba(59, 130, 246, 0.04);
+        }
+
+        .preset-chip.active {
+            border-color: var(--color-primary);
+            background: rgba(59, 130, 246, 0.12);
+            color: var(--color-primary);
+            font-weight: 600;
+        }
     </style>
 </head>
 <body>
@@ -177,39 +206,60 @@
                     </div>
                     
                     <form id="aiGenerateForm" onsubmit="event.preventDefault();">
-                        <div class="form-group" style="margin-bottom: 1rem;">
-                            <label class="form-label" for="businessType">Business / Brand Type</label>
-                            <select id="businessType" class="form-select" style="width: 100%;">
-                                <option value="E-Commerce Store">E-Commerce Store</option>
-                                <option value="SaaS Startup">SaaS / Tech Startup</option>
-                                <option value="Local Café / Restaurant">Local Café / Restaurant</option>
-                                <option value="Digital Agency">Digital Marketing Agency</option>
-                                <option value="Consulting / Coach">Health & Wellness / Coach</option>
-                                <option value="Creative Studio">Creative Studio</option>
-                                <option value="Other">Other (Custom)</option>
-                            </select>
-                            <input type="text" id="customBusinessType" class="form-input" placeholder="Enter your business type..." style="width: 100%; margin-top: 0.5rem; display: none;" />
+                        <!-- Preset Topic Selection Chips -->
+                        <div class="form-group" style="margin-bottom: 1.25rem;">
+                            <label class="form-label" style="margin-bottom: 0.5rem; display: block;">Mod / Topik Preset</label>
+                            <div class="preset-chips" style="display: flex; flex-wrap: wrap; gap: 0.5rem;">
+                                <button type="button" class="preset-chip active" data-preset="default">📝 Produk / Bisnes</button>
+                                <button type="button" class="preset-chip" data-preset="morning_greeting">🌅 Salam Pagi</button>
+                                <button type="button" class="preset-chip" data-preset="selawat">📿 Selawat & Zikir</button>
+                                <button type="button" class="preset-chip" data-preset="engagement">💬 Sembang Santai</button>
+                                <button type="button" class="preset-chip" data-preset="motivasi">💪 Motivasi Pagi</button>
+                            </div>
                         </div>
 
-                        <div class="form-group" style="margin-bottom: 1rem;">
-                            <label class="form-label" for="productService">Product or Service Description</label>
-                            <textarea id="productService" class="form-input" rows="3" placeholder="What are you promoting? e.g. SocialHub scheduler helps small business owners save 10 hours a week..." style="width: 100%; resize: vertical;" required></textarea>
+                        <!-- Simplify Custom Note input, hidden by default -->
+                        <div class="form-group" id="presetCustomNoteGroup" style="margin-bottom: 1rem; display: none;">
+                            <label class="form-label" for="presetCustomNote">Nota Tambahan / Topik (Opsional)</label>
+                            <textarea id="presetCustomNote" class="form-input" rows="3" placeholder="Masukkan nota tambahan (e.g. hari jumaat, cuaca hujan, cuti umum, dll) jika ada..." style="width: 100%; resize: vertical;"></textarea>
                         </div>
 
-                        <div class="form-group" style="margin-bottom: 1rem;">
-                            <label class="form-label" for="targetAudience">Target Audience</label>
-                            <input type="text" id="targetAudience" class="form-input" placeholder="e.g. busy founders, marketing managers" style="width: 100%;" />
-                        </div>
+                        <!-- Default Product/Business Fields -->
+                        <div id="defaultSinglePostFields">
+                            <div class="form-group" style="margin-bottom: 1rem;">
+                                <label class="form-label" for="businessType">Business / Brand Type</label>
+                                <select id="businessType" class="form-select" style="width: 100%;">
+                                    <option value="E-Commerce Store">E-Commerce Store</option>
+                                    <option value="SaaS Startup">SaaS / Tech Startup</option>
+                                    <option value="Local Café / Restaurant">Local Café / Restaurant</option>
+                                    <option value="Digital Agency">Digital Marketing Agency</option>
+                                    <option value="Consulting / Coach">Health & Wellness / Coach</option>
+                                    <option value="Creative Studio">Creative Studio</option>
+                                    <option value="Other">Other (Custom)</option>
+                                </select>
+                                <input type="text" id="customBusinessType" class="form-input" placeholder="Enter your business type..." style="width: 100%; margin-top: 0.5rem; display: none;" />
+                            </div>
 
-                        <div class="form-group" style="margin-bottom: 1rem;">
-                            <label class="form-label" for="goal">Campaign Goal</label>
-                            <select id="goal" class="form-select" style="width: 100%;">
-                                <option value="Brand Awareness">Brand Awareness</option>
-                                <option value="Lead Generation">Lead Generation</option>
-                                <option value="Engagement / Conversation">Engagement / Conversation</option>
-                                <option value="Product Launch / Promo">Product Launch / Promo</option>
-                                <option value="Educational / Informative">Educational / Informative</option>
-                            </select>
+                            <div class="form-group" style="margin-bottom: 1rem;">
+                                <label class="form-label" for="productService">Product or Service Description</label>
+                                <textarea id="productService" class="form-input" rows="3" placeholder="What are you promoting? e.g. SocialHub scheduler helps small business owners save 10 hours a week..." style="width: 100%; resize: vertical;"></textarea>
+                            </div>
+
+                            <div class="form-group" style="margin-bottom: 1rem;">
+                                <label class="form-label" for="targetAudience">Target Audience</label>
+                                <input type="text" id="targetAudience" class="form-input" placeholder="e.g. busy founders, marketing managers" style="width: 100%;" />
+                            </div>
+
+                            <div class="form-group" style="margin-bottom: 1rem;">
+                                <label class="form-label" for="goal">Campaign Goal</label>
+                                <select id="goal" class="form-select" style="width: 100%;">
+                                    <option value="Brand Awareness">Brand Awareness</option>
+                                    <option value="Lead Generation">Lead Generation</option>
+                                    <option value="Engagement / Conversation">Engagement / Conversation</option>
+                                    <option value="Product Launch / Promo">Product Launch / Promo</option>
+                                    <option value="Educational / Informative">Educational / Informative</option>
+                                </select>
+                            </div>
                         </div>
 
                         <div class="form-group" style="margin-bottom: 1rem;">
@@ -474,6 +524,36 @@
         import { publishService } from './js/services/publishService.js';
         import { notificationService } from './js/services/notificationService.js';
 
+        // Preset Selection Logic
+        let activePreset = 'default';
+        const presetChips = document.querySelectorAll('.preset-chip');
+        const defaultFields = document.getElementById('defaultSinglePostFields');
+        const customNoteGroup = document.getElementById('presetCustomNoteGroup');
+        const txtCustomNote = document.getElementById('presetCustomNote');
+
+        presetChips.forEach(chip => {
+            chip.addEventListener('click', () => {
+                presetChips.forEach(c => c.classList.remove('active'));
+                chip.classList.add('active');
+                activePreset = chip.dataset.preset;
+
+                if (activePreset === 'default') {
+                    defaultFields.style.display = 'block';
+                    customNoteGroup.style.display = 'none';
+                    txtProduct.required = true;
+                } else {
+                    defaultFields.style.display = 'none';
+                    customNoteGroup.style.display = 'block';
+                    txtProduct.required = false;
+
+                    // Automatically switch Tone of Voice to Ultra-Realistic Malay
+                    selectTone.value = 'Ultra-Realistic Malay';
+                    // Automatically switch Output Language to Malay
+                    selectLang.value = 'Malay';
+                }
+            });
+        });
+
         // Toggle custom business type display
         const selectBusinessType = document.getElementById('businessType');
         const customBusinessInput = document.getElementById('customBusinessType');
@@ -507,16 +587,16 @@
         const outHashtags = document.getElementById('previewHashtags');
 
         btnGenerate.addEventListener('click', async () => {
-            if (!txtProduct.value.trim()) {
+            if (activePreset === 'default' && !txtProduct.value.trim()) {
                 alert('Please describe your product or service.');
                 return;
             }
 
-            const businessVal = selectBusinessType.value === 'Other' 
-                ? customBusinessInput.value.trim() 
-                : selectBusinessType.value;
+            const businessVal = activePreset === 'default' 
+                ? (selectBusinessType.value === 'Other' ? customBusinessInput.value.trim() : selectBusinessType.value)
+                : 'Preset: ' + activePreset;
 
-            if (!businessVal) {
+            if (activePreset === 'default' && !businessVal) {
                 alert('Please provide a business type.');
                 return;
             }
@@ -526,10 +606,12 @@
 
             try {
                 const response = await apiClient.post('/ai/generate', {
-                    businessType: businessVal,
-                    product: txtProduct.value.trim(),
-                    targetAudience: txtAudience.value.trim() || undefined,
-                    goal: selectGoal.value,
+                    presetType: activePreset,
+                    customNote: activePreset !== 'default' ? txtCustomNote.value.trim() : undefined,
+                    businessType: activePreset === 'default' ? businessVal : undefined,
+                    product: activePreset === 'default' ? txtProduct.value.trim() : undefined,
+                    targetAudience: activePreset === 'default' ? (txtAudience.value.trim() || undefined) : undefined,
+                    goal: activePreset === 'default' ? selectGoal.value : undefined,
                     tone: selectTone.value,
                     language: selectLang.value
                 });
@@ -538,7 +620,9 @@
                     const data = response.result;
                     
                     // Populate outputs
-                    outTitle.value = `${businessVal} - Generated Post`;
+                    outTitle.value = activePreset === 'default' 
+                        ? `${businessVal} - Generated Post`
+                        : `${activePreset.replace('_', ' ').toUpperCase()} - Generated Post`;
                     outCaption.value = data.caption || '';
                     outCTA.value = data.cta || '';
                     
@@ -700,6 +784,13 @@
         document.getElementById('btnAIPlanSchedule').addEventListener('click', () => {
             const payload = getPayloadData();
             if (!validatePayload(payload)) return;
+
+            if (activePreset === 'morning_greeting') {
+                modal.setRecommendedTime(4, 30);
+            } else if (activePreset === 'selawat' || activePreset === 'engagement' || activePreset === 'motivasi') {
+                modal.setRecommendedTime(5, 0);
+            }
+
             modal.show();
         });
 

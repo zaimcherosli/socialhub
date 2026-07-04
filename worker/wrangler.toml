@@ -5,7 +5,7 @@ compatibility_date = "2026-06-29"
 
 # Variables/Bindings
 [vars]
-ENVIRONMENT = "development"
+ENVIRONMENT = "production"
 THREADS_CLIENT_ID = "952901221088471"
 FRONTEND_ORIGIN = "https://socialhub.zaimrosli.my"
 OPENROUTER_MODEL = "@cf/meta/llama-3.2-3b-instruct"

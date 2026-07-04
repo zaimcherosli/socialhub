@@ -588,7 +588,7 @@
                         </div>
                         <div class="chart-legend">
                             <div class="legend-item"><div class="legend-dot" style="background:#6366f1;"></div>Views</div>
-                            <div class="legend-item"><div class="legend-dot" style="background:#0ea5e9;"></div>Reach</div>
+                            <div class="legend-item"><div class="legend-dot" style="background:#ec4899;"></div>Shares</div>
                         </div>
                     </div>
                     <div class="chart-wrap">
@@ -696,10 +696,10 @@
 
         // ── KPI Cards ──
         function buildKpiCards(s) {
-            const currEng = (s.total_likes||0) + (s.total_replies||0) + (s.total_reposts||0) + (s.total_quotes||0);
+            const currEng = (s.total_likes||0) + (s.total_replies||0) + (s.total_reposts||0) + (s.total_quotes||0) + (s.total_shares||0);
             const cards = [
                 { icon: '👁️', label: 'Views',       value: fmt(s.total_views),      delta: fmtDelta(s.total_views, s.prev_views),       color: '#6366f1' },
-                { icon: '📡', label: 'Reach',        value: fmt(s.total_reach),      delta: fmtDelta(s.total_reach, s.prev_reach),        color: '#0ea5e9' },
+                { icon: '🔗', label: 'Shares',       value: fmt(s.total_shares),      delta: fmtDelta(s.total_shares, s.prev_shares),        color: '#0ea5e9' },
                 { icon: '📊', label: 'Eng. Rate',    value: `${s.engagement_rate}%`, delta: fmtDelta(currEng, s.prev_engagements),        color: '#10b981' },
                 { icon: '👥', label: 'Followers',    value: fmt(s.followers_count),  delta: `<span class="kpi-delta neutral">Semasa</span>`, color: '#f59e0b' },
                 { icon: '📝', label: 'Posts',        value: fmt(s.total_posts),      delta: `<span class="kpi-delta neutral">Dalam tempoh</span>`, color: '#ec4899' },
@@ -738,7 +738,7 @@
                     labels,
                     datasets: [
                         { label: 'Views', data: daily.map(d => d.views), borderColor: '#6366f1', backgroundColor: 'rgba(99,102,241,0.07)', borderWidth: 2, pointRadius: window.innerWidth < 480 ? 0 : 3, pointHoverRadius: 4, fill: true, tension: 0.4 },
-                        { label: 'Reach', data: daily.map(d => d.reach), borderColor: '#0ea5e9', backgroundColor: 'rgba(14,165,233,0.05)', borderWidth: 2, pointRadius: window.innerWidth < 480 ? 0 : 3, pointHoverRadius: 4, fill: true, tension: 0.4 }
+                        { label: 'Shares', data: daily.map(d => d.shares || 0), borderColor: '#ec4899', backgroundColor: 'rgba(236,72,153,0.05)', borderWidth: 2, pointRadius: window.innerWidth < 480 ? 0 : 3, pointHoverRadius: 4, fill: true, tension: 0.4 }
                     ]
                 },
                 options: {
@@ -787,6 +787,7 @@
                 { label: 'Replies', icon: '💬', value: replies,  color: '#0ea5e9' },
                 { label: 'Reposts', icon: '🔁', value: reposts,  color: '#10b981' },
                 { label: 'Quotes',  icon: '🔖', value: quotes,   color: '#f59e0b' },
+                { label: 'Shares',  icon: '🔗', value: s.total_shares || 0, color: '#ec4899' },
             ];
             const maxVal = Math.max(...items.map(i => i.value), 1);
             document.getElementById('engagementBreakdownList').innerHTML = items.map(b => `
@@ -893,11 +894,11 @@
                             <th>Post</th>
                             <th>Tarikh</th>
                             <th>👁️ Views</th>
-                            <th>📡 Reach</th>
                             <th>❤️ Likes</th>
                             <th>💬 Replies</th>
                             <th>🔁 Reposts</th>
                             <th>🔖 Quotes</th>
+                            <th>🔗 Shares</th>
                             <th>Skor</th>
                         </tr>
                     </thead>
@@ -911,11 +912,11 @@
                                 <td class="post-content-cell" title="${(p.content||'').replace(/"/g,'&quot;')}">${preview}</td>
                                 <td style="color:var(--color-text-tertiary);white-space:nowrap;font-size:0.72rem;">${date}</td>
                                 <td><span class="metric-chip">👁️ ${fmt(p.views_count)}</span></td>
-                                <td><span class="metric-chip">📡 ${fmt(p.reach_count)}</span></td>
                                 <td>${fmt(p.likes_count)}</td>
                                 <td>${fmt(p.replies_count)}</td>
                                 <td>${fmt(p.reposts_count)}</td>
                                 <td>${fmt(p.quotes_count)}</td>
+                                <td>${fmt(p.shares_count)}</td>
                                 <td>
                                     <div style="display:flex;align-items:center;gap:0.4rem;">
                                         <div class="engagement-bar-bg" style="min-width:50px;">

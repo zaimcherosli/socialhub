@@ -1,4 +1,4 @@
-const CACHE_NAME = 'socialhub-cache-v45';
+const CACHE_NAME = 'socialhub-cache-v46';
 const ASSETS_TO_CACHE = [
   '/',
   '/dashboard.html',
@@ -43,8 +43,6 @@ const OFFLINE_PAGE_HTML = `
             box-shadow: 0 10px 25px rgba(0,0,0,0.05);
             max-width: 400px;
         }
-        h1 { font-size: 1.5rem; margin-bottom: 0.5rem; }
-        p { color: #6b7280; font-size: 0.875rem; margin-bottom: 1.5rem; }
         .btn {
             background: #2563eb;
             color: white;

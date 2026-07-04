@@ -566,6 +566,7 @@ export default {
             // Ensure new insights columns exist in scheduled_posts
             try { await env.DB.prepare("ALTER TABLE scheduled_posts ADD COLUMN quotes_count INTEGER DEFAULT 0").run(); } catch (_) {}
             try { await env.DB.prepare("ALTER TABLE scheduled_posts ADD COLUMN reach_count INTEGER DEFAULT 0").run(); } catch (_) {}
+            try { await env.DB.prepare("ALTER TABLE scheduled_posts ADD COLUMN shares_count INTEGER DEFAULT 0").run(); } catch (_) {}
             // Ensure workspace_analytics table exists for follower growth tracking
             try {
                 await env.DB.prepare(`CREATE TABLE IF NOT EXISTS workspace_analytics (
@@ -2834,7 +2835,7 @@ CRITICAL TONE RULES:
                                     let replies = 0;
                                     let reposts = 0;
                                     let quotes = 0;
-                                    let reach = 0;
+                                    let shares = 0;
 
                                     if (decryptedAccessToken.includes('mock-threads-token') || env.ENVIRONMENT === 'development') {
                                         const hoursSincePublish = (Date.now() - new Date(post.published_at).getTime()) / (3600 * 1000);
@@ -2844,9 +2845,11 @@ CRITICAL TONE RULES:
                                         replies = Math.floor(likes * (0.05 + Math.random() * 0.1));
                                         reposts = Math.floor(likes * (0.02 + Math.random() * 0.05));
                                         quotes = Math.floor(likes * (0.01 + Math.random() * 0.03));
-                                        reach = Math.floor(views * (0.6 + Math.random() * 0.3));
+                                        shares = Math.floor(likes * (0.03 + Math.random() * 0.05));
                                     } else {
-                                        const insightsUrl = `https://graph.threads.net/v1.0/${post.external_post_id}/insights?metric=views,likes,replies,reposts,quotes,reach&access_token=${decryptedAccessToken}`;
+                                        // Threads API supported metrics: views, likes, replies, reposts, quotes, shares
+                                        // NOTE: 'reach' is NOT a valid Threads API metric — use 'views' for impression data
+                                        const insightsUrl = `https://graph.threads.net/v1.0/${post.external_post_id}/insights?metric=views,likes,replies,reposts,quotes,shares&access_token=${decryptedAccessToken}`;
                                         const insightsRes = await fetch(insightsUrl);
                                         if (insightsRes.ok) {
                                             const data = await insightsRes.json();
@@ -2856,18 +2859,18 @@ CRITICAL TONE RULES:
                                                 replies = data.data.find(m => m.name === 'replies')?.values?.[0]?.value || 0;
                                                 reposts = data.data.find(m => m.name === 'reposts')?.values?.[0]?.value || 0;
                                                 quotes = data.data.find(m => m.name === 'quotes')?.values?.[0]?.value || 0;
-                                                reach = data.data.find(m => m.name === 'reach')?.values?.[0]?.value || 0;
+                                                shares = data.data.find(m => m.name === 'shares')?.values?.[0]?.value || 0;
                                             }
                                         }
                                     }
 
                                     await env.DB.prepare(
                                         `UPDATE scheduled_posts 
-                                         SET views_count = ?, likes_count = ?, replies_count = ?, reposts_count = ?, quotes_count = ?, reach_count = ?, last_insights_sync = ?, updated_at = (datetime('now'))
+                                         SET views_count = ?, likes_count = ?, replies_count = ?, reposts_count = ?, quotes_count = ?, shares_count = ?, last_insights_sync = ?, updated_at = (datetime('now'))
                                          WHERE id = ?`
-                                    ).bind(views, likes, replies, reposts, quotes, reach, new Date().toISOString(), post.id).run();
+                                    ).bind(views, likes, replies, reposts, quotes, shares, new Date().toISOString(), post.id).run();
 
-                                    console.log(`[CronSync] Synced insights for post ID ${post.id}: views=${views}, likes=${likes}, quotes=${quotes}, reach=${reach}`);
+                                    console.log(`[CronSync] Synced insights for post ID ${post.id}: views=${views}, likes=${likes}, reposts=${reposts}, quotes=${quotes}, shares=${shares}`);
 
                                     // Check if there are any child posts waiting for trigger from this parent
                                     const nextChild = await env.DB.prepare(
@@ -2980,15 +2983,15 @@ CRITICAL TONE RULES:
                                 COALESCE(SUM(replies_count), 0) as total_replies,
                                 COALESCE(SUM(reposts_count), 0) as total_reposts,
                                 COALESCE(SUM(quotes_count), 0) as total_quotes,
-                                COALESCE(SUM(reach_count), 0) as total_reach
+                                COALESCE(SUM(shares_count), 0) as total_shares
                              FROM scheduled_posts
                              WHERE workspace_id = ? AND status = 'published' AND published_at >= ?`
                         ).bind(wsId, since).first();
 
-                        // Engagement rate = (likes + replies + reposts + quotes) / reach * 100
-                        const engagements = (totals.total_likes + totals.total_replies + totals.total_reposts + totals.total_quotes);
-                        const engagementRate = totals.total_reach > 0
-                            ? ((engagements / totals.total_reach) * 100).toFixed(2)
+                        // Engagement rate = (likes + replies + reposts + quotes + shares) / views * 100
+                        const engagements = (totals.total_likes + totals.total_replies + totals.total_reposts + totals.total_quotes + totals.total_shares);
+                        const engagementRate = totals.total_views > 0
+                            ? ((engagements / totals.total_views) * 100).toFixed(2)
                             : '0.00';
 
                         // ── 2. Previous period for delta comparison ──
@@ -2996,18 +2999,18 @@ CRITICAL TONE RULES:
                         const prevTotals = await env.DB.prepare(
                             `SELECT
                                 COALESCE(SUM(views_count), 0) as total_views,
-                                COALESCE(SUM(reach_count), 0) as total_reach,
+                                COALESCE(SUM(shares_count), 0) as total_shares,
                                 COALESCE(SUM(likes_count + replies_count + reposts_count + quotes_count), 0) as total_engagements
                              FROM scheduled_posts
                              WHERE workspace_id = ? AND status = 'published' AND published_at >= ? AND published_at < ?`
                         ).bind(wsId, prevSince, since).first();
 
-                        // ── 3. Daily views + reach breakdown (for chart) ──
+                        // ── 3. Daily views + shares breakdown (for chart) ──
                         const daily = await env.DB.prepare(
                             `SELECT
                                 DATE(published_at) as day,
                                 COALESCE(SUM(views_count), 0) as views,
-                                COALESCE(SUM(reach_count), 0) as reach,
+                                COALESCE(SUM(shares_count), 0) as shares,
                                 COALESCE(SUM(likes_count), 0) as likes,
                                 COALESCE(SUM(replies_count + reposts_count + quotes_count), 0) as other_engagements,
                                 COUNT(*) as posts_count
@@ -3020,8 +3023,8 @@ CRITICAL TONE RULES:
                         // ── 4. Top posts by engagement score ──
                         const topPosts = await env.DB.prepare(
                             `SELECT id, content, published_at, platform,
-                                views_count, likes_count, replies_count, reposts_count, quotes_count, reach_count,
-                                (likes_count + replies_count * 2 + reposts_count + quotes_count) as engagement_score
+                                views_count, likes_count, replies_count, reposts_count, quotes_count, shares_count,
+                                (likes_count + replies_count * 2 + reposts_count + quotes_count + shares_count) as engagement_score
                              FROM scheduled_posts
                              WHERE workspace_id = ? AND status = 'published' AND views_count > 0
                              ORDER BY engagement_score DESC
@@ -3049,7 +3052,7 @@ CRITICAL TONE RULES:
                             summary: {
                                 total_posts: totals.total_posts || 0,
                                 total_views: totals.total_views || 0,
-                                total_reach: totals.total_reach || 0,
+                                total_shares: totals.total_shares || 0,
                                 total_likes: totals.total_likes || 0,
                                 total_replies: totals.total_replies || 0,
                                 total_reposts: totals.total_reposts || 0,
@@ -3057,7 +3060,7 @@ CRITICAL TONE RULES:
                                 engagement_rate: engagementRate,
                                 followers_count: latestFollowers?.followers_count || 0,
                                 prev_views: prevTotals?.total_views || 0,
-                                prev_reach: prevTotals?.total_reach || 0,
+                                prev_shares: prevTotals?.total_shares || 0,
                                 prev_engagements: prevTotals?.total_engagements || 0,
                             },
                             daily: daily.results || [],

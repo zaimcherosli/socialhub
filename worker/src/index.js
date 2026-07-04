@@ -925,7 +925,12 @@ export default {
                     }
 
                     try {
-                        let { businessType, product, targetAudience, goal, tone, language, presetType, customNote } = await request.json();
+                        let { businessType, product, targetAudience, goal, tone, language, presetType, customNote, localTimeContext } = await request.json();
+
+                        let timeGuide = "";
+                        if (localTimeContext) {
+                            timeGuide = `\n[CRITICAL TIME-AWARENESS CONTEXT: The user's current local day and time is: ${localTimeContext}. Use this to make the post highly context-aware. If it is Friday (Jumaat), greet with "Salam Jumaat" or talk about Jumaat blessings/reminders. If it is evening or night (e.g. 7:00 PM - 11:00 PM), greet with Salam Maghrib/Isyak or Salam Malam, or mention evening zikir/reflections. If it is late night or early morning (e.g. 2:00 AM - 5:00 AM), talk about Tahajjud, Qiyamullail, or early morning zikir. If it is morning (e.g. 6:00 AM - 11:00 AM), say good morning or greet with morning energy. Do NOT state the time explicitly (e.g. do NOT say "pada jam 7.30 malam..."), but write content relevant to that time naturally.]\n`;
+                        }
 
                         if (presetType && presetType !== 'default') {
                             language = 'Malay';
@@ -935,20 +940,26 @@ export default {
 
                             if (presetType === 'morning_greeting') {
                                 businessType = 'Casual Greeting';
-                                product = `Generate a very casual and short Malaysian morning greeting (e.g. "Assalamualaikum, selamat pagi. Dah bangun ke tu? Dah bersedia untuk Subuh/Tahajud?"). Keep it under 150 characters, mix English/Malay naturally (Bahasa Rojak). Do NOT use AI-like generic greetings. No emojis in the first line. ${customNote ? 'Additional topic/note: ' + customNote : ''}`;
+                                product = `Generate a very casual and short Malaysian morning greeting (e.g. "Assalamualaikum, selamat pagi. Dah bangun ke tu? Dah bersedia untuk Subuh/Tahajud?"). Keep it under 150 characters, mix English/Malay naturally (Bahasa Rojak). Do NOT use AI-like generic greetings. No emojis in the first line. ${customNote ? 'Additional topic/note: ' + customNote : ''}` + timeGuide;
                             } else if (presetType === 'selawat') {
                                 businessType = 'Religious Remembrance';
-                                product = `Write a short, heart-touching Islamic reminder, selawat, or zikir for Malaysian Muslims on Threads. E.g. "Salam Jumaat korang. Banyakkan selawat hari ni...". Keep it gentle, simple, and under 200 characters. ${customNote ? 'Additional topic/note: ' + customNote : ''}`;
+                                product = `Write a short, heart-touching Islamic reminder, selawat, or zikir for Malaysian Muslims on Threads. E.g. "Salam Jumaat korang. Banyakkan selawat hari ni...". Keep it gentle, simple, and under 200 characters. ${customNote ? 'Additional topic/note: ' + customNote : ''}` + timeGuide;
+                            } else if (presetType === 'islamic_quote') {
+                                businessType = 'Islamic Quote';
+                                product = `Write an inspiring, gentle, and peaceful Islamic quote or motivational reminder for Malaysian Muslims. Keep it authentic, simple, and under 200 characters. ${customNote ? 'Additional topic/note: ' + customNote : ''}` + timeGuide;
                             } else if (presetType === 'engagement') {
                                 businessType = 'Conversation Starter';
-                                product = `Write a casual, funny, or thought-provoking random check-in question to spark replies and conversations on Threads. E.g. "Pagi-pagi ni korang sarapan apa?", "Korang team mandi pagi ke mandi sebelum tidur?". Keep it short and under 150 characters. ${customNote ? 'Additional topic/note: ' + customNote : ''}`;
+                                product = `Write a casual, funny, or thought-provoking random check-in question to spark replies and conversations on Threads. E.g. "Pagi-pagi ni korang sarapan apa?", "Korang team mandi pagi ke mandi sebelum tidur?". Keep it short and under 150 characters. ${customNote ? 'Additional topic/note: ' + customNote : ''}` + timeGuide;
                             } else if (presetType === 'motivasi') {
                                 businessType = 'Inspirational Quote';
-                                product = `Write a short, powerful morning motivational quote or positive energy statement in Malaysian Malay. Keep it under 150 characters. ${customNote ? 'Additional topic/note: ' + customNote : ''}`;
+                                product = `Write a short, powerful morning motivational quote or positive energy statement in Malaysian Malay. Keep it under 150 characters. ${customNote ? 'Additional topic/note: ' + customNote : ''}` + timeGuide;
                             }
                         } else {
                             if (!businessType || !product) {
                                 return new Response(JSON.stringify({ message: 'Business type and product/service are required.' }), { status: 400, headers: corsHeaders });
+                            }
+                            if (timeGuide) {
+                                product += timeGuide;
                             }
                         }
 

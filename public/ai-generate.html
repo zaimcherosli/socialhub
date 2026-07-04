@@ -213,8 +213,9 @@
                                 <button type="button" class="preset-chip active" data-preset="default">📝 Produk / Bisnes</button>
                                 <button type="button" class="preset-chip" data-preset="morning_greeting">🌅 Salam Pagi</button>
                                 <button type="button" class="preset-chip" data-preset="selawat">📿 Selawat & Zikir</button>
+                                <button type="button" class="preset-chip" data-preset="islamic_quote">🕌 Quote Islam</button>
                                 <button type="button" class="preset-chip" data-preset="engagement">💬 Sembang Santai</button>
-                                <button type="button" class="preset-chip" data-preset="motivasi">💪 Motivasi Pagi</button>
+                                <button type="button" class="preset-chip" data-preset="motivasi">💪 Quote Motivasi</button>
                             </div>
                         </div>
 
@@ -605,6 +606,12 @@
             spinner.style.display = 'inline-block';
 
             try {
+                const daysMs = ['Ahad', 'Isnin', 'Selasa', 'Rabu', 'Khamis', 'Jumaat', 'Sabtu'];
+                const now = new Date();
+                const localDayName = daysMs[now.getDay()];
+                const localTimeStr = now.toLocaleTimeString('ms-MY', { hour: '2-digit', minute: '2-digit', hour12: true });
+                const localTimeContext = `${localDayName}, ${localTimeStr}`;
+
                 const response = await apiClient.post('/ai/generate', {
                     presetType: activePreset,
                     customNote: activePreset !== 'default' ? txtCustomNote.value.trim() : undefined,
@@ -613,7 +620,8 @@
                     targetAudience: activePreset === 'default' ? (txtAudience.value.trim() || undefined) : undefined,
                     goal: activePreset === 'default' ? selectGoal.value : undefined,
                     tone: selectTone.value,
-                    language: selectLang.value
+                    language: selectLang.value,
+                    localTimeContext: localTimeContext
                 });
 
                 if (response.success && response.result) {

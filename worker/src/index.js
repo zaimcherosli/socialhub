@@ -727,6 +727,18 @@ export default {
                     last_used_at TEXT
                 )`).run();
             } catch (_) {}
+
+            // Ensure agent_chat_history table exists for in-app chat agent
+            try {
+                await env.DB.prepare(`CREATE TABLE IF NOT EXISTS agent_chat_history (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    workspace_id INTEGER NOT NULL REFERENCES workspaces(id) ON DELETE CASCADE,
+                    user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+                    sender TEXT CHECK(sender IN ('user', 'agent')) NOT NULL,
+                    message TEXT NOT NULL,
+                    created_at TEXT NOT NULL DEFAULT (datetime('now'))
+                )`).run();
+            } catch (_) {}
         }
 
         if (request.method === 'OPTIONS') {
@@ -2190,6 +2202,129 @@ CRITICAL TONE RULES:
 
                     } catch (e) {
                         return new Response(JSON.stringify({ message: e.message }), { status: 500, headers: corsHeaders });
+                    }
+                }
+
+                case '/api/ai/chat/history': {
+                    const user = await getAuthUser();
+                    if (!user) return new Response(JSON.stringify({ message: 'Unauthorized session' }), { status: 401, headers: corsHeaders });
+                    if (!env.DB) return new Response(JSON.stringify({ message: 'Database missing' }), { status: 500, headers: corsHeaders });
+
+                    const activeWorkspace = await getActiveWorkspace(user);
+                    if (!activeWorkspace) return new Response(JSON.stringify({ message: 'No active workspace found' }), { status: 404, headers: corsHeaders });
+
+                    if (request.method !== 'GET') return new Response(JSON.stringify({ error: 'Method not allowed' }), { status: 405, headers: corsHeaders });
+
+                    const history = await env.DB.prepare(
+                        `SELECT sender, message, created_at FROM agent_chat_history 
+                         WHERE workspace_id = ? 
+                         ORDER BY id ASC LIMIT 50`
+                    ).bind(activeWorkspace.workspace_id).all();
+
+                    return new Response(JSON.stringify({ success: true, history: history.results || [] }), { status: 200, headers: corsHeaders });
+                }
+
+                case '/api/ai/chat/send': {
+                    const user = await getAuthUser();
+                    if (!user) return new Response(JSON.stringify({ message: 'Unauthorized session' }), { status: 401, headers: corsHeaders });
+                    if (!env.DB) return new Response(JSON.stringify({ message: 'Database missing' }), { status: 500, headers: corsHeaders });
+
+                    const activeWorkspace = await getActiveWorkspace(user);
+                    if (!activeWorkspace) return new Response(JSON.stringify({ message: 'No active workspace found' }), { status: 404, headers: corsHeaders });
+
+                    if (request.method !== 'POST') return new Response(JSON.stringify({ error: 'Method not allowed' }), { status: 405, headers: corsHeaders });
+
+                    const { message } = await request.json();
+                    if (!message || !message.trim()) {
+                        return new Response(JSON.stringify({ message: 'Message content is required' }), { status: 400, headers: corsHeaders });
+                    }
+
+                    // Save user message to database
+                    await env.DB.prepare(
+                        `INSERT INTO agent_chat_history (workspace_id, user_id, sender, message) VALUES (?, ?, 'user', ?)`
+                    ).bind(activeWorkspace.workspace_id, user.id, message.trim()).run();
+
+                    // Load last 10 messages for context
+                    const dbHistory = await env.DB.prepare(
+                        `SELECT sender, message FROM agent_chat_history 
+                         WHERE workspace_id = ? 
+                         ORDER BY id DESC LIMIT 10`
+                    ).bind(activeWorkspace.workspace_id).all();
+
+                    // Reverse to chronological order
+                    const conversationHistory = (dbHistory.results || []).reverse();
+
+                    // Retrieve workspace AI model & key preferences
+                    const wsAI = await env.DB.prepare(
+                        "SELECT ai_model, ai_api_key_enc FROM workspaces WHERE id = ?"
+                    ).bind(activeWorkspace.workspace_id).first().catch(() => null);
+
+                    const aiEnv = { ...env };
+                    if (wsAI?.ai_model) {
+                        aiEnv.OPENROUTER_MODEL = wsAI.ai_model;
+                    }
+                    if (wsAI?.ai_api_key_enc) {
+                        try {
+                            const decrypted = await decryptToken(wsAI.ai_api_key_enc, encryptionSecret);
+                            const resolvedKey = decrypted || wsAI.ai_api_key_enc;
+                            const isValidKey = resolvedKey && (resolvedKey.startsWith('sk-') || resolvedKey.startsWith('AIza') || resolvedKey.length > 40);
+                            if (isValidKey) {
+                                aiEnv.OPENROUTER_API_KEY = resolvedKey;
+                                aiEnv.GEMINI_API_KEY = resolvedKey;
+                                aiEnv.OPENAI_API_KEY = resolvedKey;
+                                aiEnv._workspaceKeySet = true;
+                            }
+                        } catch (_) {}
+                    }
+
+                    // Build messages array with system instructions
+                    const systemInstructions = `You are 'SocialHub AI Agent', a helpful, professional, and friendly social media marketing assistant for this workspace. 
+Your role is to help the user draft captions, plan social campaigns, suggest ideas, and organize their schedule.
+Keep your answers clear, conversational, and concise (under 3 paragraphs if possible). 
+
+CRITICAL LANGUAGE / SPEECH RULES:
+1. When communicating in Malay, write in a very natural, friendly Malaysian conversational style (Bahasa Rojak / colloquial speech). E.g. use "je", "lah", "tau", "ni", "nak", "korang", "weyy". 
+2. Do NOT use formal, Google-translate-style Malay. Do NOT sound robotic.
+3. If the user asks for a caption or property post, ensure you follow appropriate niche guidelines (e.g. for properties, must include RM price, no agent phone numbers).`;
+
+                    const messages = [
+                        { role: 'system', content: systemInstructions }
+                    ];
+
+                    // Append historical messages (excluding the last one since we'll append it manually to ensure correct prompt)
+                    const histToAppend = conversationHistory.slice(0, -1);
+                    histToAppend.forEach(h => {
+                        messages.push({
+                            role: h.sender === 'user' ? 'user' : 'assistant',
+                            content: h.message
+                        });
+                    });
+
+                    // Add current prompt
+                    messages.push({ role: 'user', content: message.trim() });
+
+                    try {
+                        const provider = AIFactory.getProvider(aiEnv);
+                        const responseText = await provider.generateChatResponse(messages);
+
+                        // Save agent message to database
+                        await env.DB.prepare(
+                            `INSERT INTO agent_chat_history (workspace_id, user_id, sender, message) VALUES (?, ?, 'agent', ?)`
+                        ).bind(activeWorkspace.workspace_id, user.id, responseText.trim()).run();
+
+                        // Log activity
+                        await logActivity(activeWorkspace.workspace_id, user.id, 'ai_chat', `Chatted with AI Agent: ${message.trim().substring(0, 30)}...`);
+
+                        return new Response(JSON.stringify({ success: true, message: responseText.trim() }), { status: 200, headers: corsHeaders });
+                    } catch (chatError) {
+                        console.error("AI Chat generation failed:", chatError);
+                        const fallbackMsg = `Maaf sangat, ada ralat sambungan dengan model AI (${chatError.message}). Sila cuba sekali lagi sebentar saja.`;
+                        
+                        await env.DB.prepare(
+                            `INSERT INTO agent_chat_history (workspace_id, user_id, sender, message) VALUES (?, ?, 'agent', ?)`
+                        ).bind(activeWorkspace.workspace_id, user.id, fallbackMsg).run();
+
+                        return new Response(JSON.stringify({ success: true, message: fallbackMsg }), { status: 200, headers: corsHeaders });
                     }
                 }
 

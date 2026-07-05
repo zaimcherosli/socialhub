@@ -167,4 +167,45 @@ Provide the output in a strict JSON format with the following keys. Return ONLY 
             };
         }
     }
+
+    async generateChatResponse(messages) {
+        console.log(`[GeminiProvider] Executing chatCompletion with model: ${this.model}`);
+        // Map standard assistant role to model for Gemini
+        const systemMsg = messages.find(m => m.role === 'system');
+        const contents = messages
+            .filter(m => m.role !== 'system')
+            .map(m => ({
+                role: m.role === 'assistant' ? 'model' : 'user',
+                parts: [{ text: m.content }]
+            }));
+
+        const body = { contents };
+        if (systemMsg) {
+            body.systemInstruction = {
+                parts: [{ text: systemMsg.content }]
+            };
+        }
+
+        const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${this.model}:generateContent?key=${this.apiKey}`, {
+            method: "POST",
+            headers: {
+                "Content-Type": "application/json"
+            },
+            body: JSON.stringify(body)
+        });
+
+        if (!response.ok) {
+            const errText = await response.text();
+            throw new Error(`Gemini provider error: ${response.status} - ${errText}`);
+        }
+
+        const data = await response.json();
+        if (!data.candidates || data.candidates.length === 0 || 
+            !data.candidates[0].content || !data.candidates[0].content.parts || 
+            data.candidates[0].content.parts.length === 0) {
+            throw new Error("Invalid API response format from Gemini.");
+        }
+        return data.candidates[0].content.parts[0].text;
+    }
 }
+

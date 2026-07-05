@@ -20,4 +20,14 @@ export class AIProvider {
     async generateThreadStorm(options) {
         throw new Error("generateThreadStorm must be implemented by subclasses");
     }
+
+    /**
+     * Generate chat responses based on chat history.
+     * @param {object[]} messages Array of messages { role, content }
+     * @returns {Promise<string>} Plain text response
+     */
+    async generateChatResponse(messages) {
+        throw new Error("generateChatResponse must be implemented by subclasses");
+    }
 }
+

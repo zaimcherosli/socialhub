@@ -232,4 +232,16 @@ Provide the output in a strict JSON format with the following keys. Return ONLY 
             };
         }
     }
+
+    async generateChatResponse(messages) {
+        console.log(`[CloudflareAIProvider] Executing chatCompletion with model: ${this.model}`);
+        const res = await this.ai.run(this.model, { messages });
+        if (typeof res === 'string') return res;
+        if (res.response) return res.response;
+        if (res.choices && res.choices[0] && res.choices[0].message) {
+            return res.choices[0].message.content;
+        }
+        throw new Error("Invalid Cloudflare AI response");
+    }
 }
+

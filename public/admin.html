@@ -218,6 +218,7 @@
                 <button class="tab-btn" data-tab="users">User Control</button>
                 <button class="tab-btn" data-tab="workspaces">Workspaces</button>
                 <button class="tab-btn" data-tab="logs">Audit Logs</button>
+                <button class="tab-btn" data-tab="niche">Niche Copywriting</button>
             </div>
 
             <!-- TAB 1: OVERVIEW -->
@@ -328,6 +329,30 @@
                 </div>
             </div>
 
+            <!-- TAB 5: NICHE COPYWRITING -->
+            <div class="admin-section" id="sec-niche">
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem;">
+                    <h3 style="margin: 0; font-size: 1.1rem; font-weight: 700;">Niche Copywriting Guidelines</h3>
+                    <button class="btn btn-primary" id="btn-add-niche" style="font-size: 0.8rem; padding: 0.5rem 1rem;">+ Add New Niche</button>
+                </div>
+                <div class="admin-table-container">
+                    <table class="admin-table">
+                        <thead>
+                            <tr>
+                                <th>Niche Key</th>
+                                <th>Name</th>
+                                <th>Detection Keywords</th>
+                                <th>Rules Count</th>
+                                <th>Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody id="table-niche-body">
+                            <tr><td colspan="5" style="text-align: center;">Loading niche rules...</td></tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
         </main>
     </div>
 
@@ -347,6 +372,39 @@
                 <div style="display: flex; justify-content: flex-end; gap: 0.5rem; margin-top: 0.5rem;">
                     <button type="button" class="btn btn-secondary" id="btn-cancel-reset-modal">Cancel</button>
                     <button type="submit" class="btn btn-primary">Save Password</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- MODAL: ADD/EDIT NICHE -->
+    <div class="admin-modal" id="niche-modal">
+        <div class="admin-modal-card" style="max-width: 600px;">
+            <div style="display: flex; justify-content: space-between; align-items: center;">
+                <h3 style="margin: 0; font-size: 1.1rem; font-weight: 700;" id="niche-modal-title">Add Niche Copywriting Rule</h3>
+                <button class="header-action-btn" id="btn-close-niche-modal" style="background: none; border: none; cursor: pointer; color: var(--color-text-tertiary); font-size: 1.5rem; line-height: 1;">&times;</button>
+            </div>
+            <form id="niche-form" style="display: flex; flex-direction: column; gap: 1rem;">
+                <input type="hidden" id="niche-id">
+                <div>
+                    <label style="display: block; font-size: 0.85rem; font-weight: 600; margin-bottom: 0.25rem;">Niche Key (Unique identifier, lowercased, e.g. "hartanah")</label>
+                    <input type="text" class="search-input" id="niche-key" placeholder="e.g. hartanah" required style="width: 100%; box-sizing: border-box;">
+                </div>
+                <div>
+                    <label style="display: block; font-size: 0.85rem; font-weight: 600; margin-bottom: 0.25rem;">Niche Display Name</label>
+                    <input type="text" class="search-input" id="niche-name" placeholder="e.g. Ejen Hartanah & Properti" required style="width: 100%; box-sizing: border-box;">
+                </div>
+                <div>
+                    <label style="display: block; font-size: 0.85rem; font-weight: 600; margin-bottom: 0.25rem;">Detection Keywords (Comma separated list)</label>
+                    <textarea class="search-input" id="niche-keywords" placeholder="e.g. rumah, apartment, condo, tanah" required style="width: 100%; height: 60px; box-sizing: border-box; font-family: inherit; resize: vertical;"></textarea>
+                </div>
+                <div>
+                    <label style="display: block; font-size: 0.85rem; font-weight: 600; margin-bottom: 0.25rem;">Copywriting Rules (One rule per line)</label>
+                    <textarea class="search-input" id="niche-rules" placeholder="e.g. Include price in copywriting&#10;Do not mention agent phone numbers" required style="width: 100%; height: 100px; box-sizing: border-box; font-family: inherit; resize: vertical;"></textarea>
+                </div>
+                <div style="display: flex; justify-content: flex-end; gap: 0.5rem; margin-top: 0.5rem;">
+                    <button type="button" class="btn btn-secondary" id="btn-cancel-niche-modal">Cancel</button>
+                    <button type="submit" class="btn btn-primary">Save Niche Rule</button>
                 </div>
             </form>
         </div>
@@ -394,6 +452,7 @@
                 if (targetTab === 'users') loadUsers();
                 if (targetTab === 'workspaces') loadWorkspaces();
                 if (targetTab === 'logs') loadLogs();
+                if (targetTab === 'niche') loadNicheRules();
             });
         });
 
@@ -643,6 +702,152 @@
                 tbody.innerHTML = `<tr><td colspan="5" style="text-align: center; color: var(--color-danger);">Failed to load audit logs.</td></tr>`;
             }
         }
+
+        // 5. NICHE RULES MANAGEMENT
+        let nicheRulesData = [];
+
+        // Elements
+        const nicheModal = document.getElementById('niche-modal');
+        const nicheForm = document.getElementById('niche-form');
+        const btnAddNiche = document.getElementById('btn-add-niche');
+        const btnCloseNicheModal = document.getElementById('btn-close-niche-modal');
+        const btnCancelNicheModal = document.getElementById('btn-cancel-niche-modal');
+        
+        const nicheIdInput = document.getElementById('niche-id');
+        const nicheKeyInput = document.getElementById('niche-key');
+        const nicheNameInput = document.getElementById('niche-name');
+        const nicheKeywordsInput = document.getElementById('niche-keywords');
+        const nicheRulesInput = document.getElementById('niche-rules');
+        const nicheModalTitle = document.getElementById('niche-modal-title');
+
+        async function loadNicheRules() {
+            const tbody = document.getElementById('table-niche-body');
+            tbody.innerHTML = `<tr><td colspan="5" style="text-align: center;">Loading niche rules...</td></tr>`;
+            try {
+                const res = await apiClient.get('/admin/niche-rules');
+                if (res.success && res.results) {
+                    nicheRulesData = res.results;
+                    renderNicheRules(nicheRulesData);
+                }
+            } catch (err) {
+                tbody.innerHTML = `<tr><td colspan="5" style="text-align: center; color: var(--color-danger);">Failed to load niche rules.</td></tr>`;
+            }
+        }
+
+        function renderNicheRules(rulesList) {
+            const tbody = document.getElementById('table-niche-body');
+            tbody.innerHTML = '';
+            
+            if (rulesList.length === 0) {
+                tbody.innerHTML = `<tr><td colspan="5" style="text-align: center;">No niche rules defined.</td></tr>`;
+                return;
+            }
+
+            rulesList.forEach(niche => {
+                let parsedRules = [];
+                try {
+                    parsedRules = JSON.parse(niche.rules || '[]');
+                } catch (_) {}
+                
+                const tr = document.createElement('tr');
+                tr.innerHTML = `
+                    <td style="font-family: monospace; font-weight: 600;">${niche.niche_key}</td>
+                    <td style="font-weight: 500;">${niche.name}</td>
+                    <td style="color: var(--color-text-secondary); max-width: 250px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;" title="${niche.detection_keywords}">${niche.detection_keywords}</td>
+                    <td><span class="badge pro">${parsedRules.length} rules</span></td>
+                    <td style="white-space: nowrap; display: flex; gap: 0.5rem;">
+                        <button class="btn btn-secondary btn-edit-niche" data-id="${niche.id}" style="font-size: 0.75rem; padding: 0.3rem 0.6rem;">Edit</button>
+                        <button class="btn btn-secondary btn-delete-niche" data-id="${niche.id}" style="font-size: 0.75rem; padding: 0.3rem 0.6rem; color: var(--color-danger); border-color: rgba(239,68,68,0.2);">Delete</button>
+                    </td>
+                `;
+                tbody.appendChild(tr);
+            });
+
+            // Bind edit buttons
+            tbody.querySelectorAll('.btn-edit-niche').forEach(btn => {
+                btn.addEventListener('click', () => {
+                    const id = parseInt(btn.dataset.id);
+                    const niche = nicheRulesData.find(n => n.id === id);
+                    if (niche) {
+                        nicheIdInput.value = niche.id;
+                        nicheKeyInput.value = niche.niche_key;
+                        nicheNameInput.value = niche.name;
+                        nicheKeywordsInput.value = niche.detection_keywords;
+                        
+                        let parsedRules = [];
+                        try {
+                            parsedRules = JSON.parse(niche.rules || '[]');
+                        } catch (_) {}
+                        nicheRulesInput.value = parsedRules.join('\n');
+                        
+                        nicheModalTitle.textContent = 'Edit Niche Copywriting Rule';
+                        nicheModal.style.display = 'flex';
+                    }
+                });
+            });
+
+            // Bind delete buttons
+            tbody.querySelectorAll('.btn-delete-niche').forEach(btn => {
+                btn.addEventListener('click', async () => {
+                    const id = parseInt(btn.dataset.id);
+                    if (confirm('Adakah anda pasti mahu pemadam niche copywriting ini?')) {
+                        try {
+                            const res = await apiClient.delete(`/admin/niche-rules/${id}`);
+                            if (res.success) {
+                                notificationService.success('Niche copywriting berjaya dipadam.');
+                                loadNicheRules();
+                            }
+                        } catch (err) {
+                            notificationService.error('Gagal memadam niche.');
+                        }
+                    }
+                });
+            });
+        }
+
+        // Open Add Niche Modal
+        btnAddNiche.addEventListener('click', () => {
+            nicheIdInput.value = '';
+            nicheKeyInput.value = '';
+            nicheNameInput.value = '';
+            nicheKeywordsInput.value = '';
+            nicheRulesInput.value = '';
+            nicheModalTitle.textContent = 'Add Niche Copywriting Rule';
+            nicheModal.style.display = 'flex';
+        });
+
+        // Close Modal Handlers
+        const closeNicheModal = () => { nicheModal.style.display = 'none'; };
+        btnCloseNicheModal.addEventListener('click', closeNicheModal);
+        btnCancelNicheModal.addEventListener('click', closeNicheModal);
+
+        // Submit Niche Form
+        nicheForm.addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const id = nicheIdInput.value;
+            const niche_key = nicheKeyInput.value;
+            const name = nicheNameInput.value;
+            const detection_keywords = nicheKeywordsInput.value;
+            const rulesArray = nicheRulesInput.value.split('\n').map(r => r.trim()).filter(Boolean);
+
+            try {
+                const res = await apiClient.post('/admin/niche-rules', {
+                    id: id ? parseInt(id) : null,
+                    niche_key,
+                    name,
+                    detection_keywords,
+                    rules: rulesArray
+                });
+
+                if (res.success) {
+                    notificationService.success('Niche Copywriting berjaya disimpan!');
+                    closeNicheModal();
+                    loadNicheRules();
+                }
+            } catch (err) {
+                notificationService.error(err.message || 'Gagal menyimpan niche.');
+            }
+        });
     </script>
 </body>
 </html>

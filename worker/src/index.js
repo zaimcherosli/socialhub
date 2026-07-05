@@ -584,21 +584,32 @@ const isTelegramPostUrl = (urlStr) => {
 const extractTelegramTitle = (scrapedTitle, scrapedDescription) => {
     if (!scrapedDescription) return scrapedTitle || "";
     
-    // Clean emojis and markers
-    const titleLines = scrapedDescription.split('\n')
-        .map(l => l.replace(/[✅✨🏠📌🔥*‼️]/g, '').trim())
-        .filter(l => l.length > 5 && !/WTS|WTL|FOR\s*SALE|FOR\s*RENT|LEASE|NEW\s*LISTING|ASKING\s*PRICE/i.test(l));
-    
-    // Try to find the line that contains property type keywords (taman, apartment, terrace, etc.)
-    const propertyTypeRegex = /\b(?:Storey|Tingkat|Sty|Terrace|Teres|Semi-D|Semi\s*D|Bungalow|Banglo|Condo|Condominium|Kondominium|Apartment|Pangsapuri|Flat|Townhouse|House|Rumah|Suite|Office|Shoplot|Land|Tanah|Lot)\b/i;
-    const bestTitleLine = titleLines.find(l => propertyTypeRegex.test(l));
-    
-    if (bestTitleLine) {
-        return bestTitleLine.substring(0, 80).trim();
-    } else if (titleLines.length > 0) {
-        return titleLines[0].substring(0, 80).trim();
+    // Clean emojis and bullet markers from each line
+    const rawLines = scrapedDescription.split('\n');
+    const cleanLines = rawLines.map(l => l.replace(/[✅✨🏠📌🔥*‼️•⁠🏡]/g, '').replace(/^[-–\s]+/, '').trim());
+
+    // Priority 1: Find the main listing line containing property type + transaction type
+    // e.g. "For Sale - Semi D Cluster Two Storey House SP 10 Bandar Saujana Putra"
+    const mainListingRegex = /(?:For\s*Sale|WTS|WTL|For\s*Rent|Sewa|Jual).*(?:Storey|Tingkat|Terrace|Teres|Semi.?D|Bungalow|Banglo|Condo|Apartment|Pangsapuri|Flat|House|Rumah)/i;
+    const mainLine = cleanLines.find(l => mainListingRegex.test(l));
+    if (mainLine) {
+        // Strip the "For Sale - " prefix to get the actual property description
+        return mainLine.replace(/^(?:For\s*Sale|WTS|WTL|For\s*Rent|Sewa|Jual)\s*[-–:]?\s*/i, '').substring(0, 100).trim();
     }
-    return scrapedTitle || "";
+
+    // Priority 2: Find a line that combines property type AND a location/area name
+    const propertyTypeRegex = /\b(?:Storey|Tingkat|Sty|Terrace|Teres|Semi.?D|Bungalow|Banglo|Condo|Condominium|Kondominium|Apartment|Pangsapuri|Flat|Townhouse|House|Rumah|Suite|Office|Shoplot|Land|Tanah|Lot|Cluster)\b/i;
+    const locationKeyword = /\b(?:Bandar|Taman|Pandan|Subang|Shah Alam|Petaling|Ampang|Rawang|Semenyih|Dengkil|Klang|Cheras|Setapak|Puchong|Serdang|Cyberjaya|Putrajaya|Kajang|Sepang|Sri|KL|Kuala Lumpur|Damansara|Kepong|Selayang|Batu|Seremban|Nilai|Alam|Perdana|Indah|Permai|Damai|Maju|Jaya|Murni|Harmoni|Saujana|Putra|Prima|Utama|Raya|Seksyen|BSP|SP\s*\d+)\b/i;
+    const bestTypeLine = cleanLines.find(l => propertyTypeRegex.test(l) && locationKeyword.test(l));
+    if (bestTypeLine) return bestTypeLine.substring(0, 100).trim();
+
+    // Priority 3: Any line with just a property type keyword
+    const anyTypeLine = cleanLines.find(l => l.length > 5 && propertyTypeRegex.test(l) && !/Asking\s*Price|ASKING|PRICE|Land\s*Area|Built\s*Up|Bedrooms|Bathrooms|sqft/i.test(l));
+    if (anyTypeLine) return anyTypeLine.substring(0, 100).trim();
+
+    // Priority 4: Fallback to first non-trivial line
+    const firstLine = cleanLines.find(l => l.length > 10 && !/^\d+|MAHAFIZ|IQI|REN|PEA|NEARBY|DETAILS|EASY\s*ACCESS|ASKING|PRICE/i.test(l));
+    return firstLine ? firstLine.substring(0, 100).trim() : (scrapedTitle || "");
 };
 
 // Helper: Append Fact Preservation rule to workspace instructions
@@ -1416,18 +1427,35 @@ export default {
 
                             let locationInfo = "";
                             if (scrapedDescription) {
-                                const locMatch = scrapedDescription.match(/Location:\s*([^\n,]+)/i) || 
-                                                 scrapedDescription.match(/Lokasi:\s*([^\n,]+)/i);
+                                // Try explicit Location/Lokasi label first
+                                const locMatch = scrapedDescription.match(/(?:Location|Lokasi|Located\s*at|Terletak\s*di)\s*[:\-]?\s*([^\n,]+)/i);
                                 if (locMatch) {
                                     locationInfo = locMatch[1].trim();
+                                } else {
+                                    // Try to extract from the property type line: area names after common area keywords
+                                    const areaKeywords = /\b(Bandar|Taman|Pandan|Subang|Shah Alam|Petaling|Ampang|Rawang|Semenyih|Dengkil|Klang|Cheras|Setapak|Puchong|Serdang|Cyberjaya|Putrajaya|Kajang|Sepang|Sri|Damansara|Kepong|Selayang|Batu|Seremban|Nilai|Saujana|Putra|Prima|BSP|SP\s*\d+)\b[\w\s]*/i;
+                                    const lines = scrapedDescription.split('\n').map(l => l.trim()).filter(Boolean);
+                                    for (const line of lines) {
+                                        const areaMatch = line.match(areaKeywords);
+                                        if (areaMatch && areaMatch[0].length > 3) {
+                                            locationInfo = areaMatch[0].trim().substring(0, 50);
+                                            break;
+                                        }
+                                    }
                                 }
                             }
 
                             const matchedPrice = extractPrice(scrapedDescription) || extractPrice(productContext);
                             const priceText = matchedPrice ? ` (${matchedPrice})` : "";
 
-                            let greetingText = `Hai, saya berminat dengan ${productTitle.trim()}`;
-                            if (locationInfo) {
+                            // Build a clean, professional WhatsApp greeting
+                            let greetingTitle = productTitle.trim();
+                            // Remove any leading bullet, dash, or spec-looking text
+                            greetingTitle = greetingTitle.replace(/^[•\-–\s]+/, '').replace(/(?:Land\s*Area|Built\s*Up)\s*\d+.*/i, '').trim();
+                            if (!greetingTitle) greetingTitle = "hartanah yang anda senaraikan";
+
+                            let greetingText = `Hai, saya berminat dengan ${greetingTitle}`;
+                            if (locationInfo && !greetingTitle.toLowerCase().includes(locationInfo.toLowerCase().split(' ')[0].toLowerCase())) {
                                 greetingText += ` di ${locationInfo}`;
                             }
                             if (priceText) {
@@ -1493,7 +1521,8 @@ CRITICAL RULES:
 3. The copywriting ${formatInstructions}
 4. If writing in Malay, use natural, casual, and conversational Malaysian Malay slangs/vocabulary (e.g. 'korang', 'je', 'boleh', 'nak') instead of formal Indonesian words ('kamu', 'bisa', 'yuk', 'sih', 'deh'). Do NOT always start the hooks with the same word (e.g. vary the opening hooks and sentence structure so they do not all start with 'weyh' or 'weh').
 5. Focus on the ACTUAL product/property details (type, location, size, features, facilities) from the product info above. DO NOT write about the seller name, channel name, or listing source/platform name. Write as if YOU personally found or own this product/property.
-6. For real estate/properties, include specific hashtags based on transaction type:
+6. NEVER include any phone numbers (e.g. 017-xxx xxxx, 601x-xxx xxxx), agent names, agency names (e.g. IQI Realty, PropNex), REN numbers, PEA numbers, or any contact details from the listing in the caption or CTA. The only contact method is via the link provided separately.
+7. For real estate/properties, include specific hashtags based on transaction type:
    - If the property is for sale (contains WTS, Sale, Jual), include: #jualbelirumah #jualrumah #rumahuntukdijual #hartanahuntukdijual
    - If the property is for rent/lease (contains WTL, Rent, Sewa, Lease), include: #sewahartanah #sewarumah #rumahsewa #sewakondominium${customGuidelinesBlock}
 

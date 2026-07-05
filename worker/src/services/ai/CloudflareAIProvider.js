@@ -18,10 +18,13 @@ export class CloudflareAIProvider extends AIProvider {
         this.model = targetModel;
     }
 
-    async generateCaption({ businessType, product, targetAudience, goal, tone, language }) {
+    async generateCaption({ businessType, product, targetAudience, goal, tone, language, customInstructions }) {
         console.log(`[CloudflareAIProvider] Executing run with model: ${this.model}`);
         
         let systemPrompt = "You are a professional social media copywriter. You must write an engaging post and return the output strictly in JSON format. Do not return any markdown wrappers, explanation, or other text. IMPORTANT: The generated caption MUST be under 350 characters.";
+        if (customInstructions) {
+            systemPrompt += `\nFollow these copywriting guidelines closely:\n${customInstructions}`;
+        }
         let userPrompt = `Write a social media post based on these details:
 - Topic/Category: ${businessType}
 - Content Focus: ${product}

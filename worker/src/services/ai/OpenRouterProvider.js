@@ -7,7 +7,7 @@ export class OpenRouterProvider extends AIProvider {
         this.model = model || "meta-llama/llama-3.2-3b-instruct:free";
     }
 
-    async generateCaption({ businessType, product, targetAudience, goal, tone, language }) {
+    async generateCaption({ businessType, product, targetAudience, goal, tone, language, customInstructions }) {
         let prompt = `You are a social media copywriter.
 Write a highly engaging social media post based on these details:
 - Topic/Category: ${businessType}
@@ -20,6 +20,10 @@ Write a highly engaging social media post based on these details:
 IMPORTANT length limit: The generated caption must be under 350 characters.
 
 `;
+
+        if (customInstructions) {
+            prompt += `Follow these copywriting guidelines closely:\n${customInstructions}\n\n`;
+        }
 
         if (tone?.toLowerCase().includes('malay') || language?.toLowerCase().includes('malay')) {
             prompt += `CRITICAL MALAYSIAN CONVERSATIONAL RULES:

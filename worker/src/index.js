@@ -994,7 +994,8 @@ export default {
                             targetAudience: targetAudience || 'General public',
                             goal: goal || 'Brand awareness',
                             tone: tone || 'Professional',
-                            language: language || 'Bahasa Melayu'
+                            language: language || 'Bahasa Melayu',
+                            customInstructions: wsAI?.custom_ai_instructions
                         });
 
                         await logActivity(activeWorkspace.workspace_id, user.id, 'ai_generate', `Generated caption for business "${businessType}": ${(product || '').substring(0, 30)}...`);

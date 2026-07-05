@@ -976,6 +976,7 @@ async function handleTelegramUpdate(update, env, encryptionSecret, jwtSecret) {
 
             if (urlMatch) {
                 const targetUrl = urlMatch[0];
+                const userInstructions = text.replace(targetUrl, '').trim();
                 await sendTelegramMessage(token, chatId, "🔍 <b>Meneliti listing hartanah anda...</b>\nSedang mengikis data dan menjana copywriting Threads...");
 
                 try {
@@ -1031,7 +1032,8 @@ async function handleTelegramUpdate(update, env, encryptionSecret, jwtSecret) {
                         language: 'Malay',
                         customInstructions: [
                             getFactPreservingInstructions(wsAI?.custom_ai_instructions),
-                            `CRITICAL NICHE RULES:\n${JSON.parse(nicheInstructions).map((r, i) => `${i + 1}. ${r}`).join('\n')}`
+                            `CRITICAL NICHE RULES:\n${JSON.parse(nicheInstructions).map((r, i) => `${i + 1}. ${r}`).join('\n')}`,
+                            userInstructions ? `USER SPECIFIC GUIDELINES:\n${userInstructions}` : ''
                         ].filter(Boolean).join('\n\n')
                     };
 

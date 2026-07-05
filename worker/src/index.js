@@ -725,6 +725,7 @@ async function sendTelegramMessage(token, chatId, text, replyMarkup = null) {
     if (cleanToken.toLowerCase().startsWith('bot')) {
         cleanToken = cleanToken.substring(3);
     }
+    console.log(`[Telegram Debug] sending using token: ${cleanToken.substring(0, 10)}...${cleanToken.substring(cleanToken.length - 10)} (length: ${cleanToken.length})`);
     const url = `https://api.telegram.org/bot${cleanToken}/sendMessage`;
     const body = {
         chat_id: chatId,

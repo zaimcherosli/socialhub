@@ -735,6 +735,10 @@ async function sendTelegramMessage(token, chatId, text, replyMarkup = null) {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(body)
     });
+    if (!response.ok) {
+        const errBody = await response.text().catch(() => '');
+        console.error(`[Telegram sendTelegramMessage Error] status: ${response.status}, body: ${errBody}`);
+    }
     return response.ok;
 }
 
@@ -754,6 +758,10 @@ async function editTelegramMessage(token, chatId, messageId, text, replyMarkup =
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(body)
     });
+    if (!response.ok) {
+        const errBody = await response.text().catch(() => '');
+        console.error(`[Telegram editTelegramMessage Error] status: ${response.status}, body: ${errBody}`);
+    }
     return response.ok;
 }
 
@@ -768,6 +776,10 @@ async function answerCallbackQuery(token, callbackQueryId, text = null) {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(body)
     });
+    if (!response.ok) {
+        const errBody = await response.text().catch(() => '');
+        console.error(`[Telegram answerCallbackQuery Error] status: ${response.status}, body: ${errBody}`);
+    }
     return response.ok;
 }
 

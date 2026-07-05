@@ -3254,6 +3254,28 @@ CRITICAL LANGUAGE / SPEECH RULES:
                     }), { status: 200, headers: corsHeaders });
                 }
 
+                case '/api/integration/telegram/debug-token': {
+                    const user = await getAuthUser();
+                    if (!user) return new Response(JSON.stringify({ message: 'Unauthorized session' }), { status: 401, headers: corsHeaders });
+                    
+                    const token = env.TELEGRAM_BOT_TOKEN || "";
+                    let cleanToken = token.trim();
+                    if (cleanToken.toLowerCase().startsWith('bot')) {
+                        cleanToken = cleanToken.substring(3);
+                    }
+
+                    return new Response(JSON.stringify({
+                        success: true,
+                        length: token.length,
+                        starts_with_bot: token.toLowerCase().startsWith('bot'),
+                        prefix: token.substring(0, 8),
+                        suffix: token.substring(token.length - 8),
+                        clean_prefix: cleanToken.substring(0, 8),
+                        clean_suffix: cleanToken.substring(cleanToken.length - 8),
+                        clean_length: cleanToken.length
+                    }), { status: 200, headers: corsHeaders });
+                }
+
                 case '/api/integration/telegram/status': {
                     const user = await getAuthUser();
                     if (!user) return new Response(JSON.stringify({ message: 'Unauthorized session' }), { status: 401, headers: corsHeaders });

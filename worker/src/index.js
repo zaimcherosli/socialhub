@@ -4958,38 +4958,32 @@ CRITICAL TONE RULES:
                     }
                 }
             }
-        } catch (insightsSyncErr) {
-            console.error('[CronSync] Insights sync block error:', insightsSyncErr.message);
-        }
-
-        // ==================== FOLLOWER COUNT SYNC (scheduled handler) ====================
+           // ==================== FOLLOWER COUNT SYNC (scheduled handler) ====================
         try {
             const threadAccounts = await env.DB.prepare(
                 `SELECT DISTINCT sa.id as account_id, sa.access_token, sa.account_id as threads_user_id, sa.workspace_id
                  FROM social_accounts sa
                  WHERE sa.platform = 'threads' AND sa.access_token IS NOT NULL`
             ).all();
-
+ 
             if (threadAccounts.results && threadAccounts.results.length > 0) {
                 for (const acct of threadAccounts.results) {
                     try {
                         const decryptedToken = await decryptToken(acct.access_token, encryptionSecret);
-                        // Threads followers_count via threads_insights user endpoint
-                        const profileUrl = `https://graph.threads.net/v1.0/${acct.threads_user_id}/threads_insights?metric=followers_count&period=day&since=${Math.floor((Date.now() - 2 * 86400000) / 1000)}&until=${Math.floor(Date.now() / 1000)}&access_token=${decryptedToken}`;
+                        // Fetch real-time followers_count from Profile fields endpoint instead of insights API (no 24h delay)
+                        const profileUrl = `https://graph.threads.net/v1.0/${acct.threads_user_id}?fields=followers_count&access_token=${decryptedToken}`;
                         const profileRes = await fetch(profileUrl);
                         if (profileRes.ok) {
                             const profileData = await profileRes.json();
-                            // followers_count returns array of values — take latest
-                            const metricData = profileData?.data?.[0];
-                            const followersCount = metricData?.values?.slice(-1)?.[0]?.value || 0;
+                            const followersCount = profileData.followers_count || 0;
                             await env.DB.prepare(
                                 `INSERT INTO workspace_analytics (workspace_id, account_id, platform, followers_count, recorded_at)
                                  VALUES (?, ?, 'threads', ?, datetime('now'))`
                             ).bind(acct.workspace_id, acct.account_id, followersCount).run();
-                            console.log(`[CronSync] Followers account ${acct.account_id}: ${followersCount}`);
+                            console.log(`[CronSync] Real-time followers count account ${acct.account_id}: ${followersCount}`);
                         } else {
                             const errBody = await profileRes.text().catch(() => '');
-                            console.error(`[CronSync] Follower API ${profileRes.status} for account ${acct.account_id}: ${errBody.substring(0, 100)}`);
+                            console.error(`[CronSync] Real-time Follower API ${profileRes.status} for account ${acct.account_id}: ${errBody.substring(0, 100)}`);
                         }
                     } catch (followerErr) {
                         console.error(`[CronSync] Follower error account ${acct.account_id}: ${followerErr.message}`);

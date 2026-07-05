@@ -16,8 +16,10 @@ export class AIFactory {
         // all to the same decrypted value. If none of them are set as a custom key
         // (i.e. no workspace-level override happened), we fallback to Cloudflare AI.
         const hasWorkspaceKey = !!(env._workspaceKeySet);
+        const isOpenRouterKey = (env.OPENROUTER_API_KEY || "").startsWith("sk-or-") || 
+                                (env.OPENAI_API_KEY || "").startsWith("sk-or-");
 
-        const isDirectOpenAI = hasOpenAIKey && (
+        const isDirectOpenAI = hasOpenAIKey && !isOpenRouterKey && (
             model.toLowerCase().includes("gpt-") || 
             model.toLowerCase().startsWith("openai/")
         );

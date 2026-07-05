@@ -541,8 +541,50 @@
                     </div>
                 </div>
 
+                <!-- ==================== API KEYS SECTION ==================== -->
+                <div class="card" style="padding: 1.5rem; margin-top: 2rem;">
+                    <div class="settings-section-header">
+                        <h3>🤖 API Keys</h3>
+                        <p>Generate secure API keys to integrate external agents (like Hermes) with your SocialHub workspace. Each key is shown only once — store it safely.</p>
+                    </div>
+
+                    <!-- Generate New Key -->
+                    <div style="display: flex; gap: 0.75rem; align-items: flex-end; margin-bottom: 1.5rem; flex-wrap: wrap;">
+                        <div style="flex: 1; min-width: 200px;">
+                            <label class="form-label" for="apiKeyName">Key Name (Label)</label>
+                            <input type="text" id="apiKeyName" class="form-input" placeholder="e.g. Hermes Agent" style="width: 100%;" maxlength="80" />
+                        </div>
+                        <button class="btn btn-primary" id="btnGenerateApiKey" style="white-space: nowrap;">
+                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="margin-right:0.35rem;"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+                            Generate New Key
+                        </button>
+                    </div>
+
+                    <!-- Active Keys List -->
+                    <div id="apiKeysList">
+                        <div style="text-align:center; padding: 2rem; color: var(--color-text-tertiary); font-style: italic; font-size: 0.875rem;">Loading API keys...</div>
+                    </div>
+                </div>
+
+                <!-- API Key Reveal Modal -->
+                <div id="apiKeyModal" style="display:none; position:fixed; inset:0; z-index:1000; background:rgba(0,0,0,0.55); backdrop-filter:blur(4px); align-items:center; justify-content:center;">
+                    <div class="card" style="max-width:560px; width:90%; padding:2rem; position:relative; box-shadow:var(--shadow-lg);">
+                        <h3 class="card-title" style="margin-bottom:0.5rem;">🔑 Your New API Key</h3>
+                        <p style="font-size:0.8125rem; color:var(--color-danger); font-weight:600; margin-bottom:1rem;">⚠️ This key will only be shown ONCE. Copy and save it in a secure location now.</p>
+                        <div style="background: var(--color-bg-accent); border: 1.5px solid var(--color-border); border-radius: var(--radius-sm); padding: 1rem; font-family: monospace; font-size: 0.8rem; word-break: break-all; color: var(--color-text-primary); letter-spacing: 0.02em;" id="apiKeyRevealText"></div>
+                        <div style="display:flex; gap:0.75rem; margin-top:1.25rem; justify-content:flex-end;">
+                            <button class="btn btn-secondary" id="btnCopyApiKey">
+                                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="margin-right:0.35rem;"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
+                                Copy Key
+                            </button>
+                            <button class="btn btn-primary" id="btnCloseApiKeyModal">Done — I've saved it</button>
+                        </div>
+                    </div>
+                </div>
+
             </div>
         </main>
+
     </div>
 
     <script type="module" src="js/app.js"></script>
@@ -859,6 +901,105 @@
         loadWorkspaceInfo();
         loadUserInfo();
         loadDiagnosticsInfo();
+
+        // ==================== API KEYS MANAGEMENT ====================
+
+        async function loadApiKeys() {
+            const listEl = document.getElementById('apiKeysList');
+            try {
+                const token = localStorage.getItem('token');
+                const res = await fetch(`${API_BASE}/api/auth/api-keys`, {
+                    headers: { 'Authorization': `Bearer ${token}` }
+                });
+                const data = await res.json();
+                const keys = data.keys || [];
+
+                if (keys.length === 0) {
+                    listEl.innerHTML = `<div style="text-align:center; padding: 2rem; color: var(--color-text-tertiary); font-style:italic; font-size:0.875rem;">No API keys yet. Generate one to connect Hermes Agent.</div>`;
+                    return;
+                }
+
+                listEl.innerHTML = '';
+                keys.forEach(k => {
+                    const row = document.createElement('div');
+                    row.style.cssText = 'display:flex; align-items:center; justify-content:space-between; padding:0.875rem 1rem; border:1px solid var(--color-border); border-radius:var(--radius-sm); background:var(--color-bg-accent); margin-bottom:0.6rem; gap:1rem; flex-wrap:wrap;';
+                    const lastUsed = k.last_used_at ? `Last used: ${new Date(k.last_used_at).toLocaleString()}` : 'Never used';
+                    row.innerHTML = `
+                        <div style="flex:1; min-width:0;">
+                            <div style="font-weight:600; font-size:0.875rem; color:var(--color-text-primary); margin-bottom:0.2rem;">${k.name}</div>
+                            <div style="font-family:monospace; font-size:0.78rem; color:var(--color-text-secondary);">${k.key_prefix}</div>
+                            <div style="font-size:0.72rem; color:var(--color-text-tertiary); margin-top:0.2rem;">${lastUsed} · Created ${new Date(k.created_at).toLocaleDateString()}</div>
+                        </div>
+                        <button class="btn btn-danger btn-icon" data-id="${k.id}" title="Revoke key" style="padding:0.4rem 0.75rem; font-size:0.75rem; flex-shrink:0;">
+                            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="margin-right:0.3rem;"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>
+                            Revoke
+                        </button>
+                    `;
+                    row.querySelector('button').addEventListener('click', () => revokeApiKey(k.id, k.name));
+                    listEl.appendChild(row);
+                });
+            } catch (e) {
+                listEl.innerHTML = `<div style="color:var(--color-danger); font-size:0.875rem; padding:1rem;">Failed to load API keys.</div>`;
+            }
+        }
+
+        async function revokeApiKey(id, name) {
+            if (!confirm(`Revoke key "${name}"? This cannot be undone.`)) return;
+            const token = localStorage.getItem('token');
+            const res = await fetch(`${API_BASE}/api/auth/api-keys/${id}`, {
+                method: 'DELETE',
+                headers: { 'Authorization': `Bearer ${token}` }
+            });
+            if (res.ok) loadApiKeys();
+            else alert('Failed to revoke key.');
+        }
+
+        document.getElementById('btnGenerateApiKey').addEventListener('click', async () => {
+            const name = document.getElementById('apiKeyName').value.trim() || 'Hermes Agent';
+            const btn = document.getElementById('btnGenerateApiKey');
+            btn.disabled = true;
+            btn.textContent = 'Generating...';
+            try {
+                const token = localStorage.getItem('token');
+                const res = await fetch(`${API_BASE}/api/auth/api-keys`, {
+                    method: 'POST',
+                    headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ name })
+                });
+                const data = await res.json();
+                if (data.success && data.key) {
+                    document.getElementById('apiKeyRevealText').textContent = data.key;
+                    const modal = document.getElementById('apiKeyModal');
+                    modal.style.display = 'flex';
+                    document.getElementById('apiKeyName').value = '';
+                    loadApiKeys();
+                } else {
+                    alert('Failed to generate API key.');
+                }
+            } catch (e) {
+                alert('Error: ' + e.message);
+            } finally {
+                btn.disabled = false;
+                btn.innerHTML = `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="margin-right:0.35rem;"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>Generate New Key`;
+            }
+        });
+
+        document.getElementById('btnCopyApiKey').addEventListener('click', () => {
+            const key = document.getElementById('apiKeyRevealText').textContent;
+            navigator.clipboard.writeText(key).then(() => {
+                document.getElementById('btnCopyApiKey').textContent = '✓ Copied!';
+                setTimeout(() => {
+                    document.getElementById('btnCopyApiKey').innerHTML = `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="margin-right:0.35rem;"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>Copy Key`;
+                }, 2000);
+            });
+        });
+
+        document.getElementById('btnCloseApiKeyModal').addEventListener('click', () => {
+            document.getElementById('apiKeyModal').style.display = 'none';
+            document.getElementById('apiKeyRevealText').textContent = '';
+        });
+
+        loadApiKeys();
     </script>
 </body>
 </html>

@@ -713,20 +713,60 @@ export default {
                     `).run();
                 }
             } catch (_) {}
+
+            // Ensure workspace_api_keys table exists for Hermes/agent integration
+            try {
+                await env.DB.prepare(`CREATE TABLE IF NOT EXISTS workspace_api_keys (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    workspace_id INTEGER NOT NULL REFERENCES workspaces(id) ON DELETE CASCADE,
+                    user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+                    key_hash TEXT NOT NULL UNIQUE,
+                    key_prefix TEXT NOT NULL,
+                    name TEXT DEFAULT 'Default Key',
+                    created_at TEXT DEFAULT (datetime('now')),
+                    last_used_at TEXT
+                )`).run();
+            } catch (_) {}
         }
 
         if (request.method === 'OPTIONS') {
             return new Response(null, { status: 204, headers: corsHeaders });
         }
 
-        // Shared Auth helper
+        // Shared Auth helper — supports both JWT session tokens AND workspace API keys
         const getAuthUser = async () => {
             const authHeader = request.headers.get('Authorization');
             if (!authHeader || !authHeader.startsWith('Bearer ')) return null;
-            
+
             const token = authHeader.split(' ')[1];
+
+            // --- API Key path: prefix starts with 'sk-sh-' ---
+            if (token.startsWith('sk-sh-') && env.DB) {
+                const keyHashBuffer = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(token));
+                const keyHash = Array.from(new Uint8Array(keyHashBuffer)).map(b => b.toString(16).padStart(2, '0')).join('');
+
+                const apiKey = await env.DB.prepare(
+                    `SELECT k.id as key_id, k.workspace_id, k.user_id, k.name as key_name,
+                            u.id, u.uuid, u.name, u.email, u.role, u.status, u.active_workspace_id
+                     FROM workspace_api_keys k
+                     JOIN users u ON k.user_id = u.id
+                     WHERE k.key_hash = ?`
+                ).bind(keyHash).first();
+
+                if (!apiKey) return null;
+
+                // Update last_used_at timestamp
+                await env.DB.prepare("UPDATE workspace_api_keys SET last_used_at = (datetime('now')) WHERE id = ?")
+                    .bind(apiKey.key_id).run();
+
+                // Inject active_workspace_id from API key's workspace so downstream routes resolve correctly
+                return { ...apiKey, active_workspace_id: apiKey.workspace_id };
+            }
+
+            // --- JWT path: existing browser session token ---
             const payload = await verifyJWT(token, jwtSecret);
-            if (!payload || !payload.sub) return null;            if (!env.DB) return { uuid: payload.sub, email: payload.email, name: payload.name, role: payload.role };
+            if (!payload || !payload.sub) return null;
+            if (!env.DB) return { uuid: payload.sub, email: payload.email, name: payload.name, role: payload.role };
 
             return await env.DB.prepare("SELECT id, uuid, name, email, role, status, active_workspace_id FROM users WHERE uuid = ?")
                 .bind(payload.sub)
@@ -4669,6 +4709,72 @@ CRITICAL TONE RULES:
 
                     if (url.pathname === '/api/health') {
                         return new Response(JSON.stringify({ status: 'operational', environment: env.ENVIRONMENT || 'production', bindings: { d1_database: env.DB ? 'configured' : 'missing' } }), { status: 200, headers: corsHeaders });
+                    }
+
+                    // ==================== WORKSPACE API KEYS (Hermes/Agent Integration) ====================
+
+                    if (url.pathname === '/api/auth/api-keys' && request.method === 'GET') {
+                        const user = await getAuthUser();
+                        if (!user) return new Response(JSON.stringify({ message: 'Unauthorized' }), { status: 401, headers: corsHeaders });
+                        const workspace = await getActiveWorkspace(user);
+                        if (!workspace) return new Response(JSON.stringify({ message: 'No active workspace' }), { status: 400, headers: corsHeaders });
+
+                        const keys = await env.DB.prepare(
+                            `SELECT id, key_prefix, name, created_at, last_used_at FROM workspace_api_keys WHERE workspace_id = ? ORDER BY created_at DESC`
+                        ).bind(workspace.workspace_id).all();
+
+                        return new Response(JSON.stringify({ success: true, keys: keys.results || [] }), { status: 200, headers: corsHeaders });
+                    }
+
+                    if (url.pathname === '/api/auth/api-keys' && request.method === 'POST') {
+                        const user = await getAuthUser();
+                        if (!user) return new Response(JSON.stringify({ message: 'Unauthorized' }), { status: 401, headers: corsHeaders });
+                        const workspace = await getActiveWorkspace(user);
+                        if (!workspace) return new Response(JSON.stringify({ message: 'No active workspace' }), { status: 400, headers: corsHeaders });
+
+                        const body = await request.json().catch(() => ({}));
+                        const keyName = (body.name || 'Default Key').trim().substring(0, 80);
+
+                        // Generate a cryptographically secure random key
+                        const rawBytes = crypto.getRandomValues(new Uint8Array(32));
+                        const rawKey = Array.from(rawBytes).map(b => b.toString(16).padStart(2, '0')).join('');
+                        const fullKey = `sk-sh-${rawKey}`;
+                        const prefix = `sk-sh-${rawKey.substring(0, 8)}...`;
+
+                        // Store only the SHA-256 hash — never the plaintext key
+                        const hashBuffer = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(fullKey));
+                        const keyHash = Array.from(new Uint8Array(hashBuffer)).map(b => b.toString(16).padStart(2, '0')).join('');
+
+                        await env.DB.prepare(
+                            `INSERT INTO workspace_api_keys (workspace_id, user_id, key_hash, key_prefix, name) VALUES (?, ?, ?, ?, ?)`
+                        ).bind(workspace.workspace_id, user.id, keyHash, prefix, keyName).run();
+
+                        // Return the full key ONCE — it will never be shown again
+                        return new Response(JSON.stringify({
+                            success: true,
+                            key: fullKey,
+                            prefix,
+                            name: keyName,
+                            warning: 'Save this key now. It will not be shown again.'
+                        }), { status: 201, headers: corsHeaders });
+                    }
+
+                    if (url.pathname.startsWith('/api/auth/api-keys/') && request.method === 'DELETE') {
+                        const user = await getAuthUser();
+                        if (!user) return new Response(JSON.stringify({ message: 'Unauthorized' }), { status: 401, headers: corsHeaders });
+                        const workspace = await getActiveWorkspace(user);
+                        if (!workspace) return new Response(JSON.stringify({ message: 'No active workspace' }), { status: 400, headers: corsHeaders });
+
+                        const keyId = parseInt(url.pathname.split('/').pop(), 10);
+                        if (!keyId) return new Response(JSON.stringify({ message: 'Invalid key ID' }), { status: 400, headers: corsHeaders });
+
+                        const result = await env.DB.prepare(
+                            `DELETE FROM workspace_api_keys WHERE id = ? AND workspace_id = ?`
+                        ).bind(keyId, workspace.workspace_id).run();
+
+                        if (result.changes === 0) return new Response(JSON.stringify({ message: 'Key not found' }), { status: 404, headers: corsHeaders });
+
+                        return new Response(JSON.stringify({ success: true }), { status: 200, headers: corsHeaders });
                     }
 
                     return new Response(JSON.stringify({ error: 'Not Found', requested_path: url.pathname }), { status: 404, headers: corsHeaders });

@@ -632,6 +632,16 @@
                 return matchesSearch && matchesPlatform && matchesStatus && matchesAccount;
             });
 
+            // Sort: scheduled (1), draft (2), failed (3), published (4)
+            filteredSchedules.sort((a, b) => {
+                const statusPriority = { scheduled: 1, draft: 2, failed: 3, published: 4 };
+                const pA = statusPriority[a.status] || 99;
+                const pB = statusPriority[b.status] || 99;
+                if (pA !== pB) return pA - pB;
+                // If status is same, sort chronologically by publish_at (earlier scheduled/published at top)
+                return new Date(a.publish_at) - new Date(b.publish_at);
+            });
+
             renderActiveWorkspace();
         }
 

@@ -721,7 +721,11 @@ async function executeImmediatePublish(db, spId, userId, encryptionSecret) {
 
 // ── Telegram Bot API HTTP Helpers ──
 async function sendTelegramMessage(token, chatId, text, replyMarkup = null) {
-    const url = `https://api.telegram.org/bot${token}/sendMessage`;
+    let cleanToken = (token || '').trim();
+    if (cleanToken.toLowerCase().startsWith('bot')) {
+        cleanToken = cleanToken.substring(3);
+    }
+    const url = `https://api.telegram.org/bot${cleanToken}/sendMessage`;
     const body = {
         chat_id: chatId,
         text: text,
@@ -743,7 +747,11 @@ async function sendTelegramMessage(token, chatId, text, replyMarkup = null) {
 }
 
 async function editTelegramMessage(token, chatId, messageId, text, replyMarkup = null) {
-    const url = `https://api.telegram.org/bot${token}/editMessageText`;
+    let cleanToken = (token || '').trim();
+    if (cleanToken.toLowerCase().startsWith('bot')) {
+        cleanToken = cleanToken.substring(3);
+    }
+    const url = `https://api.telegram.org/bot${cleanToken}/editMessageText`;
     const body = {
         chat_id: chatId,
         message_id: messageId,
@@ -766,7 +774,11 @@ async function editTelegramMessage(token, chatId, messageId, text, replyMarkup =
 }
 
 async function answerCallbackQuery(token, callbackQueryId, text = null) {
-    const url = `https://api.telegram.org/bot${token}/answerCallbackQuery`;
+    let cleanToken = (token || '').trim();
+    if (cleanToken.toLowerCase().startsWith('bot')) {
+        cleanToken = cleanToken.substring(3);
+    }
+    const url = `https://api.telegram.org/bot${cleanToken}/answerCallbackQuery`;
     const body = { callback_query_id: callbackQueryId };
     if (text) {
         body.text = text;

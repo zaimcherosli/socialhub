@@ -9,6 +9,7 @@ import { PublishingEngine } from './publishers/PublishingEngine.js';
 import { PublisherFactory } from './publishers/PublisherFactory.js';
 import { AIFactory } from './services/ai/AIFactory.js';
 import { AutopilotService } from './services/ai/AutopilotService.js';
+import { SYSTEM_NICHE_RULES } from './config/nicheRules.js';
 
 const encoder = new TextEncoder();
 const decoder = new TextDecoder();
@@ -617,7 +618,30 @@ const getFactPreservingInstructions = (rawInstructions) => {
     if (!rawInstructions || rawInstructions.trim() === '') return "";
     return `${rawInstructions}\n\nFACT PRESERVATION RULE:\nYou must strictly preserve the real facts from the input/source text (such as the actual location, price, room count, and property specs). Under no circumstances should you invent, guess, or hallucinate a fake price (like RM800,000) or a fake location (like Shah Alam) if it is not in the source text. If your guidelines ask you to avoid or hide the actual price or project name, simply do not mention them at all (omit them) or use general phrases like 'harga berpatutan' or 'lokasi strategik' — but DO NOT fabricate or invent fake details.`;
 };
-
+// Helper: Get niche classification & guidelines instructions prompt
+const getNicheInstructionsPrompt = (productContext) => {
+    const textToAnalyze = (productContext || "").toLowerCase();
+    
+    let matchedNiche = null;
+    let matchedRules = [];
+    
+    for (const [key, niche] of Object.entries(SYSTEM_NICHE_RULES)) {
+        if (niche.detectionKeywords.some(keyword => textToAnalyze.includes(keyword.toLowerCase()))) {
+            matchedNiche = niche.name;
+            matchedRules = niche.rules;
+            break;
+        }
+    }
+    
+    let promptBlock = "";
+    if (matchedNiche) {
+        promptBlock = `\nSYSTEM AUTO-CLASSIFIED NICHE: ${matchedNiche}\nCRITICAL NICHE RULES (You MUST follow these rules closely):\n${matchedRules.map((r, i) => `${i + 1}. ${r}`).join('\n')}`;
+    } else {
+        promptBlock = `\nSYSTEM AUTO-CLASSIFIED NICHE: General / Dynamic Fallback\nCRITICAL DYNAMIC RULES (Analyze the input product/service and dynamically decide the best copywriting style, hooks, and guidelines that fit it. DO NOT fabricate or invent fake facts, prices, or locations).`;
+    }
+    
+    return promptBlock;
+};
 export default {
     async fetch(request, env, ctx) {
         const url = new URL(request.url);
@@ -1009,7 +1033,10 @@ export default {
                             goal: goal || 'Brand awareness',
                             tone: tone || 'Professional',
                             language: language || 'Bahasa Melayu',
-                            customInstructions: getFactPreservingInstructions(wsAI?.custom_ai_instructions)
+                            customInstructions: [
+                                getFactPreservingInstructions(wsAI?.custom_ai_instructions),
+                                getNicheInstructionsPrompt(product)
+                            ].filter(Boolean).join('\n\n')
                         });
 
                         await logActivity(activeWorkspace.workspace_id, user.id, 'ai_generate', `Generated caption for business "${businessType}": ${(product || '').substring(0, 30)}...`);
@@ -1498,10 +1525,14 @@ CRITICAL TONE RULES:
                             toneInstruction = `- Tone: ${tone || 'Friendly & Casual'}`;
                         }
 
-                        // Add workspace-specific copywriting guidelines if defined
+                        // Add workspace-specific copywriting guidelines and system niche rules
                         let customGuidelinesBlock = "";
+                        const systemNicheRulesBlock = getNicheInstructionsPrompt(productContext);
+                        
                         if (wsAI?.custom_ai_instructions) {
-                            customGuidelinesBlock = `\n4. Follow these workspace-specific copywriting guidelines/knowledge base closely:\n${getFactPreservingInstructions(wsAI.custom_ai_instructions)}`;
+                            customGuidelinesBlock = `\n4. Follow these workspace-specific copywriting guidelines/knowledge base closely:\n${getFactPreservingInstructions(wsAI.custom_ai_instructions)}\n\n5. Follow these niche guidelines:\n${systemNicheRulesBlock}`;
+                        } else {
+                            customGuidelinesBlock = `\n4. Follow these niche guidelines:\n${systemNicheRulesBlock}`;
                         }
 
                         const systemPrompt = `You are a professional social media marketing expert in Malaysia.
@@ -1774,6 +1805,10 @@ Provide the output in a strict JSON format with the following keys. Return ONLY 
                         }
 
                         let combinedInstructions = getFactPreservingInstructions(wsAI?.custom_ai_instructions || "");
+                        const systemNicheRulesBlock = getNicheInstructionsPrompt(scrapedTitle + " " + (scrapedDescription || ""));
+                        combinedInstructions = combinedInstructions 
+                            ? `${combinedInstructions}\n\nSYSTEM NICHE GUIDELINES:\n${systemNicheRulesBlock}`
+                            : systemNicheRulesBlock;
                         if (tone === 'Ultra-Realistic Malay') {
                             const toneRules = `\nTone: Ultra-Realistic Malaysian Malay.
 CRITICAL TONE RULES:

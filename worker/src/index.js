@@ -9,7 +9,6 @@ import { PublishingEngine } from './publishers/PublishingEngine.js';
 import { PublisherFactory } from './publishers/PublisherFactory.js';
 import { AIFactory } from './services/ai/AIFactory.js';
 import { AutopilotService } from './services/ai/AutopilotService.js';
-import { SYSTEM_NICHE_RULES } from './config/nicheRules.js';
 
 const encoder = new TextEncoder();
 const decoder = new TextDecoder();
@@ -619,18 +618,33 @@ const getFactPreservingInstructions = (rawInstructions) => {
     return `${rawInstructions}\n\nFACT PRESERVATION RULE:\nYou must strictly preserve the real facts from the input/source text (such as the actual location, price, room count, and property specs). Under no circumstances should you invent, guess, or hallucinate a fake price (like RM800,000) or a fake location (like Shah Alam) if it is not in the source text. If your guidelines ask you to avoid or hide the actual price or project name, simply do not mention them at all (omit them) or use general phrases like 'harga berpatutan' or 'lokasi strategik' — but DO NOT fabricate or invent fake details.`;
 };
 // Helper: Get niche classification & guidelines instructions prompt
-const getNicheInstructionsPrompt = (productContext) => {
+const getNicheInstructionsPrompt = async (db, productContext) => {
+    if (!db) return "";
     const textToAnalyze = (productContext || "").toLowerCase();
     
     let matchedNiche = null;
     let matchedRules = [];
     
-    for (const [key, niche] of Object.entries(SYSTEM_NICHE_RULES)) {
-        if (niche.detectionKeywords.some(keyword => textToAnalyze.includes(keyword.toLowerCase()))) {
-            matchedNiche = niche.name;
-            matchedRules = niche.rules;
-            break;
+    try {
+        const niches = await db.prepare("SELECT * FROM system_niche_rules ORDER BY id ASC").all();
+        if (niches && niches.results) {
+            for (const niche of niches.results) {
+                // detection_keywords is a comma-separated list
+                const keywords = (niche.detection_keywords || "").split(',').map(k => k.trim().toLowerCase()).filter(Boolean);
+                if (keywords.some(k => textToAnalyze.includes(k))) {
+                    matchedNiche = niche.name;
+                    // rules is stored as a JSON array string
+                    try {
+                        matchedRules = JSON.parse(niche.rules || "[]");
+                    } catch (_) {
+                        matchedRules = [];
+                    }
+                    break;
+                }
+            }
         }
+    } catch (_) {
+        // Fallback to empty if D1 query fails
     }
     
     let promptBlock = "";
@@ -675,6 +689,29 @@ export default {
                     followers_count INTEGER DEFAULT 0,
                     recorded_at TEXT NOT NULL DEFAULT (datetime('now'))
                 )`).run();
+            } catch (_) {}
+
+            // Ensure system_niche_rules table exists and seed initial default values
+            try {
+                await env.DB.prepare(`CREATE TABLE IF NOT EXISTS system_niche_rules (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    niche_key TEXT UNIQUE NOT NULL,
+                    name TEXT NOT NULL,
+                    detection_keywords TEXT NOT NULL,
+                    rules TEXT NOT NULL,
+                    created_at TEXT DEFAULT (datetime('now')),
+                    updated_at TEXT DEFAULT (datetime('now'))
+                )`).run();
+
+                const countRes = await env.DB.prepare("SELECT COUNT(*) as count FROM system_niche_rules").first();
+                if (countRes && countRes.count === 0) {
+                    await env.DB.prepare(`
+                        INSERT INTO system_niche_rules (niche_key, name, detection_keywords, rules) VALUES
+                        ('hartanah', 'Ejen Hartanah & Properti', 'rumah,apartment,condo,tanah,teres,semi-d,saujana,hartanah,listing,sale,rent,kondo,bilik,sewa,jual,flat,bungalow,banglo,saujana putra,wangsa melawati,wangsa ceria,dengkil', '["You MUST include the property price (e.g. RM 325,000 or RM 325k) in the copywriting to attract buyers.","Focus on the actual property details (type, location, size/sqft, features, facilities) from the product info.","NEVER include any phone numbers (e.g. 017-xxx xxxx), agent names, PEA/REN numbers, or agency names (e.g. IQI Realty) in the caption or CTA. The only contact method is via the link provided separately.","For real estate/properties, include specific hashtags based on transaction type (e.g. #jualbelirumah #jualrumah #rumahsewa #rumahuntukdijual)."]'),
+                        ('affiliate', 'Affiliate Shopee/TikTok/Lazada', 'shopee,lazada,tiktok shop,beli di,beg kuning,racun shopee,racun tiktok,murah gila,diskaun,voucher,promo,gadget,barang dapur', '["DO NOT include the price (e.g. RMxx) in the copywriting. Keep the price secret to make the audience curious so they click the link.","Write in a highly engaging, casual, and conversational style (Manglish / Bahasa Rojak) to recommend the product naturally.","Use conversational hooks that capture attention instantly (e.g. ''Korang yang selalu workout tu wajib tengok ni...'', ''Giler ah, tak sangka ada item ni...'').","Focus on benefits and pain points solved by the product."]'),
+                        ('automotif', 'Ejen Jual Kereta / Motor', 'kereta,car,perodua,proton,honda,toyota,bulanan,loan,trade-in,deposit,full loan,myvi,bezza,saga,alza,x50', '["Focus on low monthly installments (bayaran bulanan), rebates, or free gifts.","Highlight easy loan approvals, full loan availability, or fast trade-in deals.","Use a professional yet friendly and accessible tone.","Encourage users to check their loan eligibility as the main hook/CTA."]')
+                    `).run();
+                }
             } catch (_) {}
         }
 
@@ -1035,7 +1072,7 @@ export default {
                             language: language || 'Bahasa Melayu',
                             customInstructions: [
                                 getFactPreservingInstructions(wsAI?.custom_ai_instructions),
-                                getNicheInstructionsPrompt(product)
+                                await getNicheInstructionsPrompt(env.DB, product)
                             ].filter(Boolean).join('\n\n')
                         });
 
@@ -1527,7 +1564,7 @@ CRITICAL TONE RULES:
 
                         // Add workspace-specific copywriting guidelines and system niche rules
                         let customGuidelinesBlock = "";
-                        const systemNicheRulesBlock = getNicheInstructionsPrompt(productContext);
+                        const systemNicheRulesBlock = await getNicheInstructionsPrompt(env.DB, productContext);
                         
                         if (wsAI?.custom_ai_instructions) {
                             customGuidelinesBlock = `\n4. Follow these workspace-specific copywriting guidelines/knowledge base closely:\n${getFactPreservingInstructions(wsAI.custom_ai_instructions)}\n\n5. Follow these niche guidelines:\n${systemNicheRulesBlock}`;
@@ -1805,7 +1842,7 @@ Provide the output in a strict JSON format with the following keys. Return ONLY 
                         }
 
                         let combinedInstructions = getFactPreservingInstructions(wsAI?.custom_ai_instructions || "");
-                        const systemNicheRulesBlock = getNicheInstructionsPrompt(scrapedTitle + " " + (scrapedDescription || ""));
+                        const systemNicheRulesBlock = await getNicheInstructionsPrompt(env.DB, scrapedTitle + " " + (scrapedDescription || ""));
                         combinedInstructions = combinedInstructions 
                             ? `${combinedInstructions}\n\nSYSTEM NICHE GUIDELINES:\n${systemNicheRulesBlock}`
                             : systemNicheRulesBlock;
@@ -3958,6 +3995,64 @@ CRITICAL TONE RULES:
                             await logActivity(wsId, user.id, 'admin_change_plan', `Admin changed workspace plan to ${plan}`);
 
                             return new Response(JSON.stringify({ success: true, message: `Workspace plan updated to ${plan} successfully` }), { status: 200, headers: corsHeaders });
+                        } catch (e) {
+                            return new Response(JSON.stringify({ message: e.message }), { status: 500, headers: corsHeaders });
+                        }
+                    }
+
+                    // Match /api/admin/niche-rules
+                    if (url.pathname === '/api/admin/niche-rules') {
+                        const user = await getAuthUser();
+                        if (!user) return new Response(JSON.stringify({ message: 'Unauthorized session' }), { status: 401, headers: corsHeaders });
+                        if (user.role !== 'admin') return new Response(JSON.stringify({ message: 'Forbidden: Admin access only' }), { status: 403, headers: corsHeaders });
+                        if (!env.DB) return new Response(JSON.stringify({ message: 'Database missing' }), { status: 500, headers: corsHeaders });
+
+                        if (request.method === 'GET') {
+                            try {
+                                const niches = await env.DB.prepare("SELECT * FROM system_niche_rules ORDER BY id ASC").all();
+                                return new Response(JSON.stringify({ success: true, results: niches.results || [] }), { status: 200, headers: corsHeaders });
+                            } catch (e) {
+                                return new Response(JSON.stringify({ message: e.message }), { status: 500, headers: corsHeaders });
+                            }
+                        }
+
+                        if (request.method === 'POST') {
+                            try {
+                                const { id, niche_key, name, detection_keywords, rules } = await request.json();
+                                if (!niche_key || !name || !detection_keywords || !rules) {
+                                    return new Response(JSON.stringify({ message: 'All fields are required.' }), { status: 400, headers: corsHeaders });
+                                }
+
+                                if (id) {
+                                    await env.DB.prepare(
+                                        "UPDATE system_niche_rules SET niche_key = ?, name = ?, detection_keywords = ?, rules = ?, updated_at = datetime('now') WHERE id = ?"
+                                    ).bind(niche_key.trim(), name.trim(), detection_keywords.trim(), typeof rules === 'string' ? rules : JSON.stringify(rules), id).run();
+                                } else {
+                                    await env.DB.prepare(
+                                        "INSERT INTO system_niche_rules (niche_key, name, detection_keywords, rules) VALUES (?, ?, ?, ?)"
+                                    ).bind(niche_key.trim(), name.trim(), detection_keywords.trim(), typeof rules === 'string' ? rules : JSON.stringify(rules)).run();
+                                }
+
+                                return new Response(JSON.stringify({ success: true, message: 'Niche rule saved successfully.' }), { status: 200, headers: corsHeaders });
+                            } catch (e) {
+                                return new Response(JSON.stringify({ message: e.message }), { status: 500, headers: corsHeaders });
+                            }
+                        }
+                    }
+
+                    // Match /api/admin/niche-rules/:id (DELETE)
+                    const adminNicheRuleDeleteMatch = url.pathname.match(/^\/api\/admin\/niche-rules\/(\d+)$/);
+                    if (adminNicheRuleDeleteMatch) {
+                        if (request.method !== 'DELETE') return new Response(JSON.stringify({ error: 'Method not allowed' }), { status: 405, headers: corsHeaders });
+                        const ruleId = parseInt(adminNicheRuleDeleteMatch[1]);
+                        const user = await getAuthUser();
+                        if (!user) return new Response(JSON.stringify({ message: 'Unauthorized session' }), { status: 401, headers: corsHeaders });
+                        if (user.role !== 'admin') return new Response(JSON.stringify({ message: 'Forbidden: Admin access only' }), { status: 403, headers: corsHeaders });
+                        if (!env.DB) return new Response(JSON.stringify({ message: 'Database missing' }), { status: 500, headers: corsHeaders });
+
+                        try {
+                            await env.DB.prepare("DELETE FROM system_niche_rules WHERE id = ?").bind(ruleId).run();
+                            return new Response(JSON.stringify({ success: true, message: 'Niche rule deleted successfully.' }), { status: 200, headers: corsHeaders });
                         } catch (e) {
                             return new Response(JSON.stringify({ message: e.message }), { status: 500, headers: corsHeaders });
                         }

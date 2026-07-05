@@ -3255,6 +3255,9 @@ CRITICAL LANGUAGE / SPEECH RULES:
                 }
 
                 case '/api/integration/telegram/debug-token': {
+                    const user = await getAuthUser();
+                    if (!user) return new Response(JSON.stringify({ message: 'Unauthorized session' }), { status: 401, headers: corsHeaders });
+                    
                     const token = env.TELEGRAM_BOT_TOKEN || "";
                     let cleanToken = token.trim();
                     if (cleanToken.toLowerCase().startsWith('bot')) {

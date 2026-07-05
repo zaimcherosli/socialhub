@@ -978,18 +978,15 @@ export default {
                             try {
                                 // Attempt decrypt, fallback to raw value
                                 const decrypted = await decryptToken(wsAI.ai_api_key_enc, encryptionSecret);
-                                if (decrypted) {
-                                    aiEnv.OPENROUTER_API_KEY = decrypted;
-                                    aiEnv.GEMINI_API_KEY = decrypted;
-                                    aiEnv.OPENAI_API_KEY = decrypted;
+                                const resolvedKey = decrypted || wsAI.ai_api_key_enc;
+                                const isValidKey = resolvedKey && (resolvedKey.startsWith('sk-') || resolvedKey.startsWith('AIza') || resolvedKey.length > 40);
+                                if (isValidKey) {
+                                    aiEnv.OPENROUTER_API_KEY = resolvedKey;
+                                    aiEnv.GEMINI_API_KEY = resolvedKey;
+                                    aiEnv.OPENAI_API_KEY = resolvedKey;
                                     aiEnv._workspaceKeySet = true;
                                 }
-                            } catch (_) {
-                                aiEnv.OPENROUTER_API_KEY = wsAI.ai_api_key_enc;
-                                aiEnv.GEMINI_API_KEY = wsAI.ai_api_key_enc;
-                                aiEnv.OPENAI_API_KEY = wsAI.ai_api_key_enc;
-                                aiEnv._workspaceKeySet = true;
-                            }
+                            } catch (_) {}
                         }
 
                         const provider = AIFactory.getProvider(aiEnv);
@@ -1211,18 +1208,16 @@ export default {
                         if (wsAI?.ai_api_key_enc) {
                             try {
                                 const decrypted = await decryptToken(wsAI.ai_api_key_enc, encryptionSecret);
-                                if (decrypted) {
-                                    aiEnv.OPENROUTER_API_KEY = decrypted;
-                                    aiEnv.GEMINI_API_KEY = decrypted;
-                                    aiEnv.OPENAI_API_KEY = decrypted;
+                                const resolvedKey = decrypted || wsAI.ai_api_key_enc;
+                                // Only use if it looks like a real API key (sk-, AIza, or long enough)
+                                const isValidKey = resolvedKey && (resolvedKey.startsWith('sk-') || resolvedKey.startsWith('AIza') || resolvedKey.length > 40);
+                                if (isValidKey) {
+                                    aiEnv.OPENROUTER_API_KEY = resolvedKey;
+                                    aiEnv.GEMINI_API_KEY = resolvedKey;
+                                    aiEnv.OPENAI_API_KEY = resolvedKey;
                                     aiEnv._workspaceKeySet = true;
                                 }
-                            } catch (_) {
-                                aiEnv.OPENROUTER_API_KEY = wsAI.ai_api_key_enc;
-                                aiEnv.GEMINI_API_KEY = wsAI.ai_api_key_enc;
-                                aiEnv.OPENAI_API_KEY = wsAI.ai_api_key_enc;
-                                aiEnv._workspaceKeySet = true;
-                            }
+                            } catch (_) {}
                         }
 
                         // Extract context from frontend or scrape URL for product details
@@ -1738,18 +1733,15 @@ Provide the output in a strict JSON format with the following keys. Return ONLY 
                         if (wsAI?.ai_api_key_enc) {
                             try {
                                 const decrypted = await decryptToken(wsAI.ai_api_key_enc, encryptionSecret);
-                                if (decrypted) {
-                                    aiEnv.OPENROUTER_API_KEY = decrypted;
-                                    aiEnv.GEMINI_API_KEY = decrypted;
-                                    aiEnv.OPENAI_API_KEY = decrypted;
+                                const resolvedKey = decrypted || wsAI.ai_api_key_enc;
+                                const isValidKey = resolvedKey && (resolvedKey.startsWith('sk-') || resolvedKey.startsWith('AIza') || resolvedKey.length > 40);
+                                if (isValidKey) {
+                                    aiEnv.OPENROUTER_API_KEY = resolvedKey;
+                                    aiEnv.GEMINI_API_KEY = resolvedKey;
+                                    aiEnv.OPENAI_API_KEY = resolvedKey;
                                     aiEnv._workspaceKeySet = true;
                                 }
-                            } catch (_) {
-                                aiEnv.OPENROUTER_API_KEY = wsAI.ai_api_key_enc;
-                                aiEnv.GEMINI_API_KEY = wsAI.ai_api_key_enc;
-                                aiEnv.OPENAI_API_KEY = wsAI.ai_api_key_enc;
-                                aiEnv._workspaceKeySet = true;
-                            }
+                            } catch (_) {}
                         }
 
                         let combinedInstructions = getFactPreservingInstructions(wsAI?.custom_ai_instructions || "");

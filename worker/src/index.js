@@ -4958,7 +4958,11 @@ CRITICAL TONE RULES:
                     }
                 }
             }
-           // ==================== FOLLOWER COUNT SYNC (scheduled handler) ====================
+        } catch (insightsSyncErr) {
+            console.error('[CronSync] Insights sync block error:', insightsSyncErr.message);
+        }
+
+        // ==================== FOLLOWER COUNT SYNC (scheduled handler) ====================
         try {
             const threadAccounts = await env.DB.prepare(
                 `SELECT DISTINCT sa.id as account_id, sa.access_token, sa.account_id as threads_user_id, sa.workspace_id

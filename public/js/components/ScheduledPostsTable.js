@@ -73,7 +73,7 @@ class ScheduledPostsTable extends HTMLElement {
         const tbody = this.querySelector('#scheduledTableBody');
         try {
             const res = await schedulerService.getScheduledPosts();
-            const posts = res.results || [];
+            let posts = res.results || [];
             tbody.innerHTML = '';
 
             if (posts.length === 0) {
@@ -86,6 +86,22 @@ class ScheduledPostsTable extends HTMLElement {
                 `;
                 return;
             }
+
+            // Sort: scheduled (1), draft (2), failed (3), published (4)
+            posts.sort((a, b) => {
+                const statusPriority = { scheduled: 1, draft: 2, failed: 3, published: 4 };
+                const pA = statusPriority[a.status] || 99;
+                const pB = statusPriority[b.status] || 99;
+                if (pA !== pB) return pA - pB;
+                // If status is same, sort by date (newest first for published, earliest first for scheduled)
+                if (a.status === 'published') {
+                    return new Date(b.publish_at) - new Date(a.publish_at);
+                }
+                return new Date(a.publish_at) - new Date(b.publish_at);
+            });
+
+            // Limit to max 10 posts to keep the page clean and prevent extreme scrolling
+            posts = posts.slice(0, 10);
 
             posts.forEach(post => {
                 const tr = document.createElement('tr');

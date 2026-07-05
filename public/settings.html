@@ -566,6 +566,36 @@
                     </div>
                 </div>
 
+                <!-- ==================== TELEGRAM BOT INTEGRATION ==================== -->
+                <div class="card" style="padding: 1.5rem; margin-top: 2rem;">
+                    <div class="settings-section-header">
+                        <h3>🤖 Telegram Bot Integration</h3>
+                        <p>Link your Telegram account to our AI Assistant. Once connected, you can chat with the bot and send property listing URLs directly to draft and schedule publications on the go!</p>
+                    </div>
+
+                    <div id="telegramStatusBox" style="padding: 1rem; border-radius: var(--radius-sm); border: 1px solid var(--color-border); background: var(--color-bg-accent); display: flex; align-items: center; justify-content: space-between; gap: 1rem; flex-wrap: wrap; margin-bottom: 1rem;">
+                        <div>
+                            <div style="font-weight: 700; font-size: 0.9rem; color: var(--color-text-primary);" id="telegramStatusText">Loading status...</div>
+                            <div style="font-size: 0.75rem; color: var(--color-text-tertiary);" id="telegramDetailText">Checking connection with SocialHubBot...</div>
+                        </div>
+                        <div id="telegramActionBtnContainer">
+                            <!-- Buttons rendered dynamically -->
+                        </div>
+                    </div>
+
+                    <!-- Connection code box (shown when Connect is clicked) -->
+                    <div id="telegramConnectCodeWrap" style="display: none; padding: 1.25rem; border: 1.5px dashed var(--color-primary); border-radius: var(--radius-sm); background: var(--color-primary-light); margin-top: 1rem; text-align: center;">
+                        <h4 style="margin: 0 0 0.5rem 0; font-weight: 700; font-size: 0.9rem; color: var(--color-primary-dark);">Link Code Generated</h4>
+                        <p style="font-size: 0.8rem; color: var(--color-text-secondary); margin: 0 0 1rem 0;">Send this code to the Telegram bot or click the button below to start linking:</p>
+                        <div style="font-size: 1.75rem; font-weight: 800; color: var(--color-primary); font-family: monospace; letter-spacing: 0.1em; margin: 0.75rem 0;" id="telegramOtpText">000000</div>
+                        <p style="font-size: 0.7rem; color: var(--color-text-tertiary); margin-bottom: 1.25rem;">Valid for 10 minutes. Click the button below to open Telegram:</p>
+                        <a href="#" target="_blank" class="btn btn-primary" id="btnOpenTelegramBot" style="display: inline-flex; align-items: center; justify-content: center; width: 220px; margin: 0 auto;">
+                            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="margin-right: 0.35rem;"><polygon points="22 2 15 22 11 13 2 9 22 2"/><line x1="22" y1="2" x2="11" y2="13"/></svg>
+                            Start Chat on Telegram
+                        </a>
+                    </div>
+                </div>
+
                 <!-- API Key Reveal Modal -->
                 <div id="apiKeyModal" style="display:none; position:fixed; inset:0; z-index:1000; background:rgba(0,0,0,0.55); backdrop-filter:blur(4px); align-items:center; justify-content:center;">
                     <div class="card" style="max-width:560px; width:90%; padding:2rem; position:relative; box-shadow:var(--shadow-lg);">
@@ -1003,7 +1033,119 @@
             document.getElementById('apiKeyRevealText').textContent = '';
         });
 
+        // ==================== TELEGRAM BOT INTEGRATION ====================
+        async function loadTelegramStatus() {
+            const statusText = document.getElementById('telegramStatusText');
+            const detailText = document.getElementById('telegramDetailText');
+            const actionContainer = document.getElementById('telegramActionBtnContainer');
+            const codeWrap = document.getElementById('telegramConnectCodeWrap');
+
+            try {
+                const token = localStorage.getItem('socialhub_jwt') || sessionStorage.getItem('socialhub_jwt');
+                const res = await fetch(`${KEYS_BASE}/api/integration/telegram/status`, {
+                    headers: { 'Authorization': `Bearer ${token}` }
+                });
+                const data = await res.json();
+
+                if (data.connected) {
+                    statusText.innerHTML = `<span style="color: var(--color-success);">● Connected</span>`;
+                    detailText.textContent = `Linked Telegram Chat ID: ${data.chat_id} (Connected ${new Date(data.created_at).toLocaleDateString()})`;
+                    actionContainer.innerHTML = `
+                        <button class="btn btn-danger" id="btnDisconnectTelegram" style="padding: 0.5rem 1rem; font-size: 0.8rem;">
+                            Disconnect Bot
+                        </button>
+                    `;
+                    document.getElementById('btnDisconnectTelegram').addEventListener('click', disconnectTelegram);
+                    codeWrap.style.display = 'none';
+                } else {
+                    statusText.innerHTML = `<span style="color: var(--color-text-tertiary);">○ Disconnected</span>`;
+                    detailText.textContent = "Connect to our Telegram Bot to generate copywriting and schedule posts directly from Telegram.";
+                    actionContainer.innerHTML = `
+                        <button class="btn btn-primary" id="btnConnectTelegram" style="padding: 0.5rem 1rem; font-size: 0.8rem;">
+                            Connect Telegram Bot
+                        </button>
+                    `;
+                    document.getElementById('btnConnectTelegram').addEventListener('click', generateTelegramLink);
+                }
+            } catch (err) {
+                statusText.textContent = "Failed to load status";
+                detailText.textContent = "Error communicating with integration backend.";
+            }
+        }
+
+        async function generateTelegramLink() {
+            const codeWrap = document.getElementById('telegramConnectCodeWrap');
+            const otpText = document.getElementById('telegramOtpText');
+            const openLink = document.getElementById('btnOpenTelegramBot');
+            const btnConnect = document.getElementById('btnConnectTelegram');
+
+            btnConnect.disabled = true;
+            btnConnect.textContent = "Generating...";
+
+            try {
+                const token = localStorage.getItem('socialhub_jwt') || sessionStorage.getItem('socialhub_jwt');
+                const res = await fetch(`${KEYS_BASE}/api/integration/telegram/code`, {
+                    method: 'POST',
+                    headers: { 'Authorization': `Bearer ${token}` }
+                });
+                const data = await res.json();
+
+                if (data.success) {
+                    otpText.textContent = data.code;
+                    openLink.href = data.link;
+                    codeWrap.style.display = 'block';
+
+                    // Start polling status every 5 seconds while code is displayed
+                    const pollInterval = setInterval(async () => {
+                        const tokenInner = localStorage.getItem('socialhub_jwt') || sessionStorage.getItem('socialhub_jwt');
+                        const resInner = await fetch(`${KEYS_BASE}/api/integration/telegram/status`, {
+                            headers: { 'Authorization': `Bearer ${tokenInner}` }
+                        });
+                        const dataInner = await resInner.json();
+                        if (dataInner.connected) {
+                            clearInterval(pollInterval);
+                            loadTelegramStatus();
+                        }
+                    }, 5000);
+
+                    // Stop polling after 10 minutes (expires)
+                    setTimeout(() => clearInterval(pollInterval), 10 * 60 * 1000);
+                } else {
+                    alert('Failed to generate connection code.');
+                }
+            } catch (err) {
+                alert('Error generating code: ' + err.message);
+            } finally {
+                btnConnect.disabled = false;
+                btnConnect.textContent = "Connect Telegram Bot";
+            }
+        }
+
+        async function disconnectTelegram() {
+            if (!confirm("Are you sure you want to disconnect the Telegram bot? You will no longer be able to schedule posts from Telegram.")) return;
+
+            const btnDisconnect = document.getElementById('btnDisconnectTelegram');
+            btnDisconnect.disabled = true;
+            btnDisconnect.textContent = "Disconnecting...";
+
+            try {
+                const token = localStorage.getItem('socialhub_jwt') || sessionStorage.getItem('socialhub_jwt');
+                const res = await fetch(`${KEYS_BASE}/api/integration/telegram/disconnect`, {
+                    method: 'POST',
+                    headers: { 'Authorization': `Bearer ${token}` }
+                });
+                if (res.ok) {
+                    loadTelegramStatus();
+                } else {
+                    alert('Failed to disconnect bot.');
+                }
+            } catch (err) {
+                alert('Error: ' + err.message);
+            }
+        }
+
         loadApiKeys();
+        loadTelegramStatus();
     </script>
 </body>
 </html>

@@ -653,9 +653,494 @@ const getNicheInstructionsPrompt = async (db, productContext) => {
     } else {
         promptBlock = `\nSYSTEM AUTO-CLASSIFIED NICHE: General / Dynamic Fallback\nCRITICAL DYNAMIC RULES (Analyze the input product/service and dynamically decide the best copywriting style, hooks, and guidelines that fit it. DO NOT fabricate or invent fake facts, prices, or locations).`;
     }
-    
     return promptBlock;
 };
+
+// ── Shared Helper: Execute immediate publish logic (used by Web REST API and Telegram Webhook) ──
+async function executeImmediatePublish(db, spId, userId, encryptionSecret) {
+    const scheduledPost = await db.prepare(
+        "SELECT * FROM scheduled_posts WHERE id = ? AND user_id = ?"
+    ).bind(spId, userId).first();
+
+    if (!scheduledPost) {
+        throw new Error('Scheduled post not found');
+    }
+
+    await db.prepare("UPDATE scheduled_posts SET status = 'publishing' WHERE id = ?").bind(spId).run();
+
+    const socialAccount = await db.prepare(
+        "SELECT * FROM social_accounts WHERE id = ? AND user_id = ?"
+    ).bind(scheduledPost.account_id, userId).first();
+
+    if (!socialAccount) {
+        throw new Error('Connected social account not found.');
+    }
+
+    const decryptedAccessToken = await decryptToken(socialAccount.access_token, encryptionSecret);
+    const credentials = { access_token: decryptedAccessToken, account_id: socialAccount.account_id };
+
+    const publisher = PublisherFactory.getPublisher(scheduledPost.platform);
+    
+    const postObj = {
+        title: '',
+        caption: scheduledPost.content,
+        media: []
+    };
+
+    const result = await publisher.publish(postObj, credentials);
+
+    if (result.success) {
+        const nowStr = new Date().toISOString();
+        await db.prepare(
+            `UPDATE scheduled_posts 
+              SET status = 'published', published_at = ?, external_post_id = ?, error_message = NULL, updated_at = (datetime('now'))
+              WHERE id = ?`
+         ).bind(nowStr, result.provider_post_id, spId).run();
+
+         await db.prepare(
+             `INSERT INTO publish_logs (schedule_id, social_account_id, status, error_message, external_post_id, response_payload, published_at) 
+              VALUES (NULL, ?, 'success', NULL, ?, ?, ?)`
+         ).bind(socialAccount.id, result.provider_post_id, JSON.stringify(result), nowStr).run();
+
+         return { success: true, result };
+    } else {
+        await db.prepare(
+            `UPDATE scheduled_posts 
+              SET status = 'failed', error_message = ?, updated_at = (datetime('now'))
+              WHERE id = ?`
+         ).bind(result.error_message, spId).run();
+
+         await db.prepare(
+             `INSERT INTO publish_logs (schedule_id, social_account_id, status, error_message, response_payload, published_at) 
+              VALUES (NULL, ?, 'failed', ?, ?, (datetime('now')))`
+         ).bind(socialAccount.id, result.error_message, JSON.stringify(result)).run();
+
+         throw new Error(result.error_message);
+    }
+}
+
+// ── Telegram Bot API HTTP Helpers ──
+async function sendTelegramMessage(token, chatId, text, replyMarkup = null) {
+    const url = `https://api.telegram.org/bot${token}/sendMessage`;
+    const body = {
+        chat_id: chatId,
+        text: text,
+        parse_mode: 'HTML'
+    };
+    if (replyMarkup) {
+        body.reply_markup = replyMarkup;
+    }
+    const response = await fetch(url, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(body)
+    });
+    return response.ok;
+}
+
+async function editTelegramMessage(token, chatId, messageId, text, replyMarkup = null) {
+    const url = `https://api.telegram.org/bot${token}/editMessageText`;
+    const body = {
+        chat_id: chatId,
+        message_id: messageId,
+        text: text,
+        parse_mode: 'HTML'
+    };
+    if (replyMarkup) {
+        body.reply_markup = replyMarkup;
+    }
+    const response = await fetch(url, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(body)
+    });
+    return response.ok;
+}
+
+async function answerCallbackQuery(token, callbackQueryId, text = null) {
+    const url = `https://api.telegram.org/bot${token}/answerCallbackQuery`;
+    const body = { callback_query_id: callbackQueryId };
+    if (text) {
+        body.text = text;
+    }
+    const response = await fetch(url, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(body)
+    });
+    return response.ok;
+}
+
+// Helper: extract page metadata for Telegram URL scraping
+async function scrapeTelegramUrl(urlStr) {
+    try {
+        const response = await fetch(urlStr, {
+            headers: {
+                'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36',
+                'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,*/*;q=0.8',
+                'Accept-Language': 'ms-MY,ms;q=0.9,en-MY;q=0.8,en;q=0.7',
+                'Referer': new URL(urlStr).origin + '/'
+            }
+        });
+        if (!response.ok) return { title: '', description: '' };
+        const html = await response.text();
+
+        // Extract title
+        let title = '';
+        const titleMatch = html.match(/<title[^>]*>([\s\S]*?)<\/title>/i);
+        if (titleMatch) title = titleMatch[1].trim();
+
+        // Extract meta description
+        let description = '';
+        const descMatch = html.match(/<meta[^>]+name=["']description["'][^>]+content=["']([\s\S]*?)["']/i) ||
+                            html.match(/<meta[^>]+content=["']([\s\S]*?)["'][^>]+name=["']description["']/i);
+        if (descMatch) description = descMatch[1].trim();
+
+        // Decode HTML entities
+        const decode = (s) => s.replace(/&#(\d+);/g, (_, dec) => String.fromCharCode(dec)).replace(/&quot;/g, '"').replace(/&amp;/g, '&');
+
+        return {
+            title: decode(cleanScrapedTitle(title)),
+            description: decode(description)
+        };
+    } catch (_) {
+        return { title: '', description: '' };
+    }
+}
+
+// ── Telegram Webhook Core Handler (Runs asynchronously in ctx.waitUntil) ──
+async function handleTelegramUpdate(update, env, encryptionSecret, jwtSecret) {
+    const token = env.TELEGRAM_BOT_TOKEN;
+    if (!token) {
+        console.error("TELEGRAM_BOT_TOKEN binding missing");
+        return;
+    }
+
+    try {
+        // ── 1. Handle Inline Button Clicks (Callback Query) ──
+        if (update.callback_query) {
+            const cq = update.callback_query;
+            const chatId = cq.message.chat.id;
+            const messageId = cq.message.message_id;
+            const queryData = cq.data;
+            const callbackQueryId = cq.id;
+
+            // Lookup connected user
+            const connection = await env.DB.prepare(
+                `SELECT user_id FROM user_telegram_connections WHERE telegram_chat_id = ?`
+            ).bind(cq.from.id).first();
+
+            if (!connection) {
+                await answerCallbackQuery(token, callbackQueryId, "Akaun anda belum disambungkan. Sila sambung di Dashboard.");
+                return;
+            }
+
+            const userId = connection.user_id;
+
+            if (queryData.startsWith("publish_draft:")) {
+                const draftId = parseInt(queryData.split(":")[1], 10);
+                await answerCallbackQuery(token, callbackQueryId, "Sedang menerbitkan...");
+                await editTelegramMessage(token, chatId, messageId, "⏳ Sedang menerbitkan post anda ke Threads...");
+                
+                try {
+                    await executeImmediatePublish(env.DB, draftId, userId, encryptionSecret);
+                    await editTelegramMessage(token, chatId, messageId, "🎉 <b>Berjaya diterbitkan!</b>\nPost anda telah dipos secara langsung ke Threads.");
+                } catch (publishErr) {
+                    await editTelegramMessage(token, chatId, messageId, `❌ <b>Gagal menerbitkan:</b>\n${publishErr.message}`);
+                }
+            }
+            
+            else if (queryData.startsWith("schedule_draft:")) {
+                const draftId = parseInt(queryData.split(":")[1], 10);
+                await answerCallbackQuery(token, callbackQueryId, "Sedang menjadualkan...");
+
+                try {
+                    // Set default schedule time: Tomorrow 9:00 PM Malaysia time (13:00 UTC)
+                    const tomorrow = new Date(Date.now() + 24 * 60 * 60 * 1000);
+                    tomorrow.setUTCHours(13, 0, 0, 0);
+                    const publishTimeStr = tomorrow.toISOString();
+
+                    await env.DB.prepare(
+                        `UPDATE scheduled_posts 
+                         SET status = 'scheduled', publish_at = ?, timezone = 'Asia/Kuala_Lumpur', updated_at = (datetime('now')) 
+                         WHERE id = ? AND user_id = ?`
+                    ).bind(publishTimeStr, draftId, userId).run();
+
+                    const readableTime = tomorrow.toLocaleString('ms-MY', { timeZone: 'Asia/Kuala_Lumpur' });
+                    await editTelegramMessage(token, chatId, messageId, `📅 <b>Berjaya dijadualkan!</b>\nPost akan diterbitkan pada <b>${readableTime} (MYT)</b>.`);
+                } catch (schedErr) {
+                    await editTelegramMessage(token, chatId, messageId, `❌ <b>Gagal menjadualkan:</b>\n${schedErr.message}`);
+                }
+            }
+            
+            else if (queryData.startsWith("cancel_draft:")) {
+                const draftId = parseInt(queryData.split(":")[1], 10);
+                await answerCallbackQuery(token, callbackQueryId, "Aksi dibatalkan.");
+                
+                try {
+                    await env.DB.prepare(
+                        `UPDATE scheduled_posts SET status = 'cancelled', updated_at = (datetime('now')) WHERE id = ? AND user_id = ?`
+                    ).bind(draftId, userId).run();
+                    await editTelegramMessage(token, chatId, messageId, "❌ <b>Aksi dibatalkan.</b>\nDraf post ini telah dibatalkan.");
+                } catch (_) {
+                    await editTelegramMessage(token, chatId, messageId, "❌ Aksi dibatalkan.");
+                }
+            }
+            return;
+        }
+
+        // ── 2. Handle Normal Messages ──
+        if (update.message && update.message.text) {
+            const msg = update.message;
+            const chatId = msg.chat.id;
+            const text = msg.text.trim();
+
+            // Command: /start <link_code>
+            if (text.startsWith("/start ") || text.startsWith("/connect ")) {
+                const code = text.split(" ")[1];
+                if (!code) {
+                    await sendTelegramMessage(token, chatId, "Sila berikan kod penyambungan. Contoh: <code>/start 123456</code>");
+                    return;
+                }
+
+                const linkReq = await env.DB.prepare(
+                    `SELECT user_id FROM telegram_link_codes WHERE code = ? AND expires_at > datetime('now')`
+                ).bind(code).first();
+
+                if (!linkReq) {
+                    await sendTelegramMessage(token, chatId, "❌ <b>Kod tidak sah atau tamat tempoh.</b>\nSila dapatkan kod baru di Settings -> Telegram di SocialHub.");
+                    return;
+                }
+
+                const userId = linkReq.user_id;
+
+                // Create connection
+                await env.DB.prepare(
+                    `INSERT OR REPLACE INTO user_telegram_connections (user_id, telegram_chat_id) VALUES (?, ?)`
+                ).bind(userId, chatId).run();
+
+                // Delete code
+                await env.DB.prepare(`DELETE FROM telegram_link_codes WHERE code = ?`).bind(code).run();
+
+                // Get user email
+                const user = await env.DB.prepare("SELECT email FROM users WHERE id = ?").bind(userId).first();
+
+                await sendTelegramMessage(token, chatId, `🎉 <b>Sambungan Berjaya!</b>\nAkaun SocialHub anda (<b>${user?.email}</b>) telah berjaya dihubungkan ke bot ini.\n\nKini anda boleh terus hantar pautan listing (mudah.my, propertyguru, dll) atau taip draf prompt terus di sini! 🚀`);
+                return;
+            }
+
+            // Command: /disconnect
+            if (text === "/disconnect") {
+                await env.DB.prepare(`DELETE FROM user_telegram_connections WHERE telegram_chat_id = ?`).bind(chatId).run();
+                await sendTelegramMessage(token, chatId, "🔌 <b>Akaun diputuskan.</b>\nSambungan anda dengan SocialHub bot telah dibuang.");
+                return;
+            }
+
+            // Check if user is linked
+            const connection = await env.DB.prepare(
+                `SELECT user_id FROM user_telegram_connections WHERE telegram_chat_id = ?`
+            ).bind(chatId).first();
+
+            if (!connection) {
+                await sendTelegramMessage(token, chatId, "👋 <b>Helo! Akaun anda belum disambungkan.</b>\nSila pergi ke web Dashboard SocialHub -> <b>Settings</b>, dapatkan kod penyambungan Telegram, dan hantarkan ia ke bot ini.\n\nContoh: <code>/start 123456</code>");
+                return;
+            }
+
+            const userId = connection.user_id;
+
+            // Retrieve active workspace for this user
+            const workspaceMember = await env.DB.prepare(
+                `SELECT workspace_id, role FROM workspace_members WHERE user_id = ? LIMIT 1`
+            ).bind(userId).first();
+
+            if (!workspaceMember) {
+                await sendTelegramMessage(token, chatId, "❌ Ralat: Tiada workspace aktif dijumpai untuk akaun anda.");
+                return;
+            }
+
+            const workspace = await env.DB.prepare(
+                `SELECT id, name, subscription_plan, subscription_status FROM workspaces WHERE id = ?`
+            ).bind(workspaceMember.workspace_id).first();
+
+            const activeWorkspace = {
+                workspace_id: workspace.id,
+                name: workspace.name,
+                subscription_plan: workspace.subscription_plan,
+                subscription_status: workspace.subscription_status,
+                role: workspaceMember.role
+            };
+
+            // Detect URL (Web Scraper workflow)
+            const urlRegex = /(https?:\/\/[^\s]+)/gi;
+            const urlMatch = text.match(urlRegex);
+
+            if (urlMatch) {
+                const targetUrl = urlMatch[0];
+                await sendTelegramMessage(token, chatId, "🔍 <b>Meneliti listing hartanah anda...</b>\nSedang mengikis data dan menjana copywriting Threads...");
+
+                try {
+                    // Scrape listing content
+                    const scraped = await scrapeTelegramUrl(targetUrl);
+                    
+                    // Fetch social accounts connected to workspace
+                    const accounts = await env.DB.prepare(
+                        `SELECT id, platform FROM social_accounts WHERE workspace_id = ? AND platform = 'threads' LIMIT 1`
+                    ).bind(activeWorkspace.workspace_id).first();
+
+                    if (!accounts) {
+                        await sendTelegramMessage(token, chatId, "❌ Ralat: Tiada akaun Threads yang dihubungkan ke workspace ini. Sila sambung di Dashboard terlebih dahulu.");
+                        return;
+                    }
+
+                    // Retrieve workspace preferences
+                    const wsAI = await env.DB.prepare(
+                        "SELECT ai_model, ai_api_key_enc, custom_ai_instructions FROM workspaces WHERE id = ?"
+                    ).bind(activeWorkspace.workspace_id).first().catch(() => null);
+
+                    const aiEnv = { ...env };
+                    if (wsAI?.ai_model) {
+                        aiEnv.OPENROUTER_MODEL = wsAI.ai_model;
+                    }
+                    if (wsAI?.ai_api_key_enc) {
+                        try {
+                            const decrypted = await decryptToken(wsAI.ai_api_key_enc, encryptionSecret);
+                            const resolvedKey = decrypted || wsAI.ai_api_key_enc;
+                            if (resolvedKey) {
+                                aiEnv.OPENROUTER_API_KEY = resolvedKey;
+                                aiEnv.GEMINI_API_KEY = resolvedKey;
+                                aiEnv.OPENAI_API_KEY = resolvedKey;
+                                aiEnv._workspaceKeySet = true;
+                            }
+                        } catch (_) {}
+                    }
+
+                    // Compile prompts
+                    const provider = AIFactory.getProvider(aiEnv);
+                    const isProperty = scraped.title.toLowerCase().includes("property") || scraped.description.toLowerCase().includes("apartment") || scraped.description.toLowerCase().includes("semi d") || scraped.description.toLowerCase().includes("teres") || scraped.description.toLowerCase().includes("house") || scraped.description.toLowerCase().includes("hartanah");
+
+                    const nicheInstructions = isProperty 
+                        ? '["You MUST include the property price (e.g. RM 325,000 or RM 325k) in the copywriting.","NEVER include any phone numbers, agent names, or agency names."]'
+                        : '[]';
+
+                    const promptOptions = {
+                        businessType: isProperty ? 'Ejen Hartanah & Properti' : 'Pemasaran Kandungan',
+                        product: `Title: ${scraped.title}\nDescription: ${scraped.description}\nUrl: ${targetUrl}`,
+                        targetAudience: 'Malaysian Threads users',
+                        goal: 'Engagement & Lead generation',
+                        tone: 'Casual Malaysian Malay (Bahasa Rojak)',
+                        language: 'Malay',
+                        customInstructions: [
+                            getFactPreservingInstructions(wsAI?.custom_ai_instructions),
+                            `CRITICAL NICHE RULES:\n${JSON.parse(nicheInstructions).map((r, i) => `${i + 1}. ${r}`).join('\n')}`
+                        ].filter(Boolean).join('\n\n')
+                    };
+
+                    const aiRes = await provider.generateCaption(promptOptions);
+                    const fullCaption = `${aiRes.caption}\n\nHubungi untuk info lanjut! ➡️ ${targetUrl}\n\n${(aiRes.hashtags || []).join(' ')}`.trim();
+
+                    // Insert as DRAFT into scheduled_posts
+                    const result = await env.DB.prepare(
+                        `INSERT INTO scheduled_posts (user_id, workspace_id, account_id, platform, content, media_urls, status, publish_at, timezone) 
+                         VALUES (?, ?, ?, 'threads', ?, '[]', 'draft', (datetime('now')), 'UTC')`
+                    ).bind(userId, activeWorkspace.workspace_id, accounts.id, fullCaption).run();
+
+                    const draftId = result.meta.last_row_id;
+
+                    // Send Telegram preview with actions
+                    const messageText = `📝 <b>Draft Cadangan Penerbitan:</b>\n\n${fullCaption}`;
+                    const replyMarkup = {
+                        inline_keyboard: [
+                            [
+                                { text: "📅 Jadual Besok 9 malam", callback_data: `schedule_draft:${draftId}` },
+                                { text: "⚡ Terbit Sekarang", callback_data: `publish_draft:${draftId}` }
+                            ],
+                            [
+                                { text: "❌ Batalkan", callback_data: `cancel_draft:${draftId}` }
+                            ]
+                        ]
+                    };
+
+                    await sendTelegramMessage(token, chatId, messageText, replyMarkup);
+                } catch (scrapeErr) {
+                    await sendTelegramMessage(token, chatId, `❌ Gagal memproses listing: ${scrapeErr.message}`);
+                }
+                return;
+            }
+
+            // Normal text (Chat Assistant workflow)
+            await sendTelegramMessage(token, chatId, "🤖 <i>Sedang berfikir...</i>");
+
+            try {
+                // Save user message to database
+                await env.DB.prepare(
+                    `INSERT INTO agent_chat_history (workspace_id, user_id, sender, message) VALUES (?, ?, 'user', ?)`
+                ).bind(activeWorkspace.workspace_id, userId, text).run();
+
+                // Retrieve history
+                const dbHistory = await env.DB.prepare(
+                    `SELECT sender, message FROM agent_chat_history WHERE workspace_id = ? ORDER BY id DESC LIMIT 10`
+                ).bind(activeWorkspace.workspace_id).all();
+                const conversationHistory = (dbHistory.results || []).reverse();
+
+                // Retrieve workspace AI model & key
+                const wsAI = await env.DB.prepare("SELECT ai_model, ai_api_key_enc FROM workspaces WHERE id = ?").bind(activeWorkspace.workspace_id).first().catch(() => null);
+
+                const aiEnv = { ...env };
+                if (wsAI?.ai_model) {
+                    aiEnv.OPENROUTER_MODEL = wsAI.ai_model;
+                }
+                if (wsAI?.ai_api_key_enc) {
+                    try {
+                        const decrypted = await decryptToken(wsAI.ai_api_key_enc, encryptionSecret);
+                        if (decrypted) {
+                            aiEnv.OPENROUTER_API_KEY = decrypted;
+                            aiEnv.GEMINI_API_KEY = decrypted;
+                            aiEnv.OPENAI_API_KEY = decrypted;
+                            aiEnv._workspaceKeySet = true;
+                        }
+                    } catch (_) {}
+                }
+
+                // AI instructions
+                const systemInstructions = `You are 'SocialHub AI Agent', a helpful, professional, and friendly social media marketing assistant for this workspace. 
+You are responding via Telegram. Keep your answers clear, conversational, and concise (under 2 paragraphs if possible). 
+
+CRITICAL LANGUAGE / SPEECH RULES:
+1. When communicating in Malay, write in a very natural, friendly Malaysian conversational style (Bahasa Rojak / colloquial speech). E.g. use "je", "lah", "tau", "ni", "nak", "korang", "weyy". 
+2. Do NOT use formal, Google-translate-style Malay. Do NOT sound robotic.`;
+
+                const messages = [{ role: 'system', content: systemInstructions }];
+                
+                // Append context
+                const histToAppend = conversationHistory.slice(0, -1);
+                histToAppend.forEach(h => {
+                    messages.push({
+                        role: h.sender === 'user' ? 'user' : 'assistant',
+                        content: h.message
+                    });
+                });
+
+                messages.push({ role: 'user', content: text });
+
+                const provider = AIFactory.getProvider(aiEnv);
+                const responseText = await provider.generateChatResponse(messages);
+
+                // Save agent message to database
+                await env.DB.prepare(
+                    `INSERT INTO agent_chat_history (workspace_id, user_id, sender, message) VALUES (?, ?, 'agent', ?)`
+                ).bind(activeWorkspace.workspace_id, userId, responseText.trim()).run();
+
+                // Reply to user on Telegram
+                await sendTelegramMessage(token, chatId, responseText.trim());
+            } catch (chatErr) {
+                await sendTelegramMessage(token, chatId, `❌ Gagal memproses maklum balas AI: ${chatErr.message}`);
+            }
+        }
+    } catch (telegramErr) {
+        console.error("Telegram Webhook Processor failed:", telegramErr);
+    }
+}
+
 export default {
     async fetch(request, env, ctx) {
         const url = new URL(request.url);
@@ -737,6 +1222,25 @@ export default {
                     sender TEXT CHECK(sender IN ('user', 'agent')) NOT NULL,
                     message TEXT NOT NULL,
                     created_at TEXT NOT NULL DEFAULT (datetime('now'))
+                )`).run();
+            } catch (_) {}
+
+            // Ensure user_telegram_connections table exists for linking Telegram bot
+            try {
+                await env.DB.prepare(`CREATE TABLE IF NOT EXISTS user_telegram_connections (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+                    telegram_chat_id INTEGER NOT NULL UNIQUE,
+                    created_at TEXT NOT NULL DEFAULT (datetime('now'))
+                )`).run();
+            } catch (_) {}
+
+            // Ensure telegram_link_codes table exists for temporary OTP codes
+            try {
+                await env.DB.prepare(`CREATE TABLE IF NOT EXISTS telegram_link_codes (
+                    code TEXT PRIMARY KEY,
+                    user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+                    expires_at TEXT NOT NULL
                 )`).run();
             } catch (_) {}
         }
@@ -2697,6 +3201,74 @@ CRITICAL LANGUAGE / SPEECH RULES:
                     }
 
                     return new Response(JSON.stringify({ error: 'Method not allowed' }), { status: 405, headers: corsHeaders });
+                }
+
+                case '/api/integration/telegram/code': {
+                    const user = await getAuthUser();
+                    if (!user) return new Response(JSON.stringify({ message: 'Unauthorized session' }), { status: 401, headers: corsHeaders });
+                    if (!env.DB) return new Response(JSON.stringify({ message: 'Database missing' }), { status: 500, headers: corsHeaders });
+
+                    if (request.method !== 'POST') return new Response(JSON.stringify({ error: 'Method not allowed' }), { status: 405, headers: corsHeaders });
+
+                    const code = Math.floor(100000 + Math.random() * 900000).toString();
+                    const expiresAt = new Date(Date.now() + 10 * 60 * 1000).toISOString();
+
+                    await env.DB.prepare(
+                        `INSERT OR REPLACE INTO telegram_link_codes (code, user_id, expires_at) VALUES (?, ?, ?)`
+                    ).bind(code, user.id, expiresAt).run();
+
+                    const botUsername = env.TELEGRAM_BOT_USERNAME || "SocialHubRobot";
+
+                    return new Response(JSON.stringify({
+                        success: true,
+                        code,
+                        bot_username: botUsername,
+                        link: `https://t.me/${botUsername}?start=${code}`
+                    }), { status: 200, headers: corsHeaders });
+                }
+
+                case '/api/integration/telegram/status': {
+                    const user = await getAuthUser();
+                    if (!user) return new Response(JSON.stringify({ message: 'Unauthorized session' }), { status: 401, headers: corsHeaders });
+                    if (!env.DB) return new Response(JSON.stringify({ message: 'Database missing' }), { status: 500, headers: corsHeaders });
+
+                    const connection = await env.DB.prepare(
+                        `SELECT telegram_chat_id, created_at FROM user_telegram_connections WHERE user_id = ?`
+                    ).bind(user.id).first().catch(() => null);
+
+                    return new Response(JSON.stringify({
+                        success: true,
+                        connected: !!connection,
+                        chat_id: connection?.telegram_chat_id || null,
+                        created_at: connection?.created_at || null
+                    }), { status: 200, headers: corsHeaders });
+                }
+
+                case '/api/integration/telegram/disconnect': {
+                    const user = await getAuthUser();
+                    if (!user) return new Response(JSON.stringify({ message: 'Unauthorized session' }), { status: 401, headers: corsHeaders });
+                    if (!env.DB) return new Response(JSON.stringify({ message: 'Database missing' }), { status: 500, headers: corsHeaders });
+
+                    if (request.method !== 'POST') return new Response(JSON.stringify({ error: 'Method not allowed' }), { status: 405, headers: corsHeaders });
+
+                    await env.DB.prepare(
+                        `DELETE FROM user_telegram_connections WHERE user_id = ?`
+                    ).bind(user.id).run();
+
+                    return new Response(JSON.stringify({ success: true, message: 'Disconnected successfully' }), { status: 200, headers: corsHeaders });
+                }
+
+                case '/api/webhooks/telegram': {
+                    if (request.method !== 'POST') return new Response(JSON.stringify({ error: 'Method not allowed' }), { status: 405, headers: corsHeaders });
+                    if (!env.DB) return new Response(JSON.stringify({ message: 'Database missing' }), { status: 500, headers: corsHeaders });
+
+                    try {
+                        const payload = await request.json();
+                        ctx.waitUntil(handleTelegramUpdate(payload, env, encryptionSecret, jwtSecret));
+                        return new Response(JSON.stringify({ ok: true }), { status: 200, headers: corsHeaders });
+                    } catch (err) {
+                        return new Response(JSON.stringify({ error: 'Invalid payload' }), { status: 400, headers: corsHeaders });
+                    }
                 }
 
                 case '/api/webhooks/billplz': {

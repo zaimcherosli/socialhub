@@ -1002,20 +1002,49 @@
             let pendingContext = [];
 
              for (const line of allLines) {
-                 const urlMatches = [...line.matchAll(/(https?:\/\/[^\s,]+)/g)];
+                 const urlMatches = [...line.matchAll(/(https?:\/\/[^\s,]+)/g)].map(m => m[1]);
                  if (urlMatches.length > 0) {
-                     const url = urlMatches[0][1];
-                     const mediaUrl = urlMatches.length > 1 ? urlMatches[1][1] : null;
- 
-                     let sameLineCtx = line;
-                     urlMatches.forEach(m => {
-                         sameLineCtx = sameLineCtx.replace(m[1], '');
-                     });
-                     sameLineCtx = sameLineCtx.replace(/,/g, '').replace(/\s+/g, ' ').trim();
- 
-                     const fullContext = [...pendingContext, sameLineCtx].filter(Boolean).join(' ').replace(/\s+/g, ' ').trim();
-                     jobs.push({ url, mediaUrl, context: fullContext });
-                     pendingContext = []; // reset after each block
+                     let currentUrl = null;
+                     let currentMediaUrl = null;
+
+                     for (let idx = 0; idx < urlMatches.length; idx++) {
+                         const matchUrl = urlMatches[idx];
+                         const isImage = /\.(jpg|jpeg|png|gif|webp|svg)/i.test(matchUrl) || matchUrl.includes('/photo/') || matchUrl.includes('/image/');
+                         
+                         if (idx === 0) {
+                             currentUrl = matchUrl;
+                         } else {
+                             if (isImage && !currentMediaUrl) {
+                                 currentMediaUrl = matchUrl;
+                             } else {
+                                 // Push the previous job before starting a new one
+                                 let sameLineCtx = line;
+                                 urlMatches.forEach(m => {
+                                     sameLineCtx = sameLineCtx.replace(m, '');
+                                 });
+                                 sameLineCtx = sameLineCtx.replace(/,/g, '').replace(/\s+/g, ' ').trim();
+                                 const fullContext = [...pendingContext, sameLineCtx].filter(Boolean).join(' ').replace(/\s+/g, ' ').trim();
+                                 
+                                 jobs.push({ url: currentUrl, mediaUrl: currentMediaUrl, context: fullContext });
+                                 
+                                 currentUrl = matchUrl;
+                                 currentMediaUrl = null;
+                                 pendingContext = [];
+                             }
+                         }
+                     }
+
+                     if (currentUrl) {
+                         let sameLineCtx = line;
+                         urlMatches.forEach(m => {
+                             sameLineCtx = sameLineCtx.replace(m, '');
+                         });
+                         sameLineCtx = sameLineCtx.replace(/,/g, '').replace(/\s+/g, ' ').trim();
+                         const fullContext = [...pendingContext, sameLineCtx].filter(Boolean).join(' ').replace(/\s+/g, ' ').trim();
+                         
+                         jobs.push({ url: currentUrl, mediaUrl: currentMediaUrl, context: fullContext });
+                         pendingContext = [];
+                     }
                  } else if (line !== '') {
                      pendingContext.push(line);
                  }

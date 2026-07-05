@@ -601,6 +601,12 @@ const extractTelegramTitle = (scrapedTitle, scrapedDescription) => {
     return scrapedTitle || "";
 };
 
+// Helper: Append Fact Preservation rule to workspace instructions
+const getFactPreservingInstructions = (rawInstructions) => {
+    if (!rawInstructions || rawInstructions.trim() === '') return "";
+    return `${rawInstructions}\n\nFACT PRESERVATION RULE:\nYou must strictly preserve the real facts from the input/source text (such as the actual location, price, room count, and property specs). Under no circumstances should you invent, guess, or hallucinate a fake price (like RM800,000) or a fake location (like Shah Alam) if it is not in the source text. If your guidelines ask you to avoid or hide the actual price or project name, simply do not mention them at all (omit them) or use general phrases like 'harga berpatutan' or 'lokasi strategik' — but DO NOT fabricate or invent fake details.`;
+};
+
 export default {
     async fetch(request, env, ctx) {
         const url = new URL(request.url);
@@ -995,7 +1001,7 @@ export default {
                             goal: goal || 'Brand awareness',
                             tone: tone || 'Professional',
                             language: language || 'Bahasa Melayu',
-                            customInstructions: wsAI?.custom_ai_instructions
+                            customInstructions: getFactPreservingInstructions(wsAI?.custom_ai_instructions)
                         });
 
                         await logActivity(activeWorkspace.workspace_id, user.id, 'ai_generate', `Generated caption for business "${businessType}": ${(product || '').substring(0, 30)}...`);
@@ -1319,6 +1325,12 @@ export default {
                         scrapedTitle = cleanScrapedTitle(decodeEntities(scrapedTitle));
                         scrapedDescription = decodeEntities(scrapedDescription);
 
+                        // Clean up Telegram boilerplate landing page metadata if scraper got redirected
+                        if (scrapedDescription && (scrapedDescription.includes('View @') || scrapedDescription.includes('View in Telegram') || scrapedDescription.includes('View In Channel') || scrapedDescription.includes('tgme_page_description'))) {
+                            scrapedDescription = "";
+                            scrapedTitle = "";
+                        }
+
                         // Combine: frontend context + scraped data for maximum richness
                         if (scrapedDescription) {
                             productContext = productContext
@@ -1466,7 +1478,7 @@ CRITICAL TONE RULES:
                         // Add workspace-specific copywriting guidelines if defined
                         let customGuidelinesBlock = "";
                         if (wsAI?.custom_ai_instructions) {
-                            customGuidelinesBlock = `\n4. Follow these workspace-specific copywriting guidelines/knowledge base closely:\n${wsAI.custom_ai_instructions}`;
+                            customGuidelinesBlock = `\n4. Follow these workspace-specific copywriting guidelines/knowledge base closely:\n${getFactPreservingInstructions(wsAI.custom_ai_instructions)}`;
                         }
 
                         const systemPrompt = `You are a professional social media marketing expert in Malaysia.
@@ -1475,6 +1487,10 @@ Generate a high-converting, engaging post based on the following product/propert
 - Target Platform: Threads
 - ${toneInstruction}
 - Language: ${language || 'Malay'}
+
+FACT PRESERVATION RULE:
+You must strictly preserve the real facts from the product/property info (such as the actual location, price, room count, and amenities). Under no circumstances should you invent, guess, or hallucinate a fake price (like RM800,000) or a fake location (like Shah Alam) if it is not in the product info.
+If your guidelines or rules ask you to avoid revealing the actual price or project name, simply do not mention them at all (omit them) or use general phrases like 'harga berpatutan' or 'lokasi strategik'. DO NOT fabricate or invent fake details.
 
 CRITICAL RULES:
 1. For general physical products (like Shopee, Lazada, TikTok Shop), DO NOT include the price (e.g. RMxx) in the copywriting. Keep the price secret to make the audience curious so they click the link.
@@ -1736,7 +1752,7 @@ Provide the output in a strict JSON format with the following keys. Return ONLY 
                             }
                         }
 
-                        let combinedInstructions = wsAI?.custom_ai_instructions || "";
+                        let combinedInstructions = getFactPreservingInstructions(wsAI?.custom_ai_instructions || "");
                         if (tone === 'Ultra-Realistic Malay') {
                             const toneRules = `\nTone: Ultra-Realistic Malaysian Malay.
 CRITICAL TONE RULES:

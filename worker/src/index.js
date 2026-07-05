@@ -3261,6 +3261,10 @@ CRITICAL LANGUAGE / SPEECH RULES:
                         cleanToken = cleanToken.substring(3);
                     }
 
+                    const getMeUrl = `https://api.telegram.org/bot${cleanToken}/getMe`;
+                    const res = await fetch(getMeUrl);
+                    const resJson = await res.json().catch(() => ({}));
+
                     return new Response(JSON.stringify({
                         success: true,
                         length: token.length,
@@ -3269,7 +3273,8 @@ CRITICAL LANGUAGE / SPEECH RULES:
                         suffix: token.substring(token.length - 8),
                         clean_prefix: cleanToken.substring(0, 8),
                         clean_suffix: cleanToken.substring(cleanToken.length - 8),
-                        clean_length: cleanToken.length
+                        clean_length: cleanToken.length,
+                        telegram_get_me: resJson
                     }), { status: 200, headers: corsHeaders });
                 }
 

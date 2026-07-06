@@ -120,8 +120,8 @@ class ScheduledPostsTable extends HTMLElement {
                     <td data-label="Platform" style="padding: 1rem;">
                         ${platformHtml}
                     </td>
-                    <td data-label="Content" style="padding: 1rem; max-width: 280px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">
-                        ${truncatedContent}
+                    <td data-label="Content" style="padding: 1rem;">
+                        <span class="cell-truncate-text">${truncatedContent}</span>
                     </td>
                     <td data-label="Publish At" style="padding: 1rem; color: var(--color-text-secondary); font-size: 0.8125rem; white-space: nowrap;">
                         ${timeString}

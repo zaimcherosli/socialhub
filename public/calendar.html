@@ -479,6 +479,46 @@
             width: 100%;
             opacity: 0.35;
         }
+
+        /* Responsive cell truncation styling */
+        .cell-truncate-text {
+            display: inline-block;
+            max-width: 240px;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            vertical-align: middle;
+        }
+
+        @media (max-width: 768px) {
+            .cell-truncate-text {
+                max-width: 55vw;
+                text-align: right;
+            }
+            .timeline-container {
+                padding: 0.75rem !important;
+            }
+            .timeline-time-col {
+                width: 70px !important;
+                min-width: 70px !important;
+                padding-right: 0.75rem !important;
+            }
+            .timeline-content-col {
+                padding-left: 0.75rem !important;
+                padding-bottom: 0.75rem !important;
+            }
+            .timeline-card {
+                padding: 0.5rem 0.75rem !important;
+                font-size: 0.75rem !important;
+                flex-direction: column;
+                align-items: flex-start !important;
+                gap: 0.25rem !important;
+            }
+            .timeline-card div {
+                text-align: left !important;
+                max-width: 100% !important;
+            }
+        }
     </style>
 </head>
 <body>
@@ -790,7 +830,7 @@
                 buildWeekGrid();
             } else {
                 gridHeader.style.display = 'none';
-                grid.className = 'calendar-grid-body';
+                grid.className = 'calendar-day-body';
                 grid.style.gridTemplateColumns = '1fr';
                 grid.style.gridAutoRows = 'auto';
                 
@@ -1197,8 +1237,8 @@
                     <td data-label="Account" style="padding: 0.75rem 1rem; color: var(--color-text-secondary); font-size: 0.8125rem; white-space: nowrap; max-width: 160px; overflow: hidden; text-overflow: ellipsis;">
                         ${item.account_name || '@connected'}
                     </td>
-                    <td data-label="Caption" style="padding: 0.75rem 1rem; max-width: 240px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">
-                        ${captionText}
+                    <td data-label="Caption" style="padding: 0.75rem 1rem;">
+                        <span class="cell-truncate-text">${captionText}</span>
                     </td>
                     <td data-label="Publish Time" style="padding: 0.75rem 1rem; white-space: nowrap;">
                         <span style="display: block; font-size: 0.8125rem; font-weight: 600; color: var(--color-text-primary);">${dateStr}</span>

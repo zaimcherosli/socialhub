@@ -237,6 +237,23 @@
                 justify-content: center;
             }
         }
+
+        /* Responsive cell truncation styling */
+        .cell-truncate-text {
+            display: inline-block;
+            max-width: 280px;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            vertical-align: middle;
+        }
+
+        @media (max-width: 768px) {
+            .cell-truncate-text {
+                max-width: 55vw;
+                text-align: right;
+            }
+        }
     </style>
 </head>
 <body>

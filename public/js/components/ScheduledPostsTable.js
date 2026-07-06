@@ -121,20 +121,20 @@ class ScheduledPostsTable extends HTMLElement {
                     : '<em style="color:var(--color-text-tertiary);">No content</em>';
 
                 tr.innerHTML = `
-                    <td style="padding: 1rem;">
+                    <td data-label="Platform" style="padding: 1rem;">
                         ${platformHtml}
                     </td>
-                    <td style="padding: 1rem; max-width: 280px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">
+                    <td data-label="Content" style="padding: 1rem; max-width: 280px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">
                         ${truncatedContent}
                     </td>
-                    <td style="padding: 1rem; color: var(--color-text-secondary); font-size: 0.8125rem; white-space: nowrap;">
+                    <td data-label="Publish At" style="padding: 1rem; color: var(--color-text-secondary); font-size: 0.8125rem; white-space: nowrap;">
                         ${timeString}
                     </td>
-                    <td style="padding: 1rem;">
+                    <td data-label="Status" style="padding: 1rem;">
                         <publish-status-badge status="${post.status}"></publish-status-badge>
                     </td>
-                    <td style="padding: 1rem; text-align: right;">
-                        <div style="display: flex; gap: 0.5rem; justify-content: flex-end; align-items: center;">
+                    <td data-label="Actions" style="padding: 1rem; text-align: right;">
+                        <div style="display: flex; gap: 0.5rem; justify-content: flex-end; align-items: center; flex-wrap: wrap;">
                             <button class="btn btn-secondary btn-sm btn-view-post" data-id="${post.id}" style="padding: 0.25rem 0.5rem; font-size: 0.75rem;">View</button>
                             ${post.status === 'scheduled' || post.status === 'failed' ? `
                                 <a href="post-editor.html?id=${post.id}&type=scheduled" class="btn btn-secondary btn-sm" style="padding: 0.25rem 0.5rem; font-size: 0.75rem; text-decoration: none; display: inline-flex; align-items: center;">Edit</a>

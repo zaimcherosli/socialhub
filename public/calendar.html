@@ -325,6 +325,52 @@
             -webkit-overflow-scrolling: touch;
             width: 100%;
         }
+
+        /* Responsive Table Card Styles for Mobile */
+        @media (max-width: 768px) {
+            .table-responsive thead {
+                display: none;
+            }
+            .table-responsive table {
+                min-width: 100% !important;
+            }
+            .table-responsive tr {
+                display: flex;
+                flex-direction: column;
+                background: var(--color-bg-card);
+                border: 1px solid var(--color-border);
+                border-radius: var(--radius-sm);
+                margin-bottom: 1rem;
+                padding: 1rem;
+                box-shadow: var(--shadow-sm);
+            }
+            .table-responsive td {
+                display: flex;
+                align-items: center;
+                justify-content: space-between;
+                padding: 0.5rem 0 !important;
+                border-bottom: none !important;
+                width: 100% !important;
+                max-width: 100% !important;
+                white-space: normal !important;
+                text-align: left !important;
+            }
+            .table-responsive td::before {
+                content: attr(data-label);
+                font-weight: 600;
+                color: var(--color-text-tertiary);
+                font-size: 0.75rem;
+                text-transform: uppercase;
+                margin-right: 1rem;
+            }
+            .table-responsive td[data-label="Action"],
+            .table-responsive td[data-label="Actions"] {
+                justify-content: flex-end;
+                border-top: 1px dashed var(--color-border);
+                margin-top: 0.5rem;
+                padding-top: 0.75rem !important;
+            }
+        }
     </style>
 </head>
 <body>
@@ -988,29 +1034,29 @@
                 const isChecked = checkedIds.has(item.id) ? 'checked' : '';
 
                 tr.innerHTML = `
-                    <td style="padding: 0.75rem 1rem;"><input type="checkbox" class="chk-queue-select" data-id="${item.id}" ${isChecked} /></td>
-                    <td style="padding: 0.75rem 1rem; font-weight: 500; white-space: nowrap;">
+                    <td data-label="Select" style="padding: 0.75rem 1rem;"><input type="checkbox" class="chk-queue-select" data-id="${item.id}" ${isChecked} /></td>
+                    <td data-label="Platform" style="padding: 0.75rem 1rem; font-weight: 500; white-space: nowrap;">
                         <span style="font-size: 1.1rem; margin-right: 0.35rem;">${platformEmoji}</span>
                         <span style="text-transform: capitalize;">${item.platform}</span>
                     </td>
-                    <td style="padding: 0.75rem 1rem; color: var(--color-text-secondary); font-size: 0.8125rem; white-space: nowrap; max-width: 160px; overflow: hidden; text-overflow: ellipsis;">
+                    <td data-label="Account" style="padding: 0.75rem 1rem; color: var(--color-text-secondary); font-size: 0.8125rem; white-space: nowrap; max-width: 160px; overflow: hidden; text-overflow: ellipsis;">
                         ${item.account_name || '@connected'}
                     </td>
-                    <td style="padding: 0.75rem 1rem; max-width: 240px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">
+                    <td data-label="Caption" style="padding: 0.75rem 1rem; max-width: 240px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">
                         ${captionText}
                     </td>
-                    <td style="padding: 0.75rem 1rem; white-space: nowrap;">
+                    <td data-label="Publish Time" style="padding: 0.75rem 1rem; white-space: nowrap;">
                         <span style="display: block; font-size: 0.8125rem; font-weight: 600; color: var(--color-text-primary);">${dateStr}</span>
                         <span style="display: block; font-size: 0.75rem; color: var(--color-text-tertiary); margin-top: 0.1rem;">${timeStr}</span>
                     </td>
-                    <td style="padding: 1rem;">
+                    <td data-label="Status" style="padding: 1rem;">
                         <publish-status-badge status="${item.status}"></publish-status-badge>
                     </td>
-                    <td style="padding: 1rem; font-weight: 600;">
+                    <td data-label="Retry" style="padding: 1rem; font-weight: 600;">
                         ${item.retry_count || 0} / 3
                     </td>
-                    <td style="padding: 1rem; text-align: right;">
-                        <div style="display: flex; gap: 0.5rem; justify-content: flex-end; align-items: center;">
+                    <td data-label="Action" style="padding: 1rem; text-align: right;">
+                        <div style="display: flex; gap: 0.5rem; justify-content: flex-end; align-items: center; flex-wrap: wrap;">
                             ${item.status === 'scheduled' || item.status === 'failed' ? `
                                 <a href="post-editor.html?id=${item.id}&type=scheduled" class="btn btn-secondary btn-sm" style="padding: 0.25rem 0.5rem; font-size: 0.75rem; text-decoration: none;">Edit</a>
                             ` : ''}

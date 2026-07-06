@@ -128,61 +128,49 @@
             position: relative;
             width: 100%;
         }
-        .slider-pagination-dots {
-            display: none;
-        }
 
+        /* Responsive Table Card Styles for Mobile */
         @media (max-width: 768px) {
-            .posts-slider-wrapper {
-                overflow: hidden;
+            .table-responsive thead {
+                display: none;
             }
-            /* Override posts-layout-grid class when turned into a swiper */
-            .posts-slides-container {
-                display: flex !important;
-                flex-direction: row !important;
-                overflow-x: auto !important;
-                scroll-snap-type: x mandatory !important;
-                scroll-behavior: smooth !important;
-                gap: 0 !important;
+            .table-responsive table {
+                min-width: 100% !important;
+            }
+            .table-responsive tr {
+                display: flex;
+                flex-direction: column;
+                background: var(--color-bg-card);
+                border: 1px solid var(--color-border);
+                border-radius: var(--radius-sm);
+                margin-bottom: 1rem;
+                padding: 1rem;
+                box-shadow: var(--shadow-sm);
+            }
+            .table-responsive td {
+                display: flex;
+                align-items: center;
+                justify-content: space-between;
+                padding: 0.5rem 0 !important;
+                border-bottom: none !important;
                 width: 100% !important;
-                -webkit-overflow-scrolling: touch;
+                max-width: 100% !important;
+                white-space: normal !important;
+                text-align: left !important;
             }
-            .posts-slides-container::-webkit-scrollbar {
-                display: none !important;
+            .table-responsive td::before {
+                content: attr(data-label);
+                font-weight: 600;
+                color: var(--color-text-tertiary);
+                font-size: 0.75rem;
+                text-transform: uppercase;
+                margin-right: 1rem;
             }
-            .posts-slides-container {
-                -ms-overflow-style: none !important;
-                scrollbar-width: none !important;
-            }
-            .post-slide-page {
-                flex: 0 0 100% !important;
-                width: 100% !important;
-                scroll-snap-align: start !important;
-                padding: 0.25rem !important;
-                box-sizing: border-box !important;
-                display: flex !important;
-                flex-direction: column !important;
-                gap: 1rem !important;
-            }
-            .slider-pagination-dots {
-                display: flex !important;
-                justify-content: center !important;
-                align-items: center !important;
-                gap: 0.5rem !important;
-                margin-top: 1.25rem !important;
-            }
-            .slider-dot {
-                width: 8px;
-                height: 8px;
-                border-radius: 50%;
-                background: var(--color-border);
-                transition: all var(--transition-fast);
-                cursor: pointer;
-            }
-            .slider-dot.active {
-                background: var(--color-primary);
-                width: 20px;
-                border-radius: 4px;
+            .table-responsive td[data-label="Actions"] {
+                justify-content: flex-end;
+                border-top: 1px dashed var(--color-border);
+                margin-top: 0.5rem;
+                padding-top: 0.75rem !important;
             }
 
             .posts-layout-grid {
@@ -507,44 +495,19 @@
                         <p style="font-size: 0.8125rem; color: var(--color-text-tertiary);">Clear your search query or create a new draft.</p>
                     </div>
                 `;
-                document.getElementById('sliderPaginationDots').style.display = 'none';
+                const pag = document.getElementById('sliderPaginationDots');
+                if (pag) pag.style.display = 'none';
                 return;
             }
 
-            if (window.innerWidth <= 768) {
-                // Mobile layout: chunk array into slides of 10 items
-                const chunkSize = 10;
-                const chunks = [];
-                for (let i = 0; i < filtered.length; i += chunkSize) {
-                    chunks.push(filtered.slice(i, i + chunkSize));
-                }
-
-                container.className = 'posts-slides-container';
-                container.innerHTML = '';
-
-                chunks.forEach((chunk, pageIndex) => {
-                    const slideDiv = document.createElement('div');
-                    slideDiv.className = 'post-slide-page';
-                    slideDiv.dataset.page = pageIndex;
-
-                    chunk.forEach(post => {
-                        const card = createPostCardElement(post);
-                        slideDiv.appendChild(card);
-                    });
-                    container.appendChild(slideDiv);
-                });
-
-                renderPaginationDots(chunks.length);
-            } else {
-                // Desktop normal rendering
-                container.className = viewMode === 'grid' ? 'posts-layout-grid' : 'posts-layout-list';
-                container.innerHTML = '';
-                filtered.forEach(post => {
-                    const card = createPostCardElement(post);
-                    container.appendChild(card);
-                });
-                document.getElementById('sliderPaginationDots').style.display = 'none';
-            }
+            container.className = viewMode === 'grid' ? 'posts-layout-grid' : 'posts-layout-list';
+            container.innerHTML = '';
+            filtered.forEach(post => {
+                const card = createPostCardElement(post);
+                container.appendChild(card);
+            });
+            const pag = document.getElementById('sliderPaginationDots');
+            if (pag) pag.style.display = 'none';
 
             // Attach dynamic listeners
             document.querySelectorAll('.btnDuplicate').forEach(btn => {
@@ -669,29 +632,7 @@
                 notificationService.error(`Scheduling failed: ${err.message}`);
             }
         });
-        // Swipe paging event listener for mobile dots updates
-        container.addEventListener('scroll', () => {
-            if (window.innerWidth <= 768) {
-                const scrollLeft = container.scrollLeft;
-                const width = container.clientWidth;
-                if (width <= 0) return;
-                const activePage = Math.round(scrollLeft / width);
-                
-                const dots = document.querySelectorAll('.slider-dot');
-                dots.forEach((dot, idx) => {
-                    if (idx === activePage) {
-                        dot.classList.add('active');
-                    } else {
-                        dot.classList.remove('active');
-                    }
-                });
-            }
-        });
-
-        // Resize listener to re-layout correctly
-        window.addEventListener('resize', () => {
-            renderFilteredPosts();
-        });
+        // Cleaned up mobile scroll/resize listeners
     </script>
 </body>
 </html>

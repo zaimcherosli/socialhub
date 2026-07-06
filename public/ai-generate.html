@@ -653,11 +653,27 @@
                     outTitle.value = activePreset === 'default' 
                         ? `${businessVal} - Generated Post`
                         : `${activePreset.replace('_', ' ').toUpperCase()} - Generated Post`;
-                    outCaption.value = data.caption || '';
-                    outCTA.value = data.cta || '';
                     
+                    outCTA.value = data.cta || '';
                     const hashtagsList = data.hashtags || [];
                     outHashtags.value = hashtagsList.map(h => h.startsWith('#') ? h : `#${h}`).join(' ');
+
+                    const isThread = (activePreset === 'default' && selectPostFormat.value === 'thread') || 
+                                     (data.caption && data.caption.includes('---thread-separator---'));
+                    
+                    if (isThread) {
+                        currentMode = 'threads';
+                        singlePostPreviewGroup.style.display = 'none';
+                        threadStormPreviewGroup.style.display = 'flex';
+                        
+                        const slides = (data.caption || '').split('---thread-separator---').map(s => s.trim()).filter(Boolean);
+                        renderThreadStorm(slides);
+                    } else {
+                        currentMode = 'single';
+                        singlePostPreviewGroup.style.display = 'block';
+                        threadStormPreviewGroup.style.display = 'none';
+                        outCaption.value = data.caption || '';
+                    }
 
                     emptyState.style.display = 'none';
                     outputContainer.style.display = 'flex';

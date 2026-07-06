@@ -27,7 +27,7 @@ Write a highly engaging social media post based on these details:
         }
 
         if (postFormat === 'thread') {
-            prompt += `- Format: Thread / Bebenang Berangkai. You MUST generate a sequence of exactly 4 to 5 connected slides/posts. Split the slides using the exact separator '---thread-separator---'. For example: 'Slide 1 content\n---thread-separator---\nSlide 2 content\n---thread-separator---\nSlide 3 content\n---thread-separator---\nSlide 4 content\n---thread-separator---\nSlide 5 content'. Each individual slide/post must be under 300 characters.\n`;
+            prompt += `- Format: Thread / Bebenang Berangkai. You MUST generate a sequence of exactly 4 to 5 connected slides/posts. The "caption" key in the JSON output MUST be a JSON array of strings containing these 4 to 5 slides in order. Each individual slide/post string in the array must be under 300 characters.\n`;
         } else {
             prompt += `- Format: Single standalone post. The caption must be under 350 characters.\n`;
         }
@@ -53,12 +53,22 @@ Write a highly engaging social media post based on these details:
 `;
         }
 
-        prompt += `\nProvide the output in a strict JSON format with the following keys. Return ONLY the JSON object, with no markdown code blocks, explanations, or additional text:
-{
+        let jsonStructure = "";
+        if (postFormat === 'thread') {
+            jsonStructure = `{
+  "caption": "Slide 1 content\\n---thread-separator---\\nSlide 2 content\\n---thread-separator---\\nSlide 3 content\\n---thread-separator---\\nSlide 4 content\\n---thread-separator---\\nSlide 5 content",
+  "cta": "write the call-to-action here",
+  "hashtags": ["hashtag1", "hashtag2", "hashtag3"]
+}`;
+        } else {
+            jsonStructure = `{
   "caption": "write the main post caption here",
   "cta": "write the call-to-action here",
   "hashtags": ["hashtag1", "hashtag2", "hashtag3"]
 }`;
+        }
+
+        prompt += `\nProvide the output in a strict JSON format with the following keys. Return ONLY the JSON object, with no markdown code blocks, explanations, or additional text:\n${jsonStructure}`;
 
         const response = await fetch("https://api.openai.com/v1/chat/completions", {
             method: "POST",
@@ -98,7 +108,11 @@ Write a highly engaging social media post based on these details:
         }
         
         try {
-            return JSON.parse(jsonStr.trim());
+            const parsed = JSON.parse(jsonStr.trim());
+            if (parsed && Array.isArray(parsed.caption)) {
+                parsed.caption = parsed.caption.join('---thread-separator---');
+            }
+            return parsed;
         } catch (e) {
             console.error("Failed to parse OpenAI output as JSON:", rawText);
             return {

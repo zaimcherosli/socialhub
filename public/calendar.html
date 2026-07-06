@@ -421,6 +421,7 @@
         
         .timeline-content-col {
             flex-grow: 1;
+            min-width: 0;
             padding-left: 1.5rem;
             padding-bottom: 1.25rem;
             display: flex;
@@ -513,10 +514,21 @@
                 flex-direction: column;
                 align-items: flex-start !important;
                 gap: 0.25rem !important;
+                min-width: 0 !important;
+                width: 100% !important;
+                box-sizing: border-box !important;
             }
             .timeline-card div {
                 text-align: left !important;
                 max-width: 100% !important;
+            }
+            .timeline-card-preview-text {
+                text-align: left !important;
+                max-width: 100% !important;
+                white-space: nowrap !important;
+                overflow: hidden !important;
+                text-overflow: ellipsis !important;
+                display: block !important;
             }
         }
 
@@ -607,7 +619,7 @@
                     <div class="mobile-scroll-hint" style="display: none; align-items: center; justify-content: center; gap: 0.35rem; font-size: 0.75rem; color: var(--color-text-secondary); background: var(--color-primary-light); padding: 0.5rem; border-radius: var(--radius-xs); margin-top: 1rem; border: 1px solid var(--color-primary-light);">
                         <span>↔️ Swipe horizontally to view full calendar grid</span>
                     </div>
-                    <div style="overflow-x: auto; width: 100%; -webkit-overflow-scrolling: touch; margin-top: 0.5rem;">
+                    <div id="calendarGridWrapper" style="overflow-x: auto; width: 100%; -webkit-overflow-scrolling: touch; margin-top: 0.5rem;">
                         <!-- Monthly Grid Header -->
                         <div id="calendarGridHeader" class="calendar-grid-header">
                             <div>Sun</div>
@@ -847,6 +859,15 @@
                     scrollHint.classList.remove('hide-important');
                 } else {
                     scrollHint.classList.add('hide-important');
+                }
+            }
+
+            const wrapper = document.getElementById('calendarGridWrapper');
+            if (wrapper) {
+                if (calendarView === 'day') {
+                    wrapper.style.overflowX = 'hidden';
+                } else {
+                    wrapper.style.overflowX = 'auto';
                 }
             }
             
@@ -1189,15 +1210,13 @@
                             : '⏳ PUBLISHING IN PROGRESS';
                             
                         const timeLabel = new Date(item.publish_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: true });
-                        const captionText = item.content ? (item.content.length > 50 ? item.content.substring(0, 50) + '...' : item.content) : '(No caption)';
-                        
                         card.innerHTML = `
                             <div style="display:flex; align-items:center; gap:0.5rem; flex-wrap:wrap;">
                                 <span>${statusText}</span>
                                 <span style="font-size:0.7rem; opacity:0.75; font-weight:500;">(${timeLabel})</span>
                             </div>
-                            <div style="font-weight: 500; font-size: 0.75rem; text-align: right; max-width: 60%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; opacity: 0.95;">
-                                ${captionText}
+                            <div class="timeline-card-preview-text" style="font-weight: 500; font-size: 0.75rem; text-align: right; max-width: 60%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; opacity: 0.95;">
+                                ${item.content || '(No caption)'}
                             </div>
                         `;
                         

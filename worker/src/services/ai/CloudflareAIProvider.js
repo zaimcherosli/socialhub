@@ -39,6 +39,21 @@ export class CloudflareAIProvider extends AIProvider {
             funnelInstructions = "- Funnel Stage: BOFU (Bottom of Funnel - Conversion). Focus on driving direct action, conversion, highlighting specific offers, promotional benefits, urgency, or testimonials. The CTA must be very strong and invite them to act now (e.g. WhatsApp, direct sign-up, or click a link).\n";
         }
 
+        let jsonStructure = "";
+        if (postFormat === 'thread') {
+            jsonStructure = `{
+  "caption": "Slide 1 content\\n---thread-separator---\\nSlide 2 content\\n---thread-separator---\\nSlide 3 content\\n---thread-separator---\\nSlide 4 content\\n---thread-separator---\\nSlide 5 content",
+  "cta": "write the call-to-action here",
+  "hashtags": ["hashtag1", "hashtag2", "hashtag3"]
+}`;
+        } else {
+            jsonStructure = `{
+  "caption": "write the main post caption here",
+  "cta": "write the call-to-action here",
+  "hashtags": ["hashtag1", "hashtag2", "hashtag3"]
+}`;
+        }
+
         let userPrompt = `Write a social media post based on these details:
 - Topic/Category: ${businessType}
 - Content Focus: ${product}
@@ -49,11 +64,7 @@ export class CloudflareAIProvider extends AIProvider {
 ${funnelInstructions}
 
 Provide the output in a strict JSON format matching this schema:
-{
-  "caption": "write the main post caption here",
-  "cta": "write the call-to-action here",
-  "hashtags": ["hashtag1", "hashtag2", "hashtag3"]
-}`;
+${jsonStructure}`;
 
         if (tone?.toLowerCase().includes('malay') || language?.toLowerCase().includes('malay')) {
             systemPrompt += ` CRITICAL MALAYSIAN CONVERSATIONAL RULES:

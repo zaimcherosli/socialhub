@@ -1113,16 +1113,15 @@
                             : '⏳ PUBLISHING IN PROGRESS';
                             
                         const timeLabel = new Date(item.publish_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: true });
-                        const captionText = item.content ? (item.content.length > 40 ? item.content.substring(0, 40) + '...' : item.content) : '(No caption)';
-                        const platformPrefix = item.platform === 'threads' ? '🧵' : item.platform === 'facebook' ? '📘' : item.platform === 'instagram' ? '📸' : '📱';
+                        const captionText = item.content ? (item.content.length > 50 ? item.content.substring(0, 50) + '...' : item.content) : '(No caption)';
                         
                         card.innerHTML = `
                             <div style="display:flex; align-items:center; gap:0.5rem; flex-wrap:wrap;">
                                 <span>${statusText}</span>
                                 <span style="font-size:0.7rem; opacity:0.75; font-weight:500;">(${timeLabel})</span>
                             </div>
-                            <div style="font-weight: 500; font-size: 0.75rem; text-align: right; max-width: 50%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; opacity: 0.95;">
-                                ${platformPrefix} ${captionText}
+                            <div style="font-weight: 500; font-size: 0.75rem; text-align: right; max-width: 60%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; opacity: 0.95;">
+                                ${captionText}
                             </div>
                         `;
                         
@@ -1188,13 +1187,11 @@
                 const timeStr = publishDate.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', timeZoneName: 'short' });
 
                 const captionText = item.content ? (item.content.length > 50 ? item.content.substring(0, 50) + '...' : item.content) : '(No text)';
-                const platformEmoji = item.platform === 'threads' ? '🧵' : item.platform === 'facebook' ? '📘' : item.platform === 'instagram' ? '📸' : item.platform === 'tiktok' ? '🎵' : '📱';
                 const isChecked = checkedIds.has(item.id) ? 'checked' : '';
 
                 tr.innerHTML = `
                     <td data-label="Select" style="padding: 0.75rem 1rem;"><input type="checkbox" class="chk-queue-select" data-id="${item.id}" ${isChecked} /></td>
                     <td data-label="Platform" style="padding: 0.75rem 1rem; font-weight: 500; white-space: nowrap;">
-                        <span style="font-size: 1.1rem; margin-right: 0.35rem;">${platformEmoji}</span>
                         <span style="text-transform: capitalize;">${item.platform}</span>
                     </td>
                     <td data-label="Account" style="padding: 0.75rem 1rem; color: var(--color-text-secondary); font-size: 0.8125rem; white-space: nowrap; max-width: 160px; overflow: hidden; text-overflow: ellipsis;">

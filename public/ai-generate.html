@@ -261,6 +261,24 @@
                                     <option value="Educational / Informative">Educational / Informative</option>
                                 </select>
                             </div>
+
+                            <div class="form-group" style="margin-bottom: 1rem;">
+                                <label class="form-label" for="postFormat">Post Format (Format Kiriman)</label>
+                                <select id="postFormat" class="form-select" style="width: 100%;">
+                                    <option value="single" selected>Single Post (Satu Post Kapsyen)</option>
+                                    <option value="thread">Thread / Berangkai (4-5 posts)</option>
+                                </select>
+                            </div>
+
+                            <div class="form-group" style="margin-bottom: 1rem;">
+                                <label class="form-label" for="funnelStage">Marketing Funnel Stage</label>
+                                <select id="funnelStage" class="form-select" style="width: 100%;">
+                                    <option value="none" selected>General / Tiada Funnel stage khusus</option>
+                                    <option value="tofu">TOFU (Awareness - Perkongsian Tips / Pendidikan)</option>
+                                    <option value="mofu">MOFU (Consideration - Bina Kredibiliti / Perbandingan)</option>
+                                    <option value="bofu">BOFU (Conversion - Promosi / Jualan Terus & CTA)</option>
+                                </select>
+                            </div>
                         </div>
 
                         <div class="form-group" style="margin-bottom: 1rem;">
@@ -578,6 +596,8 @@
         const txtProduct = document.getElementById('productService');
         const txtAudience = document.getElementById('targetAudience');
         const selectGoal = document.getElementById('goal');
+        const selectPostFormat = document.getElementById('postFormat');
+        const selectFunnelStage = document.getElementById('funnelStage');
         const selectTone = document.getElementById('tone');
         const selectLang = document.getElementById('language');
 
@@ -619,6 +639,8 @@
                     product: activePreset === 'default' ? txtProduct.value.trim() : undefined,
                     targetAudience: activePreset === 'default' ? (txtAudience.value.trim() || undefined) : undefined,
                     goal: activePreset === 'default' ? selectGoal.value : undefined,
+                    postFormat: activePreset === 'default' ? selectPostFormat.value : undefined,
+                    funnelStage: activePreset === 'default' ? selectFunnelStage.value : undefined,
                     tone: selectTone.value,
                     language: selectLang.value,
                     localTimeContext: localTimeContext

@@ -18,13 +18,27 @@ export class CloudflareAIProvider extends AIProvider {
         this.model = targetModel;
     }
 
-    async generateCaption({ businessType, product, targetAudience, goal, tone, language, customInstructions }) {
+    async generateCaption({ businessType, product, targetAudience, goal, tone, language, customInstructions, postFormat, funnelStage }) {
         console.log(`[CloudflareAIProvider] Executing run with model: ${this.model}`);
         
-        let systemPrompt = "You are a professional social media copywriter. You must write an engaging post and return the output strictly in JSON format. Do not return any markdown wrappers, explanation, or other text. IMPORTANT: The generated caption MUST be under 350 characters.";
+        let formatInstructions = postFormat === 'thread'
+            ? "Format: Thread / Bebenang Berangkai. You MUST generate a sequence of exactly 4 to 5 connected slides/posts. Split the slides using the exact separator '---thread-separator---'. For example: 'Slide 1 content\\n---thread-separator---\\nSlide 2 content\\n---thread-separator---\\nSlide 3 content\\n---thread-separator---\\nSlide 4 content\\n---thread-separator---\\nSlide 5 content'. Each individual slide/post must be under 300 characters."
+            : "Format: Single standalone post. The caption must be under 350 characters.";
+
+        let systemPrompt = `You are a professional social media copywriter. You must write an engaging post and return the output strictly in JSON format. Do not return any markdown wrappers, explanation, or other text. ${formatInstructions}`;
         if (customInstructions) {
             systemPrompt += `\nFollow these copywriting guidelines closely:\n${customInstructions}`;
         }
+        
+        let funnelInstructions = "";
+        if (funnelStage === 'tofu') {
+            funnelInstructions = "- Funnel Stage: TOFU (Top of Funnel - Awareness). Focus on educating, sharing high-level value tips, general trends, or answering common questions. Keep it highly shareable, easy to understand, and do NOT make a hard sell.\n";
+        } else if (funnelStage === 'mofu') {
+            funnelInstructions = "- Funnel Stage: MOFU (Middle of Funnel - Consideration). Focus on building trust, authority, solving specific pain points, comparison guides, checklists, or pros & cons related to the product/service.\n";
+        } else if (funnelStage === 'bofu') {
+            funnelInstructions = "- Funnel Stage: BOFU (Bottom of Funnel - Conversion). Focus on driving direct action, conversion, highlighting specific offers, promotional benefits, urgency, or testimonials. The CTA must be very strong and invite them to act now (e.g. WhatsApp, direct sign-up, or click a link).\n";
+        }
+
         let userPrompt = `Write a social media post based on these details:
 - Topic/Category: ${businessType}
 - Content Focus: ${product}
@@ -32,6 +46,7 @@ export class CloudflareAIProvider extends AIProvider {
 - Goal: ${goal}
 - Tone: ${tone}
 - Language: ${language}
+${funnelInstructions}
 
 Provide the output in a strict JSON format matching this schema:
 {

@@ -1586,7 +1586,7 @@ export default {
                     }
 
                     try {
-                        let { businessType, product, targetAudience, goal, tone, language, presetType, customNote, localTimeContext } = await request.json();
+                        let { businessType, product, targetAudience, goal, tone, language, presetType, customNote, localTimeContext, postFormat, funnelStage } = await request.json();
 
                         let timeGuide = "";
                         if (localTimeContext) {
@@ -1653,6 +1653,8 @@ export default {
                             goal: goal || 'Brand awareness',
                             tone: tone || 'Professional',
                             language: language || 'Bahasa Melayu',
+                            postFormat: postFormat || 'single',
+                            funnelStage: funnelStage || 'none',
                             customInstructions: [
                                 getFactPreservingInstructions(wsAI?.custom_ai_instructions),
                                 await getNicheInstructionsPrompt(env.DB, product)

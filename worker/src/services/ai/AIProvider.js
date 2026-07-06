@@ -5,7 +5,7 @@
 export class AIProvider {
     /**
      * Generate captions based on input parameters.
-     * @param {object} promptOptions { businessType, product, targetAudience, goal, tone, language }
+     * @param {object} promptOptions { businessType, product, targetAudience, goal, tone, language, postFormat, funnelStage }
      * @returns {Promise<object>} JSON structure { caption, cta, hashtags }
      */
     async generateCaption(promptOptions) {

@@ -2097,6 +2097,8 @@ export default {
 
                             // Build a clean, professional WhatsApp greeting
                             let greetingTitle = productTitle.trim();
+                            // Remove any hashtags
+                            greetingTitle = greetingTitle.replace(/#\w+/g, '').replace(/\s+/g, ' ').trim();
                             // Remove any leading bullet, dash, or spec-looking text
                             greetingTitle = greetingTitle.replace(/^[•\-–\s]+/, '').replace(/(?:Land\s*Area|Built\s*Up)\s*\d+.*/i, '').trim();
                             if (!greetingTitle) greetingTitle = "hartanah yang anda senaraikan";

@@ -658,15 +658,21 @@
                     const hashtagsList = data.hashtags || [];
                     outHashtags.value = hashtagsList.map(h => h.startsWith('#') ? h : `#${h}`).join(' ');
 
-                    const isThread = (activePreset === 'default' && selectPostFormat.value === 'thread') || 
-                                     (data.caption && data.caption.includes('---thread-separator---'));
+                    const hasSeparator = data.caption && (
+                        data.caption.includes('---thread-separator---') ||
+                        data.caption.includes('[THREAD_DELIMITER]') ||
+                        /\r?\n---\r?\n/.test(data.caption) ||
+                        /\r?\n---\s*\r?\n/.test(data.caption)
+                    );
+                    const isThread = (activePreset === 'default' && selectPostFormat.value === 'thread') || hasSeparator;
                     
                     if (isThread) {
                         currentMode = 'threads';
                         singlePostPreviewGroup.style.display = 'none';
                         threadStormPreviewGroup.style.display = 'flex';
                         
-                        const slides = (data.caption || '').split('---thread-separator---').map(s => s.trim()).filter(Boolean);
+                        const regex = /(?:---thread-separator---|\[THREAD_DELIMITER\]|\r?\n---\r?\n|\r?\n---\s*\r?\n)/gi;
+                        const slides = (data.caption || '').split(regex).map(s => s.trim()).filter(Boolean);
                         renderThreadStorm(slides);
                     } else {
                         currentMode = 'single';

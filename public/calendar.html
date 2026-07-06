@@ -371,6 +371,114 @@
                 padding-top: 0.75rem !important;
             }
         }
+
+        /* Timeline styling */
+        .timeline-container {
+            display: flex;
+            flex-direction: column;
+            width: 100%;
+            background: var(--color-bg-card);
+            border-radius: var(--radius-md);
+            padding: 1.5rem;
+            border: 1px solid var(--color-border);
+        }
+        
+        .timeline-row {
+            display: flex;
+            align-items: stretch;
+            min-height: 50px;
+            position: relative;
+        }
+        
+        .timeline-time-col {
+            width: 80px;
+            min-width: 80px;
+            font-size: 0.75rem;
+            font-weight: 600;
+            color: var(--color-text-secondary);
+            text-align: right;
+            padding-right: 1.25rem;
+            padding-top: 0.65rem;
+            border-right: 2px solid var(--color-border);
+            position: relative;
+        }
+        
+        .timeline-time-col::after {
+            content: '';
+            position: absolute;
+            right: -6px;
+            top: 11px;
+            width: 10px;
+            height: 10px;
+            border-radius: 50%;
+            background: var(--color-border);
+            border: 2px solid var(--color-bg-card);
+        }
+        
+        .timeline-row:hover .timeline-time-col::after {
+            background: var(--color-primary);
+        }
+        
+        .timeline-content-col {
+            flex-grow: 1;
+            padding-left: 1.5rem;
+            padding-bottom: 1.25rem;
+            display: flex;
+            flex-direction: column;
+            gap: 0.5rem;
+            justify-content: center;
+        }
+        
+        .timeline-card {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 0.65rem 1rem;
+            border-radius: var(--radius-sm);
+            font-size: 0.8125rem;
+            font-weight: 600;
+            border: 1px solid transparent;
+            cursor: pointer;
+            transition: all var(--transition-fast);
+            width: 100%;
+            gap: 1rem;
+            box-shadow: var(--shadow-sm);
+        }
+        
+        .timeline-card:hover {
+            transform: translateY(-1.5px);
+            box-shadow: var(--shadow-md);
+        }
+        
+        /* Status Card Variations */
+        .timeline-card.status-published {
+            background: #f0fdf4;
+            border-color: #bbf7d0;
+            color: #166534;
+        }
+        .timeline-card.status-scheduled {
+            background: #f5f3ff;
+            border-color: #ddd6fe;
+            color: #5b21b6;
+        }
+        .timeline-card.status-failed {
+            background: #fef2f2;
+            border-color: #fecaca;
+            color: #991b1b;
+        }
+        .timeline-card.status-publishing {
+            background: #fffbeb;
+            border-color: #fde68a;
+            color: #92400e;
+        }
+        
+        /* Empty Slot Line */
+        .timeline-empty-slot {
+            height: 1px;
+            background: var(--color-border);
+            width: 100%;
+            opacity: 0.35;
+        }
     </style>
 </head>
 <body>
@@ -422,9 +530,9 @@
                         </div>
 
                         <div class="calendar-view-toggle">
-                            <button class="calendar-view-btn active" data-view="month" id="btnViewMonth">Month</button>
+                            <button class="calendar-view-btn" data-view="month" id="btnViewMonth">Month</button>
                             <button class="calendar-view-btn" data-view="week" id="btnViewWeek">Week</button>
-                            <button class="calendar-view-btn" data-view="day" id="btnViewDay">Day</button>
+                            <button class="calendar-view-btn active" data-view="day" id="btnViewDay">Day</button>
                         </div>
                     </div>
 
@@ -545,7 +653,7 @@
         let currentMonth = new Date().getMonth(); // 0-indexed
         let currentDayDate = new Date(); // reference for day/week views
         
-        let calendarView = 'month'; // 'month', 'week', 'day'
+        let calendarView = 'day'; // 'month', 'week', 'day'
         let activeTab = 'calendar'; // 'calendar', 'queue'
 
         const grid = document.getElementById('calendarGrid');
@@ -912,55 +1020,144 @@
             const dd = String(currentDayDate.getDate()).padStart(2, '0');
             const dateKey = `${yyyy}-${mm}-${dd}`;
             
-            title.textContent = `Day: ${currentDayDate.toLocaleDateString([], { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}`;
+            title.textContent = `${currentDayDate.toLocaleDateString([], { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}`;
 
+            // Create wrapper container
             const containerCard = document.createElement('div');
-            containerCard.className = 'card';
-            containerCard.style.padding = '1.5rem';
+            containerCard.className = 'timeline-container';
             
-            const listTitle = document.createElement('h3');
-            listTitle.className = 'card-title';
-            listTitle.textContent = 'Publications Timeline';
-            listTitle.style.marginBottom = '1.25rem';
-            containerCard.appendChild(listTitle);
-
+            const listTitle = document.createElement('div');
+            listTitle.style.display = 'flex';
+            listTitle.style.justifyContent = 'space-between';
+            listTitle.style.alignItems = 'center';
+            listTitle.style.marginBottom = '1.5rem';
+            listTitle.style.flexWrap = 'wrap';
+            listTitle.style.gap = '0.5rem';
+            
+            const listTitleText = document.createElement('h3');
+            listTitleText.className = 'card-title';
+            listTitleText.textContent = 'Publications Timeline';
+            listTitleText.style.margin = '0';
+            listTitle.appendChild(listTitleText);
+            
+            // Filter day's schedules
             const daySchedules = filteredSchedules.filter(item => {
                 const postDate = new Date(item.publish_at);
                 return `${postDate.getFullYear()}-${String(postDate.getMonth()+1).padStart(2, '0')}-${String(postDate.getDate()).padStart(2, '0')}` === dateKey;
             });
+            
+            const completedCount = daySchedules.filter(s => s.status === 'published').length;
+            const totalCount = daySchedules.length;
+            
+            const statsBadge = document.createElement('span');
+            statsBadge.style.fontSize = '0.75rem';
+            statsBadge.style.fontWeight = '600';
+            statsBadge.style.padding = '0.25rem 0.65rem';
+            statsBadge.style.borderRadius = '50px';
+            statsBadge.style.background = completedCount === totalCount && totalCount > 0 ? '#d1fae5' : 'var(--color-bg-accent)';
+            statsBadge.style.color = completedCount === totalCount && totalCount > 0 ? '#065f46' : 'var(--color-text-secondary)';
+            statsBadge.textContent = totalCount > 0 
+                ? `✅ ${completedCount} of ${totalCount} completed` 
+                : 'No dispatches';
+            listTitle.appendChild(statsBadge);
+            
+            containerCard.appendChild(listTitle);
 
-            if (daySchedules.length === 0) {
-                containerCard.innerHTML += `<p style="font-size:0.875rem; color:var(--color-text-tertiary); font-style:italic;">No publications scheduled for this day.</p>`;
-            } else {
-                daySchedules.forEach(item => {
-                    const itemRow = document.createElement('div');
-                    itemRow.style.display = 'flex';
-                    itemRow.style.alignItems = 'center';
-                    itemRow.style.justifyContent = 'space-between';
-                    itemRow.style.padding = '0.75rem 1rem';
-                    itemRow.style.borderBottom = '1px solid var(--color-border)';
-                    
-                    const timeLabel = new Date(item.publish_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
-                    
-                    itemRow.innerHTML = `
-                        <div style="display:flex; align-items:center; gap:1rem;">
-                            <span style="font-weight:600; color:var(--color-primary);">${timeLabel}</span>
-                            <span style="text-transform:capitalize; font-size:0.75rem; padding:0.15rem 0.5rem; border-radius:4px; background:var(--color-bg-accent);">${item.platform}</span>
-                            <span style="font-size:0.875rem;">${item.content}</span>
-                        </div>
-                        <div style="display:flex; align-items:center; gap:0.5rem;">
-                            <publish-status-badge status="${item.status}"></publish-status-badge>
-                            ${item.status === 'scheduled' || item.status === 'failed' ? `
-                                <a href="post-editor.html?id=${item.id}&type=scheduled" class="btn btn-secondary btn-sm" style="padding: 0.25rem 0.5rem; font-size: 0.75rem; text-decoration: none;">Edit</a>
-                            ` : ''}
-                            <button class="btn btn-secondary btn-sm btn-item-open" data-id="${item.id}" style="padding:0.25rem 0.5rem;">Open</button>
-                        </div>
-                    `;
-                    itemRow.querySelector('.btn-item-open').addEventListener('click', () => openDetailsModal(item));
-                    containerCard.appendChild(itemRow);
+            // Determine hours list (8 AM to 7 PM baseline, plus extra if scheduled)
+            const defaultHours = [8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19];
+            const extraHours = new Set();
+            
+            daySchedules.forEach(item => {
+                const hr = new Date(item.publish_at).getHours();
+                if (!defaultHours.includes(hr)) {
+                    extraHours.add(hr);
+                }
+            });
+            
+            const hoursList = [...defaultHours, ...extraHours].sort((a, b) => a - b);
+            
+            hoursList.forEach(hour => {
+                const row = document.createElement('div');
+                row.className = 'timeline-row';
+                
+                // Hour Label
+                const ampm = hour >= 12 ? 'PM' : 'AM';
+                const hour12 = hour % 12 === 0 ? 12 : hour % 12;
+                const timeLabelStr = `${hour12}:00 ${ampm}`;
+                
+                const timeCol = document.createElement('div');
+                timeCol.className = 'timeline-time-col';
+                timeCol.textContent = timeLabelStr;
+                row.appendChild(timeCol);
+                
+                // Content Col
+                const contentCol = document.createElement('div');
+                contentCol.className = 'timeline-content-col';
+                
+                // Find posts in this hour
+                const hourPosts = daySchedules.filter(item => {
+                    return new Date(item.publish_at).getHours() === hour;
                 });
-            }
-
+                
+                if (hourPosts.length > 0) {
+                    hourPosts.forEach(item => {
+                        const card = document.createElement('div');
+                        card.className = `timeline-card status-${item.status}`;
+                        
+                        const statusText = item.status === 'published' 
+                            ? '✅ AUTO-SCHEDULE DONE'
+                            : item.status === 'scheduled'
+                            ? '💜 AUTO-DRAFT SAVED'
+                            : item.status === 'failed'
+                            ? '❌ PUBLISHING FAILED'
+                            : '⏳ PUBLISHING IN PROGRESS';
+                            
+                        const timeLabel = new Date(item.publish_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: true });
+                        const captionText = item.content ? (item.content.length > 40 ? item.content.substring(0, 40) + '...' : item.content) : '(No caption)';
+                        const platformPrefix = item.platform === 'threads' ? '🧵' : item.platform === 'facebook' ? '📘' : item.platform === 'instagram' ? '📸' : '📱';
+                        
+                        card.innerHTML = `
+                            <div style="display:flex; align-items:center; gap:0.5rem; flex-wrap:wrap;">
+                                <span>${statusText}</span>
+                                <span style="font-size:0.7rem; opacity:0.75; font-weight:500;">(${timeLabel})</span>
+                            </div>
+                            <div style="font-weight: 500; font-size: 0.75rem; text-align: right; max-width: 50%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; opacity: 0.95;">
+                                ${platformPrefix} ${captionText}
+                            </div>
+                        `;
+                        
+                        card.addEventListener('click', () => openDetailsModal(item));
+                        contentCol.appendChild(card);
+                    });
+                } else {
+                    // Empty slot line placeholder
+                    const emptyLine = document.createElement('div');
+                    emptyLine.className = 'timeline-empty-slot';
+                    contentCol.appendChild(emptyLine);
+                }
+                
+                row.appendChild(contentCol);
+                containerCard.appendChild(row);
+            });
+            
+            // Footer summary info
+            const footerSummary = document.createElement('div');
+            footerSummary.style.marginTop = '1.5rem';
+            footerSummary.style.paddingTop = '1.25rem';
+            footerSummary.style.borderTop = '1px solid var(--color-border)';
+            footerSummary.style.display = 'flex';
+            footerSummary.style.justifyContent = 'space-between';
+            footerSummary.style.alignItems = 'center';
+            footerSummary.style.fontSize = '0.8125rem';
+            footerSummary.style.color = 'var(--color-text-secondary)';
+            
+            footerSummary.innerHTML = `
+                <div>
+                    <strong>Auto-Schedule & Auto-Draft</strong> aktif sepanjang hari.
+                </div>
+            `;
+            containerCard.appendChild(footerSummary);
+            
             grid.appendChild(containerCard);
         }
 

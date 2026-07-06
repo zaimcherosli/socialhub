@@ -519,6 +519,33 @@
                 max-width: 100% !important;
             }
         }
+
+        /* Nav controls layout and wrapping safety */
+        .calendar-nav-controls {
+            display: flex;
+            gap: 0.5rem;
+            align-items: center;
+            flex-wrap: nowrap;
+        }
+
+        .hide-important {
+            display: none !important;
+        }
+
+        @media (max-width: 600px) {
+            .calendar-nav-controls {
+                justify-content: space-between;
+                width: 100%;
+            }
+            .calendar-nav-title {
+                font-size: 0.875rem !important;
+                white-space: nowrap !important;
+                overflow: hidden !important;
+                text-overflow: ellipsis !important;
+                max-width: 150px !important;
+                text-align: center !important;
+            }
+        }
     </style>
 </head>
 <body>
@@ -562,7 +589,7 @@
                 <!-- Tab 1: Calendar View Content -->
                 <div id="calendarViewContainer">
                     <div class="calendar-nav-bar" style="margin-bottom: 1rem;">
-                        <div style="display: flex; gap: 0.5rem; align-items: center;">
+                        <div class="calendar-nav-controls">
                             <button class="btn btn-secondary" style="padding: 0.45rem 0.75rem;" id="btnPrevMonth">◀</button>
                             <span class="calendar-nav-title" id="calendarTitle">June 2026</span>
                             <button class="btn btn-secondary" style="padding: 0.45rem 0.75rem;" id="btnNextMonth">▶</button>
@@ -814,6 +841,15 @@
         function buildCalendarView() {
             grid.innerHTML = '';
             
+            const scrollHint = document.querySelector('.mobile-scroll-hint');
+            if (scrollHint) {
+                if (calendarView === 'month' || calendarView === 'week') {
+                    scrollHint.classList.remove('hide-important');
+                } else {
+                    scrollHint.classList.add('hide-important');
+                }
+            }
+            
             if (calendarView === 'month') {
                 gridHeader.style.display = 'grid';
                 grid.className = 'calendar-grid-body';
@@ -1060,7 +1096,7 @@
             const dd = String(currentDayDate.getDate()).padStart(2, '0');
             const dateKey = `${yyyy}-${mm}-${dd}`;
             
-            title.textContent = `${currentDayDate.toLocaleDateString([], { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}`;
+            title.textContent = `${currentDayDate.toLocaleDateString([], { weekday: 'short', day: 'numeric', month: 'short', year: 'numeric' })}`;
 
             // Create wrapper container
             const containerCard = document.createElement('div');

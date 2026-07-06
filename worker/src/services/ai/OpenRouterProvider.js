@@ -56,7 +56,13 @@ Write a highly engaging social media post based on these details:
         let jsonStructure = "";
         if (postFormat === 'thread') {
             jsonStructure = `{
-  "caption": "Slide 1 content\\n---thread-separator---\\nSlide 2 content\\n---thread-separator---\\nSlide 3 content\\n---thread-separator---\\nSlide 4 content\\n---thread-separator---\\nSlide 5 content",
+  "caption": [
+    "Slide 1 content under 300 characters",
+    "Slide 2 content under 300 characters",
+    "Slide 3 content under 300 characters",
+    "Slide 4 content under 300 characters",
+    "Slide 5 content under 300 characters"
+  ],
   "cta": "write the call-to-action here",
   "hashtags": ["hashtag1", "hashtag2", "hashtag3"]
 }`;

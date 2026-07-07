@@ -530,6 +530,80 @@
             <!-- Schedule Modal element -->
             <schedule-modal id="aiScheduleModal"></schedule-modal>
 
+            <!-- Processing Progress Overlay -->
+            <div id="aiProgressOverlay" style="
+                display: none;
+                position: fixed;
+                inset: 0;
+                background: rgba(15, 23, 42, 0.45);
+                backdrop-filter: blur(8px);
+                -webkit-backdrop-filter: blur(8px);
+                z-index: 99999;
+                align-items: center;
+                justify-content: center;
+            ">
+                <div class="card" style="
+                    width: 90%;
+                    max-width: 400px;
+                    padding: 2rem;
+                    border-radius: var(--radius-md);
+                    box-shadow: var(--shadow-xl);
+                    background: var(--color-bg-card, #ffffff);
+                    border: 1px solid var(--color-border);
+                    text-align: center;
+                    display: flex;
+                    flex-direction: column;
+                    align-items: center;
+                    gap: 1.25rem;
+                ">
+                    <div id="aiProgressSpinner" style="
+                        position: relative;
+                        width: 60px;
+                        height: 60px;
+                        display: flex;
+                        align-items: center;
+                        justify-content: center;
+                    ">
+                        <!-- Pulsing outer ring -->
+                        <div style="
+                            position: absolute;
+                            inset: 0;
+                            border: 4px solid var(--color-primary-light, #dbeafe);
+                            border-top-color: var(--color-primary, #3b82f6);
+                            border-radius: 50%;
+                            animation: spin 1s linear infinite;
+                        "></div>
+                        <!-- Inner checkmark or icon -->
+                        <div id="aiProgressIcon" style="font-size: 1.5rem; z-index: 10;">🤖</div>
+                    </div>
+                    
+                    <div>
+                        <h4 id="aiProgressTitle" style="margin: 0 0 0.35rem 0; font-size: 1rem; font-weight: 700; color: var(--color-text-primary);">Generating Post</h4>
+                        <p id="aiProgressStatus" style="margin: 0; font-size: 0.8rem; color: var(--color-text-secondary); line-height: 1.4;">Sistem sedang memproses...</p>
+                    </div>
+
+                    <!-- Progress bar container -->
+                    <div style="width: 100%; height: 6px; background: var(--color-bg-accent, #f3f4f6); border-radius: 9999px; overflow: hidden; position: relative;">
+                        <div id="aiProgressBar" style="
+                            position: absolute;
+                            left: 0;
+                            top: 0;
+                            height: 100%;
+                            width: 30%;
+                            background: linear-gradient(90deg, var(--color-primary, #3b82f6), var(--color-primary-hover, #1d4ed8));
+                            border-radius: 9999px;
+                            transition: width 0.4s ease;
+                        "></div>
+                    </div>
+                </div>
+            </div>
+
+            <style>
+                @keyframes spin {
+                    to { transform: rotate(360deg); }
+                }
+            </style>
+
         </main>
     </div>
 
@@ -542,6 +616,31 @@
         import { schedulerService } from './js/services/schedulerService.js';
         import { publishService } from './js/services/publishService.js';
         import { notificationService } from './js/services/notificationService.js';
+
+        // Progress bar helper functions
+        const progressOverlay = document.getElementById('aiProgressOverlay');
+        const progressTitle = document.getElementById('aiProgressTitle');
+        const progressStatus = document.getElementById('aiProgressStatus');
+        const progressBar = document.getElementById('aiProgressBar');
+        const progressIcon = document.getElementById('aiProgressIcon');
+
+        function showProgress(title, status, initialPercentage = 10, icon = '🤖') {
+            progressTitle.textContent = title;
+            progressStatus.textContent = status;
+            progressBar.style.width = `${initialPercentage}%`;
+            progressIcon.textContent = icon;
+            progressOverlay.style.display = 'flex';
+        }
+
+        function updateProgress(status, percentage, icon) {
+            progressStatus.textContent = status;
+            progressBar.style.width = `${percentage}%`;
+            if (icon) progressIcon.textContent = icon;
+        }
+
+        function hideProgress() {
+            progressOverlay.style.display = 'none';
+        }
 
         // Preset Selection Logic
         let activePreset = 'default';
@@ -776,13 +875,15 @@
 
         // 1. Save Draft
         document.getElementById('btnAIPlanDraft').addEventListener('click', async () => {
-            const { title, content } = getPayloadData();
-            if (!content) {
-                alert('Caption is required to save draft.');
-                return;
-            }
-
             try {
+                const { title, content } = getPayloadData();
+                if (!content) {
+                    alert('Caption is required to save draft.');
+                    return;
+                }
+
+                showProgress('Saving Draft', 'Saving post to your drafts...', 30, '💾');
+
                 const res = await postService.createPost({
                     title,
                     caption: content,
@@ -791,23 +892,32 @@
                 });
 
                 if (res.success) {
-                    notificationService.success('Draft saved successfully!');
-                    setTimeout(() => window.location.href = 'posts.html', 1000);
+                    updateProgress('Draft saved successfully!', 100, '🎉');
+                    setTimeout(() => {
+                        hideProgress();
+                        notificationService.success('Draft saved successfully!');
+                        window.location.href = 'posts.html';
+                    }, 800);
+                } else {
+                    throw new Error(res.message || 'Saving failed');
                 }
             } catch (err) {
+                hideProgress();
                 notificationService.error(`Failed to save draft: ${err.message}`);
             }
         });
 
         // 2. Publish Now
         document.getElementById('btnAIPlanPublish').addEventListener('click', async () => {
-            const payload = getPayloadData();
-            if (!validatePayload(payload)) return;
-
-            const btn = document.getElementById('btnAIPlanPublish');
-            btn.disabled = true;
-
             try {
+                const payload = getPayloadData();
+                if (!validatePayload(payload)) return;
+
+                const btn = document.getElementById('btnAIPlanPublish');
+                btn.disabled = true;
+
+                showProgress('Publishing Post', 'Preparing publishing queue...', 20, '🚀');
+
                 const nowUtc = new Date().toISOString();
                 const res = await schedulerService.createScheduledPost({
                     title: payload.title,
@@ -818,15 +928,23 @@
                 });
 
                 if (res.success && res.ids) {
+                    updateProgress('Publishing immediately to Threads...', 60, '📤');
                     for (const id of res.ids) {
                         await publishService.publishImmediately(id);
                     }
-                    notificationService.success('Published successfully to channels!');
-                    setTimeout(() => window.location.href = 'monitor.html', 1000);
+                    updateProgress('Successfully published!', 100, '✅');
+                    setTimeout(() => {
+                        hideProgress();
+                        notificationService.success('Published successfully to channels!');
+                        window.location.href = 'monitor.html';
+                    }, 800);
+                } else {
+                    throw new Error(res.message || 'Publishing failed');
                 }
             } catch (err) {
+                hideProgress();
                 notificationService.error(`Failed to publish: ${err.message}`);
-            } finally {
+                const btn = document.getElementById('btnAIPlanPublish');
                 btn.disabled = false;
             }
         });
@@ -834,23 +952,30 @@
         // 3. Schedule Post
         const modal = document.getElementById('aiScheduleModal');
         document.getElementById('btnAIPlanSchedule').addEventListener('click', () => {
-            const payload = getPayloadData();
-            if (!validatePayload(payload)) return;
+            try {
+                const payload = getPayloadData();
+                if (!validatePayload(payload)) return;
 
-            if (activePreset === 'morning_greeting') {
-                modal.setRecommendedTime(4, 30);
-            } else if (activePreset === 'selawat' || activePreset === 'engagement' || activePreset === 'motivasi') {
-                modal.setRecommendedTime(5, 0);
+                if (activePreset === 'morning_greeting') {
+                    modal.setRecommendedTime(4, 30);
+                } else if (activePreset === 'selawat' || activePreset === 'engagement' || activePreset === 'motivasi') {
+                    modal.setRecommendedTime(5, 0);
+                }
+
+                modal.show();
+            } catch (err) {
+                console.error("Error opening schedule modal:", err);
+                alert(`Error opening schedule modal: ${err.message}`);
             }
-
-            modal.show();
         });
 
         modal.addEventListener('schedule-saved', async (e) => {
-            const payload = getPayloadData();
-            const { time, timezone, triggerType, triggerThreshold } = e.detail;
-
             try {
+                const payload = getPayloadData();
+                const { time, timezone, triggerType, triggerThreshold } = e.detail;
+
+                showProgress('Scheduling Post', 'Saving schedule to database...', 40, '📅');
+
                 const res = await schedulerService.createScheduledPost({
                     title: payload.title,
                     content: payload.content,
@@ -862,10 +987,17 @@
                 });
 
                 if (res.success) {
-                    notificationService.success('Post scheduled successfully!');
-                    setTimeout(() => window.location.href = 'calendar.html', 1000);
+                    updateProgress('Post scheduled successfully!', 100, '✅');
+                    setTimeout(() => {
+                        hideProgress();
+                        notificationService.success('Post scheduled successfully!');
+                        window.location.href = 'calendar.html';
+                    }, 800);
+                } else {
+                    throw new Error(res.message || 'Scheduling failed');
                 }
             } catch (err) {
+                hideProgress();
                 notificationService.error(`Scheduling failed: ${err.message}`);
             }
         });
@@ -996,10 +1128,20 @@
         const btnBulkSchedule = document.getElementById('btnBulkSchedule');
         const spinnerBulk = document.getElementById('spinnerBulk');
 
-        const progressModal = document.getElementById('progressModal');
-        const progressStatusText = document.getElementById('progressStatusText');
-        const progressBarFill = document.getElementById('progressBarFill');
-        const progressPercentText = document.getElementById('progressPercentText');
+        const progressModal = document.getElementById('aiProgressOverlay');
+        const progressStatusText = document.getElementById('aiProgressStatus');
+        const progressBarFill = document.getElementById('aiProgressBar');
+        const progressPercentText = {
+            set textContent(val) {
+                const match = val.match(/(\d+)%/);
+                if (match) {
+                    const percent = match[1];
+                    document.getElementById('aiProgressTitle').textContent = `Bulk Auto-Scheduling (${percent}%)`;
+                } else {
+                    document.getElementById('aiProgressTitle').textContent = val;
+                }
+            }
+        };
 
         const bulkEnableTrigger = document.getElementById('bulkEnableTrigger');
         const bulkTriggerFields = document.getElementById('bulkTriggerFields');
@@ -1184,19 +1326,5 @@
         // Init
         loadChannels();
     </script>
-    <!-- Progress Modal Overlay -->
-    <div class="modal-backdrop" id="progressModal" style="display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.65); z-index: 10000; align-items: center; justify-content: center; backdrop-filter: blur(4px);">
-        <div class="card" style="width: 100%; max-width: 420px; padding: 2rem; margin: 1rem; border-radius: var(--radius-md); box-shadow: var(--shadow-lg); background: var(--color-bg-card, #ffffff); border: 1px solid var(--color-border); display: flex; flex-direction: column; align-items: center; text-align: center; gap: 1.25rem;">
-            <div style="font-size: 1.25rem; font-weight: 700; color: var(--color-text-primary);">Generating Bulk Publications...</div>
-            <div style="font-size: 0.875rem; color: var(--color-text-secondary); line-height: 1.5;" id="progressStatusText">Preparing campaign queue...</div>
-            
-            <!-- Progress Bar Container -->
-            <div style="width: 100%; background: var(--color-border, #e2e8f0); height: 8px; border-radius: 4px; overflow: hidden; margin: 0.5rem 0;">
-                <div id="progressBarFill" style="width: 0%; height: 100%; background: var(--color-primary, #4f46e5); border-radius: 4px; transition: width 0.3s ease;"></div>
-            </div>
-            
-            <div style="font-size: 0.75rem; font-weight: 600; color: var(--color-text-tertiary);" id="progressPercentText">0% Complete</div>
-        </div>
-    </div>
 </body>
 </html>

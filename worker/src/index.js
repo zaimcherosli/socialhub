@@ -643,9 +643,9 @@ const autoShortenTextLinks = async (db, content, userId, workspaceId) => {
         const code = Math.random().toString(36).substring(2, 8);
         try {
             await db.prepare(
-                `INSERT INTO short_links (code, target_url, title, description, user_id, workspace_id)
-                 VALUES (?, ?, 'Auto-Shortened Link', 'Automatically shortened during post scheduling', ?, ?)`
-            ).bind(code, rawUrl, userId, workspaceId).run();
+                `INSERT INTO short_links (code, target_url, title, description, workspace_id)
+                 VALUES (?, ?, 'Auto-Shortened Link', 'Automatically shortened during post scheduling', ?)`
+            ).bind(code, rawUrl, workspaceId).run();
 
             updatedContent = updatedContent.split(rawUrl).join(`https://nakcuba.my/l/${code}`);
         } catch (e) {
@@ -2214,14 +2214,13 @@ export default {
                                 const titleClean = cleanScrapedTitle(scrapedTitle || "Auto-Shortened Link");
                                 
                                 await env.DB.prepare(
-                                    `INSERT INTO short_links (code, target_url, title, description, user_id, workspace_id)
-                                     VALUES (?, ?, ?, ?, ?, ?)`
+                                    `INSERT INTO short_links (code, target_url, title, description, workspace_id)
+                                     VALUES (?, ?, ?, ?, ?)`
                                 ).bind(
                                     code,
                                     url,
                                     titleClean,
                                     scrapedDescription ? scrapedDescription.substring(0, 200) : "Sila klik untuk melihat produk.",
-                                    user.id,
                                     activeWorkspace.workspace_id
                                 ).run();
 

@@ -467,7 +467,7 @@
                         <!-- Standard Single Post Preview Fields (default) -->
                         <div id="singlePostPreviewGroup" class="form-group">
                             <label class="form-label" for="previewCaption">Generated Caption</label>
-                            <textarea id="previewCaption" class="form-input" rows="5" style="width: 100%; resize: vertical;"></textarea>
+                            <textarea id="previewCaption" class="form-input" rows="5" style="width: 100%; resize: vertical; height: auto !important; min-height: 120px !important;"></textarea>
                         </div>
 
                         <!-- Thread Storm Preview & Editor Group (dynamic) -->
@@ -949,7 +949,7 @@
                         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>
                     </button>
                 </div>
-                <textarea class="form-input thread-item-textarea" rows="3" style="width: 100%; font-size: 0.85rem; resize: vertical;" placeholder="Tulis kandungan thread di sini...">${text}</textarea>
+                <textarea class="form-input thread-item-textarea" rows="3" style="width: 100%; font-size: 0.85rem; resize: vertical; height: auto !important; min-height: 100px !important;" placeholder="Tulis kandungan thread di sini...">${text}</textarea>
                 <div style="text-align: right; font-size: 0.7rem; color: var(--color-text-tertiary);" class="char-counter">0 / 450</div>
             `;
 

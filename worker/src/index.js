@@ -2007,6 +2007,30 @@ export default {
                                  if (metas.description) scrapedDescription = metas.description;
                                  if (metas.image) scrapedImage = metas.image;
 
+                                  // If it is a Telegram post, check if the image is just the channel's profile picture
+                                  if (scrapedImage && isTelegramPostUrl(url)) {
+                                      try {
+                                          const u = new URL(url);
+                                          const parts = u.pathname.split('/').filter(Boolean);
+                                          if (parts.length > 1) {
+                                              const channelUrl = `${u.origin}/${parts[0]}`;
+                                              const channelRes = await fetch(channelUrl, {
+                                                  headers: {
+                                                      'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36'
+                                                  },
+                                                  redirect: 'follow'
+                                              });
+                                              if (channelRes.ok) {
+                                                  const channelHtml = await channelRes.text();
+                                                  const channelMetas = extractMetaTags(channelHtml);
+                                                  if (channelMetas.image && scrapedImage === channelMetas.image) {
+                                                      scrapedImage = ""; // Ignore default channel profile picture
+                                                  }
+                                              }
+                                          }
+                                      } catch (_) {}
+                                  }
+
                                 // JSON-LD extraction
                                 if (!scrapedDescription || scrapedDescription.length < 50) {
                                     const jsonLdMatches = [...html.matchAll(/<script[^>]+type=["']application\/ld\+json["'][^>]*>([\s\S]*?)<\/script>/gi)];

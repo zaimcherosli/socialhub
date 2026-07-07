@@ -2093,9 +2093,9 @@ export default {
                         const idx = parseInt(index) || 0;
                         const staggerMinutes = 30; // 30 minutes spacing
 
-                        // Find the latest scheduled post for this workspace
+                        // Find the latest scheduled or draft post for this workspace
                         const lastPost = await env.DB.prepare(
-                            "SELECT publish_at FROM scheduled_posts WHERE workspace_id = ? AND status = 'scheduled' ORDER BY publish_at DESC LIMIT 1"
+                            "SELECT publish_at FROM scheduled_posts WHERE workspace_id = ? AND status IN ('scheduled', 'draft') ORDER BY publish_at DESC LIMIT 1"
                         ).bind(activeWorkspace.workspace_id).first().catch(() => null);
 
                         let baseTime = new Date(Date.now() + 15 * 60 * 1000); // default to 15 minutes from now
@@ -2106,8 +2106,8 @@ export default {
                             }
                         }
 
-                        // Add stagger spacing based on the batch index (idx)
-                        const publishAtDate = new Date(baseTime.getTime() + (idx + 1) * staggerMinutes * 60 * 1000);
+                        // Add flat stagger spacing (30 minutes after the last post)
+                        const publishAtDate = new Date(baseTime.getTime() + staggerMinutes * 60 * 1000);
                         const publishAt = publishAtDate.toISOString();
 
                         // Resolve social account

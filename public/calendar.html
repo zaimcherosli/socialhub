@@ -173,6 +173,22 @@
             color: #d97706;
         }
 
+        .tiny-schedule-badge.draft {
+            background: var(--color-border);
+            color: var(--color-text-tertiary);
+        }
+
+        .tiny-schedule-badge.cancelled {
+            background: #f3f4f6;
+            color: #9ca3af;
+            text-decoration: line-through;
+        }
+
+        .tiny-schedule-badge.waiting_trigger {
+            background: #e0e7ff;
+            color: #4f46e5;
+        }
+
         /* Popups and details drawers */
         .picker-modal-backdrop {
             display: none;
@@ -471,6 +487,23 @@
             background: #fffbeb;
             border-color: #fde68a;
             color: #92400e;
+        }
+        .timeline-card.status-draft {
+            background: var(--color-bg-tertiary, #f3f4f6);
+            border-color: var(--color-border, #e5e7eb);
+            color: var(--color-text-secondary, #4b5563);
+        }
+        .timeline-card.status-cancelled {
+            background: #f9fafb;
+            border-color: #e5e7eb;
+            color: #9ca3af;
+            opacity: 0.7;
+            text-decoration: line-through;
+        }
+        .timeline-card.status-waiting_trigger {
+            background: #e0e7ff;
+            border-color: #c7d2fe;
+            color: #3730a3;
         }
         
         /* Empty Slot Line */
@@ -1201,13 +1234,32 @@
                         const card = document.createElement('div');
                         card.className = `timeline-card status-${item.status}`;
                         
-                        const statusText = item.status === 'published' 
-                            ? '✅ AUTO-SCHEDULE DONE'
-                            : item.status === 'scheduled'
-                            ? '💜 AUTO-DRAFT SAVED'
-                            : item.status === 'failed'
-                            ? '❌ PUBLISHING FAILED'
-                            : '⏳ PUBLISHING IN PROGRESS';
+                        let statusText = '';
+                        switch (item.status) {
+                            case 'published':
+                                statusText = '✅ AUTO-SCHEDULE DONE';
+                                break;
+                            case 'scheduled':
+                                statusText = '📅 AUTO-SCHEDULED';
+                                break;
+                            case 'draft':
+                                statusText = '💜 AUTO-DRAFT SAVED';
+                                break;
+                            case 'failed':
+                                statusText = '❌ PUBLISHING FAILED';
+                                break;
+                            case 'publishing':
+                                statusText = '⏳ PUBLISHING IN PROGRESS';
+                                break;
+                            case 'cancelled':
+                                statusText = '🚫 CANCELLED';
+                                break;
+                            case 'waiting_trigger':
+                                statusText = '🔗 WAITING TRIGGER';
+                                break;
+                            default:
+                                statusText = item.status.toUpperCase();
+                        }
                             
                         const timeLabel = new Date(item.publish_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: true });
                         card.innerHTML = `

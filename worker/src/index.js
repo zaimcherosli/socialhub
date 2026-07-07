@@ -700,6 +700,33 @@ const getNicheInstructionsPrompt = async (db, productContext) => {
     return promptBlock;
 };
 
+// Helper: Get raw niche classification data
+const getNicheInstructions = async (db, productContext) => {
+    if (!db) return null;
+    const textToAnalyze = (productContext || "").toLowerCase();
+    
+    try {
+        const niches = await db.prepare("SELECT * FROM system_niche_rules ORDER BY id ASC").all();
+        if (niches && niches.results) {
+            for (const niche of niches.results) {
+                const keywords = (niche.detection_keywords || "").split(',').map(k => k.trim().toLowerCase()).filter(Boolean);
+                if (keywords.some(k => textToAnalyze.includes(k))) {
+                    let rules = [];
+                    try {
+                        rules = JSON.parse(niche.rules || "[]");
+                    } catch (_) {}
+                    return {
+                        name: niche.name,
+                        rules: rules,
+                        example_output: niche.example_output || null
+                    };
+                }
+            }
+        }
+    } catch (_) {}
+    return null;
+};
+
 // ── Shared Helper: Execute immediate publish logic (used by Web REST API and Telegram Webhook) ──
 async function executeImmediatePublish(db, spId, userId, encryptionSecret) {
     const scheduledPost = await db.prepare(
@@ -1255,6 +1282,7 @@ export default {
                     name TEXT NOT NULL,
                     detection_keywords TEXT NOT NULL,
                     rules TEXT NOT NULL,
+                    example_output TEXT DEFAULT NULL,
                     created_at TEXT DEFAULT (datetime('now')),
                     updated_at TEXT DEFAULT (datetime('now'))
                 )`).run();
@@ -1768,6 +1796,8 @@ export default {
 
                         const provider = AIFactory.getProvider(aiEnv);
                         const performanceFeedback = await getPerformanceFeedback(env.DB, activeWorkspace.workspace_id);
+                        const nicheData = await getNicheInstructions(env.DB, product);
+                        
                         const result = await provider.generateCaption({
                             businessType,
                             product: product + performanceFeedback,
@@ -1777,10 +1807,9 @@ export default {
                             language: language || 'Bahasa Melayu',
                             postFormat: postFormat || 'single',
                             funnelStage: funnelStage || 'none',
-                            customInstructions: [
-                                getFactPreservingInstructions(wsAI?.custom_ai_instructions),
-                                await getNicheInstructionsPrompt(env.DB, product)
-                            ].filter(Boolean).join('\n\n')
+                            customInstructions: getFactPreservingInstructions(wsAI?.custom_ai_instructions),
+                            nicheRules: nicheData ? nicheData.rules : null,
+                            nicheExampleOutput: nicheData ? nicheData.example_output : null
                         });
 
                         await logActivity(activeWorkspace.workspace_id, user.id, 'ai_generate', `Generated caption for business "${businessType}": ${(product || '').substring(0, 30)}...`);
@@ -2320,45 +2349,31 @@ CRITICAL TONE RULES:
                         }
 
                         // Add workspace-specific copywriting guidelines and system niche rules
-                        let customGuidelinesBlock = "";
-                        const systemNicheRulesBlock = await getNicheInstructionsPrompt(env.DB, productContext);
+                        const nicheData = await getNicheInstructions(env.DB, productContext);
                         
-                        if (wsAI?.custom_ai_instructions) {
-                            customGuidelinesBlock = `\n4. Follow these workspace-specific copywriting guidelines/knowledge base closely:\n${getFactPreservingInstructions(wsAI.custom_ai_instructions)}\n\n5. Follow these niche guidelines:\n${systemNicheRulesBlock}`;
-                        } else {
-                            customGuidelinesBlock = `\n4. Follow these niche guidelines:\n${systemNicheRulesBlock}`;
-                        }
-
-                        const systemPrompt = `You are a professional social media marketing expert in Malaysia.
-Generate a high-converting, engaging post based on the following product/property details:
-- Product/property info: ${productContext}
-- Target Platform: Threads
-- ${toneInstruction}
-- Language: ${language || 'Malay'}
-
-FACT PRESERVATION RULE:
-You must strictly preserve the real facts from the product/property info (such as the actual location, price, room count, and amenities). Under no circumstances should you invent, guess, or hallucinate a fake price (like RM800,000) or a fake location (like Shah Alam) if it is not in the product info.
-If your guidelines or rules ask you to avoid revealing the actual price or project name, simply do not mention them at all (omit them) or use general phrases like 'harga berpatutan' or 'lokasi strategik'. DO NOT fabricate or invent fake details.
-
-CRITICAL RULES:
-1. For general physical products (like Shopee, Lazada, TikTok Shop), DO NOT include the price (e.g. RMxx) in the copywriting. Keep the price secret to make the audience curious so they click the link.
-2. For real estate, houses, apartments, or property listings (like PropMall, Mudah, Telegram real estate channels), you MUST include the property price (e.g. RM 325,000 or RM 325k) in the copywriting to attract buyers.
-3. The copywriting ${formatInstructions}
-4. If writing in Malay, use natural, casual, and conversational Malaysian Malay slangs/vocabulary (e.g. 'korang', 'je', 'boleh', 'nak') instead of formal Indonesian words ('kamu', 'bisa', 'yuk', 'sih', 'deh'). Do NOT always start the hooks with the same word (e.g. vary the opening hooks and sentence structure so they do not all start with 'weyh' or 'weh').
-5. Focus on the ACTUAL product/property details (type, location, size, features, facilities) from the product info above. DO NOT write about the seller name, channel name, or listing source/platform name. Write as if YOU personally found or own this product/property.
-6. NEVER include any phone numbers (e.g. 017-xxx xxxx, 601x-xxx xxxx), agent names, agency names (e.g. IQI Realty, PropNex), REN numbers, PEA numbers, or any contact details from the listing in the caption or CTA. The only contact method is via the link provided separately.
-7. For real estate/properties, include specific hashtags based on transaction type:
-   - If the property is for sale (contains WTS, Sale, Jual), include: #jualbelirumah #jualrumah #rumahuntukdijual #hartanahuntukdijual
-   - If the property is for rent/lease (contains WTL, Rent, Sewa, Lease), include: #sewahartanah #sewarumah #rumahsewa #sewakondominium${customGuidelinesBlock}
-
-Provide the output in a strict JSON format with the following keys. Return ONLY the JSON object, with no markdown code blocks or extra explanations:
-{
-  "caption": "write the caption here (include thread separators if thread storm)",
-  "cta": "${ctaPromptInstructions.replace(/"/g, '\\"')}",
-  "hashtags": ["hashtag1", "hashtag2", "hashtag3"]
-}`;
+                        const lowerCtx = (productContext || "").toLowerCase();
+                        const isProperty = lowerCtx.includes("apartment") || lowerCtx.includes("semi d") || lowerCtx.includes("teres") || lowerCtx.includes("kondo") || lowerCtx.includes("house") || lowerCtx.includes("property") || lowerCtx.includes("hartanah") || lowerCtx.includes("bilik") || lowerCtx.includes("sqft") || url.includes("propmall") || url.includes("mudah");
 
                         const provider = AIFactory.getProvider(aiEnv);
+
+                        let customGuidelinesBlock = [
+                            getFactPreservingInstructions(wsAI?.custom_ai_instructions),
+                            `CTA Instructions: ${ctaPromptInstructions}`
+                        ].filter(Boolean).join('\n\n');
+
+                        const systemPrompt = provider.assembleCaptionPrompt({
+                            businessType: isProperty ? 'Real Estate' : 'Products & Affiliate',
+                            product: productContext,
+                            targetAudience: 'Malaysian social media users',
+                            goal: 'Engagement & Lead Generation',
+                            tone: tone || 'Friendly & Casual',
+                            language: language || 'Malay',
+                            postFormat: postFormat === 'deep_thread' ? 'thread' : (postFormat === 'short_thread' ? 'thread' : 'single'),
+                            funnelStage: 'none',
+                            customInstructions: customGuidelinesBlock,
+                            nicheRules: nicheData ? nicheData.rules : null,
+                            nicheExampleOutput: nicheData ? nicheData.example_output : null
+                        });
                         
                         let responseText = "";
                         if (provider.constructor?.name === 'CloudflareAIProvider' || typeof provider.ai?.run === 'function') {
@@ -5000,19 +5015,19 @@ CRITICAL LANGUAGE / SPEECH RULES:
 
                         if (request.method === 'POST') {
                             try {
-                                const { id, niche_key, name, detection_keywords, rules } = await request.json();
+                                const { id, niche_key, name, detection_keywords, rules, example_output } = await request.json();
                                 if (!niche_key || !name || !detection_keywords || !rules) {
                                     return new Response(JSON.stringify({ message: 'All fields are required.' }), { status: 400, headers: corsHeaders });
                                 }
 
                                 if (id) {
                                     await env.DB.prepare(
-                                        "UPDATE system_niche_rules SET niche_key = ?, name = ?, detection_keywords = ?, rules = ?, updated_at = datetime('now') WHERE id = ?"
-                                    ).bind(niche_key.trim(), name.trim(), detection_keywords.trim(), typeof rules === 'string' ? rules : JSON.stringify(rules), id).run();
+                                        "UPDATE system_niche_rules SET niche_key = ?, name = ?, detection_keywords = ?, rules = ?, example_output = ?, updated_at = datetime('now') WHERE id = ?"
+                                    ).bind(niche_key.trim(), name.trim(), detection_keywords.trim(), typeof rules === 'string' ? rules : JSON.stringify(rules), example_output ? example_output.trim() : null, id).run();
                                 } else {
                                     await env.DB.prepare(
-                                        "INSERT INTO system_niche_rules (niche_key, name, detection_keywords, rules) VALUES (?, ?, ?, ?)"
-                                    ).bind(niche_key.trim(), name.trim(), detection_keywords.trim(), typeof rules === 'string' ? rules : JSON.stringify(rules)).run();
+                                        "INSERT INTO system_niche_rules (niche_key, name, detection_keywords, rules, example_output) VALUES (?, ?, ?, ?, ?)"
+                                    ).bind(niche_key.trim(), name.trim(), detection_keywords.trim(), typeof rules === 'string' ? rules : JSON.stringify(rules), example_output ? example_output.trim() : null).run();
                                 }
 
                                 return new Response(JSON.stringify({ success: true, message: 'Niche rule saved successfully.' }), { status: 200, headers: corsHeaders });

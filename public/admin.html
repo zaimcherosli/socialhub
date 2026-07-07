@@ -403,6 +403,10 @@
                     <label style="display: block; font-size: 0.85rem; font-weight: 600; margin-bottom: 0.25rem;">Copywriting Rules (One rule per line)</label>
                     <textarea class="search-input" id="niche-rules" placeholder="e.g. Include price in copywriting&#10;Do not mention agent phone numbers" required style="width: 100%; height: 100px; box-sizing: border-box; font-family: inherit; resize: vertical;"></textarea>
                 </div>
+                <div>
+                    <label style="display: block; font-size: 0.85rem; font-weight: 600; margin-bottom: 0.25rem;">Example Output (Optional)</label>
+                    <textarea class="search-input" id="niche-example-output" placeholder="Paste 1 contoh thread lengkap untuk niche ini..." style="width: 100%; height: 100px; box-sizing: border-box; font-family: inherit; resize: vertical;"></textarea>
+                </div>
                 <div style="display: flex; justify-content: flex-end; gap: 0.5rem; margin-top: 0.5rem;">
                     <button type="button" class="btn btn-secondary" id="btn-cancel-niche-modal">Cancel</button>
                     <button type="submit" class="btn btn-primary">Save Niche Rule</button>
@@ -719,6 +723,7 @@
         const nicheNameInput = document.getElementById('niche-name');
         const nicheKeywordsInput = document.getElementById('niche-keywords');
         const nicheRulesInput = document.getElementById('niche-rules');
+        const nicheExampleOutputInput = document.getElementById('niche-example-output');
         const nicheModalTitle = document.getElementById('niche-modal-title');
 
         async function loadNicheRules() {
@@ -780,6 +785,7 @@
                             parsedRules = JSON.parse(niche.rules || '[]');
                         } catch (_) {}
                         nicheRulesInput.value = parsedRules.join('\n');
+                        nicheExampleOutputInput.value = niche.example_output || '';
                         
                         nicheModalTitle.textContent = 'Edit Niche Copywriting Rule';
                         nicheModal.style.display = 'flex';
@@ -813,6 +819,7 @@
             nicheNameInput.value = '';
             nicheKeywordsInput.value = '';
             nicheRulesInput.value = '';
+            nicheExampleOutputInput.value = '';
             nicheModalTitle.textContent = 'Add Niche Copywriting Rule';
             nicheModal.style.display = 'flex';
         });
@@ -830,6 +837,7 @@
             const name = nicheNameInput.value;
             const detection_keywords = nicheKeywordsInput.value;
             const rulesArray = nicheRulesInput.value.split('\n').map(r => r.trim()).filter(Boolean);
+            const example_output = nicheExampleOutputInput.value.trim();
 
             try {
                 const res = await apiClient.post('/admin/niche-rules', {
@@ -837,7 +845,8 @@
                     niche_key,
                     name,
                     detection_keywords,
-                    rules: rulesArray
+                    rules: rulesArray,
+                    example_output: example_output || null
                 });
 
                 if (res.success) {

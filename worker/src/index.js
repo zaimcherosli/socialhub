@@ -1270,6 +1270,84 @@ export default {
                     expires_at TEXT NOT NULL
                 )`).run();
             } catch (_) {}
+
+            // Ensure short_links table exists for link shortener & cloaking
+            try {
+                await env.DB.prepare(`CREATE TABLE IF NOT EXISTS short_links (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    workspace_id INTEGER NOT NULL REFERENCES workspaces(id) ON DELETE CASCADE,
+                    code TEXT NOT NULL UNIQUE,
+                    target_url TEXT NOT NULL,
+                    title TEXT,
+                    description TEXT,
+                    clicks_count INTEGER NOT NULL DEFAULT 0,
+                    created_at TEXT NOT NULL DEFAULT (datetime('now'))
+                )`).run();
+            } catch (_) {}
+        if (url.pathname.startsWith('/l/')) {
+            const code = url.pathname.substring(3).trim();
+            if (!code) {
+                return new Response("Not Found", { status: 404 });
+            }
+
+            if (!env.DB) {
+                return new Response("DB Binding Missing", { status: 500 });
+            }
+
+            const link = await env.DB.prepare("SELECT * FROM short_links WHERE code = ?").bind(code).first().catch(() => null);
+            if (!link) {
+                return new Response("Link Not Found", { status: 404 });
+            }
+
+            const userAgent = (request.headers.get('User-Agent') || '').toLowerCase();
+            const isBot = [
+                'facebookexternalhit',
+                'threadsbot',
+                'facebookplatform',
+                'facebot',
+                'twitterbot',
+                'slackbot',
+                'telegrambot',
+                'linkedinbot',
+                'discordbot',
+                'googlebot',
+                'bingbot',
+                'bot',
+                'crawler',
+                'spider'
+            ].some(crawler => userAgent.includes(crawler));
+
+            if (isBot) {
+                const title = link.title || "Lihat produk viral terkini";
+                const desc = link.description || "Klik pautan untuk maklumat lanjut dan ulasan produk menarik.";
+                const html = `<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8">
+    <title>${title}</title>
+    <meta name="description" content="${desc}">
+    <meta property="og:title" content="${title}">
+    <meta property="og:description" content="${desc}">
+    <meta property="og:type" content="website">
+    <meta property="og:url" content="${request.url}">
+</head>
+<body>
+    <p>Redirecting to target...</p>
+</body>
+</html>`;
+                return new Response(html, {
+                    headers: {
+                        'Content-Type': 'text/html; charset=utf-8',
+                        'Access-Control-Allow-Origin': '*'
+                    }
+                });
+            } else {
+                ctx.waitUntil(
+                    env.DB.prepare("UPDATE short_links SET clicks_count = clicks_count + 1 WHERE id = ?").bind(link.id).run().catch(() => null)
+                );
+                return Response.redirect(link.target_url, 302);
+            }
+        }
         }
 
         if (request.method === 'OPTIONS') {
@@ -5538,6 +5616,109 @@ CRITICAL LANGUAGE / SPEECH RULES:
                         ).bind(keyId, workspace.workspace_id).run();
 
                         if (result.changes === 0) return new Response(JSON.stringify({ message: 'Key not found' }), { status: 404, headers: corsHeaders });
+
+                        return new Response(JSON.stringify({ success: true }), { status: 200, headers: corsHeaders });
+                    }
+
+                    // --- Link Shortener & Cloaker Endpoints ---
+                    if (url.pathname === '/api/links' && request.method === 'GET') {
+                        const user = await getAuthUser();
+                        if (!user) return new Response(JSON.stringify({ message: 'Unauthorized' }), { status: 401, headers: corsHeaders });
+                        const workspace = await getActiveWorkspace(user);
+                        if (!workspace) return new Response(JSON.stringify({ message: 'No active workspace found' }), { status: 404, headers: corsHeaders });
+
+                        const links = await env.DB.prepare("SELECT * FROM short_links WHERE workspace_id = ? ORDER BY id DESC").bind(workspace.workspace_id).all().catch(() => ({ results: [] }));
+                        return new Response(JSON.stringify({ success: true, links: links.results || [] }), { status: 200, headers: corsHeaders });
+                    }
+
+                    if (url.pathname === '/api/links' && request.method === 'POST') {
+                        const user = await getAuthUser();
+                        if (!user) return new Response(JSON.stringify({ message: 'Unauthorized' }), { status: 401, headers: corsHeaders });
+                        const workspace = await getActiveWorkspace(user);
+                        if (!workspace) return new Response(JSON.stringify({ message: 'No active workspace found' }), { status: 404, headers: corsHeaders });
+
+                        const { target_url, code: customCode, title, description } = await request.json();
+                        if (!target_url || !target_url.trim()) {
+                            return new Response(JSON.stringify({ message: 'Target URL is required' }), { status: 400, headers: corsHeaders });
+                        }
+
+                        // Validate target URL format
+                        try {
+                            new URL(target_url.trim());
+                        } catch (_) {
+                            return new Response(JSON.stringify({ message: 'Invalid Target URL format' }), { status: 400, headers: corsHeaders });
+                        }
+
+                        let code = (customCode || '').trim();
+                        if (code) {
+                            // Validate custom code format
+                            if (!/^[a-zA-Z0-9\-_]+$/.test(code)) {
+                                return new Response(JSON.stringify({ message: 'Custom alias can only contain letters, numbers, hyphens and underscores' }), { status: 400, headers: corsHeaders });
+                            }
+                            // Check uniqueness
+                            const existing = await env.DB.prepare("SELECT id FROM short_links WHERE code = ?").bind(code).first().catch(() => null);
+                            if (existing) {
+                                return new Response(JSON.stringify({ message: 'Custom alias is already taken' }), { status: 400, headers: corsHeaders });
+                            }
+                        } else {
+                            // Generate random unique 6-char code
+                            let isUnique = false;
+                            const chars = 'abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
+                            let attempts = 0;
+                            while (!isUnique && attempts < 10) {
+                                code = '';
+                                for (let i = 0; i < 6; i++) {
+                                    code += chars.charAt(Math.floor(Math.random() * chars.length));
+                                }
+                                const existing = await env.DB.prepare("SELECT id FROM short_links WHERE code = ?").bind(code).first().catch(() => null);
+                                if (!existing) {
+                                    isUnique = true;
+                                }
+                                attempts++;
+                            }
+                            if (!isUnique) {
+                                return new Response(JSON.stringify({ message: 'Failed to generate a unique short link. Please try again.' }), { status: 500, headers: corsHeaders });
+                            }
+                        }
+
+                        const result = await env.DB.prepare(
+                            "INSERT INTO short_links (workspace_id, code, target_url, title, description) VALUES (?, ?, ?, ?, ?)"
+                        ).bind(workspace.workspace_id, code, target_url.trim(), title ? title.trim() : null, description ? description.trim() : null).run().catch(e => {
+                            console.error("Failed to insert short link:", e);
+                            return null;
+                        });
+
+                        if (!result) {
+                            return new Response(JSON.stringify({ message: 'Failed to save short link' }), { status: 500, headers: corsHeaders });
+                        }
+
+                        const newLink = {
+                            id: result.meta.last_row_id,
+                            workspace_id: workspace.workspace_id,
+                            code,
+                            target_url: target_url.trim(),
+                            title: title ? title.trim() : null,
+                            description: description ? description.trim() : null,
+                            clicks_count: 0,
+                            created_at: new Date().toISOString()
+                        };
+
+                        return new Response(JSON.stringify({ success: true, link: newLink }), { status: 201, headers: corsHeaders });
+                    }
+
+                    if (url.pathname.startsWith('/api/links/') && request.method === 'DELETE') {
+                        const user = await getAuthUser();
+                        if (!user) return new Response(JSON.stringify({ message: 'Unauthorized' }), { status: 401, headers: corsHeaders });
+                        const workspace = await getActiveWorkspace(user);
+                        if (!workspace) return new Response(JSON.stringify({ message: 'No active workspace found' }), { status: 404, headers: corsHeaders });
+
+                        const linkId = parseInt(url.pathname.split('/').pop(), 10);
+                        if (!linkId) return new Response(JSON.stringify({ message: 'Invalid Link ID' }), { status: 400, headers: corsHeaders });
+
+                        const result = await env.DB.prepare("DELETE FROM short_links WHERE id = ? AND workspace_id = ?").bind(linkId, workspace.workspace_id).run().catch(() => null);
+                        if (!result || result.changes === 0) {
+                            return new Response(JSON.stringify({ message: 'Short link not found or unauthorized' }), { status: 404, headers: corsHeaders });
+                        }
 
                         return new Response(JSON.stringify({ success: true }), { status: 200, headers: corsHeaders });
                     }

@@ -585,25 +585,42 @@ const extractTelegramTitle = (scrapedTitle, scrapedDescription) => {
     if (!scrapedDescription) return scrapedTitle || "";
     
     // Clean emojis and bullet markers from each line
+    // Also strip variation selectors and heavy exclamation marks like ❗️ or ❗
     const rawLines = scrapedDescription.split('\n');
-    const cleanLines = rawLines.map(l => l.replace(/[✅✨🏠📌🔥*‼️•⁠🏡]/g, '').replace(/^[-–\s]+/, '').trim());
+    const cleanLines = rawLines.map(l => l.replace(/[✅✨🏠📌🔥*‼️•⁠🏡❗️❗]/g, '').replace(/^[-–\s]+/, '').trim());
 
     // Priority 1: Find the main listing line containing property type + transaction type
     // e.g. "For Sale - Semi D Cluster Two Storey House SP 10 Bandar Saujana Putra"
     const mainListingRegex = /(?:For\s*Sale|WTS|WTL|For\s*Rent|Sewa|Jual).*(?:Storey|Tingkat|Terrace|Teres|Semi.?D|Bungalow|Banglo|Condo|Apartment|Pangsapuri|Flat|House|Rumah)/i;
     const mainLine = cleanLines.find(l => mainListingRegex.test(l));
     if (mainLine) {
-        // Strip the "For Sale - " prefix to get the actual property description
         return mainLine.replace(/^(?:For\s*Sale|WTS|WTL|For\s*Rent|Sewa|Jual)\s*[-–:]?\s*/i, '').substring(0, 100).trim();
     }
 
-    // Priority 2: Find a line that combines property type AND a location/area name
-    const propertyTypeRegex = /\b(?:Storey|Tingkat|Sty|Terrace|Teres|Semi.?D|Bungalow|Banglo|Condo|Condominium|Kondominium|Apartment|Pangsapuri|Flat|Townhouse|House|Rumah|Suite|Office|Shoplot|Land|Tanah|Lot|Cluster)\b/i;
-    const locationKeyword = /\b(?:Bandar|Taman|Pandan|Subang|Shah Alam|Petaling|Ampang|Rawang|Semenyih|Dengkil|Klang|Cheras|Setapak|Puchong|Serdang|Cyberjaya|Putrajaya|Kajang|Sepang|Sri|KL|Kuala Lumpur|Damansara|Kepong|Selayang|Batu|Seremban|Nilai|Alam|Perdana|Indah|Permai|Damai|Maju|Jaya|Murni|Harmoni|Saujana|Putra|Prima|Utama|Raya|Seksyen|BSP|SP\s*\d+)\b/i;
-    const bestTypeLine = cleanLines.find(l => propertyTypeRegex.test(l) && locationKeyword.test(l));
-    if (bestTypeLine) return bestTypeLine.substring(0, 100).trim();
+    // Definitions
+    const buildingTypeRegex = /\b(Storey|Tingkat|Sty|Terrace|Teres|Semi.?D|Bungalow|Banglo|Condo|Condominium|Kondominium|Apartment|Pangsapuri|Flat|Townhouse|House|Rumah|Suite|Office|Shoplot|Cluster)\b/i;
+    const landTypeRegex = /\b(Land|Tanah|Lot)\b/i;
+    const propertyTypeRegex = /\b(Storey|Tingkat|Sty|Terrace|Teres|Semi.?D|Bungalow|Banglo|Condo|Condominium|Kondominium|Apartment|Pangsapuri|Flat|Townhouse|House|Rumah|Suite|Office|Shoplot|Land|Tanah|Lot|Cluster)\b/i;
+    
+    const locationKeyword = /\b(Bandar|Taman|Pandan|Subang|Shah Alam|Petaling|Ampang|Rawang|Semenyih|Dengkil|Klang|Cheras|Setapak|Puchong|Serdang|Cyberjaya|Putrajaya|Kajang|Sepang|Sri|KL|Kuala Lumpur|Damansara|Kepong|Selayang|Batu|Seremban|Nilai|Alam|Perdana|Indah|Permai|Damai|Maju|Jaya|Murni|Harmoni|Saujana|Putra|Prima|Utama|Raya|Seksyen|BSP|SP\s*\d+)\b/i;
 
-    // Priority 3: Any line with just a property type keyword
+    // Sub-Priority 2a: Building Type AND Location
+    const bestBuildingLine = cleanLines.find(l => buildingTypeRegex.test(l) && locationKeyword.test(l));
+    if (bestBuildingLine) return bestBuildingLine.substring(0, 100).trim();
+
+    // Sub-Priority 2b: Building Type alone (excluding bullet features containing words like 'luas', 'belakang' to avoid feature matching)
+    const buildingAloneLine = cleanLines.find(l => l.length > 5 && buildingTypeRegex.test(l) && !/Asking\s*Price|ASKING|PRICE|Land\s*Area|Built\s*Up|Bedrooms|Bathrooms|sqft/i.test(l));
+    if (buildingAloneLine) return buildingAloneLine.substring(0, 100).trim();
+
+    // Sub-Priority 2c: Land/Tanah Type AND Location
+    const bestLandLine = cleanLines.find(l => landTypeRegex.test(l) && locationKeyword.test(l));
+    if (bestLandLine) return bestLandLine.substring(0, 100).trim();
+
+    // Sub-Priority 2d: Land/Tanah Type alone (excluding bullet features containing 'luas', 'belakang' to avoid feature matching)
+    const landAloneLine = cleanLines.find(l => l.length > 5 && landTypeRegex.test(l) && !/Luas|Belakang|Depan|Sisi|Tepi|Asking\s*Price|ASKING|PRICE|Land\s*Area|Built\s*Up|Bedrooms|Bathrooms|sqft/i.test(l));
+    if (landAloneLine) return landAloneLine.substring(0, 100).trim();
+
+    // Fallback to general property type if none of the above matched
     const anyTypeLine = cleanLines.find(l => l.length > 5 && propertyTypeRegex.test(l) && !/Asking\s*Price|ASKING|PRICE|Land\s*Area|Built\s*Up|Bedrooms|Bathrooms|sqft/i.test(l));
     if (anyTypeLine) return anyTypeLine.substring(0, 100).trim();
 
@@ -2154,8 +2171,8 @@ export default {
 
                             let locationInfo = "";
                             if (scrapedDescription) {
-                                // Try explicit Location/Lokasi label first
-                                const locMatch = scrapedDescription.match(/(?:Location|Lokasi|Located\s*at|Terletak\s*di)\s*[:\-]?\s*([^\n,]+)/i);
+                                // Try explicit Location/Lokasi label first (restricted to horizontal whitespace to avoid matching next lines)
+                                const locMatch = scrapedDescription.match(/(?:Location|Lokasi|Located\s+at|Terletak\s+di)[ \t]*[:\-]?[ \t]*([^\n,]+)/i);
                                 if (locMatch) {
                                     locationInfo = locMatch[1].trim();
                                 } else {
@@ -2165,7 +2182,8 @@ export default {
                                     for (const line of lines) {
                                         const areaMatch = line.match(areaKeywords);
                                         if (areaMatch && areaMatch[0].length > 3) {
-                                            locationInfo = areaMatch[0].trim().substring(0, 50);
+                                            // Extract the full line (cleaned of emojis and bullet points) for complete address context (e.g. "Seksyen 11 Shah Alam")
+                                            locationInfo = line.replace(/^[✅✨🏠📌🔥*‼️•⁠🏡❗️❗\-–\s]+/, '').trim().substring(0, 50);
                                             break;
                                         }
                                     }

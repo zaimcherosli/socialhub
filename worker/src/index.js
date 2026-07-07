@@ -629,6 +629,33 @@ const extractTelegramTitle = (scrapedTitle, scrapedDescription) => {
     return firstLine ? firstLine.substring(0, 100).trim() : (scrapedTitle || "");
 };
 
+// Helper: Auto-shorten any ecommerce links found inside post content
+const autoShortenTextLinks = async (db, content, userId, workspaceId) => {
+    if (!content) return content;
+
+    const ecommerceRegex = /(https?:\/\/(?:[a-zA-Z0-9-]+\.)*(?:shopee\.com\.my|shopee\.sg|shopee\.co\.id|shopee\.com|tiktok\.com|lazada\.com\.my|lazada\.com)[\w\-._~:/?#[\]@!$&'()*+,;=]*)/gi;
+    
+    let updatedContent = content;
+    const matches = [...content.matchAll(ecommerceRegex)].map(m => m[1]);
+    const uniqueUrls = Array.from(new Set(matches));
+
+    for (const rawUrl of uniqueUrls) {
+        const code = Math.random().toString(36).substring(2, 8);
+        try {
+            await db.prepare(
+                `INSERT INTO short_links (code, target_url, title, description, user_id, workspace_id)
+                 VALUES (?, ?, 'Auto-Shortened Link', 'Automatically shortened during post scheduling', ?, ?)`
+            ).bind(code, rawUrl, userId, workspaceId).run();
+
+            updatedContent = updatedContent.split(rawUrl).join(`https://nakcuba.my/l/${code}`);
+        } catch (e) {
+            console.error("Auto-shortening failed for URL:", rawUrl, e);
+        }
+    }
+    
+    return updatedContent;
+};
+
 // Helper: Append Fact Preservation rule to workspace instructions
 const getFactPreservingInstructions = (rawInstructions) => {
     if (!rawInstructions || rawInstructions.trim() === '') return "";
@@ -2180,6 +2207,30 @@ export default {
                         let finalCtaUrl = url;
                         let linkType = 'product';
 
+                        if (isEcommerceOrMarketplace(url)) {
+                            // Automatically generate short link for ecommerce redirect
+                            try {
+                                const code = Math.random().toString(36).substring(2, 8); // random 6 chars
+                                const titleClean = cleanScrapedTitle(scrapedTitle || "Auto-Shortened Link");
+                                
+                                await env.DB.prepare(
+                                    `INSERT INTO short_links (code, target_url, title, description, user_id, workspace_id)
+                                     VALUES (?, ?, ?, ?, ?, ?)`
+                                ).bind(
+                                    code,
+                                    url,
+                                    titleClean,
+                                    scrapedDescription ? scrapedDescription.substring(0, 200) : "Sila klik untuk melihat produk.",
+                                    user.id,
+                                    activeWorkspace.workspace_id
+                                ).run();
+
+                                finalCtaUrl = `https://nakcuba.my/l/${code}`;
+                            } catch (e) {
+                                console.error("Auto-shortener failed, falling back to raw URL:", e);
+                            }
+                        }
+
                         if (!isEcommerceOrMarketplace(url) && activeWorkspace.whatsapp_number) {
                             linkType = 'whatsapp';
                             const whatsappNum = activeWorkspace.whatsapp_number.replace(/\D/g, ''); // digits only
@@ -3687,13 +3738,20 @@ CRITICAL LANGUAGE / SPEECH RULES:
                             return new Response(JSON.stringify({ message: 'Missing required parameters' }), { status: 400, headers: corsHeaders });
                         }
 
+                        let finalContent = content;
+                        try {
+                            finalContent = await autoShortenTextLinks(env.DB, content, user.id, activeWorkspace.workspace_id);
+                        } catch (e) {
+                            console.error("Auto-shortener content replacement failed:", e);
+                        }
+
                         const insertedIds = [];
                         const hasTrigger = triggerType === 'views' || triggerType === 'likes';
                         
                         for (const target of targets) {
                             const isThreads = target.platform === 'threads';
-                            const cards = (isThreads && hasTrigger && (content.includes('---thread-separator---') || content.includes('[THREAD_DELIMITER]')))
-                                ? content.split(/[\n\r]*(?:---thread-separator---|\[THREAD_DELIMITER\])[\n\r]*/).map(c => c.trim()).filter(Boolean)
+                            const cards = (isThreads && hasTrigger && (finalContent.includes('---thread-separator---') || finalContent.includes('[THREAD_DELIMITER]')))
+                                ? finalContent.split(/[\n\r]*(?:---thread-separator---|\[THREAD_DELIMITER\])[\n\r]*/).map(c => c.trim()).filter(Boolean)
                                 : [];
 
                             if (isThreads && hasTrigger && cards.length > 1) {
@@ -3744,7 +3802,7 @@ CRITICAL LANGUAGE / SPEECH RULES:
                                     activeWorkspace.workspace_id,
                                     target.accountId || null, 
                                     target.platform, 
-                                    content, 
+                                    finalContent, 
                                     JSON.stringify([]), 
                                     publish_at, 
                                     timezone || 'UTC'

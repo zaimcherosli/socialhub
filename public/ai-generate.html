@@ -1222,6 +1222,7 @@
 
             let successCount = 0;
             let failCount = 0;
+            let lastErrorMessage = '';
 
             for (let i = 0; i < jobs.length; i++) {
                 const { url, mediaUrl, context } = jobs[i];
@@ -1244,11 +1245,14 @@
                     if (response.success) {
                         successCount++;
                     } else {
+                        console.error('Bulk item failed (API error):', response.message || response, 'URL:', url);
                         failCount++;
+                        lastErrorMessage = response.message || 'Unknown API error';
                     }
                 } catch (err) {
-                    console.error('Bulk item failed:', err);
+                    console.error('Bulk item failed (network/exception):', err, 'URL:', url);
                     failCount++;
+                    lastErrorMessage = err.message || 'Network error';
                 }
 
                 // Update Progress UI
@@ -1268,7 +1272,9 @@
                     window.location.href = 'calendar.html';
                 }, 1500);
             } else {
-                notificationService.error("Gagal menjadualkan sebarang post. Sila semak pautan anda.");
+                const errDetail = lastErrorMessage ? ` (${lastErrorMessage})` : '';
+                notificationService.error(`Gagal menjadualkan sebarang post.${errDetail}`);
+                console.error('All bulk schedule jobs failed. Last error:', lastErrorMessage);
             }
         });
 

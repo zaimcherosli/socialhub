@@ -712,7 +712,7 @@ const extractTelegramTitle = (scrapedTitle, scrapedDescription) => {
     const landTypeRegex = /\b(Land|Tanah|Lot)\b/i;
     const propertyTypeRegex = /\b(Storey|Tingkat|Sty|Terrace|Teres|Semi.?D|Bungalow|Banglo|Condo|Condominium|Kondominium|Apartment|Pangsapuri|Flat|Townhouse|House|Rumah|Suite|Office|Shoplot|Land|Tanah|Lot|Cluster)\b/i;
     
-    const locationKeyword = /\b(Bandar|Taman|Pandan|Subang|Shah Alam|Petaling|Ampang|Rawang|Semenyih|Dengkil|Klang|Cheras|Setapak|Puchong|Serdang|Cyberjaya|Putrajaya|Kajang|Sepang|Sri|KL|Kuala Lumpur|Damansara|Kepong|Selayang|Batu|Seremban|Nilai|Alam|Perdana|Indah|Permai|Damai|Maju|Jaya|Murni|Harmoni|Saujana|Putra|Prima|Utama|Raya|Seksyen|BSP|SP\s*\d+)\b/i;
+    const locationKeyword = /\b(Bandar|Taman|Pandan|Subang|Shah Alam|Petaling|Ampang|Rawang|Semenyih|Dengkil|Klang|Cheras|Setapak|Puchong|Serdang|Cyberjaya|Putrajaya|Kajang|Sepang|Sri|KL|Kuala Lumpur|Damansara|Kepong|Selayang|Batu|Seremban|Nilai|Alam|Perdana|Indah|Permai|Damai|Maju|Jaya|Murni|Harmoni|Saujana|Putra|Prima|Utama|Raya|Seksyen|BSP|SP\s*\d+|Bangi|Gombak|Setiawangsa|Wangsa Maju|Bukit Jalil|Banting|Jenjarom|Salak Tinggi|Semenyih)\b/i;
 
     // Sub-Priority 2a: Building Type AND Location
     const bestBuildingLine = cleanLines.find(l => buildingTypeRegex.test(l) && locationKeyword.test(l));
@@ -734,8 +734,8 @@ const extractTelegramTitle = (scrapedTitle, scrapedDescription) => {
     const anyTypeLine = cleanLines.find(l => l.length > 5 && propertyTypeRegex.test(l) && !/Asking\s*Price|ASKING|PRICE|Land\s*Area|Built\s*Up|Bedrooms|Bathrooms|sqft/i.test(l));
     if (anyTypeLine) return anyTypeLine.substring(0, 100).trim();
 
-    // Priority 4: Fallback to first non-trivial line
-    const firstLine = cleanLines.find(l => l.length > 10 && !/^\d+|MAHAFIZ|IQI|REN|PEA|NEARBY|DETAILS|EASY\s*ACCESS|ASKING|PRICE/i.test(l));
+    // Priority 4: Fallback to first non-trivial line (ignoring dates, deposits, furnishings, levels)
+    const firstLine = cleanLines.find(l => l.length > 10 && !/^\d+|MAHAFIZ|IQI|REN|PEA|NEARBY|DETAILS|EASY\s*ACCESS|ASKING|PRICE|Kemasukan|Sewa|Sewaan|Deposit|Move\s*In|Kemasukan\s*Segera|Furnished|Furnish|Level|Block|Tingkat|Booking/i.test(l));
     return firstLine ? firstLine.substring(0, 100).trim() : (scrapedTitle || "");
 };
 

@@ -874,6 +874,7 @@
                 state.status = 'scheduled';
                 state.scheduled_at = nowUtc;
 
+                let targetId = postId;
                 if (postId === 'new') {
                     const response = await postService.createPost(state);
                     targetId = response.id;
@@ -965,6 +966,11 @@
                     alert('Failed to retrieve post details from backend database.');
                     window.location.replace('posts.html');
                     return;
+                }
+            } else {
+                const presetCaption = urlParams.get('caption');
+                if (presetCaption) {
+                    initialState.caption = decodeURIComponent(presetCaption);
                 }
             }
 

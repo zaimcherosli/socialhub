@@ -93,12 +93,16 @@ Berikut adalah CONTOH thread yang mengikut gaya & struktur yang betul untuk nich
 ${nicheExampleOutput.trim()}
 ---
 
-Generate thread BARU mengikut struktur & tone yang SAMA seperti contoh di atas, tapi guna details product/property yang user bagi di bawah:
+Generate thread BARU mengikut gaya penulisan, tone, dan struktur umum dari contoh di atas, tetapi menggunakan maklumat produk/hartanah di bawah.
+PENTING:
+1. Jangan tiru atau salin bulat-bulat ayat pembuka (hook) dari contoh di atas. Pelbagaikan gaya pembuka untuk setiap post baru (contohnya: mulakan dengan soalan menarik, highlight harga/tawaran terus, atau sebut masalah utama pembeli). Pastikan ia unik dan natural.
+2. Sekiranya maklumat di bawah adalah topik perbincangan, perkongsian tips, atau perbandingan umum (BUKAN iklan/listing spesifik bagi unit tertentu), JANGAN reka atau reka-reka (hallucinate) butiran unit (seperti saiz sqft, bilangan bilik, status freehold/leasehold, fasiliti, atau meminta viewing). Sebaliknya, fokus sepenuhnya untuk membincangkan topik/tips tersebut menggunakan gaya bahasa dan tone dari contoh.
+3. PERATURAN MISTERI & CTR (CURIOSITY RULE): JANGAN sebut nama spesifik produk, nama jenama, model produk (seperti 'Machenike G3 V2', 'Residensi Adelia', 'Bangi Avenue') di dalam teks copywriting. Sebaliknya, gunakan nama am atau kata ganti misteri (seperti 'benda ni', 'gadget ni', 'kipas ni', 'apartment ni', 'unit ni', 'benda viral ni') untuk membina rasa ingin tahu (curiosity) pembaca supaya mereka terpaksa klik pautan (link) untuk mengetahui nama/jenama produk tersebut.
 
 ${product}
 `;
             
-            prompt += `\n\nAdditional Requirements:\n- Tone: ${tone || 'Friendly & Casual'}\n- Language: ${language || 'Malay'}\n- ${formatInstructions}\n\nProvide the output in a strict JSON format with the following keys. Return ONLY the JSON object, with no markdown code blocks, explanations, or additional text:\n${jsonStructure}`;
+            prompt += `\n\nAdditional Requirements:\n- Tone: ${tone || 'Friendly & Casual'}\n- Language: ${language || 'Malay'}\n- ${formatInstructions}\n- PENTING: Jangan masukkan nama ejen, nombor REN/PEA/REA, nombor telefon, atau sebarang link wasap/wa.me dari maklumat produk dalam output. CTA dan maklumat hubungi akan diisi oleh sistem secara berasingan. Jangan sebut nama spesifik produk atau nama perumahan untuk membina unsur misteri.\n\nProvide the output in a strict JSON format with the following keys. Return ONLY the JSON object, with no markdown code blocks, explanations, or additional text:\n${jsonStructure}`;
 
         } else {
             // Normal prompt assembly logic
@@ -133,6 +137,8 @@ Write a highly engaging social media post based on these details:
 3. Use natural Malaysian conversational speech (Bahasa Melayu rojak / colloquial speech). Use local words/contractions naturally: 'je', 'lah', 'tau', 'ni', 'nak', 'korang', 'weyy'.
 4. For Islamic content (selawat/zikir), keep the tone gentle, personal, and friendly—like a close friend giving a gentle reminder.
 5. The Call to Action (cta) must NOT be promotional (e.g. avoid "Klik link di bio"). Instead, write a conversational CTA to get comments/replies, like a question or friendly prompt (e.g. "Korang dah selawat ke hari ni? Jom kongsi kat bawah 👇" or "Salam Jumaat korang. Dah bersedia untuk solat?").
+6. HOOK DIVERSITY: Vary your opening sentence structure. NO REPETITIVE STARTING WORDS: Ensure different posts start with unique words (do NOT start multiple posts with "Benda...", "Bila...", "Aku..."). Use a wide variety of starting phrasings (e.g., "Ramai tak perasan...", "Rupa-rupanya...", "Aku baru try...", "Lama jugak aku cari...", "Paling geram bila...").
+7. CURIOSITY & MYSTERY RULE (No Product/Brand/Project Names): NEVER mention the exact product name, brand name, model name (e.g. 'Machenike G3 V2', 'Residensi Adelia', 'Bangi Avenue') directly in the copywriting text. Instead, refer to it using generic, curiosity-inducing terms (e.g., 'benda ni', 'gadget ni', 'kipas ni', 'apartment ni', 'unit ni', 'benda viral ni') to create mystery and drive clicks to the destination link.
 `;
             } else {
                 prompt += `GUIDELINES:
@@ -140,6 +146,8 @@ Write a highly engaging social media post based on these details:
 2. The CTA should be highly engaging and relevant to the post's goal.
 `;
             }
+
+            prompt += `\nIMPORTANT: Do NOT include any real estate agent name, REN/PEA/REA registration number, phone number, or WhatsApp/wasap link from the product context in your output. The CTA and contact info will be appended separately by the system.\n`;
 
             prompt += `\nProvide the output in a strict JSON format with the following keys. Return ONLY the JSON object, with no markdown code blocks, explanations, or additional text:\n${jsonStructure}`;
         }

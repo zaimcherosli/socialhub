@@ -1,0 +1,675 @@
+<!DOCTYPE html>
+<html lang="ms">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SocialHub - Panduan Pengguna & Pusat Dokumentasi</title>
+    <link rel="icon" type="image/png" href="socialhub_pwa_icon.png">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Outfit:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    
+    <style>
+        :root {
+            --bg-primary: #0b0f19;
+            --bg-secondary: #131a2e;
+            --bg-glass: rgba(30, 41, 59, 0.45);
+            --border-glass: rgba(255, 255, 255, 0.06);
+            --color-primary: #8b5cf6;
+            --color-secondary: #ec4899;
+            --color-success: #10b981;
+            --text-main: #f3f4f6;
+            --text-muted: #9ca3af;
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+            scroll-behavior: smooth;
+        }
+
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: var(--bg-primary);
+            color: var(--text-main);
+            line-height: 1.6;
+            background-image: 
+                radial-gradient(circle at 10% 20%, rgba(139, 92, 246, 0.15) 0%, transparent 40%),
+                radial-gradient(circle at 90% 80%, rgba(236, 72, 153, 0.1) 0%, transparent 40%);
+            background-attachment: fixed;
+        }
+
+        h1, h2, h3, h4 {
+            font-family: 'Outfit', sans-serif;
+            font-weight: 700;
+        }
+
+        header {
+            position: sticky;
+            top: 0;
+            background: rgba(11, 15, 25, 0.8);
+            backdrop-filter: blur(12px);
+            border-bottom: 1px solid var(--border-glass);
+            z-index: 100;
+        }
+
+        .header-container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 1rem 2rem;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .logo-section {
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+            text-decoration: none;
+            color: var(--text-main);
+        }
+
+        .logo-icon {
+            width: 36px;
+            height: 36px;
+            background: linear-gradient(135deg, var(--color-primary), var(--color-secondary));
+            border-radius: 8px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-family: 'Outfit', sans-serif;
+            font-weight: 800;
+            color: white;
+            font-size: 1.25rem;
+        }
+
+        .logo-text {
+            font-size: 1.35rem;
+            font-weight: 800;
+            background: linear-gradient(135deg, #fff, #a78bfa);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+
+        .search-container {
+            position: relative;
+            width: 300px;
+        }
+
+        .search-input {
+            width: 100%;
+            padding: 0.6rem 1rem 0.6rem 2.5rem;
+            background: var(--bg-glass);
+            border: 1px solid var(--border-glass);
+            border-radius: 8px;
+            color: var(--text-main);
+            font-size: 0.9rem;
+            outline: none;
+            transition: all 0.3s ease;
+        }
+
+        .search-input:focus {
+            border-color: var(--color-primary);
+            box-shadow: 0 0 10px rgba(139, 92, 246, 0.2);
+        }
+
+        .search-icon {
+            position: absolute;
+            left: 0.75rem;
+            top: 50%;
+            transform: translateY(-50%);
+            color: var(--text-muted);
+            width: 16px;
+            height: 16px;
+        }
+
+        .main-layout {
+            max-width: 1200px;
+            margin: 2rem auto;
+            padding: 0 2rem;
+            display: grid;
+            grid-template-columns: 280px 1fr;
+            gap: 2.5rem;
+        }
+
+        aside {
+            position: sticky;
+            top: 5.5rem;
+            height: calc(100vh - 7.5rem);
+            overflow-y: auto;
+        }
+
+        .nav-card {
+            background: var(--bg-glass);
+            border: 1px solid var(--border-glass);
+            border-radius: 12px;
+            padding: 1.5rem 1rem;
+            backdrop-filter: blur(8px);
+        }
+
+        .nav-title {
+            font-size: 0.8rem;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            color: var(--text-muted);
+            margin-bottom: 1rem;
+            padding-left: 0.75rem;
+            font-weight: 600;
+        }
+
+        .nav-list {
+            list-style: none;
+            display: flex;
+            flex-direction: column;
+            gap: 0.5rem;
+        }
+
+        .nav-link {
+            display: block;
+            padding: 0.6rem 0.75rem;
+            color: var(--text-muted);
+            text-decoration: none;
+            font-size: 0.9rem;
+            font-weight: 500;
+            border-radius: 6px;
+            transition: all 0.2s ease;
+        }
+
+        .nav-link:hover {
+            color: var(--text-main);
+            background: rgba(255, 255, 255, 0.03);
+            padding-left: 0.95rem;
+        }
+
+        .nav-link.active {
+            color: white;
+            background: linear-gradient(135deg, rgba(139, 92, 246, 0.2), rgba(236, 72, 153, 0.1));
+            border-left: 3px solid var(--color-primary);
+            padding-left: 0.65rem;
+        }
+
+        .content-section {
+            display: flex;
+            flex-direction: column;
+            gap: 2rem;
+        }
+
+        .doc-card {
+            background: var(--bg-glass);
+            border: 1px solid var(--border-glass);
+            border-radius: 16px;
+            padding: 2.2rem;
+            backdrop-filter: blur(8px);
+            transition: transform 0.3s ease, border-color 0.3s ease;
+        }
+
+        .doc-card:hover {
+            border-color: rgba(139, 92, 246, 0.25);
+        }
+
+        .badge {
+            display: inline-block;
+            padding: 0.25rem 0.6rem;
+            font-size: 0.75rem;
+            font-weight: 600;
+            text-transform: uppercase;
+            border-radius: 4px;
+            margin-bottom: 0.75rem;
+        }
+
+        .badge-purple {
+            background: rgba(139, 92, 246, 0.15);
+            color: #c084fc;
+            border: 1px solid rgba(139, 92, 246, 0.3);
+        }
+
+        .badge-green {
+            background: rgba(16, 185, 129, 0.15);
+            color: #34d399;
+            border: 1px solid rgba(16, 185, 129, 0.3);
+        }
+
+        .doc-title {
+            font-size: 1.75rem;
+            margin-bottom: 1rem;
+            background: linear-gradient(135deg, #fff, #e2e8f0);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+
+        .doc-card p {
+            color: #cbd5e1;
+            font-size: 0.95rem;
+            margin-bottom: 1.25rem;
+        }
+
+        .step-list {
+            margin: 1rem 0;
+            padding-left: 1.25rem;
+            display: flex;
+            flex-direction: column;
+            gap: 0.75rem;
+        }
+
+        .step-item {
+            color: #cbd5e1;
+            font-size: 0.95rem;
+        }
+
+        .step-item strong {
+            color: white;
+        }
+
+        .feature-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+            gap: 1.25rem;
+            margin-top: 1.5rem;
+        }
+
+        .feature-item {
+            background: rgba(255, 255, 255, 0.02);
+            border: 1px solid rgba(255, 255, 255, 0.04);
+            border-radius: 8px;
+            padding: 1.2rem;
+        }
+
+        .feature-item h4 {
+            font-size: 1rem;
+            margin-bottom: 0.5rem;
+            color: white;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        .feature-item p {
+            font-size: 0.85rem;
+            color: var(--text-muted);
+            margin-bottom: 0;
+        }
+
+        .alert-box {
+            background: rgba(236, 72, 153, 0.07);
+            border-left: 4px solid var(--color-secondary);
+            border-radius: 4px;
+            padding: 1rem;
+            margin: 1.5rem 0;
+            display: flex;
+            gap: 0.75rem;
+            align-items: flex-start;
+        }
+
+        .alert-box svg {
+            color: var(--color-secondary);
+            flex-shrink: 0;
+            width: 20px;
+            height: 20px;
+            margin-top: 0.1rem;
+        }
+
+        .alert-box p {
+            margin: 0;
+            font-size: 0.9rem;
+            color: #f1f5f9;
+        }
+
+        .highlight-box {
+            background: rgba(139, 92, 246, 0.08);
+            border: 1px solid rgba(139, 92, 246, 0.2);
+            border-radius: 8px;
+            padding: 1.25rem;
+            margin-top: 1.25rem;
+        }
+
+        .highlight-box h4 {
+            color: #d8b4fe;
+            margin-bottom: 0.5rem;
+        }
+
+        .highlight-box ol {
+            padding-left: 1.2rem;
+            display: flex;
+            flex-direction: column;
+            gap: 0.5rem;
+        }
+
+        .highlight-box li {
+            font-size: 0.9rem;
+            color: #cbd5e1;
+        }
+
+        footer {
+            border-top: 1px solid var(--border-glass);
+            padding: 2.5rem 2rem;
+            text-align: center;
+            color: var(--text-muted);
+            font-size: 0.85rem;
+            margin-top: 5rem;
+        }
+
+        @media (max-width: 768px) {
+            html, body {
+                overflow-x: hidden;
+                max-width: 100vw;
+            }
+            .header-container {
+                flex-direction: row;
+                justify-content: space-between;
+                padding: 0.8rem 1rem;
+                width: 100%;
+                gap: 0.75rem;
+            }
+            .logo-text {
+                font-size: 1.10rem;
+            }
+            .search-container {
+                width: 130px;
+            }
+            .main-layout {
+                grid-template-columns: minmax(0, 1fr);
+                padding: 0 1rem;
+                gap: 1.5rem;
+                margin: 1rem auto;
+                max-width: 100vw;
+                width: 100%;
+            }
+            aside {
+                position: static;
+                height: auto;
+                margin-bottom: 0.5rem;
+                max-width: 100%;
+                min-width: 0;
+            }
+            .nav-card {
+                padding: 0.75rem;
+                max-width: 100%;
+                min-width: 0;
+            }
+            .nav-title {
+                display: none;
+            }
+            .nav-list {
+                flex-direction: row;
+                overflow-x: auto;
+                gap: 0.5rem;
+                padding-bottom: 0.5rem;
+                -webkit-overflow-scrolling: touch;
+                scrollbar-width: none;
+                max-width: 100%;
+            }
+            .nav-list::-webkit-scrollbar {
+                display: none;
+            }
+            .nav-list li {
+                flex-shrink: 0;
+            }
+            .nav-link {
+                font-size: 0.78rem;
+                padding: 0.4rem 0.65rem;
+                white-space: nowrap;
+            }
+            .content-section {
+                min-width: 0;
+                max-width: 100%;
+            }
+            .doc-card {
+                padding: 1.5rem 1.15rem;
+                max-width: 100%;
+                min-width: 0;
+                word-wrap: break-word;
+                overflow-wrap: break-word;
+                box-sizing: border-box;
+            }
+            .feature-grid {
+                grid-template-columns: minmax(0, 1fr);
+                gap: 1rem;
+            }
+            footer {
+                padding: 2rem 1rem;
+                margin-top: 3rem;
+            }
+        }
+    </style>
+</head>
+<body>
+
+    <header>
+        <div class="header-container">
+            <a href="index.html" class="logo-section">
+                <div class="logo-icon">
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" style="display: block;">
+                        <path d="M21.5 2v6h-6M21.34 15.57a10 10 0 1 1-.57-8.38l5.67-5.67"/>
+                    </svg>
+                </div>
+                <span class="logo-text">SocialHub Docs</span>
+            </a>
+            
+            <div class="search-container">
+                <svg class="search-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path>
+                </svg>
+                <input type="text" id="guideSearch" class="search-input" placeholder="Cari topik panduan...">
+            </div>
+        </div>
+    </header>
+
+    <div class="main-layout">
+        
+        <aside>
+            <div class="nav-card">
+                <div class="nav-title">Kandungan Panduan</div>
+                <ul class="nav-list">
+                    <li><a href="#pengenalan" class="nav-link active">1. Pengenalan SocialHub</a></li>
+                    <li><a href="#setup" class="nav-link">2. Setup Pertama Kali</a></li>
+                    <li><a href="#ai-generator" class="nav-link">3. Penjana Kapsyen AI</a></li>
+                    <li><a href="#stagger-queue" class="nav-link">4. Auto-Schedule Queue</a></li>
+                    <li><a href="#api-key" class="nav-link">5. Setup API Key Sendiri</a></li>
+                    <li><a href="#insights-sync" class="nav-link">6. Analitis & Cron Sync</a></li>
+                </ul>
+            </div>
+        </aside>
+
+        <main class="content-section">
+            
+            <!-- Section 1 -->
+            <section id="pengenalan" class="doc-card">
+                <span class="badge badge-purple">Misi & Visi</span>
+                <h2 class="doc-title">1. Pengenalan & Misi SocialHub</h2>
+                <p><strong>SocialHub</strong> dibina khusus untuk membantu usahawan digital, content creator, ejen hartanah, dan ejen affiliate di Malaysia menjimatkan masa dalam merancang, menjana, dan menjadualkan copywriting di Threads secara automatik.</p>
+                
+                <p>Platform ini membolehkan anda memfokuskan kepada kualiti produk/servis manakala enjin AI kami menguruskan penghasilan bebenang (Thread Storm) yang berimpak tinggi mengikut tone penulisan manusia sebenar.</p>
+
+                <div class="feature-grid">
+                    <div class="feature-item">
+                        <h4>⚡ Pantas & Lancar</h4>
+                        <p>Generate copywriting unik, bina CTA bersesuaian, dan jadualkan post terus ke Threads dalam masa kurang 5 saat.</p>
+                    </div>
+                    <div class="feature-item">
+                        <h4>🧠 AI Sentiasa Pintar</h4>
+                        <p>Enjin AI dilatih dengan cara copywriting Threads tempatan yang tidak berbunyi formal atau skema.</p>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Section 2 -->
+            <section id="setup" class="doc-card">
+                <span class="badge badge-purple">Mula</span>
+                <h2 class="doc-title">2. Setup Pertama Kali (First-Time Login)</h2>
+                <p>Sebelum mula menjana copywriting, anda perlu menyambungkan akaun media sosial Threads anda ke dalam workspace.</p>
+                
+                <ul class="step-list">
+                    <li class="step-item"><strong>Langkah 2.1:</strong> Log masuk ke Dashboard SocialHub anda dan navigasi ke bahagian <strong>Accounts</strong> di menu tepi.</li>
+                    <li class="step-item"><strong>Langkah 2.2:</strong> Klik butang <strong>Connect Accounts</strong> dan pilih platform <strong>Threads</strong>.</li>
+                    <li class="step-item"><strong>Langkah 2.3:</strong> Sahkan kebenaran (authorize) akaun anda dengan meluluskan akses `threads_basic` dan `threads_manage_insights` agar sistem boleh menyiarkan post serta membaca data analytics akaun anda.</li>
+                </ul>
+
+                <div class="alert-box">
+                    <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"></path>
+                    </svg>
+                    <p><strong>Nota Keselamatan:</strong> Token akaun media sosial anda disulitkan secara tegar (encrypted) di dalam pangkalan data kami menggunakan kunci penyulitan khusus untuk keselamatan maksimum akaun anda.</p>
+                </div>
+            </section>
+
+            <!-- Section 3 -->
+            <section id="ai-generator" class="doc-card">
+                <span class="badge badge-purple">Kreatif</span>
+                <h2 class="doc-title">3. Penjana Kapsyen AI (AI Generator)</h2>
+                <p>Modul AI Generator membolehkan anda menjana content Threads berkualiti tinggi berdasarkan deskripsi ringkas sahaja. Terdapat tiga tab utama:</p>
+
+                <ul class="step-list">
+                    <li class="step-item"><strong>Single Post / Threads Creator:</strong> Masukkan jenis bisnes, penerangan produk, sasaran audiens, dan biarkan AI menjana post bertali-arus.</li>
+                    <li class="step-item"><strong>Presets Mode:</strong> Pintasan mudah untuk menjana zikir/selawat harian, ucapan salam pagi (morning greetings), petikan motivasi, atau check-in soalan santai untuk interaksi audiens.</li>
+                    <li class="step-item"><strong>Tone of Voice:</strong> Sangat disyorkan menggunakan tone <strong>"Ultra-Realistic Malay"</strong> untuk menghasilkan gaya rojak bahasa Malaysia/Inggeris natural seperti yang ditulis oleh manusia sebenar di Threads (bebas dari ayat formal bot iklan).</li>
+                </ul>
+            </section>
+
+            <!-- Section 4 -->
+            <section id="stagger-queue" class="doc-card">
+                <span class="badge badge-purple">Automatik</span>
+                <h2 class="doc-title">4. Bulk Auto-Schedule & Auto-Staggering</h2>
+                <p>SocialHub mempunyai modul <strong>URL Auto-Post</strong> pintar yang memudahkan anda membuat jadual kandungan secara pukal dengan pantas.</p>
+                
+                <ul class="step-list">
+                    <li class="step-item"><strong>Auto-Scraping:</strong> Cuma masukkan link pautan jualan (seperti iklan hartanah atau link affiliate). Sistem akan melawat halaman tersebut, mengumpul maklumat spesifik produk (tajuk, penerangan, gambar), lalu menghantarnya kepada AI.</li>
+                    <li class="step-item"><strong>Pemendek Link Automatik (`nakcuba.my`):</strong> Sistem akan menukar link panjang affiliate atau WhatsApp anda kepada link pendek jenama tempatan `https://nakcuba.my/l/[kod]` secara automatik bagi mengesan statistik klik.</li>
+                    <li class="step-item"><strong>Auto-Staggering (Langsung Jadual):</strong> Apabila butang <strong>Schedule Post</strong> diklik, sistem akan terus menjadualkan post tersebut secara automatik dengan selang masa <strong>15 minit selepas posting berjadual terakhir</strong> Zaim. Tiada lagi keperluan popup modal manual!</li>
+                </ul>
+            </section>
+
+            <!-- Section 5 -->
+            <section id="api-key" class="doc-card">
+                <span class="badge badge-green">Penting (BYOK)</span>
+                <h2 class="doc-title">5. Pelan Langganan, Had Workspace & Set API Key Sendiri</h2>
+                <p>SocialHub mengguna pakai model langganan <strong>per-Workspace (bukan per-Account)</strong>. Ini bermakna, caj langganan dikenakan bagi setiap projek/ruang kerja yang anda naiktaraf (upgrade). Sebarang workspace baru yang dicipta akan bermula dengan pelan Free secara lalai.</p>
+
+                <h3 style="color: white; margin: 1.5rem 0 1rem; font-size: 1.15rem;">📋 Jadual Pemetaan Pelan & Had Sumber (D1 DB):</h3>
+                <div style="overflow-x: auto; max-width: 100%; width: 100%; margin-bottom: 2rem; border: 1px solid var(--border-glass); border-radius: 8px;">
+                    <table style="width: 100%; min-width: 600px; border-collapse: collapse; text-align: left; font-size: 0.85rem; color: #cbd5e1;">
+                        <thead>
+                            <tr style="background: rgba(255,255,255,0.03); border-bottom: 1px solid var(--border-glass);">
+                                <th style="padding: 0.75rem 1rem; font-weight: 600; color: white;">Plan (DB Code)</th>
+                                <th style="padding: 0.75rem 1rem; font-weight: 600; color: white;">Pakej Jualan</th>
+                                <th style="padding: 0.75rem 1rem; font-weight: 600; color: white;">Kredit AI /mth</th>
+                                <th style="padding: 0.75rem 1rem; font-weight: 600; color: white;">Had Akaun Threads</th>
+                                <th style="padding: 0.75rem 1rem; font-weight: 600; color: white;">Had Queue Posting</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr style="border-bottom: 1px solid var(--border-glass);">
+                                <td style="padding: 0.75rem 1rem; font-family: monospace;">free</td>
+                                <td style="padding: 0.75rem 1rem;">Free Trial (RM0)</td>
+                                <td style="padding: 0.75rem 1rem;">20 Kredit</td>
+                                <td style="padding: 0.75rem 1rem;">1 Akaun</td>
+                                <td style="padding: 0.75rem 1rem;">10 Posts</td>
+                            </tr>
+                            <tr style="border-bottom: 1px solid var(--border-glass);">
+                                <td style="padding: 0.75rem 1rem; font-family: monospace;">pro</td>
+                                <td style="padding: 0.75rem 1rem; font-weight: 600;">Starter (Pro) (RM29)</td>
+                                <td style="padding: 0.75rem 1rem;">250 Kredit</td>
+                                <td style="padding: 0.75rem 1rem;">3 Akaun</td>
+                                <td style="padding: 0.75rem 1rem;">50 Posts</td>
+                            </tr>
+                            <tr style="border-bottom: 1px solid var(--border-glass);">
+                                <td style="padding: 0.75rem 1rem; font-family: monospace;">agency</td>
+                                <td style="padding: 0.75rem 1rem; font-weight: 600;">Growth (Gold) (RM59)</td>
+                                <td style="padding: 0.75rem 1rem;">800 Kredit</td>
+                                <td style="padding: 0.75rem 1rem;">10 Akaun</td>
+                                <td style="padding: 0.75rem 1rem;">500 Posts</td>
+                            </tr>
+                            <tr>
+                                <td style="padding: 0.75rem 1rem; font-family: monospace;">enterprise</td>
+                                <td style="padding: 0.75rem 1rem; font-weight: 600;">Agency (Premium) (RM149)</td>
+                                <td style="padding: 0.75rem 1rem;">2,500 Kredit</td>
+                                <td style="padding: 0.75rem 1rem;">Unlimited</td>
+                                <td style="padding: 0.75rem 1rem;">5,000 Posts</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+
+                <p>Bagaimanapun, anda boleh <strong>membuang had kredit penjanaan AI (bypass limit)</strong> tersebut dengan memasukkan API Key tersendiri secara PERCUMA. Had akaun Threads dan bilangan queue posting tetap tertakluk kepada pelan langganan di atas.</p>
+
+                <div class="highlight-box">
+                    <h4>Cara Dapatkan API Key Gemini Percuma:</h4>
+                    <ol>
+                        <li>Layari laman web <strong><a href="https://aistudio.google.com/" target="_blank" style="color: #c084fc; text-decoration: underline;">Google AI Studio</a></strong>.</li>
+                        <li>Log masuk menggunakan akaun Google/Gmail anda.</li>
+                        <li>Klik butang **"Get API Key"** di penjuru atas kiri.</li>
+                        <li>Klik **"Create API Key"** (pilih projek sedia ada atau baru) dan salin kod API Key yang terhasil (bermula dengan prefix `AIza...`).</li>
+                        <li>Pergi ke dashboard SocialHub, navigasi ke <strong>Settings</strong> > <strong>Workspace Settings</strong>.</li>
+                        <li>Tampal kod tersebut ke dalam ruangan **AI API Key** dan klik Simpan.</li>
+                    </ol>
+                </div>
+                
+                <p style="margin-top: 1.25rem;"><strong>Sebab Utama Menggunakan Gemini 2.5 Flash:</strong> Model ini adalah 2x ganda lebih murah berbanding OpenAI (GPT-4o-mini), menyokong limit data scraped yang sangat luas, dan menjana penulisan bahasa Malaysia rojak yang lebih bersahaja dan hidup!</p>
+            </section>
+
+            <!-- Section 6 -->
+            <section id="insights-sync" class="doc-card">
+                <span class="badge badge-purple">Analytics</span>
+                <h2 class="doc-title">6. Graf Followers & Analitis Insights</h2>
+                <p>Tab <strong>Analytics</strong> membekalkan maklumat terperinci mengenai prestasi akaun Threads anda secara visual:</p>
+
+                <ul class="step-list">
+                    <li class="step-item"><strong>Followers Growth (Graf Pertumbuhan):</strong> Menunjukkan perkembangan jumlah followers secara harian. Jika Zaim baru sahaja menyambungkan akaun, data akan mula diplot secara automatik sebaik sahaja log data pertama direkodkan.</li>
+                    <li class="step-item"><strong>Cron Sync (Penyelarasan Automatik):</strong> Sistem backend kami menjalankan proses penyelarasan di latar belakang secara berkala (cron job berjalan setiap minit untuk queue posting, dan setiap 4 jam untuk mengemas kini insights posts & followers count akaun anda dari server Meta).</li>
+                    <li class="step-item"><strong>Threads Insights API:</strong> SocialHub mematuhi garis panduan Meta rasmi dengan menggunakan Threads Insights API yang selamat untuk menarik data statistik posting (views, likes, replies, reposts) tanpa menjejaskan privasi akaun.</li>
+                </ul>
+            </section>
+
+        </main>
+
+    </div>
+
+    <footer>
+        <p>&copy; 2026 SocialHub. Hak Cipta Terpelihara. Panduan Pengguna & After-Sales Reference Portal.</p>
+    </footer>
+
+    <script>
+        // Sidebar active state highlight on scroll
+        const sections = document.querySelectorAll('section');
+        const navLinks = document.querySelectorAll('.nav-link');
+
+        window.addEventListener('scroll', () => {
+            let current = '';
+            sections.forEach(section => {
+                const sectionTop = section.offsetTop;
+                const sectionHeight = section.clientHeight;
+                if (pageYOffset >= (sectionTop - 150)) {
+                    current = section.getAttribute('id');
+                }
+            });
+
+            navLinks.forEach(link => {
+                link.classList.remove('active');
+                if (link.getAttribute('href').slice(1) === current) {
+                    link.classList.add('active');
+                }
+            });
+        });
+
+        // Interactive search functionality
+        const searchInput = document.getElementById('guideSearch');
+        const docCards = document.querySelectorAll('.doc-card');
+
+        searchInput.addEventListener('input', (e) => {
+            const query = e.target.value.toLowerCase().trim();
+            
+            docCards.forEach(card => {
+                const title = card.querySelector('.doc-title').textContent.toLowerCase();
+                const content = card.textContent.toLowerCase();
+                
+                if (title.includes(query) || content.includes(query)) {
+                    card.style.display = 'block';
+                } else {
+                    card.style.display = 'none';
+                }
+            });
+        });
+    </script>
+</body>
+</html>

@@ -231,6 +231,109 @@ async function decryptToken(encryptedStr, secret) {
     }
 }
 
+async function getAIEnvironment(db, workspaceId, env, encryptionSecret, subscriptionPlan) {
+    const aiEnv = { ...env };
+    
+    // Smart plan-based model defaults
+    const PLAN_DEFAULT_MODELS = {
+        free:       'nousresearch/hermes-3-llama-3.1-405b:free',
+        starter:    'nousresearch/hermes-3-llama-3.1-405b:free',
+        pro:        'gemini-2.5-flash',
+        agency:     'openai/gpt-4o-mini',
+        enterprise: 'openai/gpt-5.5-2026-04-23',
+    };
+
+    // 1. Check global settings if database exists (stored under user_id = 1 / admin)
+    if (db) {
+        try {
+            const toggles = await db.prepare(
+                "SELECT setting_key, setting_value FROM settings WHERE user_id = 1 AND setting_key IN ('sys_gemini_disabled', 'sys_openai_disabled')"
+            ).all();
+            if (toggles && toggles.results) {
+                const isGeminiDisabled = toggles.results.some(s => s.setting_key === 'sys_gemini_disabled' && s.setting_value === 'true');
+                const isOpenAIDisabled = toggles.results.some(s => s.setting_key === 'sys_openai_disabled' && s.setting_value === 'true');
+                
+                if (isGeminiDisabled) aiEnv.GEMINI_API_KEY = "";
+                if (isOpenAIDisabled) aiEnv.OPENAI_API_KEY = "";
+            }
+        } catch (_) {}
+    }
+
+    // 2. Load workspace specific configurations (BYOK)
+    if (db && workspaceId) {
+        try {
+            const wsAI = await db.prepare(
+                "SELECT ai_model, ai_api_key_enc, custom_ai_instructions, copywriting_persona FROM workspaces WHERE id = ?"
+            ).bind(workspaceId).first();
+            
+            if (wsAI) {
+                // Check if user has their own API key
+                let hasByokKey = false;
+                if (wsAI.ai_api_key_enc) {
+                    const decrypted = await decryptToken(wsAI.ai_api_key_enc, encryptionSecret);
+                    const resolvedKey = decrypted || wsAI.ai_api_key_enc;
+                    const isValidKey = resolvedKey && (resolvedKey.startsWith('sk-') || resolvedKey.startsWith('AIza') || resolvedKey.length > 40);
+                    if (isValidKey) {
+                        aiEnv.OPENROUTER_API_KEY = resolvedKey;
+                        aiEnv.GEMINI_API_KEY = resolvedKey;
+                        aiEnv.OPENAI_API_KEY = resolvedKey;
+                        aiEnv._workspaceKeySet = true;
+                        hasByokKey = true;
+                    }
+                }
+
+                // Model selection: manual > smart plan default
+                if (wsAI.ai_model && wsAI.ai_model !== 'auto') {
+                    // Manual selection by user (advanced mode)
+                    aiEnv.OPENROUTER_MODEL = wsAI.ai_model;
+                } else if (!hasByokKey) {
+                    // Smart auto-select: pick best model for this plan
+                    const plan = subscriptionPlan || wsAI.subscription_plan || 'free';
+                    aiEnv.OPENROUTER_MODEL = PLAN_DEFAULT_MODELS[plan] || PLAN_DEFAULT_MODELS['free'];
+                }
+
+                // Append copywriting persona context if set
+                let personaInstructions = "";
+                if (wsAI.copywriting_persona === 'male_husband') {
+                    personaInstructions = `\n\nCRITICAL PERSONA RULES:
+- Write strictly from the Perspective/POV of a married Malaysian man/husband/father (Suami/Lelaki/Papa).
+- Use natural conversational terms like "aku", "bini aku", "wife aku", "anak-anak".
+- DIVERSIFY STORYTELLING ANGLES (JANGAN asyik cerita/relate pasal bini/wife sahaja):
+  1. Self/Personal: Frame as a man's own daily experience, hobbies, work-from-home, or personal preference (e.g. "aku sendiri yang leceh...", "aku setup meja kerja...", "aku beli ni sebab...").
+  2. Dad life: Frame around managing kids, family activities, safety, or parenting (e.g. "anak-anak aku...", "sebagai bapa...").
+  3. Husband Initiative: Frame around you doing housework or DIY repairs yourself (e.g. "aku tolong basuh...", "aku pasang sendiri...", "aku tukar kipas ni...").
+  4. Wife Easing (Limit to max 25% of posts): Frame as helping/easing your wife's workload, but only when highly relevant. Do NOT make it the hook or narrative of every post.`;
+                } else if (wsAI.copywriting_persona === 'female_wife') {
+                    personaInstructions = `\n\nCRITICAL PERSONA RULES:
+- Write strictly from the Perspective/POV of a married Malaysian woman/wife/mother (Isteri/Ibu).
+- Use natural conversational terms like "husband aku", "laki aku", "anak-anak".
+- Frame the hooks or narrative naturally around family life, managing the kitchen/household, or making life easier for your husband and children.`;
+                } else if (wsAI.copywriting_persona === 'young_single') {
+                    personaInstructions = `\n\nCRITICAL PERSONA RULES:
+- Write strictly from the Perspective/POV of a young single adult living alone in Malaysia (bujang/student/worker).
+- Frame the content around convenience, budget-friendly choices, quick meals/solutions, renting rooms/apartments, and making solo life simpler.`;
+                }
+                
+                aiEnv.custom_ai_instructions = (wsAI.custom_ai_instructions || "") + personaInstructions;
+            }
+        } catch (_) {}
+    }
+    
+    return aiEnv;
+}
+
+async function createNotification(db, workspaceId, userId, title, message, type = 'info', link = null) {
+    if (!db) return;
+    try {
+        await db.prepare(
+            `INSERT INTO notifications (workspace_id, user_id, title, message, type, link, created_at) 
+             VALUES (?, ?, ?, ?, ?, ?, datetime('now'))`
+        ).bind(workspaceId, userId || null, title, message, type, link).run();
+    } catch (e) {
+        console.error("[createNotification] Failed:", e);
+    }
+}
+
 async function syncHistoricalThreadsPosts(env, userId, workspaceId, socialAccountId, accessToken, threadsUserId) {
     console.log(`[HistoricalSync] Initiated for workspace ${workspaceId}, account ${socialAccountId}`);
     try {
@@ -587,7 +690,14 @@ const extractTelegramTitle = (scrapedTitle, scrapedDescription) => {
     // Clean emojis and bullet markers from each line
     // Also strip variation selectors and heavy exclamation marks like ❗️ or ❗
     const rawLines = scrapedDescription.split('\n');
-    const cleanLines = rawLines.map(l => l.replace(/[✅✨🏠📌🔥*‼️•⁠🏡❗️❗]/g, '').replace(/^[-–\s]+/, '').trim());
+    const cleanLines = rawLines.map(l => {
+        let val = l.replace(/[✅✨🏠📌🔥*‼️•⁠🏡❗️❗]/g, '').replace(/^[-–\s]+/, '').trim();
+        // Strip out contact links/handles (wasap.my, wa.me, wa.link, t.me, bit.ly, etc.)
+        val = val.replace(/(?:https?:\/\/)?(?:www\.)?(?:wasap\.my|wa\.me|wa\.link|t\.me|bit\.ly)\/[a-zA-Z0-9_/.-]+/gi, '');
+        // Clean leading transition prepositions left after link strip
+        val = val.replace(/^(?:di|pada|hubungi|contact|ren|pea|wasap|wasap\.my|wa\.me)\s+/i, '');
+        return val.trim();
+    }).filter(Boolean);
 
     // Priority 1: Find the main listing line containing property type + transaction type
     // e.g. "For Sale - Semi D Cluster Two Storey House SP 10 Bandar Saujana Putra"
@@ -773,6 +883,16 @@ async function executeImmediatePublish(db, spId, userId, encryptionSecret) {
               VALUES (NULL, ?, 'success', NULL, ?, ?, ?)`
          ).bind(socialAccount.id, result.provider_post_id, JSON.stringify(result), nowStr).run();
 
+         await createNotification(
+             db, 
+             scheduledPost.workspace_id, 
+             userId, 
+             "Post Berjaya Diterbitkan 🚀", 
+             `Post dijadualkan anda berjaya diterbitkan di platform ${scheduledPost.platform.toUpperCase()} (${socialAccount.account_name})`, 
+             "success", 
+             "/schedule.html"
+         );
+
          return { success: true, result };
     } else {
         await db.prepare(
@@ -785,6 +905,16 @@ async function executeImmediatePublish(db, spId, userId, encryptionSecret) {
              `INSERT INTO publish_logs (schedule_id, social_account_id, status, error_message, response_payload, published_at) 
               VALUES (NULL, ?, 'failed', ?, ?, (datetime('now')))`
          ).bind(socialAccount.id, result.error_message, JSON.stringify(result)).run();
+
+         await createNotification(
+             db, 
+             scheduledPost.workspace_id, 
+             userId, 
+             "Gagal Menerbitkan Post ❌", 
+             `Sistem gagal menerbitkan post anda di ${scheduledPost.platform.toUpperCase()} (${socialAccount.account_name}). Ralat: ${result.error_message}`, 
+             "error", 
+             "/schedule.html"
+         );
 
          throw new Error(result.error_message);
     }
@@ -1094,22 +1224,7 @@ async function handleTelegramUpdate(update, env, encryptionSecret, jwtSecret) {
                         "SELECT ai_model, ai_api_key_enc, custom_ai_instructions FROM workspaces WHERE id = ?"
                     ).bind(activeWorkspace.workspace_id).first().catch(() => null);
 
-                    const aiEnv = { ...env };
-                    if (wsAI?.ai_model) {
-                        aiEnv.OPENROUTER_MODEL = wsAI.ai_model;
-                    }
-                    if (wsAI?.ai_api_key_enc) {
-                        try {
-                            const decrypted = await decryptToken(wsAI.ai_api_key_enc, encryptionSecret);
-                            const resolvedKey = decrypted || wsAI.ai_api_key_enc;
-                            if (resolvedKey) {
-                                aiEnv.OPENROUTER_API_KEY = resolvedKey;
-                                aiEnv.GEMINI_API_KEY = resolvedKey;
-                                aiEnv.OPENAI_API_KEY = resolvedKey;
-                                aiEnv._workspaceKeySet = true;
-                            }
-                        } catch (_) {}
-                    }
+                    const aiEnv = await getAIEnvironment(env.DB, activeWorkspace.workspace_id, env, encryptionSecret);
 
                     // Compile prompts
                     const provider = AIFactory.getProvider(aiEnv);
@@ -1127,7 +1242,7 @@ async function handleTelegramUpdate(update, env, encryptionSecret, jwtSecret) {
                         tone: 'Casual Malaysian Malay (Bahasa Rojak)',
                         language: 'Malay',
                         customInstructions: [
-                            getFactPreservingInstructions(wsAI?.custom_ai_instructions),
+                            getFactPreservingInstructions(aiEnv.custom_ai_instructions),
                             `CRITICAL NICHE RULES:\n${JSON.parse(nicheInstructions).map((r, i) => `${i + 1}. ${r}`).join('\n')}`,
                             userInstructions ? `USER SPECIFIC GUIDELINES:\n${userInstructions}` : ''
                         ].filter(Boolean).join('\n\n')
@@ -1183,21 +1298,7 @@ async function handleTelegramUpdate(update, env, encryptionSecret, jwtSecret) {
                 // Retrieve workspace AI model & key
                 const wsAI = await env.DB.prepare("SELECT ai_model, ai_api_key_enc FROM workspaces WHERE id = ?").bind(activeWorkspace.workspace_id).first().catch(() => null);
 
-                const aiEnv = { ...env };
-                if (wsAI?.ai_model) {
-                    aiEnv.OPENROUTER_MODEL = wsAI.ai_model;
-                }
-                if (wsAI?.ai_api_key_enc) {
-                    try {
-                        const decrypted = await decryptToken(wsAI.ai_api_key_enc, encryptionSecret);
-                        if (decrypted) {
-                            aiEnv.OPENROUTER_API_KEY = decrypted;
-                            aiEnv.GEMINI_API_KEY = decrypted;
-                            aiEnv.OPENAI_API_KEY = decrypted;
-                            aiEnv._workspaceKeySet = true;
-                        }
-                    } catch (_) {}
-                }
+                const aiEnv = await getAIEnvironment(env.DB, activeWorkspace.workspace_id, env, encryptionSecret);
 
                 // AI instructions
                 const systemInstructions = `You are 'SocialHub AI Agent', a helpful, professional, and friendly social media marketing assistant for this workspace. 
@@ -1502,11 +1603,11 @@ export default {
         };
 
         const PLANS = {
-            free: { accounts: 1, posts: 10, ai_credits: 15, storage: 50 * 1024 * 1024, features: ['calendar', 'queue', 'ai_assistant'] },
-            starter: { accounts: 3, posts: 50, ai_credits: 10, storage: 500 * 1024 * 1024, features: ['calendar', 'queue', 'ai_assistant'] },
-            pro: { accounts: 10, posts: 500, ai_credits: 100, storage: 5 * 1024 * 1024 * 1024, features: ['calendar', 'queue', 'ai_assistant', 'analytics'] },
-            agency: { accounts: 30, posts: 5000, ai_credits: 1000, storage: 50 * 1024 * 1024 * 1024, features: ['calendar', 'queue', 'ai_assistant', 'analytics', 'clients'] },
-            enterprise: { accounts: 99999, posts: 999999, ai_credits: 999999, storage: 1000 * 1024 * 1024 * 1024, features: ['calendar', 'queue', 'ai_assistant', 'analytics', 'clients', 'custom_branding'] }
+            free: { accounts: 1, posts: 10, ai_credits: 20, storage: 50 * 1024 * 1024, features: ['calendar', 'queue', 'ai_assistant'] },
+            starter: { accounts: 1, posts: 10, ai_credits: 20, storage: 50 * 1024 * 1024, features: ['calendar', 'queue', 'ai_assistant'] }, // unused legacy
+            pro: { accounts: 3, posts: 50, ai_credits: 250, storage: 500 * 1024 * 1024, features: ['calendar', 'queue', 'ai_assistant'] }, // Starter (Pro) - RM29
+            agency: { accounts: 10, posts: 500, ai_credits: 800, storage: 5 * 1024 * 1024 * 1024, features: ['calendar', 'queue', 'ai_assistant', 'analytics'] }, // Growth (Gold) - RM59
+            enterprise: { accounts: 99999, posts: 5000, ai_credits: 2500, storage: 50 * 1024 * 1024 * 1024, features: ['calendar', 'queue', 'ai_assistant', 'analytics', 'clients'] } // Agency (Premium) - RM149
         };
 
         const getActiveWorkspace = async (user) => {
@@ -1586,7 +1687,7 @@ export default {
                     // GET: return current settings + usage
                     if (request.method === 'GET') {
                         const ws = await env.DB.prepare(
-                            "SELECT ai_model, ai_api_key_enc, custom_ai_instructions FROM workspaces WHERE id = ?"
+                            "SELECT ai_model, ai_api_key_enc, custom_ai_instructions, copywriting_persona FROM workspaces WHERE id = ?"
                         ).bind(activeWorkspace.workspace_id).first();
 
                         const plan = activeWorkspace.subscription_plan;
@@ -1601,8 +1702,10 @@ export default {
                             model: ws?.ai_model || env.OPENROUTER_MODEL || 'meta-llama/llama-3.2-3b-instruct:free',
                             has_api_key: !!(ws?.ai_api_key_enc),
                             custom_ai_instructions: ws?.custom_ai_instructions || '',
+                            copywriting_persona: ws?.copywriting_persona || 'general',
                             credits_used: creditsRes?.count || 0,
-                            credits_max: maxCredits
+                            credits_max: maxCredits,
+                            subscription_plan: activeWorkspace?.subscription_plan || 'free'
                         }), { status: 200, headers: corsHeaders });
                     }
 
@@ -1611,7 +1714,7 @@ export default {
                         if (activeWorkspace.role === 'viewer') {
                             return new Response(JSON.stringify({ message: 'Forbidden: Viewers cannot change settings.' }), { status: 403, headers: corsHeaders });
                         }
-                        const { model, api_key, custom_ai_instructions } = await request.json();
+                        const { model, api_key, custom_ai_instructions, copywriting_persona } = await request.json();
                         if (!model) return new Response(JSON.stringify({ message: 'Model is required.' }), { status: 400, headers: corsHeaders });
 
                         let encKey = null;
@@ -1626,12 +1729,12 @@ export default {
 
                         if (encKey) {
                             await env.DB.prepare(
-                                "UPDATE workspaces SET ai_model = ?, ai_api_key_enc = ?, custom_ai_instructions = ?, updated_at = (datetime('now')) WHERE id = ?"
-                            ).bind(model, encKey, custom_ai_instructions || null, activeWorkspace.workspace_id).run();
+                                "UPDATE workspaces SET ai_model = ?, ai_api_key_enc = ?, custom_ai_instructions = ?, copywriting_persona = ?, updated_at = (datetime('now')) WHERE id = ?"
+                            ).bind(model, encKey, custom_ai_instructions || null, copywriting_persona || 'general', activeWorkspace.workspace_id).run();
                         } else {
                             await env.DB.prepare(
-                                "UPDATE workspaces SET ai_model = ?, custom_ai_instructions = ?, updated_at = (datetime('now')) WHERE id = ?"
-                            ).bind(model, custom_ai_instructions || null, activeWorkspace.workspace_id).run();
+                                "UPDATE workspaces SET ai_model = ?, custom_ai_instructions = ?, copywriting_persona = ?, updated_at = (datetime('now')) WHERE id = ?"
+                            ).bind(model, custom_ai_instructions || null, copywriting_persona || 'general', activeWorkspace.workspace_id).run();
                         }
 
                         await logActivity(activeWorkspace.workspace_id, user.id, 'update_ai_settings', `AI model changed to: ${model}`);
@@ -1775,24 +1878,7 @@ export default {
                         }
 
                         // Build env-like object overriding with workspace preferences
-                        const aiEnv = { ...env };
-                        if (wsAI?.ai_model) {
-                            aiEnv.OPENROUTER_MODEL = wsAI.ai_model;
-                        }
-                        if (wsAI?.ai_api_key_enc) {
-                            try {
-                                // Attempt decrypt, fallback to raw value
-                                const decrypted = await decryptToken(wsAI.ai_api_key_enc, encryptionSecret);
-                                const resolvedKey = decrypted || wsAI.ai_api_key_enc;
-                                const isValidKey = resolvedKey && (resolvedKey.startsWith('sk-') || resolvedKey.startsWith('AIza') || resolvedKey.length > 40);
-                                if (isValidKey) {
-                                    aiEnv.OPENROUTER_API_KEY = resolvedKey;
-                                    aiEnv.GEMINI_API_KEY = resolvedKey;
-                                    aiEnv.OPENAI_API_KEY = resolvedKey;
-                                    aiEnv._workspaceKeySet = true;
-                                }
-                            } catch (_) {}
-                        }
+                        const aiEnv = await getAIEnvironment(env.DB, activeWorkspace.workspace_id, env, encryptionSecret);
 
                         const provider = AIFactory.getProvider(aiEnv);
                         const performanceFeedback = await getPerformanceFeedback(env.DB, activeWorkspace.workspace_id);
@@ -1807,7 +1893,7 @@ export default {
                             language: language || 'Bahasa Melayu',
                             postFormat: postFormat || 'single',
                             funnelStage: funnelStage || 'none',
-                            customInstructions: getFactPreservingInstructions(wsAI?.custom_ai_instructions),
+                            customInstructions: getFactPreservingInstructions(aiEnv.custom_ai_instructions),
                             nicheRules: nicheData ? nicheData.rules : null,
                             nicheExampleOutput: nicheData ? nicheData.example_output : null
                         });
@@ -2002,34 +2088,19 @@ export default {
                     }
 
                     try {
-                        const { url, mediaUrl, context, tone, language, postFormat, timezoneOffset, index, triggerType, triggerThreshold } = await request.json();
-                        if (!url) {
+                        const { url: rawUrlInput, mediaUrl, context, tone, language, postFormat, timezoneOffset, index, triggerType, triggerThreshold } = await request.json();
+                        if (!rawUrlInput) {
                             return new Response(JSON.stringify({ message: 'URL is required.' }), { status: 400, headers: corsHeaders });
                         }
+                        // Sanitize URL: strip invisible/control characters that can cause URI malformed errors
+                        const url = rawUrlInput.replace(/[\u0000-\u001F\u007F-\u009F\u200B-\u200D\uFEFF]/g, '').trim();
 
                         // Get custom instructions from workspace settings
                         const wsAI = await env.DB.prepare(
                             "SELECT ai_model, ai_api_key_enc, custom_ai_instructions FROM workspaces WHERE id = ?"
                         ).bind(activeWorkspace.workspace_id).first().catch(() => null);
 
-                        const aiEnv = { ...env };
-                        if (wsAI?.ai_model) {
-                            aiEnv.OPENROUTER_MODEL = wsAI.ai_model;
-                        }
-                        if (wsAI?.ai_api_key_enc) {
-                            try {
-                                const decrypted = await decryptToken(wsAI.ai_api_key_enc, encryptionSecret);
-                                const resolvedKey = decrypted || wsAI.ai_api_key_enc;
-                                // Only use if it looks like a real API key (sk-, AIza, or long enough)
-                                const isValidKey = resolvedKey && (resolvedKey.startsWith('sk-') || resolvedKey.startsWith('AIza') || resolvedKey.length > 40);
-                                if (isValidKey) {
-                                    aiEnv.OPENROUTER_API_KEY = resolvedKey;
-                                    aiEnv.GEMINI_API_KEY = resolvedKey;
-                                    aiEnv.OPENAI_API_KEY = resolvedKey;
-                                    aiEnv._workspaceKeySet = true;
-                                }
-                            } catch (_) {}
-                        }
+                        const aiEnv = await getAIEnvironment(env.DB, activeWorkspace.workspace_id, env, encryptionSecret);
 
                         // Extract context from frontend or scrape URL for product details
                         let productContext = context || "";
@@ -2168,6 +2239,28 @@ export default {
                                 : `${scrapedTitle ? scrapedTitle + '\n' : ''}${scrapedDescription}`;
                         }
 
+                        // Sanitize productContext — remove agent-specific contact details so AI doesn't reproduce them
+                        // Removes: phone numbers, REN numbers, wasap.my / wa.me links, agent self-intro phrases
+                        if (productContext) {
+                            productContext = productContext
+                                // Remove wasap.my and wa.me links (full URL)
+                                .replace(/https?:\/\/(www\.)?wasap\.my\/[^\s]*/gi, '')
+                                .replace(/https?:\/\/wa\.me\/[^\s]*/gi, '')
+                                // Remove phone numbers in various formats: +60123456789, 60123456789, 019-1234567, 0191234567
+                                .replace(/(?:\+?60|0)[\s-]?\d{1,2}[\s-]?\d{3,4}[\s-]?\d{4}/g, '')
+                                // Remove REN/PEA/REA registration numbers e.g. "REN 49260", "REN49260"
+                                .replace(/\b(REN|PEA|REA|VE|E)\s*\d{3,6}\b/gi, '')
+                                // Remove agent self-intro lines: "Saya [Name]," / "I am [Name]," / "Nama saya [Name]"
+                                .replace(/(?:^|\n)[^\n]*(?:saya adalah|my name is|nama saya|hubungi saya di|contact me at)[^\n]*/gi, '')
+                                // Remove lines that are just a name followed by a comma and REN/contact info
+                                .replace(/(?:^|\n)[^\n]{2,40},\s*(?:REN|ejen|agent|agen)\s*[\d,\s]*/gi, '')
+                                // Clean up extra whitespace/newlines left behind
+                                .replace(/[ \t]+/g, ' ')
+                                .replace(/\n{3,}/g, '\n\n')
+                                .trim();
+                        }
+
+
                         // URL slug fallback only if we still have nothing
                         if (!productContext) {
                             try {
@@ -2218,7 +2311,8 @@ export default {
                         // Domain routing & WhatsApp link auto-generation
                         const isEcommerceOrMarketplace = (rawUrl) => {
                             try {
-                                const u = new URL(rawUrl);
+                                let u;
+                        try { u = new URL(rawUrl); } catch(_) { return false; }
                                 const hostname = u.hostname.toLowerCase();
                                 const ecommerceDomains = [
                                     'shopee.com', 'shopee.com.my', 'shopee.co.id', 'shopee.sg',
@@ -2302,6 +2396,9 @@ export default {
                             greetingTitle = greetingTitle.replace(/#\w+/g, '').replace(/\s+/g, ' ').trim();
                             // Remove any leading bullet, dash, or spec-looking text
                             greetingTitle = greetingTitle.replace(/^[•\-–\s]+/, '').replace(/(?:Land\s*Area|Built\s*Up)\s*\d+.*/i, '').trim();
+                            if (greetingTitle.length > 150) {
+                                greetingTitle = greetingTitle.substring(0, 147) + "...";
+                            }
                             if (!greetingTitle) greetingTitle = "hartanah yang anda senaraikan";
 
                             let greetingText = `Hai, saya berminat dengan ${greetingTitle}`;
@@ -2313,14 +2410,25 @@ export default {
                             }
                             greetingText += `. Boleh bagi details?`;
 
-                            finalCtaUrl = `https://wa.me/${whatsappNum}?text=${encodeURIComponent(greetingText)}`;
+                            // Safely encode greeting — scraped text may contain malformed Unicode (lone surrogates)
+                            let safeGreeting = greetingText
+                                .replace(/[\uD800-\uDFFF]/g, '') // remove lone surrogates
+                                .replace(/[^\u0000-\uFFFF]/g, '') // remove non-BMP chars that can't be encoded
+                                .trim();
+                            let encodedGreeting;
+                            try {
+                                encodedGreeting = encodeURIComponent(safeGreeting);
+                            } catch (_) {
+                                encodedGreeting = encodeURIComponent(`Hai, saya berminat dengan hartanah ini. Boleh bagi details?`);
+                            }
+                            finalCtaUrl = `https://wa.me/${whatsappNum}?text=${encodedGreeting}`;
                         }
 
                         let ctaPromptInstructions = "";
                         if (linkType === 'whatsapp') {
                             ctaPromptInstructions = `write a creative and engaging call to action phrase asking the user to WhatsApp or contact for more details (e.g. "Berminat? WhatsApp saya sekarang!", "Hubungi saya untuk details lanjut!", etc.). Do NOT include the URL link itself. If workspace copywriting guidelines/knowledge base are provided, follow them to write this CTA phrase.`;
                         } else {
-                            ctaPromptInstructions = `write a creative and engaging call to action phrase that naturally fits the product or service described above, without mentioning specific platform names (do not say Shopee, Lazada, TikTok unless the product context explicitly mentions them). Do not include the URL itself. If workspace copywriting guidelines/knowledge base are provided, follow them to write this CTA phrase.`;
+                            ctaPromptInstructions = `Write a very casual, non-pushy, laid-back Malaysian conversational redirect phrase for the link (e.g. "Nah link kalau ada yang nak ushar:", "Korang tengoklah sendiri kat sini:", "Kot lah ada yang nak ushar:"). Do NOT make it sound like a pushy sales pitch (strictly avoid phrases like "Dapatkan sekarang!", "Beli hari ini!", "Jangan terlepas!"). Keep it super casual, friendly, and natural. Do NOT include the URL link itself.`;
                         }
 
                         // Compile the AI copywriting generation prompt
@@ -2357,7 +2465,8 @@ CRITICAL TONE RULES:
                         const provider = AIFactory.getProvider(aiEnv);
 
                         let customGuidelinesBlock = [
-                            getFactPreservingInstructions(wsAI?.custom_ai_instructions),
+                            getFactPreservingInstructions(aiEnv.custom_ai_instructions),
+                            toneInstruction,
                             `CTA Instructions: ${ctaPromptInstructions}`
                         ].filter(Boolean).join('\n\n');
 
@@ -2397,6 +2506,9 @@ CRITICAL TONE RULES:
                             if (res.ok) {
                                 const data = await res.json();
                                 responseText = data.candidates?.[0]?.content?.parts?.[0]?.text || "";
+                            } else {
+                                const errText = await res.text();
+                                console.error(`Gemini Direct API call failed: ${res.status} - ${errText}`);
                             }
                         } else {
                             // OpenAI or OpenRouter
@@ -2434,18 +2546,21 @@ CRITICAL TONE RULES:
                         const cleaned = responseText.replace(/```json/i, '').replace(/```/g, '').trim();
                         const parsed = JSON.parse(cleaned);
 
-                        const caption = parsed.caption || parsed.text || parsed.content || "";
+                        // Normalize caption — some AI models (e.g. OpenAI) return caption as an array of slides
+                        const rawCaption = parsed.caption || parsed.text || parsed.content || "";
+                        const caption = Array.isArray(rawCaption)
+                            ? rawCaption.map(s => (typeof s === 'string' ? s : JSON.stringify(s))).join('\n---thread-separator---\n')
+                            : (typeof rawCaption === 'string' ? rawCaption : String(rawCaption || ""));
+
                         const rawHashtags = parsed.hashtags || parsed.tags || [];
                         let hashtagsText = Array.isArray(rawHashtags) ? rawHashtags.join(' ') : (typeof rawHashtags === 'string' ? rawHashtags : '');
 
-                        // Programmatic topics/hashtags injection for real estate listings
-                        const lowerCtx = (productContext || "").toLowerCase();
-                        const isProperty = lowerCtx.includes("apartment") || lowerCtx.includes("semi d") || lowerCtx.includes("teres") || lowerCtx.includes("kondo") || lowerCtx.includes("house") || lowerCtx.includes("property") || lowerCtx.includes("hartanah") || lowerCtx.includes("bilik") || lowerCtx.includes("sqft") || url.includes("propmall") || url.includes("mudah");
+
+
+                        const isSale = lowerCtx.includes("wts") || lowerCtx.includes("sale") || lowerCtx.includes("jual");
+                        const isRent = lowerCtx.includes("wtl") || lowerCtx.includes("rent") || lowerCtx.includes("sewa") || lowerCtx.includes("lease");
 
                         if (isProperty) {
-                            const isSale = lowerCtx.includes("wts") || lowerCtx.includes("sale") || lowerCtx.includes("jual");
-                            const isRent = lowerCtx.includes("wtl") || lowerCtx.includes("rent") || lowerCtx.includes("sewa") || lowerCtx.includes("lease");
-
                             const saleTags = ["#jualbelirumah", "#jualrumah", "#rumahuntukdijual", "#hartanahuntukdijual"];
                             const rentTags = ["#sewahartanah", "#sewarumah", "#rumahsewa", "#sewakondominium"];
 
@@ -2461,13 +2576,45 @@ CRITICAL TONE RULES:
                             }
                         }
 
-                        // Retrieve dynamic CTA from AI and sanitize
-                        let finalCtaText = parsed.cta ? parsed.cta.trim() : "";
-                        finalCtaText = finalCtaText.replace(/➡️/g, '').replace(/->/g, '').replace(/:$/g, '').trim();
+                        // Retrieve dynamic CTA and format properly
+                        let ctaText = "";
+                        if (isProperty) {
+                            if (linkType === 'whatsapp') {
+                                // For property listings that redirect to WhatsApp (like Telegram listings)
+                                // We provide different random variations based on whether it is for Sale or Rent
+                                if (isRent) {
+                                    const rentVariations = [
+                                        `Klik link WhatsApp ni untuk roger aku sekarang sebelum unit ni disambar orang lain: ➡️ ${finalCtaUrl}`,
+                                        `Berminat nak sewa? Roger aku sekarang sebelum unit sewa ni terlepas ke orang lain: ➡️ ${finalCtaUrl}`,
+                                        `Tekan link ni untuk WhatsApp aku terus kalau nak set viewing / booking unit sewa ni: ➡️ ${finalCtaUrl}`,
+                                        `Unit sewa macam ni selalunya laju kena grab. Cepat WhatsApp aku kat sini: ➡️ ${finalCtaUrl}`,
+                                        `Kalau nak booking atau nak datang tengok rumah, klik link ni untuk roger aku terus: ➡️ ${finalCtaUrl}`
+                                    ];
+                                    const randomIndex = Math.floor(Math.random() * rentVariations.length);
+                                    ctaText = rentVariations[randomIndex];
+                                } else {
+                                    const saleVariations = [
+                                        `Terus WhatsApp aku sekarang untuk semak kelayakan/viewing atau maklumat lanjut: ➡️ ${finalCtaUrl}`,
+                                        `Kalau berminat nak viewing atau semak kelayakan loan, klik link ni untuk WhatsApp aku terus: ➡️ ${finalCtaUrl}`,
+                                        `Berminat nak tahu details lanjut atau nak set viewing? WhatsApp aku kat sini: ➡️ ${finalCtaUrl}`,
+                                        `Tekan link ni untuk WhatsApp aku terus kalau nak semak kelayakan / viewing unit ni: ➡️ ${finalCtaUrl}`,
+                                        `Berminat nak beli? WhatsApp aku terus untuk semak kelayakan loan atau booking unit: ➡️ ${finalCtaUrl}`
+                                    ];
+                                    const randomIndex = Math.floor(Math.random() * saleVariations.length);
+                                    ctaText = saleVariations[randomIndex];
+                                }
+                            } else {
+                                // For property listings that link to marketplaces (Propmall / Mudah) where direct buttons exist on-page
+                                ctaText = `Korang tengok details kat sini: ➡️ ${finalCtaUrl}\n\nKalau ok, terus WhatsApp/Call aku dari link tu untuk semak kelayakan/viewing atau maklumat lanjut.`;
+                            }
+                        } else {
+                            let finalCtaText = parsed.cta ? parsed.cta.trim() : "";
+                            finalCtaText = finalCtaText.replace(/➡️/g, '').replace(/->/g, '').replace(/:$/g, '').trim();
 
-                        const ctaText = finalCtaText 
-                            ? `${finalCtaText} ➡️ ${finalCtaUrl}` 
-                            : (linkType === 'whatsapp' ? `WhatsApp saya untuk info lanjut! ➡️ ${finalCtaUrl}` : `Dapatkan di sini! ➡️ ${finalCtaUrl}`);
+                            ctaText = finalCtaText 
+                                ? `${finalCtaText} ➡️ ${finalCtaUrl}` 
+                                : (linkType === 'whatsapp' ? `WhatsApp aku untuk info lanjut! ➡️ ${finalCtaUrl}` : `Nah link kalau nak ushar: ➡️ ${finalCtaUrl}`);
+                        }
                         
                         // Insert into DB
                         const hasTrigger = triggerType === 'views' || triggerType === 'likes';
@@ -2594,26 +2741,9 @@ CRITICAL TONE RULES:
                             return new Response(JSON.stringify({ message: 'URL and Title are required.' }), { status: 400, headers: corsHeaders });
                         }
 
-                        // Build env-like object overriding with workspace preferences
-                        const aiEnv = { ...env };
-                        if (wsAI?.ai_model) {
-                            aiEnv.OPENROUTER_MODEL = wsAI.ai_model;
-                        }
-                        if (wsAI?.ai_api_key_enc) {
-                            try {
-                                const decrypted = await decryptToken(wsAI.ai_api_key_enc, encryptionSecret);
-                                const resolvedKey = decrypted || wsAI.ai_api_key_enc;
-                                const isValidKey = resolvedKey && (resolvedKey.startsWith('sk-') || resolvedKey.startsWith('AIza') || resolvedKey.length > 40);
-                                if (isValidKey) {
-                                    aiEnv.OPENROUTER_API_KEY = resolvedKey;
-                                    aiEnv.GEMINI_API_KEY = resolvedKey;
-                                    aiEnv.OPENAI_API_KEY = resolvedKey;
-                                    aiEnv._workspaceKeySet = true;
-                                }
-                            } catch (_) {}
-                        }
+                        const aiEnv = await getAIEnvironment(env.DB, activeWorkspace.workspace_id, env, encryptionSecret);
 
-                        let combinedInstructions = getFactPreservingInstructions(wsAI?.custom_ai_instructions || "");
+                        let combinedInstructions = getFactPreservingInstructions(aiEnv.custom_ai_instructions || "");
                         const systemNicheRulesBlock = await getNicheInstructionsPrompt(env.DB, scrapedTitle + " " + (scrapedDescription || ""));
                         combinedInstructions = combinedInstructions 
                             ? `${combinedInstructions}\n\nSYSTEM NICHE GUIDELINES:\n${systemNicheRulesBlock}`
@@ -2813,29 +2943,9 @@ CRITICAL TONE RULES:
                             }), { status: 200, headers: corsHeaders });
                         }
 
-                        // Build env-like object
-                        const aiEnv = { ...env };
-                        if (wsAI?.ai_model) {
-                            aiEnv.OPENROUTER_MODEL = wsAI.ai_model;
-                        }
-                        if (wsAI?.ai_api_key_enc) {
-                            try {
-                                const decrypted = await decryptToken(wsAI.ai_api_key_enc, encryptionSecret);
-                                if (decrypted) {
-                                    aiEnv.OPENROUTER_API_KEY = decrypted;
-                                    aiEnv.GEMINI_API_KEY = decrypted;
-                                    aiEnv.OPENAI_API_KEY = decrypted;
-                                    aiEnv._workspaceKeySet = true;
-                                }
-                            } catch (_) {
-                                aiEnv.OPENROUTER_API_KEY = wsAI.ai_api_key_enc;
-                                aiEnv.GEMINI_API_KEY = wsAI.ai_api_key_enc;
-                                aiEnv.OPENAI_API_KEY = wsAI.ai_api_key_enc;
-                                aiEnv._workspaceKeySet = true;
-                            }
-                        }
+                        const aiEnv = await getAIEnvironment(env.DB, activeWorkspace.workspace_id, env, encryptionSecret);
 
-                        let combinedInstructions = wsAI?.custom_ai_instructions || "";
+                        let combinedInstructions = aiEnv.custom_ai_instructions || "";
                         if (tone === 'Ultra-Realistic Malay') {
                             const toneRules = `\nTone: Ultra-Realistic Malaysian Malay.
 CRITICAL TONE RULES:
@@ -2979,23 +3089,7 @@ CRITICAL TONE RULES:
                         "SELECT ai_model, ai_api_key_enc FROM workspaces WHERE id = ?"
                     ).bind(activeWorkspace.workspace_id).first().catch(() => null);
 
-                    const aiEnv = { ...env };
-                    if (wsAI?.ai_model) {
-                        aiEnv.OPENROUTER_MODEL = wsAI.ai_model;
-                    }
-                    if (wsAI?.ai_api_key_enc) {
-                        try {
-                            const decrypted = await decryptToken(wsAI.ai_api_key_enc, encryptionSecret);
-                            const resolvedKey = decrypted || wsAI.ai_api_key_enc;
-                            const isValidKey = resolvedKey && (resolvedKey.startsWith('sk-') || resolvedKey.startsWith('AIza') || resolvedKey.length > 40);
-                            if (isValidKey) {
-                                aiEnv.OPENROUTER_API_KEY = resolvedKey;
-                                aiEnv.GEMINI_API_KEY = resolvedKey;
-                                aiEnv.OPENAI_API_KEY = resolvedKey;
-                                aiEnv._workspaceKeySet = true;
-                            }
-                        } catch (_) {}
-                    }
+                    const aiEnv = await getAIEnvironment(env.DB, activeWorkspace.workspace_id, env, encryptionSecret);
 
                     // Build messages array with system instructions
                     const systemInstructions = `You are 'SocialHub AI Agent', a helpful, professional, and friendly social media marketing assistant for this workspace. 
@@ -3069,26 +3163,7 @@ CRITICAL LANGUAGE / SPEECH RULES:
                     ).bind(activeWorkspace.workspace_id).first().catch(() => null);
 
                     // Build env-like object overriding with workspace preferences
-                    const aiEnv = { ...env };
-                    if (wsAI?.ai_model) {
-                        aiEnv.OPENROUTER_MODEL = wsAI.ai_model;
-                    }
-                    if (wsAI?.ai_api_key_enc) {
-                        try {
-                            const decrypted = await decryptToken(wsAI.ai_api_key_enc, encryptionSecret);
-                            if (decrypted) {
-                                aiEnv.OPENROUTER_API_KEY = decrypted;
-                                aiEnv.GEMINI_API_KEY = decrypted;
-                                aiEnv.OPENAI_API_KEY = decrypted;
-                                aiEnv._workspaceKeySet = true;
-                            }
-                        } catch (_) {
-                            aiEnv.OPENROUTER_API_KEY = wsAI.ai_api_key_enc;
-                            aiEnv.GEMINI_API_KEY = wsAI.ai_api_key_enc;
-                            aiEnv.OPENAI_API_KEY = wsAI.ai_api_key_enc;
-                            aiEnv._workspaceKeySet = true;
-                        }
-                    }
+                    const aiEnv = await getAIEnvironment(env.DB, activeWorkspace.workspace_id, env, encryptionSecret);
 
                     try {
                         const provider = AIFactory.getProvider(aiEnv);
@@ -3139,6 +3214,15 @@ CRITICAL LANGUAGE / SPEECH RULES:
                                 status: finalStatus
                             });
                         }
+                        await createNotification(
+                            env.DB,
+                            activeWorkspace.workspace_id,
+                            user.id,
+                            "Kempen Autopilot Selesai 🤖",
+                            `Sistem berjaya menjana & menjadualkan ${campaign.length} post baharu di platform ${(platform || 'threads').toUpperCase()} untuk niche "${niche.substring(0, 30)}...".`,
+                            "success",
+                            "/schedule.html"
+                        );
 
                         await logActivity(
                             activeWorkspace.workspace_id,
@@ -3158,6 +3242,59 @@ CRITICAL LANGUAGE / SPEECH RULES:
                     } catch (e) {
                         return new Response(JSON.stringify({ message: e.message }), { status: 500, headers: corsHeaders });
                     }
+                }
+
+                case '/api/notifications': {
+                    const user = await getAuthUser();
+                    if (!user) return new Response(JSON.stringify({ message: 'Unauthorized session' }), { status: 401, headers: corsHeaders });
+                    if (!env.DB) return new Response(JSON.stringify({ message: 'Database missing' }), { status: 500, headers: corsHeaders });
+
+                    const activeWorkspace = await getActiveWorkspace(user);
+                    if (!activeWorkspace) return new Response(JSON.stringify({ message: 'No active workspace found' }), { status: 404, headers: corsHeaders });
+
+                    if (request.method === 'GET') {
+                        const { results } = await env.DB.prepare(
+                            `SELECT id, title, message, type, is_read, created_at, link 
+                             FROM notifications 
+                             WHERE workspace_id = ? 
+                             ORDER BY created_at DESC LIMIT 20`
+                        ).bind(activeWorkspace.workspace_id).all();
+
+                        return new Response(JSON.stringify({ success: true, notifications: results || [] }), { status: 200, headers: corsHeaders });
+                    }
+
+                    return new Response(JSON.stringify({ error: 'Method not allowed' }), { status: 405, headers: corsHeaders });
+                }
+
+                case '/api/notifications/read': {
+                    const user = await getAuthUser();
+                    if (!user) return new Response(JSON.stringify({ message: 'Unauthorized session' }), { status: 401, headers: corsHeaders });
+                    if (!env.DB) return new Response(JSON.stringify({ message: 'Database missing' }), { status: 500, headers: corsHeaders });
+
+                    const activeWorkspace = await getActiveWorkspace(user);
+                    if (!activeWorkspace) return new Response(JSON.stringify({ message: 'No active workspace found' }), { status: 404, headers: corsHeaders });
+
+                    if (request.method === 'POST') {
+                        let notificationId = null;
+                        try {
+                            const body = await request.json();
+                            notificationId = body?.notification_id;
+                        } catch (_) {}
+
+                        if (notificationId) {
+                            await env.DB.prepare(
+                                "UPDATE notifications SET is_read = 1 WHERE id = ? AND workspace_id = ?"
+                            ).bind(notificationId, activeWorkspace.workspace_id).run();
+                        } else {
+                            await env.DB.prepare(
+                                "UPDATE notifications SET is_read = 1 WHERE workspace_id = ?"
+                            ).bind(activeWorkspace.workspace_id).run();
+                        }
+
+                        return new Response(JSON.stringify({ success: true, message: "Notifications marked as read" }), { status: 200, headers: corsHeaders });
+                    }
+
+                    return new Response(JSON.stringify({ error: 'Method not allowed' }), { status: 405, headers: corsHeaders });
                 }
 
                 case '/api/workspaces': {
@@ -3752,6 +3889,23 @@ CRITICAL LANGUAGE / SPEECH RULES:
                             return new Response(JSON.stringify({ message: 'Missing required parameters' }), { status: 400, headers: corsHeaders });
                         }
 
+                        let finalPublishAt = publish_at;
+                        if (publish_at === 'auto') {
+                            const lastPost = await env.DB.prepare(
+                                "SELECT publish_at FROM scheduled_posts WHERE workspace_id = ? AND status IN ('scheduled', 'draft') ORDER BY publish_at DESC LIMIT 1"
+                            ).bind(activeWorkspace.workspace_id).first().catch(() => null);
+
+                            let baseTime = new Date(Date.now() + 15 * 60 * 1000); // 15 minutes from now
+                            if (lastPost && lastPost.publish_at) {
+                                const lastTime = new Date(lastPost.publish_at);
+                                if (lastTime.getTime() > Date.now()) {
+                                    baseTime = lastTime;
+                                }
+                            }
+                            const publishAtDate = new Date(baseTime.getTime() + 15 * 60 * 1000); // 15 minutes stagger
+                            finalPublishAt = publishAtDate.toISOString();
+                        }
+
                         let finalContent = content;
                         try {
                             finalContent = await autoShortenTextLinks(env.DB, content, user.id, activeWorkspace.workspace_id);
@@ -3780,7 +3934,7 @@ CRITICAL LANGUAGE / SPEECH RULES:
                                     target.platform, 
                                     cards[0], 
                                     JSON.stringify([]), 
-                                    publish_at, 
+                                    finalPublishAt, 
                                     timezone || 'UTC'
                                 ).run();
                                 
@@ -3799,7 +3953,7 @@ CRITICAL LANGUAGE / SPEECH RULES:
                                         target.platform,
                                         cards[i],
                                         JSON.stringify([]),
-                                        publish_at,
+                                        finalPublishAt,
                                         timezone || 'UTC',
                                         triggerType,
                                         parseInt(triggerThreshold) || 100,
@@ -3818,7 +3972,7 @@ CRITICAL LANGUAGE / SPEECH RULES:
                                     target.platform, 
                                     finalContent, 
                                     JSON.stringify([]), 
-                                    publish_at, 
+                                    finalPublishAt, 
                                     timezone || 'UTC'
                                 ).run();
                                 
@@ -4100,11 +4254,14 @@ CRITICAL LANGUAGE / SPEECH RULES:
                                             ).bind(acct.account_id).first().catch(() => null);
                                             followersCount = (lastRow?.followers_count || 100) + Math.floor(Math.random() * 5);
                                         } else {
-                                            const profileUrl = `https://graph.threads.net/v1.0/${acct.threads_user_id}?fields=threads_profile_picture_url,threads_biography,followers_count&access_token=${decryptedToken}`;
-                                            const profileRes = await fetch(profileUrl);
-                                            if (profileRes.ok) {
-                                                const profileData = await profileRes.json();
-                                                followersCount = profileData.followers_count || 0;
+                                            const insightsUrl = `https://graph.threads.net/v1.0/${acct.threads_user_id}/threads_insights?metric=followers_count&access_token=${decryptedToken}`;
+                                            const insightsRes = await fetch(insightsUrl);
+                                            if (insightsRes.ok) {
+                                                const insightsData = await insightsRes.json();
+                                                followersCount = insightsData.data?.[0]?.total_value?.value || 0;
+                                            } else {
+                                                const errText = await insightsRes.text().catch(() => '');
+                                                console.error(`[CronSync] Followers API fail for ${acct.account_id}: ${insightsRes.status} - ${errText}`);
                                             }
                                         }
 
@@ -4645,14 +4802,19 @@ CRITICAL LANGUAGE / SPEECH RULES:
                         "SELECT id, platform, account_name, account_id, expires_at, status, created_at FROM social_accounts WHERE workspace_id = ?"
                     ).bind(activeWorkspace.workspace_id).all();
 
-                    // 2. Fetch last 15 failed publish logs
+                    // 2. Fetch last 15 failed publish logs (including timeouts from scheduled_posts)
                     const publishLogsRes = await env.DB.prepare(`
                         SELECT pl.id, pl.status, pl.error_message, pl.published_at, sa.platform, sa.account_name
                         FROM publish_logs pl
                         JOIN social_accounts sa ON pl.social_account_id = sa.id
                         WHERE sa.workspace_id = ? AND pl.status = 'failed'
-                        ORDER BY pl.published_at DESC LIMIT 15
-                    `).bind(activeWorkspace.workspace_id).all();
+                        UNION ALL
+                        SELECT sp.id, sp.status, sp.error_message, sp.publish_at as published_at, sp.platform, sa.account_name
+                        FROM scheduled_posts sp
+                        JOIN social_accounts sa ON sp.account_id = sa.id
+                        WHERE sa.workspace_id = ? AND sp.status = 'failed'
+                        ORDER BY published_at DESC LIMIT 15
+                    `).bind(activeWorkspace.workspace_id, activeWorkspace.workspace_id).all();
 
                     // 3. Fetch last 15 audit logs
                     const auditLogsRes = await env.DB.prepare(`
@@ -4796,6 +4958,53 @@ CRITICAL LANGUAGE / SPEECH RULES:
                 }
 
                 // ==================== SAAS ADMIN API ENDPOINTS ====================
+                case '/api/admin/system-settings': {
+                    const user = await getAuthUser();
+                    if (!user) return new Response(JSON.stringify({ message: 'Unauthorized session' }), { status: 401, headers: corsHeaders });
+                    if (user.role !== 'admin') return new Response(JSON.stringify({ message: 'Forbidden: Admin access only' }), { status: 403, headers: corsHeaders });
+                    if (!env.DB) return new Response(JSON.stringify({ message: 'Database missing' }), { status: 500, headers: corsHeaders });
+
+                    if (request.method === 'GET') {
+                        const rows = await env.DB.prepare(
+                            "SELECT setting_key, setting_value FROM settings WHERE user_id = 1 AND setting_key IN ('sys_gemini_disabled', 'sys_openai_disabled')"
+                        ).all().catch(() => null);
+                        
+                        const sys_gemini_disabled = rows?.results?.some(r => r.setting_key === 'sys_gemini_disabled' && r.setting_value === 'true') || false;
+                        const sys_openai_disabled = rows?.results?.some(r => r.setting_key === 'sys_openai_disabled' && r.setting_value === 'true') || false;
+
+                        return new Response(JSON.stringify({
+                            success: true,
+                            settings: {
+                                sys_gemini_disabled,
+                                sys_openai_disabled
+                            }
+                        }), { status: 200, headers: corsHeaders });
+                    }
+
+                    if (request.method === 'POST') {
+                        const { sys_gemini_disabled, sys_openai_disabled } = await request.json();
+                        
+                        // Insert or Update sys_gemini_disabled
+                        await env.DB.prepare(
+                            `INSERT OR REPLACE INTO settings (user_id, setting_key, setting_value, updated_at) 
+                             VALUES (1, 'sys_gemini_disabled', ?, datetime('now'))`
+                        ).bind(sys_gemini_disabled === true ? "true" : "false").run();
+
+                        // Insert or Update sys_openai_disabled
+                        await env.DB.prepare(
+                            `INSERT OR REPLACE INTO settings (user_id, setting_key, setting_value, updated_at) 
+                             VALUES (1, 'sys_openai_disabled', ?, datetime('now'))`
+                        ).bind(sys_openai_disabled === true ? "true" : "false").run();
+
+                        return new Response(JSON.stringify({
+                            success: true,
+                            message: "System API Key settings updated successfully."
+                        }), { status: 200, headers: corsHeaders });
+                    }
+
+                    return new Response(JSON.stringify({ error: 'Method not allowed' }), { status: 405, headers: corsHeaders });
+                }
+
                 case '/api/admin/stats': {
                     if (request.method !== 'GET') return new Response(JSON.stringify({ error: 'Method not allowed' }), { status: 405, headers: corsHeaders });
                     const user = await getAuthUser();
@@ -4848,13 +5057,15 @@ CRITICAL LANGUAGE / SPEECH RULES:
                     if (user.role !== 'admin') return new Response(JSON.stringify({ message: 'Forbidden: Admin access only' }), { status: 403, headers: corsHeaders });
                     if (!env.DB) return new Response(JSON.stringify({ message: 'Database missing' }), { status: 500, headers: corsHeaders });
 
+                    const startOfMonth = new Date(new Date().getFullYear(), new Date().getMonth(), 1).toISOString();
                     const { results } = await env.DB.prepare(
-                        `SELECT w.id, w.name, w.subscription_plan, w.subscription_status, w.created_at, u.email as owner_email 
+                        `SELECT w.id, w.name, w.subscription_plan, w.subscription_status, w.created_at, u.email as owner_email,
+                                (SELECT COUNT(*) FROM audit_logs WHERE workspace_id = w.id AND action = 'ai_generate' AND created_at >= ?) as ai_credits_used
                          FROM workspaces w
                          LEFT JOIN workspace_members wm ON w.id = wm.workspace_id AND wm.role = 'owner'
                          LEFT JOIN users u ON wm.user_id = u.id
                          ORDER BY w.created_at DESC`
-                    ).all();
+                    ).bind(startOfMonth).all();
 
                     return new Response(JSON.stringify({ success: true, workspaces: results }), { status: 200, headers: corsHeaders });
                 }
@@ -5989,6 +6200,16 @@ CRITICAL LANGUAGE / SPEECH RULES:
                                  VALUES (NULL, ?, 'success', NULL, ?, ?, ?)`
                             ).bind(socialAccount.id, result.provider_post_id, JSON.stringify(result), completedAt).run();
 
+                            await createNotification(
+                                env.DB,
+                                post.workspace_id,
+                                post.user_id,
+                                "Post Berjaya Diterbitkan 🚀",
+                                `Post dijadualkan anda berjaya diterbitkan di platform ${post.platform.toUpperCase()} (${socialAccount.account_name})`,
+                                "success",
+                                "/schedule.html"
+                            );
+
                             console.log(`[Cron] Post ID: ${post.id} successfully published in ${duration}ms.`);
 
                             // Chain reaction: Release the next child post in the thread queue immediately
@@ -6022,6 +6243,16 @@ CRITICAL LANGUAGE / SPEECH RULES:
                                  WHERE id = ?`
                             ).bind(newRetryCount, err.message, post.id).run();
 
+                            await createNotification(
+                                env.DB,
+                                post.workspace_id,
+                                post.user_id,
+                                "Gagal Menerbitkan Post ❌",
+                                `Sistem gagal menerbitkan post anda di ${post.platform.toUpperCase()} (${socialAccount?.account_name || 'Akaun'}) selepas 3 cubaan. Ralat: ${err.message}`,
+                                "error",
+                                "/schedule.html"
+                            );
+
                             console.error(`[Cron] Post ID: ${post.id} reached maximum retries (3) and failed permanently.`);
                         } else {
                             let delayMin = 5;
@@ -6037,6 +6268,16 @@ CRITICAL LANGUAGE / SPEECH RULES:
                                  SET status = 'scheduled', publish_at = ?, retry_count = ?, error_message = ?, updated_at = (datetime('now'))
                                  WHERE id = ?`
                             ).bind(retryTimeStr, newRetryCount, err.message, post.id).run();
+
+                            await createNotification(
+                                env.DB,
+                                post.workspace_id,
+                                post.user_id,
+                                "Cubaan Penerbitan Gagal ⚠️",
+                                `Cubaan menerbitkan post anda di ${post.platform.toUpperCase()} (${socialAccount?.account_name || 'Akaun'}) gagal. Penjadualan semula dibuat pada ${retryTime.toLocaleTimeString()}. Ralat: ${err.message}`,
+                                "warning",
+                                "/schedule.html"
+                            );
 
                             console.log(`[Cron] Post ID: ${post.id} rescheduled for retry at ${retryTimeStr} (Attempt ${newRetryCount} of 3)`);
                         }
@@ -6140,20 +6381,26 @@ CRITICAL LANGUAGE / SPEECH RULES:
                 for (const acct of threadAccounts.results) {
                     try {
                         const decryptedToken = await decryptToken(acct.access_token, encryptionSecret);
-                        // Fetch real-time followers_count from Profile fields endpoint instead of insights API (no 24h delay)
-                        const profileUrl = `https://graph.threads.net/v1.0/${acct.threads_user_id}?fields=followers_count&access_token=${decryptedToken}`;
-                        const profileRes = await fetch(profileUrl);
-                        if (profileRes.ok) {
-                            const profileData = await profileRes.json();
-                            const followersCount = profileData.followers_count || 0;
-                            await env.DB.prepare(
-                                `INSERT INTO workspace_analytics (workspace_id, account_id, platform, followers_count, recorded_at)
-                                 VALUES (?, ?, 'threads', ?, datetime('now'))`
-                            ).bind(acct.workspace_id, acct.account_id, followersCount).run();
-                            console.log(`[CronSync] Real-time followers count account ${acct.account_id}: ${followersCount}`);
+                        // Fetch real-time followers_count from Insights endpoint
+                        const insightsUrl = `https://graph.threads.net/v1.0/${acct.threads_user_id}/threads_insights?metric=followers_count&access_token=${decryptedToken}`;
+                        const insightsRes = await fetch(insightsUrl);
+                        if (insightsRes.ok) {
+                            const insightsData = await insightsRes.json();
+                            if (insightsData.error) {
+                                console.log(`[CronSync] followers_count not available for account ${acct.account_id}: ${insightsData.error.message}`);
+                            } else if (insightsData.data && Array.isArray(insightsData.data)) {
+                                const followersCount = insightsData.data[0]?.total_value?.value || 0;
+                                await env.DB.prepare(
+                                    `INSERT INTO workspace_analytics (workspace_id, account_id, platform, followers_count, recorded_at)
+                                     VALUES (?, ?, 'threads', ?, datetime('now'))`
+                                ).bind(acct.workspace_id, acct.account_id, followersCount).run();
+                                console.log(`[CronSync] Real-time followers count account ${acct.account_id}: ${followersCount}`);
+                            } else {
+                                console.log(`[CronSync] followers_count field not returned for account ${acct.account_id}, skipping.`);
+                            }
                         } else {
-                            const errBody = await profileRes.text().catch(() => '');
-                            console.error(`[CronSync] Real-time Follower API ${profileRes.status} for account ${acct.account_id}: ${errBody.substring(0, 100)}`);
+                            const errBody = await insightsRes.text().catch(() => '');
+                            console.log(`[CronSync] Follower API ${insightsRes.status} for account ${acct.account_id}: ${errBody.substring(0, 100)}`);
                         }
                     } catch (followerErr) {
                         console.error(`[CronSync] Follower error account ${acct.account_id}: ${followerErr.message}`);

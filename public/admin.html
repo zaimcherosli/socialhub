@@ -184,6 +184,26 @@
             background-color: rgba(16, 185, 129, 0.15);
             color: #10b981;
         }
+
+        /* Switch slider styles */
+        .switch-container input:checked + .slider-round {
+            background-color: var(--color-primary, #6366f1);
+        }
+        .switch-container .slider-round:before {
+            position: absolute;
+            content: "";
+            height: 18px;
+            width: 18px;
+            left: 3px;
+            bottom: 3px;
+            background-color: #ffffff;
+            transition: .3s;
+            border-radius: 50%;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.15);
+        }
+        .switch-container input:checked + .slider-round:before {
+            transform: translateX(20px);
+        }
     </style>
 </head>
 <body>
@@ -243,20 +263,56 @@
                     </div>
                 </div>
 
-                <div class="card">
-                    <h3 style="margin-top: 0; margin-bottom: 1rem; font-size: 1rem; font-weight: 700;">Platform Operational Status</h3>
-                    <div style="display: flex; flex-direction: column; gap: 0.75rem; font-size: 0.875rem;">
-                        <div style="display: flex; justify-content: space-between; border-bottom: 1px solid var(--color-border); padding-bottom: 0.5rem;">
-                            <span style="color: var(--color-text-secondary);">D1 Database Link</span>
-                            <span style="font-weight: 600; color: var(--color-success);">Connected</span>
+                <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); gap: 1.5rem;">
+                    <!-- Operational Status -->
+                    <div class="card" style="margin: 0;">
+                        <h3 style="margin-top: 0; margin-bottom: 1rem; font-size: 1rem; font-weight: 700;">Platform Operational Status</h3>
+                        <div style="display: flex; flex-direction: column; gap: 0.75rem; font-size: 0.875rem;">
+                            <div style="display: flex; justify-content: space-between; border-bottom: 1px solid var(--color-border); padding-bottom: 0.5rem;">
+                                <span style="color: var(--color-text-secondary);">D1 Database Link</span>
+                                <span style="font-weight: 600; color: var(--color-success);">Connected</span>
+                            </div>
+                            <div style="display: flex; justify-content: space-between; border-bottom: 1px solid var(--color-border); padding-bottom: 0.5rem;">
+                                <span style="color: var(--color-text-secondary);">Threads API Gateway</span>
+                                <span style="font-weight: 600; color: var(--color-success);">Ready</span>
+                            </div>
+                            <div style="display: flex; justify-content: space-between; padding-bottom: 0.25rem;">
+                                <span style="color: var(--color-text-secondary);">System Version</span>
+                                <span style="font-weight: 600; color: var(--color-text-tertiary);">v0.17.0</span>
+                            </div>
                         </div>
-                        <div style="display: flex; justify-content: space-between; border-bottom: 1px solid var(--color-border); padding-bottom: 0.5rem;">
-                            <span style="color: var(--color-text-secondary);">Threads API Gateway</span>
-                            <span style="font-weight: 600; color: var(--color-success);">Ready</span>
-                        </div>
-                        <div style="display: flex; justify-content: space-between; padding-bottom: 0.25rem;">
-                            <span style="color: var(--color-text-secondary);">System Version</span>
-                            <span style="font-weight: 600; color: var(--color-text-tertiary);">v0.17.0</span>
+                    </div>
+
+                    <!-- Global System AI Keys Toggles -->
+                    <div class="card" style="margin: 0; display: flex; flex-direction: column; gap: 1.25rem;">
+                        <h3 style="margin-top: 0; margin-bottom: 0.25rem; font-size: 1rem; font-weight: 700;">Global System AI Keys (Fallback)</h3>
+                        <p style="font-size: 0.775rem; color: var(--color-text-secondary); margin: 0; line-height: 1.4;">
+                            Turn ON or OFF fallback system keys (Zaim's own API keys) for all workspaces without their own custom BYOK keys.
+                        </p>
+                        <div style="display: flex; flex-direction: column; gap: 1rem;">
+                            <!-- Gemini Switch -->
+                            <div style="display: flex; justify-content: space-between; align-items: center; background: var(--color-bg-accent); padding: 0.75rem 1rem; border-radius: var(--radius-sm); border: 1px solid var(--color-border);">
+                                <div>
+                                    <div style="font-weight: 600; font-size: 0.85rem; color: var(--color-text-primary);">System Gemini API Key</div>
+                                    <div style="font-size: 0.75rem; color: var(--color-text-tertiary);">Fallback Gemini 2.5 Flash</div>
+                                </div>
+                                <label class="switch-container" style="position: relative; display: inline-block; width: 44px; height: 24px;">
+                                    <input type="checkbox" id="chkSysGemini" style="opacity: 0; width: 0; height: 0;">
+                                    <span class="slider-round" style="position: absolute; cursor: pointer; inset: 0; background-color: #cbd5e1; transition: .3s; border-radius: 24px;"></span>
+                                </label>
+                            </div>
+
+                            <!-- OpenAI Switch -->
+                            <div style="display: flex; justify-content: space-between; align-items: center; background: var(--color-bg-accent); padding: 0.75rem 1rem; border-radius: var(--radius-sm); border: 1px solid var(--color-border);">
+                                <div>
+                                    <div style="font-weight: 600; font-size: 0.85rem; color: var(--color-text-primary);">System OpenAI API Key</div>
+                                    <div style="font-size: 0.75rem; color: var(--color-text-tertiary);">Fallback GPT-4o-mini</div>
+                                </div>
+                                <label class="switch-container" style="position: relative; display: inline-block; width: 44px; height: 24px;">
+                                    <input type="checkbox" id="chkSysOpenAI" style="opacity: 0; width: 0; height: 0;">
+                                    <span class="slider-round" style="position: absolute; cursor: pointer; inset: 0; background-color: #cbd5e1; transition: .3s; border-radius: 24px;"></span>
+                                </label>
+                            </div>
                         </div>
                     </div>
                 </div>
@@ -298,13 +354,14 @@
                                 <th>Workspace Name</th>
                                 <th>Owner Email</th>
                                 <th>Subscription Plan</th>
+                                <th>AI Usage (mth)</th>
                                 <th>Status</th>
                                 <th>Created At</th>
                                 <th>Manage Plan</th>
                             </tr>
                         </thead>
                         <tbody id="table-workspaces-body">
-                            <tr><td colspan="6" style="text-align: center;">Loading workspaces...</td></tr>
+                            <tr><td colspan="7" style="text-align: center;">Loading workspaces...</td></tr>
                         </tbody>
                     </table>
                 </div>
@@ -312,6 +369,9 @@
 
             <!-- TAB 4: AUDIT LOGS -->
             <div class="admin-section" id="sec-logs">
+                <div class="search-container">
+                    <input type="text" class="search-input" id="search-logs" placeholder="Search by email, workspace, action or details...">
+                </div>
                 <div class="admin-table-container">
                     <table class="admin-table">
                         <thead>
@@ -423,12 +483,14 @@
         // Variables
         let usersData = [];
         let workspacesData = [];
+        let logsData = [];
 
         // Elements
         const tabs = document.querySelectorAll('.tab-btn');
         const sections = document.querySelectorAll('.admin-section');
         const searchUsersInput = document.getElementById('search-users');
         const searchWorkspacesInput = document.getElementById('search-workspaces');
+        const searchLogsInput = document.getElementById('search-logs');
 
         // Modal Elements
         const resetModal = document.getElementById('reset-password-modal');
@@ -464,6 +526,45 @@
         // Initialize Page
         loadOverview();
 
+        // System settings event listeners
+        const chkSysGemini = document.getElementById('chkSysGemini');
+        const chkSysOpenAI = document.getElementById('chkSysOpenAI');
+
+        async function loadSystemSettings() {
+            try {
+                const res = await apiClient.get('/admin/system-settings');
+                if (res.success && res.settings) {
+                    chkSysGemini.checked = !res.settings.sys_gemini_disabled;
+                    chkSysOpenAI.checked = !res.settings.sys_openai_disabled;
+                }
+            } catch (err) {
+                console.error('Error fetching system settings:', err);
+            }
+        }
+
+        async function updateSystemSettings() {
+            try {
+                const sys_gemini_disabled = !chkSysGemini.checked;
+                const sys_openai_disabled = !chkSysOpenAI.checked;
+
+                const res = await apiClient.post('/admin/system-settings', {
+                    sys_gemini_disabled,
+                    sys_openai_disabled
+                });
+                if (res.success) {
+                    notificationService.success('Tetapan API Key Sistem berjaya dikemas kini!');
+                } else {
+                    notificationService.error('Gagal mengemas kini tetapan.');
+                }
+            } catch (err) {
+                console.error('Error updating system settings:', err);
+                notificationService.error('Ralat semasa mengemas kini tetapan.');
+            }
+        }
+
+        chkSysGemini.addEventListener('change', updateSystemSettings);
+        chkSysOpenAI.addEventListener('change', updateSystemSettings);
+
         // 1. LOAD OVERVIEW
         async function loadOverview() {
             try {
@@ -477,6 +578,7 @@
             } catch (err) {
                 console.error('Error fetching admin stats:', err);
             }
+            await loadSystemSettings();
         }
 
         // 2. LOAD USERS
@@ -611,7 +713,7 @@
                     renderWorkspaces(workspacesData);
                 }
             } catch (err) {
-                tbody.innerHTML = `<tr><td colspan="6" style="text-align: center; color: var(--color-danger);">Failed to load workspaces.</td></tr>`;
+                tbody.innerHTML = `<tr><td colspan="7" style="text-align: center; color: var(--color-danger);">Failed to load workspaces.</td></tr>`;
             }
         }
 
@@ -619,18 +721,28 @@
             const tbody = document.getElementById('table-workspaces-body');
             tbody.innerHTML = '';
             if (workspaces.length === 0) {
-                tbody.innerHTML = `<tr><td colspan="6" style="text-align: center;">No workspaces found matching query.</td></tr>`;
+                tbody.innerHTML = `<tr><td colspan="7" style="text-align: center;">No workspaces found matching query.</td></tr>`;
                 return;
             }
+
+            const maxCreditsMap = {
+                free: 20,
+                starter: 10,
+                pro: 250,
+                agency: 800,
+                enterprise: 2500
+            };
 
             workspaces.forEach(ws => {
                 const tr = document.createElement('tr');
                 const cleanDate = new Date(ws.created_at).toLocaleDateString();
+                const maxC = maxCreditsMap[ws.subscription_plan] || 0;
 
                 tr.innerHTML = `
                     <td style="font-weight: 600;">${ws.name}</td>
                     <td>${ws.owner_email || '<span style="color: var(--color-text-tertiary);">No Owner</span>'}</td>
                     <td><span class="badge ${ws.subscription_plan}">${ws.subscription_plan}</span></td>
+                    <td><strong>${ws.ai_credits_used || 0}</strong> / ${maxC}</td>
                     <td><span class="badge" style="background-color: rgba(16,185,129,0.15); color: #10b981;">Active</span></td>
                     <td>${cleanDate}</td>
                     <td>
@@ -684,29 +796,47 @@
             try {
                 const res = await apiClient.get('/admin/logs');
                 if (res.success && res.logs) {
-                    tbody.innerHTML = '';
-                    if (res.logs.length === 0) {
-                        tbody.innerHTML = `<tr><td colspan="5" style="text-align: center;">No audit logs present.</td></tr>`;
-                        return;
-                    }
-
-                    res.logs.forEach(log => {
-                        const tr = document.createElement('tr');
-                        const cleanTime = new Date(log.created_at).toLocaleString();
-                        tr.innerHTML = `
-                            <td style="white-space: nowrap; color: var(--color-text-tertiary);">${cleanTime}</td>
-                            <td style="font-weight: 500;">${log.user_email || 'System'}</td>
-                            <td style="color: var(--color-text-secondary);">${log.workspace_name || 'Global'}</td>
-                            <td><span style="font-family: monospace; font-weight: 600; padding: 0.15rem 0.35rem; background: var(--color-bg-secondary); border-radius: var(--radius-sm); font-size: 0.75rem;">${log.action}</span></td>
-                            <td style="max-width: 300px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;" title="${log.details || ''}">${log.details || ''}</td>
-                        `;
-                        tbody.appendChild(tr);
-                    });
+                    logsData = res.logs;
+                    renderLogs(logsData);
                 }
             } catch (err) {
                 tbody.innerHTML = `<tr><td colspan="5" style="text-align: center; color: var(--color-danger);">Failed to load audit logs.</td></tr>`;
             }
         }
+
+        function renderLogs(logs) {
+            const tbody = document.getElementById('table-logs-body');
+            tbody.innerHTML = '';
+            if (logs.length === 0) {
+                tbody.innerHTML = `<tr><td colspan="5" style="text-align: center;">No audit logs matching query.</td></tr>`;
+                return;
+            }
+
+            logs.forEach(log => {
+                const tr = document.createElement('tr');
+                const cleanTime = new Date(log.created_at).toLocaleString();
+                tr.innerHTML = `
+                    <td style="white-space: nowrap; color: var(--color-text-tertiary);">${cleanTime}</td>
+                    <td style="font-weight: 500;">${log.user_email || 'System'}</td>
+                    <td style="color: var(--color-text-secondary);">${log.workspace_name || 'Global'}</td>
+                    <td><span style="font-family: monospace; font-weight: 600; padding: 0.15rem 0.35rem; background: var(--color-bg-secondary); border-radius: var(--radius-sm); font-size: 0.75rem;">${log.action}</span></td>
+                    <td style="max-width: 300px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;" title="${log.details || ''}">${log.details || ''}</td>
+                `;
+                tbody.appendChild(tr);
+            });
+        }
+
+        // Search Logs filter
+        searchLogsInput.addEventListener('input', () => {
+            const query = searchLogsInput.value.toLowerCase().trim();
+            const filtered = logsData.filter(log => 
+                (log.user_email || '').toLowerCase().includes(query) || 
+                (log.workspace_name || '').toLowerCase().includes(query) || 
+                (log.action || '').toLowerCase().includes(query) || 
+                (log.details || '').toLowerCase().includes(query)
+            );
+            renderLogs(filtered);
+        });
 
         // 5. NICHE RULES MANAGEMENT
         let nicheRulesData = [];

@@ -950,29 +950,10 @@
         });
 
         // 3. Schedule Post
-        const modal = document.getElementById('aiScheduleModal');
-        document.getElementById('btnAIPlanSchedule').addEventListener('click', () => {
+        document.getElementById('btnAIPlanSchedule').addEventListener('click', async () => {
             try {
                 const payload = getPayloadData();
                 if (!validatePayload(payload)) return;
-
-                if (activePreset === 'morning_greeting') {
-                    modal.setRecommendedTime(4, 30);
-                } else if (activePreset === 'selawat' || activePreset === 'engagement' || activePreset === 'motivasi') {
-                    modal.setRecommendedTime(5, 0);
-                }
-
-                modal.show();
-            } catch (err) {
-                console.error("Error opening schedule modal:", err);
-                alert(`Error opening schedule modal: ${err.message}`);
-            }
-        });
-
-        modal.addEventListener('schedule-saved', async (e) => {
-            try {
-                const payload = getPayloadData();
-                const { time, timezone, triggerType, triggerThreshold } = e.detail;
 
                 showProgress('Scheduling Post', 'Saving schedule to database...', 40, '📅');
 
@@ -980,10 +961,10 @@
                     title: payload.title,
                     content: payload.content,
                     targets: payload.targets,
-                    publish_at: new Date(time).toISOString(),
-                    timezone,
-                    triggerType,
-                    triggerThreshold
+                    publish_at: 'auto',
+                    timezone: Intl.DateTimeFormat().resolvedOptions().timeZone || 'Asia/Kuala_Lumpur',
+                    triggerType: 'none',
+                    triggerThreshold: 0
                 });
 
                 if (res.success) {

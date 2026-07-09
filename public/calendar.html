@@ -813,6 +813,19 @@
             bindBulkActions();
             await loadAccountsDropdown();
             await fetchSchedules();
+
+            // Auto-refresh calendar data in the background silently every 30 seconds
+            setInterval(async () => {
+                try {
+                    const res = await schedulerService.getScheduledPosts();
+                    if (res && res.results) {
+                        allSchedules = res.results;
+                        applyFiltersAndRender();
+                    }
+                } catch (err) {
+                    // Silently ignore background poll errors to prevent disrupting user experience
+                }
+            }, 30000);
         }
 
         async function fetchSchedules() {

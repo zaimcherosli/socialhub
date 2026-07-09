@@ -6,64 +6,95 @@ import { OpenAIProvider } from './OpenAIProvider.js';
 export class AIFactory {
     static getProvider(env) {
         const model = env.OPENROUTER_MODEL || "";
-        const hasGeminiKey = !!env.GEMINI_API_KEY;
-        const hasOpenRouterKey = !!env.OPENROUTER_API_KEY;
-        const hasOpenAIKey = !!env.OPENAI_API_KEY;
-
-        // Check if a workspace-specific API key has been set.
-        // We detect this by checking if any of the key env vars differ from env defaults.
-        // The workspace sets OPENROUTER_API_KEY, GEMINI_API_KEY, and OPENAI_API_KEY
-        // all to the same decrypted value. If none of them are set as a custom key
-        // (i.e. no workspace-level override happened), we fallback to Cloudflare AI.
         const hasWorkspaceKey = !!(env._workspaceKeySet);
-        const isOpenRouterKey = (env.OPENROUTER_API_KEY || "").startsWith("sk-or-") || 
-                                (env.OPENAI_API_KEY || "").startsWith("sk-or-");
+        const workspaceKey = hasWorkspaceKey ? (env.OPENAI_API_KEY || env.GEMINI_API_KEY || env.OPENROUTER_API_KEY || "") : "";
 
-        const isDirectOpenAI = hasOpenAIKey && !isOpenRouterKey && (
-            model.toLowerCase().includes("gpt-") || 
-            model.toLowerCase().startsWith("openai/")
+        // Determine which providers actually have keys configured
+        let hasGemini = false;
+        let hasOpenAI = false;
+        let hasOpenRouter = false;
+
+        if (hasWorkspaceKey) {
+            if (workspaceKey.startsWith("AIza")) {
+                hasGemini = true;
+            } else if (workspaceKey.startsWith("sk-or-")) {
+                hasOpenRouter = true;
+            } else if (workspaceKey.startsWith("sk-")) {
+                hasOpenAI = true;
+            }
+        } else {
+            hasGemini = !!env.GEMINI_API_KEY;
+            hasOpenRouter = !!env.OPENROUTER_API_KEY;
+            hasOpenAI = !!env.OPENAI_API_KEY;
+        }
+
+        // Force model override based on key format and default model names
+        let activeModel = model;
+        if (hasOpenAI && (!model.toLowerCase().includes("gpt-") && !model.toLowerCase().startsWith("openai/"))) {
+            activeModel = "gpt-4o-mini";
+        } else if (hasGemini && !model.toLowerCase().includes("gemini")) {
+            activeModel = "gemini-2.5-flash";
+        }
+
+        // 1. Direct OpenAI Check
+        const isDirectOpenAI = hasOpenAI && (
+            activeModel.toLowerCase().includes("gpt-") || 
+            activeModel.toLowerCase().startsWith("openai/")
         );
 
         if (isDirectOpenAI) {
-            const cleanModel = model.startsWith("openai/") ? model.substring(7) : model;
-            return new OpenAIProvider(env.OPENAI_API_KEY, cleanModel);
+            const cleanModel = activeModel.startsWith("openai/") ? activeModel.substring(7) : activeModel;
+            return new OpenAIProvider(env.OPENAI_API_KEY || workspaceKey, cleanModel);
         }
 
-        const isCloudflare = model.toLowerCase().includes("cloudflare") || 
-                             model.toLowerCase().includes("llama-3-8b") ||
-                             model.toLowerCase().includes("llama-3.1-8b") ||
-                             model.toLowerCase().includes("llama-3.2-3b") ||
-                             model.startsWith("@cf/") ||
-                             (!hasGeminiKey && !hasOpenRouterKey && env.AI) ||
+        // 2. Gemini Check
+        const isGemini = hasGemini || activeModel.toLowerCase().includes("gemini");
+
+        if (isGemini) {
+            const apiKey = env.GEMINI_API_KEY || env.OPENROUTER_API_KEY || workspaceKey;
+            if (!apiKey) {
+                if (env.AI) return new CloudflareAIProvider(env.AI);
+                throw new Error("Missing GEMINI_API_KEY configuration in environment variables.");
+            }
+            let cleanModel = activeModel;
+            if (cleanModel.includes('/')) {
+                const parts = cleanModel.split('/');
+                const lastPart = parts[parts.length - 1];
+                if (lastPart.toLowerCase().includes('gemini')) {
+                    cleanModel = lastPart;
+                } else {
+                    cleanModel = 'gemini-2.5-flash';
+                }
+            }
+            if (!cleanModel) cleanModel = 'gemini-2.5-flash';
+            return new GeminiProvider(apiKey, cleanModel);
+        }
+
+        // 3. Cloudflare AI Check
+        const isCloudflare = activeModel.toLowerCase().includes("cloudflare") || 
+                             activeModel.toLowerCase().includes("llama-3-8b") ||
+                             activeModel.toLowerCase().includes("llama-3.1-8b") ||
+                             activeModel.toLowerCase().includes("llama-3.2-3b") ||
+                             activeModel.startsWith("@cf/") ||
+                             (!hasGemini && !hasOpenRouter && env.AI) ||
                              (!hasWorkspaceKey && env.AI);
 
         if (isCloudflare && env.AI) {
-            const isCfModel = model.startsWith("@cf/") || 
-                             model.toLowerCase().includes("llama") || 
-                             model.toLowerCase().includes("mistral") || 
-                             model.toLowerCase().includes("gemma") || 
-                             model.toLowerCase().includes("qwen");
-            const cleanModel = isCfModel ? model : '@cf/meta/llama-3.2-3b-instruct';
+            const isCfModel = activeModel.startsWith("@cf/") || 
+                             activeModel.toLowerCase().includes("llama") || 
+                             activeModel.toLowerCase().includes("mistral") || 
+                             activeModel.toLowerCase().includes("gemma") || 
+                             activeModel.toLowerCase().includes("qwen");
+            const cleanModel = isCfModel ? activeModel : '@cf/meta/llama-3.2-3b-instruct';
             return new CloudflareAIProvider(env.AI, cleanModel);
-        }
-
-        const isGemini = model.toLowerCase().includes("gemini") || hasGeminiKey;
-
-        if (isGemini) {
-            const apiKey = env.GEMINI_API_KEY || env.OPENROUTER_API_KEY;
-            if (!apiKey) {
-                if (env.AI) return new CloudflareAIProvider(env.AI);
-                throw new Error("Missing GEMINI_API_KEY or OPENROUTER_API_KEY configuration in environment variables.");
-            }
-            const cleanModel = model.includes('/') ? 'gemini-2.0-flash' : (model || 'gemini-2.0-flash');
-            return new GeminiProvider(apiKey, cleanModel);
         } else {
-            const apiKey = env.OPENROUTER_API_KEY;
+            // OpenRouter fallback
+            const apiKey = env.OPENROUTER_API_KEY || workspaceKey;
             if (!apiKey) {
                 if (env.AI) return new CloudflareAIProvider(env.AI);
                 throw new Error("Missing OPENROUTER_API_KEY configuration in environment variables.");
             }
-            const cleanModel = model || "meta-llama/llama-3.2-3b-instruct:free";
+            const cleanModel = activeModel || "meta-llama/llama-3.2-3b-instruct:free";
             return new OpenRouterProvider(apiKey, cleanModel);
         }
     }

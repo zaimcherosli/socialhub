@@ -79,8 +79,9 @@ Guidelines:
 2. Since Threads allows multiple posts in a single thread (thread storm), divide the copywriting into sequential steps/points (e.g. introduction, key features, benefits, problem solved).
 3. Return each section as a separate thread post.
 4. Each thread post MUST be under 450 characters.
-5. Provide a strong Call to Action (CTA) pointing to the product/video link.
-6. Provide relevant local hashtags.`;
+5. Provide a very casual, non-pushy, laid-back Malaysian conversational redirect phrase pointing to the link (e.g. "Nah link kalau ada yang nak ushar:", "Korang ushar sendiri kat sini:", "Kot lah ada yang nak tengok:"). Avoid pushy sales pitches like "Beli sekarang!" or "Dapatkan segera!".
+6. Provide relevant local hashtags.
+7. HOOK VARIATION: Ensure the very first sentence (hook) of the thread is highly diverse. Do NOT start with the repetitive "Pernah tak...?" or "Korang tahu tak...?" question pattern. Instead, start with a direct statement, interesting reflection, or natural observation (e.g., "Benda paling leceh bila...", "Ramai tak perasan...", "Aku baru try...").`;
 
         if (customInstructions && customInstructions.trim() !== '') {
             prompt += `\n7. CRITICAL CUSTOM RULES & GUIDELINES: You MUST follow these specific instructions for hooks, content flow, tone, and CTA layout. Adhere to this strictly:\n${customInstructions}`;
@@ -94,7 +95,7 @@ Provide the output in a strict JSON format with the following keys. Return ONLY 
     "Thread 1 content...",
     "Thread 2 content..."
   ],
-  "cta": "Click the link to check it out: ${url}",
+  "cta": "Nah link kalau nak ushar:",
   "hashtags": ["hashtag1", "hashtag2", "hashtag3"]
 }`;
 

@@ -23,9 +23,9 @@ export class AutopilotService {
 - The caption text must be under 350 characters.`;
         }
 
-        let ctaInstructions = "A compelling call to action.";
+        let ctaInstructions = "A casual, non-pushy redirect phrase.";
         if (ctaLink && ctaLink.trim() !== '') {
-            ctaInstructions = `A compelling call to action directing the user to this link: ${ctaLink}. Example: 'Klik link ini untuk info lanjut: ${ctaLink}'.`;
+            ctaInstructions = `A very casual, laid-back, and non-pushy Malaysian conversational redirect phrase pointing to the link: ${ctaLink}. Example: 'Nah link kalau ada yang nak ushar: ${ctaLink}', 'Korang ushar sendiri kat sini: ${ctaLink}', or 'Kot lah ada yang nak tengok: ${ctaLink}'. Do NOT write salesy or pushy calls-to-action like 'Dapatkan sekarang!' or 'Beli hari ini!'.`;
         }
 
         // Custom prompt requesting a JSON array of posts
@@ -55,6 +55,18 @@ Each object in the JSON array must contain exactly these keys:
 - caption: The caption text for the post (written in ${language} language, tailored for local Malaysian audience if Malay, avoiding Indonesian vocabulary. ${formatInstructions}).
 - cta: ${ctaInstructions}
 - hashtags: An array of 3 relevant hashtags.
+
+CRITICAL HOOK DIVERSITY RULES (VERY IMPORTANT TO AVOID REPETITION):
+1. Vary the opening hook (first sentence) of every post. Do NOT reuse the same structure or opening style across different posts.
+2. NO REPETITIVE STARTING WORDS: NO TWO posts in the list may start with the same word (e.g., do NOT start multiple posts with "Benda...", "Bila...", "Aku...", "Dulu..."). Each post must start with a completely unique word and grammatical structure.
+3. STICK TO STRICT HOOK LIMITATIONS: A maximum of ONE post in the list may start with a question hook like "Pernah tak...?" or "Korang tahu tak...?".
+4. For all other posts, use a wide variety of different hook styles such as:
+   - Direct relatable statements (e.g., "Rasa meluat pulak bila...", "Ramai yang tersilap langkah bila...", "Rupa-rupanya ramai tak tahu...")
+   - Direct observations/opinions (e.g., "Tengah layan phone tiba-tiba...", "Dulu aku pun jenis yang...", "Baru-baru ni aku perasan...")
+   - Straightforward sharing/tips (e.g., "Ini cara paling mudah untuk...", "Sebenarnya tak susah pun nak...", "Khas untuk yang nak...")
+   - Experiential stories (e.g., "Minggu lepas aku cuba...", "Lama juga aku cari solution untuk...")
+5. Make each post sound completely fresh, unique, and written at different times by a real person on Threads. Do NOT let them look templated or AI-generated.
+6. CURIOSITY & MYSTERY RULE (No exact product/brand names): NEVER mention the exact product name, brand name, model name, or specific residential project name directly in the caption text. Instead, refer to it using generic, curiosity-inducing terms (e.g. 'benda ni', 'gadget ni', 'kipas ni', 'apartment ni', 'unit ni', 'benda viral ni') to create mystery and drive clicks to the destination link.
 
 Ensure that the posts are diverse (e.g. one educational/value post, one promotional/sales post, one engaging/question post).`;
 

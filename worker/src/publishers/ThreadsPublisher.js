@@ -54,18 +54,8 @@ export class ThreadsPublisher extends PublisherInterface {
             };
         }
 
-        // Helper: split text into chunks of <= 500 characters on paragraph/word bounds
-        const splitTextIntoThreads = (text, limit = 500) => {
-            const hasSeparator = text.includes("---thread-separator---") ||
-                                 text.includes("[THREAD_DELIMITER]") ||
-                                 /\r?\n---\r?\n/.test(text) ||
-                                 /\r?\n---\s*\r?\n/.test(text);
-            if (hasSeparator) {
-                const regex = /(?:---thread-separator---|\[THREAD_DELIMITER\]|\r?\n---\r?\n|\r?\n---\s*\r?\n)/gi;
-                return text.split(regex).map(c => c.trim()).filter(Boolean);
-            }
+        const splitParagraphsAndWords = (text, limit) => {
             if (text.length <= limit) return [text];
-            
             const paragraphs = text.split('\n');
             const chunks = [];
             let currentChunk = "";
@@ -75,7 +65,7 @@ export class ThreadsPublisher extends PublisherInterface {
                     const words = paragraph.split(' ');
                     for (const word of words) {
                         if ((currentChunk + " " + word).trim().length > limit) {
-                            chunks.push(currentChunk.trim());
+                            if (currentChunk.trim()) chunks.push(currentChunk.trim());
                             currentChunk = word;
                         } else {
                             currentChunk = (currentChunk + " " + word).trim();
@@ -83,7 +73,7 @@ export class ThreadsPublisher extends PublisherInterface {
                     }
                 } else {
                     if ((currentChunk + "\n" + paragraph).trim().length > limit) {
-                        chunks.push(currentChunk.trim());
+                        if (currentChunk.trim()) chunks.push(currentChunk.trim());
                         currentChunk = paragraph;
                     } else {
                         currentChunk = currentChunk ? (currentChunk + "\n" + paragraph) : paragraph;
@@ -94,6 +84,28 @@ export class ThreadsPublisher extends PublisherInterface {
                 chunks.push(currentChunk.trim());
             }
             return chunks;
+        };
+
+        // Helper: split text into chunks of <= 500 characters on paragraph/word bounds
+        const splitTextIntoThreads = (text, limit = 500) => {
+            const hasSeparator = text.includes("---thread-separator---") ||
+                                 text.includes("[THREAD_DELIMITER]") ||
+                                 /\r?\n---\r?\n/.test(text) ||
+                                 /\r?\n---\s*\r?\n/.test(text);
+            if (hasSeparator) {
+                const regex = /(?:---thread-separator---|\[THREAD_DELIMITER\]|\r?\n---\r?\n|\r?\n---\s*\r?\n)/gi;
+                const rawChunks = text.split(regex).map(c => c.trim()).filter(Boolean);
+                const finalChunks = [];
+                for (const chunk of rawChunks) {
+                    if (chunk.length <= limit) {
+                        finalChunks.push(chunk);
+                    } else {
+                        finalChunks.push(...splitParagraphsAndWords(chunk, limit));
+                    }
+                }
+                return finalChunks;
+            }
+            return splitParagraphsAndWords(text, limit);
         };
 
         try {
@@ -176,7 +188,12 @@ export class ThreadsPublisher extends PublisherInterface {
                 const containerId = containerData.id;
 
                 // Poll container status to verify it's finished processing before publishing
+                // Skip status polling for TEXT-only containers to speed up publication and prevent timeouts
                 let isReady = false;
+                if (!hasImage) {
+                    isReady = true;
+                }
+                
                 let attempts = 0;
                 while (!isReady && attempts < 15) {
                     attempts++;
@@ -265,9 +282,10 @@ export class ThreadsPublisher extends PublisherInterface {
                     firstPostId = lastPostId;
                 }
 
-                // Add a small delay between publications to maintain order on the Threads timeline (increased to 5 seconds to help propagation)
+                // Add a small delay between publications to maintain order on the Threads timeline
+                // Reduced from 5 seconds to 1.5 seconds to prevent Cloudflare Worker request timeouts
                 if (i < chunks.length - 1) {
-                    await new Promise(resolve => setTimeout(resolve, 5000));
+                    await new Promise(resolve => setTimeout(resolve, 1500));
                 }
             }
 

@@ -2692,6 +2692,14 @@ CRITICAL TONE RULES:
                             ).run();
                         }
 
+                        // Log AI generation usage for billing credits
+                        await logActivity(
+                            activeWorkspace.workspace_id,
+                            user.id,
+                            'ai_generate',
+                            `Autoposter URL generation: url=${(url || '').substring(0, 40)}`
+                        );
+
                         return new Response(JSON.stringify({ success: true, status: finalStatus, publishAt }), { status: 200, headers: corsHeaders });
                     } catch (err) {
                         console.error("Autoposter direct endpoint failed:", err);
@@ -3206,6 +3214,14 @@ CRITICAL LANGUAGE / SPEECH RULES:
                                 finalStatus,
                                 post.publish_at
                             ).run();
+                            
+                            // Log AI generation usage for billing credits
+                            await logActivity(
+                                activeWorkspace.workspace_id,
+                                user.id,
+                                'ai_generate',
+                                `Autopilot campaign generation: platform=${platform || 'threads'}, niche=${(niche || '').substring(0, 30)}`
+                            );
                             
                             insertedPosts.push({
                                 id: result.meta?.last_row_id || null,

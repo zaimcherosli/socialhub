@@ -2500,6 +2500,7 @@ CRITICAL TONE RULES:
 
                         let customGuidelinesBlock = [
                             getFactPreservingInstructions(aiEnv.custom_ai_instructions),
+                            formatInstructions,
                             toneInstruction,
                             `CTA Instructions: ${ctaPromptInstructions}`
                         ].filter(Boolean).join('\n\n');

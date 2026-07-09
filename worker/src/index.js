@@ -1354,6 +1354,40 @@ export default {
             'Content-Type': 'application/json'
         };
 
+        const getBillingCycleStart = (createdAtString) => {
+            if (!createdAtString) {
+                const d = new Date(new Date().getFullYear(), new Date().getMonth(), 1);
+                const pad = (num) => String(num).padStart(2, '0');
+                return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())} 00:00:00`;
+            }
+            
+            const cleanedString = createdAtString.includes('T') ? createdAtString : createdAtString.replace(' ', 'T');
+            const createdDate = new Date(cleanedString);
+            const anniversaryDay = createdDate.getDate();
+            
+            const now = new Date();
+            const getMaxDays = (year, month) => new Date(year, month + 1, 0).getDate();
+            
+            let targetYear = now.getFullYear();
+            let targetMonth = now.getMonth();
+            
+            let day = Math.min(anniversaryDay, getMaxDays(targetYear, targetMonth));
+            let cycleStart = new Date(targetYear, targetMonth, day);
+            
+            if (cycleStart > now) {
+                targetMonth -= 1;
+                if (targetMonth < 0) {
+                    targetMonth = 11;
+                    targetYear -= 1;
+                }
+                day = Math.min(anniversaryDay, getMaxDays(targetYear, targetMonth));
+                cycleStart = new Date(targetYear, targetMonth, day);
+            }
+            
+            const pad = (num) => String(num).padStart(2, '0');
+            return `${cycleStart.getFullYear()}-${pad(cycleStart.getMonth() + 1)}-${pad(cycleStart.getDate())} 00:00:00`;
+        };
+
         // Ensure active_workspace_id column exists in users table (idempotent entrypoint auto-migration)
         if (env.DB) {
             try {
@@ -1624,7 +1658,7 @@ export default {
             // If user has active workspace selected, verify and return it
             if (user.active_workspace_id) {
                 const ws = await env.DB.prepare(
-                    `SELECT m.role, w.id as workspace_id, w.uuid, w.name, w.slug, w.subscription_plan, w.subscription_status, w.whatsapp_number
+                    `SELECT m.role, w.id as workspace_id, w.uuid, w.name, w.slug, w.subscription_plan, w.subscription_status, w.whatsapp_number, w.created_at as created_at
                      FROM workspace_members m
                      JOIN workspaces w ON m.workspace_id = w.id
                      WHERE m.user_id = ? AND w.id = ?`
@@ -1634,7 +1668,7 @@ export default {
 
             // Fallback to first available workspace
             const fallbackWs = await env.DB.prepare(
-                `SELECT m.role, w.id as workspace_id, w.uuid, w.name, w.slug, w.subscription_plan, w.subscription_status, w.whatsapp_number
+                `SELECT m.role, w.id as workspace_id, w.uuid, w.name, w.slug, w.subscription_plan, w.subscription_status, w.whatsapp_number, w.created_at as created_at
                  FROM workspace_members m
                  JOIN workspaces w ON m.workspace_id = w.id
                  WHERE m.user_id = ?
@@ -1692,7 +1726,7 @@ export default {
 
                         const plan = activeWorkspace.subscription_plan;
                         const maxCredits = PLANS[plan]?.ai_credits ?? 0;
-                        const startOfMonth = new Date(new Date().getFullYear(), new Date().getMonth(), 1).toISOString();
+                        const startOfMonth = getBillingCycleStart(activeWorkspace.created_at);
                         const creditsRes = await env.DB.prepare(
                             "SELECT COUNT(*) as count FROM audit_logs WHERE workspace_id = ? AND action = 'ai_generate' AND created_at >= ?"
                         ).bind(activeWorkspace.workspace_id, startOfMonth).first();
@@ -1827,7 +1861,7 @@ export default {
                     let currentCreditsUsed = 0;
 
                     if (!hasCustomKey && !isDev) {
-                        const startOfMonth = new Date(new Date().getFullYear(), new Date().getMonth(), 1).toISOString();
+                        const startOfMonth = getBillingCycleStart(activeWorkspace.created_at);
                         const creditsRes = await env.DB.prepare(
                             "SELECT COUNT(*) as count FROM audit_logs WHERE workspace_id = ? AND action = 'ai_generate' AND created_at >= ?"
                         ).bind(activeWorkspace.workspace_id, startOfMonth).first();
@@ -2732,7 +2766,7 @@ CRITICAL TONE RULES:
                     let currentCreditsUsed = 0;
 
                     if (!hasCustomKey && !isDev) {
-                        const startOfMonth = new Date(new Date().getFullYear(), new Date().getMonth(), 1).toISOString();
+                        const startOfMonth = getBillingCycleStart(activeWorkspace.created_at);
                         const creditsRes = await env.DB.prepare(
                             "SELECT COUNT(*) as count FROM audit_logs WHERE workspace_id = ? AND action = 'ai_generate' AND created_at >= ?"
                         ).bind(activeWorkspace.workspace_id, startOfMonth).first();
@@ -2815,7 +2849,7 @@ CRITICAL TONE RULES:
                     let currentCreditsUsed = 0;
 
                     if (!hasCustomKey && !isDev) {
-                        const startOfMonth = new Date(new Date().getFullYear(), new Date().getMonth(), 1).toISOString();
+                        const startOfMonth = getBillingCycleStart(activeWorkspace.created_at);
                         const creditsRes = await env.DB.prepare(
                             "SELECT COUNT(*) as count FROM audit_logs WHERE workspace_id = ? AND action = 'ai_generate' AND created_at >= ?"
                         ).bind(activeWorkspace.workspace_id, startOfMonth).first();
@@ -3840,7 +3874,7 @@ CRITICAL LANGUAGE / SPEECH RULES:
 
                         const plan = activeWorkspace.subscription_plan;
                         const limit = PLANS[plan].posts;
-                        const startOfMonth = new Date(new Date().getFullYear(), new Date().getMonth(), 1).toISOString();
+                        const startOfMonth = getBillingCycleStart(activeWorkspace.created_at);
                         const countRes = await env.DB.prepare("SELECT COUNT(*) as count FROM posts WHERE workspace_id = ? AND created_at >= ?").bind(activeWorkspace.workspace_id, startOfMonth).first();
                         if (countRes && countRes.count >= limit) {
                             return new Response(JSON.stringify({ message: `Subscription limit reached: Maximum ${limit} posts per month allowed on ${plan} plan.` }), { status: 403, headers: corsHeaders });
@@ -3893,7 +3927,7 @@ CRITICAL LANGUAGE / SPEECH RULES:
 
                         const plan = activeWorkspace.subscription_plan;
                         const limit = PLANS[plan].posts;
-                        const startOfMonth = new Date(new Date().getFullYear(), new Date().getMonth(), 1).toISOString();
+                        const startOfMonth = getBillingCycleStart(activeWorkspace.created_at);
                         const countRes = await env.DB.prepare("SELECT COUNT(*) as count FROM scheduled_posts WHERE workspace_id = ? AND created_at >= ?").bind(activeWorkspace.workspace_id, startOfMonth).first();
                         if (countRes && countRes.count >= limit) {
                             return new Response(JSON.stringify({ message: `Subscription limit reached: Maximum ${limit} posts per month allowed on ${plan} plan.` }), { status: 403, headers: corsHeaders });
@@ -5683,7 +5717,7 @@ CRITICAL LANGUAGE / SPEECH RULES:
                         // Check post limits
                         const plan = activeWorkspace.subscription_plan;
                         const limit = PLANS[plan].posts;
-                        const startOfMonth = new Date(new Date().getFullYear(), new Date().getMonth(), 1).toISOString();
+                        const startOfMonth = getBillingCycleStart(activeWorkspace.created_at);
                         const countRes = await env.DB.prepare("SELECT COUNT(*) as count FROM posts WHERE workspace_id = ? AND created_at >= ?").bind(activeWorkspace.workspace_id, startOfMonth).first();
                         if (countRes && countRes.count >= limit) {
                             return new Response(JSON.stringify({ message: `Subscription limit reached: Maximum ${limit} posts per month allowed on ${plan} plan.` }), { status: 403, headers: corsHeaders });

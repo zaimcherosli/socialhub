@@ -2856,7 +2856,7 @@ CRITICAL TONE RULES:
                             `Autoposter URL generation (model: ${modelUsed}): url=${(url || '').substring(0, 40)}`
                         );
 
-                        return new Response(JSON.stringify({ success: true, status: finalStatus, publishAt }), { status: 200, headers: corsHeaders });
+                        return new Response(JSON.stringify({ success: true, status: finalStatus, publishAt, model_used: modelUsed }), { status: 200, headers: corsHeaders });
                     } catch (err) {
                         console.error("Autoposter direct endpoint failed:", err);
                         return new Response(JSON.stringify({ success: false, message: err.message }), { status: 200, headers: corsHeaders });

@@ -2257,6 +2257,7 @@ export default {
                         let scrapedTitle = "";
                         let scrapedDescription = "";
                         let scrapedImage = "";
+                        let scrapedImages = [];
                         try {
                             const scrapeRes = await fetch(url, {
                                 headers: {
@@ -2280,7 +2281,20 @@ export default {
                                  const metas = extractMetaTags(html);
                                  if (metas.title) scrapedTitle = metas.title;
                                  if (metas.description) scrapedDescription = metas.description;
-                                 if (metas.image) scrapedImage = metas.image;
+                                 if (metas.image) {
+                                     scrapedImage = metas.image;
+                                     scrapedImages.push(metas.image);
+                                 }
+
+                                 // Extract Telegram post gallery photos
+                                 if (isTelegramPostUrl(url)) {
+                                     const photoMatches = [...html.matchAll(/tgme_widget_message_photo_wrap[^>]+style=["'][^"']*background-image\s*:\s*url\(\s*['"]?([^'")\s]+)['"]?\s*\)/gi)];
+                                     const extracted = photoMatches.map(m => m[1].trim()).filter(Boolean);
+                                     if (extracted.length > 0) {
+                                         scrapedImages = extracted;
+                                         scrapedImage = extracted[0];
+                                     }
+                                 }
 
                                   // If it is a Telegram post, check if the image is just the channel's profile picture
                                   if (scrapedImage && isTelegramPostUrl(url)) {
@@ -2356,6 +2370,15 @@ export default {
                                     const mediaMetas = extractMetaTags(mediaHtml);
                                     if (mediaMetas.image) {
                                         scrapedImage = mediaMetas.image;
+                                        scrapedImages = [mediaMetas.image];
+                                    }
+                                    if (isTelegramPostUrl(mediaUrl.trim())) {
+                                        const photoMatches = [...mediaHtml.matchAll(/tgme_widget_message_photo_wrap[^>]+style=["'][^"']*background-image\s*:\s*url\(\s*['"]?([^'")\s]+)['"]?\s*\)/gi)];
+                                        const extracted = photoMatches.map(m => m[1].trim()).filter(Boolean);
+                                        if (extracted.length > 0) {
+                                            scrapedImages = extracted;
+                                            scrapedImage = extracted[0];
+                                        }
                                     }
                                 }
                             } catch (_) {
@@ -2843,6 +2866,9 @@ CRITICAL TONE RULES:
 
                         if (hasTrigger && cards.length > 1) {
                             // 1. Insert Slide 1 (Parent)
+                            const parentImageSuffix = (scrapedImages && scrapedImages[0]) ? `\n\n📷 ${scrapedImages[0]}` : "";
+                            const parentContent = `${cards[0]}${parentImageSuffix}`.trim();
+
                             const result = await env.DB.prepare(
                                 `INSERT INTO scheduled_posts (user_id, workspace_id, account_id, platform, content, status, publish_at, created_at, updated_at)
                                  VALUES (?, ?, ?, ?, ?, ?, ?, (datetime('now')), (datetime('now')))`
@@ -2851,19 +2877,23 @@ CRITICAL TONE RULES:
                                 activeWorkspace.workspace_id,
                                 accountId,
                                 'threads',
-                                cards[0],
+                                parentContent,
                                 finalStatus,
                                 publishAt
                             ).run();
                             
                             const parentId = result.meta.last_row_id;
-                            const imageSuffix = scrapedImage ? `\n\n📷 ${scrapedImage}` : "";
 
                             // 2. Insert subsequent slides as child posts waiting for trigger
                             for (let i = 1; i < cards.length; i++) {
                                 let slideText = cards[i];
+                                const slideImage = (scrapedImages && scrapedImages[i]) ? scrapedImages[i] : null;
+                                const slideImageSuffix = slideImage ? `\n\n📷 ${slideImage}` : "";
+
                                 if (i === cards.length - 1) {
-                                    slideText = `${slideText}\n\n${ctaText}\n\n${hashtagsText}${imageSuffix}`.trim();
+                                    slideText = `${slideText}\n\n${ctaText}\n\n${hashtagsText}${slideImageSuffix}`.trim();
+                                } else if (slideImage) {
+                                    slideText = `${slideText}${slideImageSuffix}`.trim();
                                 }
                                 
                                 await env.DB.prepare(
@@ -2887,8 +2917,17 @@ CRITICAL TONE RULES:
                             let fullContent = "";
                             if (postFormat === 'short_thread' || postFormat === 'deep_thread') {
                                 if (cards.length > 0) {
-                                    const lastCardIdx = cards.length - 1;
-                                    cards[lastCardIdx] = `${cards[lastCardIdx]}\n\n${ctaText}\n\n${hashtagsText}${imageSuffix}`.trim();
+                                    // Distribute scraped images across cards
+                                    for (let i = 0; i < cards.length; i++) {
+                                        const cardImage = (scrapedImages && scrapedImages[i]) ? scrapedImages[i] : null;
+                                        const cardImageSuffix = cardImage ? `\n\n📷 ${cardImage}` : "";
+
+                                        if (i === cards.length - 1) {
+                                            cards[i] = `${cards[i]}\n\n${ctaText}\n\n${hashtagsText}${cardImageSuffix}`.trim();
+                                        } else if (cardImage) {
+                                            cards[i] = `${cards[i]}${cardImageSuffix}`.trim();
+                                        }
+                                    }
                                     fullContent = cards.join('\n---thread-separator---\n');
                                 } else {
                                     fullContent = `${caption}\n\n${ctaText}\n\n${hashtagsText}${imageSuffix}`.trim();

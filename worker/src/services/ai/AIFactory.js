@@ -9,10 +9,10 @@ export class AIFactory {
         const hasWorkspaceKey = !!(env._workspaceKeySet);
         const workspaceKey = hasWorkspaceKey ? (env.OPENAI_API_KEY || env.GEMINI_API_KEY || env.OPENROUTER_API_KEY || "") : "";
 
-        // Determine which providers actually have keys configured
-        let hasGemini = false;
-        let hasOpenAI = false;
-        let hasOpenRouter = false;
+        // Determine which providers actually have keys configured (global + workspace)
+        let hasGemini = !!env.GEMINI_API_KEY;
+        let hasOpenAI = !!env.OPENAI_API_KEY;
+        let hasOpenRouter = !!env.OPENROUTER_API_KEY;
 
         if (hasWorkspaceKey) {
             if (workspaceKey.startsWith("AIza")) {
@@ -22,10 +22,6 @@ export class AIFactory {
             } else if (workspaceKey.startsWith("sk-")) {
                 hasOpenAI = true;
             }
-        } else {
-            hasGemini = !!env.GEMINI_API_KEY;
-            hasOpenRouter = !!env.OPENROUTER_API_KEY;
-            hasOpenAI = !!env.OPENAI_API_KEY;
         }
 
         // Force model override based on key format and default model names

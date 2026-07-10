@@ -2626,7 +2626,7 @@ CRITICAL TONE RULES:
                             goal: 'Engagement & Lead Generation',
                             tone: tone || 'Friendly & Casual',
                             language: language || 'Malay',
-                            postFormat: postFormat === 'deep_thread' ? 'thread' : (postFormat === 'short_thread' ? 'thread' : 'single'),
+                            postFormat: postFormat === 'deep_thread' ? 'deep_thread' : (postFormat === 'short_thread' ? 'short_thread' : 'single'),
                             funnelStage: 'none',
                             customInstructions: customGuidelinesBlock,
                             nicheRules: nicheData ? nicheData.rules : null,
@@ -2751,23 +2751,48 @@ CRITICAL TONE RULES:
 
 
 
-                        const isSale = lowerCtx.includes("wts") || lowerCtx.includes("sale") || lowerCtx.includes("jual");
-                        const isRent = lowerCtx.includes("wtl") || lowerCtx.includes("rent") || lowerCtx.includes("sewa") || lowerCtx.includes("lease");
+                        // Sale vs Rent detection: check scraped content + WA URL text (encoded)
+                        // Check full product context AND scraped content for keywords
+                        const fullDetectionText = (productContext + " " + scrapedTitle + " " + scrapedDescription + " " + url).toLowerCase();
+                        const hasSaleSignals = fullDetectionText.includes("jual") || fullDetectionText.includes("dijual") || 
+                            fullDetectionText.includes("wts") || fullDetectionText.includes("sale") || 
+                            fullDetectionText.includes("for sale") || fullDetectionText.includes("untu kdijual") ||
+                            fullDetectionText.includes("hartanahuntukdijual") || fullDetectionText.includes("rumahuntukdijual") ||
+                            /rm\s*\d{2,3}[,.]\d{3}/.test(fullDetectionText) || // price pattern like RM350,000
+                            /rm\d{2,3}k/.test(fullDetectionText); // price pattern like RM350k
+                        const hasRentSignals = !hasSaleSignals && (
+                            fullDetectionText.includes("sewa") || fullDetectionText.includes("wtl") ||
+                            fullDetectionText.includes("rent") || fullDetectionText.includes("lease") ||
+                            fullDetectionText.includes("/bulan") || fullDetectionText.includes("per month")
+                        );
+                        const isSale = hasSaleSignals;
+                        const isRent = hasRentSignals;
 
                         if (isProperty) {
                             const saleTags = ["#jualbelirumah", "#jualrumah", "#rumahuntukdijual", "#hartanahuntukdijual"];
-                            const rentTags = ["#sewahartanah", "#sewarumah", "#rumahsewa", "#sewakondominium"];
+                            const rentTags = ["#sewahartanah", "#sewarumah", "#rumahsewa", "#sewakondominium", "#biliksewa"];
 
-                            let extraTags = [];
+                            let tagsArray = hashtagsText.split(/\s+/).filter(Boolean);
                             if (isSale) {
-                                extraTags = saleTags.filter(t => !hashtagsText.toLowerCase().includes(t.toLowerCase()));
+                                // Filter out rent tags
+                                tagsArray = tagsArray.filter(t => !rentTags.includes(t.toLowerCase()) && t.toLowerCase() !== '#sewa' && t.toLowerCase() !== '#rent');
+                                // Add missing sale tags
+                                saleTags.forEach(t => {
+                                    if (!tagsArray.map(x => x.toLowerCase()).includes(t.toLowerCase())) {
+                                        tagsArray.push(t);
+                                    }
+                                });
                             } else if (isRent) {
-                                extraTags = rentTags.filter(t => !hashtagsText.toLowerCase().includes(t.toLowerCase()));
+                                // Filter out sale tags
+                                tagsArray = tagsArray.filter(t => !saleTags.includes(t.toLowerCase()) && t.toLowerCase() !== '#jual' && t.toLowerCase() !== '#buy' && t.toLowerCase() !== '#beli');
+                                // Add missing rent tags
+                                rentTags.forEach(t => {
+                                    if (!tagsArray.map(x => x.toLowerCase()).includes(t.toLowerCase())) {
+                                        tagsArray.push(t);
+                                    }
+                                });
                             }
-
-                            if (extraTags.length > 0) {
-                                hashtagsText = (hashtagsText + " " + extraTags.join(" ")).trim();
-                            }
+                            hashtagsText = tagsArray.join(" ");
                         }
 
                         // Retrieve dynamic CTA and format properly

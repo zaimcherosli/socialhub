@@ -2642,8 +2642,40 @@ CRITICAL TONE RULES:
                             `CTA Instructions: ${ctaPromptInstructions}`
                         ].filter(Boolean).join('\n\n');
 
+                        // Smart Business Type Classifier for Bulk Auto-Schedule
+                        let classifiedBusinessType = 'Products & Affiliate';
+                        const lowerUrl = url.toLowerCase();
+                        const lowerTitle = (scrapedTitle || "").toLowerCase();
+                        const lowerDesc = (scrapedDescription || "").toLowerCase();
+                        
+                        const isRecruitment = lowerUrl.includes("forms.gle") || 
+                                              lowerUrl.includes("docs.google.com/forms") || 
+                                              lowerUrl.includes("jotform") || 
+                                              lowerUrl.includes("typeform") ||
+                                              lowerUrl.includes("careers") ||
+                                              lowerUrl.includes("hiring") ||
+                                              lowerUrl.includes("recruitment") ||
+                                              lowerTitle.includes("rekrut") || 
+                                              lowerTitle.includes("hiring") || 
+                                              lowerTitle.includes("jawatan kosong") || 
+                                              lowerTitle.includes("dropship") || 
+                                              lowerTitle.includes("ejen") || 
+                                              lowerTitle.includes("agen") ||
+                                              lowerDesc.includes("join team") ||
+                                              lowerDesc.includes("cari dropship") ||
+                                              lowerDesc.includes("tambah pendapatan");
+                                              
+                        if (isProperty) {
+                            classifiedBusinessType = 'Real Estate';
+                        } else if (isRecruitment) {
+                            classifiedBusinessType = 'Recruitment & Team Hiring';
+                        } else if (!lowerUrl.includes("shopee") && !lowerUrl.includes("tiktok") && !lowerUrl.includes("lazada") && !lowerUrl.includes("aliexpress")) {
+                            // Custom links (Canva portfolio, own business website, digital services, local brand links)
+                            classifiedBusinessType = 'Business & Services Promotion';
+                        }
+
                         const systemPrompt = provider.assembleCaptionPrompt({
-                            businessType: isProperty ? 'Real Estate' : 'Products & Affiliate',
+                            businessType: classifiedBusinessType,
                             product: productContext,
                             targetAudience: 'Malaysian social media users',
                             goal: 'Engagement & Lead Generation',

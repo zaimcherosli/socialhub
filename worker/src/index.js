@@ -329,9 +329,21 @@ async function getAIEnvironment(db, workspaceId, env, encryptionSecret, subscrip
                     const resolvedKey = decrypted || wsAI.ai_api_key_enc;
                     const isValidKey = resolvedKey && (resolvedKey.startsWith('sk-') || resolvedKey.startsWith('AIza') || resolvedKey.length > 40);
                     if (isValidKey) {
-                        aiEnv.OPENROUTER_API_KEY = resolvedKey;
-                        aiEnv.GEMINI_API_KEY = resolvedKey;
-                        aiEnv.OPENAI_API_KEY = resolvedKey;
+                        // Only assign the workspace key to its matching provider slot
+                        // Do NOT overwrite other providers' global keys with a foreign key type
+                        if (resolvedKey.startsWith('AIza')) {
+                            // Gemini key — only override Gemini slot
+                            aiEnv.GEMINI_API_KEY = resolvedKey;
+                        } else if (resolvedKey.startsWith('sk-or-')) {
+                            // OpenRouter key — only override OpenRouter slot
+                            aiEnv.OPENROUTER_API_KEY = resolvedKey;
+                        } else if (resolvedKey.startsWith('sk-')) {
+                            // OpenAI key — only override OpenAI slot
+                            aiEnv.OPENAI_API_KEY = resolvedKey;
+                        } else {
+                            // Unknown key type — treat as OpenRouter fallback
+                            aiEnv.OPENROUTER_API_KEY = resolvedKey;
+                        }
                         aiEnv._workspaceKeySet = true;
                         hasByokKey = true;
                     }

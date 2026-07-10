@@ -2663,13 +2663,20 @@ CRITICAL TONE RULES:
                                     headers["HTTP-Referer"] = "https://socialhub.zaimrosli.my";
                                     headers["X-Title"] = "SocialHub Autoposter";
                                 }
+                                const isReasoning = provider.model && (
+                                    provider.model.toLowerCase().startsWith('o1') || 
+                                    provider.model.toLowerCase().startsWith('o3') || 
+                                    provider.model.toLowerCase().startsWith('o4') || 
+                                    provider.model.toLowerCase().startsWith('gpt-5') || 
+                                    provider.model.toLowerCase().includes('gpt-5.')
+                                );
                                 const res = await fetch(endpoint, {
                                     method: "POST",
                                     headers,
                                     body: JSON.stringify({
                                         model: provider.model,
                                         messages: [{ role: "user", content: systemPrompt }],
-                                        temperature: 0.7
+                                        ...(isReasoning ? {} : { temperature: 0.7 })
                                     })
                                 });
                                 if (res.ok) {

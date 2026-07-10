@@ -125,6 +125,15 @@ ${product}
 6. CURIOSITY GAP (Do NOT satisfy curiosity too early): Avoid describing the exact physical features, specifications, or appearance of the product (e.g., do NOT mention size, color, exact button placements, or specifications). Focus entirely on the PROBLEM solved or the RESULT/TRANSFORMATION (e.g., write "sejak guna benda ni, masalah bau hapak dalam tandas terus hilang" instead of describing a deodorizer spray). Let the reader click the link to see what the item actually looks like.
 7. BUYING INTENT PRIMING (Give a strong reason to buy/click): In your copywriting, build interest to purchase by mentioning trusted seller reviews, massive price drops, flash sales, or high unit sales (e.g. "Korang check sendiri review kat kedai ni, ramai kata berkesan...", "Nasib baik aku beli time tengah offer semalam...", "Aku amik dari seller ni sebab shipping terpaling laju...").
 8. AVOID GENERIC MARKETING & CLICKBAIT KOSONG: Do not use empty clickbait phrases like "Korang kena tahu ni" or "Wajib tengok" if there is no real value right after. Do not start with generic bot phrases like "Mari mulakan...".
+9. HOOK DIVERSITY & APPROVED PATTERNS (Vislo Hook Secrets Library): Vary your opening sentence structure. NO REPETITIVE STARTING WORDS. Use one of these high-converting hook patterns for the first sentence of Slide 1 to capture immediate attention:
+   - Pecahkan Mitos: "Tahukah anda, [mitos popular] sebenarnya tak betul? Kajian/pengalaman tunjuk sebaliknya..."
+   - Kongsi Kesilapan: "Jangan buat silap macam saya. [Terangkan kesilapan]. Hasilnya?..."
+   - Cara Luar Biasa: "Daripada [buat cara biasa/standard], cuba [cara luar biasa] ni untuk [manfaat]..."
+   - Jawab Soalan: "Soalan hari ini: [Soalan]? Jawapan: Kalau nak [manfaat], ini yang perlu anda buat..."
+   - Tanya Soalan Gagal: "Pernah tak cuba [dapatkan hasil] tapi gagal? Kenapa agaknya tu berlaku?..."
+   - Minta Pendapat (A/B): "Ada yang kata [cara A lebih baik], yang lain kata [cara B lebih bagus]. Apa pandangan korang?..."
+   - Testimoni / Bukti: "Kalau [kumpulan orang/siapa] boleh [dapat hasil luar biasa] dengan [benda ni], korang pun mesti boleh!"
+   - Bongkar Rahsia: "[Manfaat] sebenarnya tak susah pun kalau tahu rahsia ni. Ini apa yang aku buat..."
 `;
             }
             
@@ -166,7 +175,15 @@ Write a highly engaging social media post based on these details:
 6. CURIOSITY GAP (Do NOT satisfy curiosity too early): Avoid describing the exact physical features, specifications, or appearance of the product (e.g., do NOT mention size, color, exact button placements, or specifications). Focus entirely on the PROBLEM solved or the RESULT/TRANSFORMATION (e.g., write "sejak guna benda ni, masalah bau hapak dalam tandas terus hilang" instead of describing a deodorizer spray). Let the reader click the link to see what the item actually looks like.
 7. BUYING INTENT PRIMING (Give a strong reason to buy/click): In your copywriting, build interest to purchase by mentioning trusted seller reviews, massive price drops, flash sales, or high unit sales (e.g. "Korang check sendiri review kat kedai ni, ramai kata berkesan...", "Nasib baik aku beli time tengah offer semalam...", "Aku amik dari seller ni sebab shipping terpaling laju...").
 8. AVOID GENERIC MARKETING & CLICKBAIT KOSONG: Do not use empty clickbait phrases like "Korang kena tahu ni" if there is no real value right after. Do not start with generic bot phrases like "Mari mulakan...".
-9. HOOK DIVERSITY: Vary your opening sentence structure. NO REPETITIVE STARTING WORDS. Use a wide variety of starting phrasings (e.g., "Ramai tak perasan...", "Rupa-rupanya...", "Aku baru try...", "Lama jugak aku cari...", "Paling geram bila...").
+9. HOOK DIVERSITY & APPROVED PATTERNS (Vislo Hook Secrets Library): Vary your opening sentence structure. NO REPETITIVE STARTING WORDS. Use one of these high-converting hook patterns for the first sentence of Slide 1 to capture immediate attention:
+   - Pecahkan Mitos: "Tahukah anda, [mitos popular] sebenarnya tak betul? Kajian/pengalaman tunjuk sebaliknya..."
+   - Kongsi Kesilapan: "Jangan buat silap macam saya. [Terangkan kesilapan]. Hasilnya?..."
+   - Cara Luar Biasa: "Daripada [buat cara biasa/standard], cuba [cara luar biasa] ni untuk [manfaat]..."
+   - Jawab Soalan: "Soalan hari ini: [Soalan]? Jawapan: Kalau nak [manfaat], ini yang perlu anda buat..."
+   - Tanya Soalan Gagal: "Pernah tak cuba [dapatkan hasil] tapi gagal? Kenapa agaknya tu berlaku?..."
+   - Minta Pendapat (A/B): "Ada yang kata [cara A lebih baik], yang lain kata [cara B lebih bagus]. Apa pandangan korang?..."
+   - Testimoni / Bukti: "Kalau [kumpulan orang/siapa] boleh [dapat hasil luar biasa] dengan [benda ni], korang pun mesti boleh!"
+   - Bongkar Rahsia: "[Manfaat] sebenarnya tak susah pun kalau tahu rahsia ni. Ini apa yang aku buat..."
 10. CURIOSITY & MYSTERY RULE (No Product/Brand/Project Names): NEVER mention the exact product name, brand name, model name (e.g. 'Machenike G3 V2') directly in the copywriting text. Instead, refer to it using generic, curiosity-inducing terms (e.g., 'benda ni', 'gadget ni', 'kipas ni', 'apartment ni', 'unit ni', 'benda viral ni') to create mystery and drive clicks to the destination link.
 `;
             } else {

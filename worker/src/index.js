@@ -2885,9 +2885,45 @@ CRITICAL TONE RULES:
                             let finalCtaText = parsed.cta ? parsed.cta.trim() : "";
                             finalCtaText = finalCtaText.replace(/➡️/g, '').replace(/->/g, '').replace(/:$/g, '').trim();
 
-                            ctaText = finalCtaText 
-                                ? `${finalCtaText} ➡️ ${finalCtaUrl}` 
-                                : (linkType === 'whatsapp' ? `WhatsApp aku untuk info lanjut! ➡️ ${finalCtaUrl}` : `Nah link kalau nak ushar: ➡️ ${finalCtaUrl}`);
+                            const isGeneric = !finalCtaText || 
+                                              finalCtaText.toLowerCase().includes("klik") || 
+                                              finalCtaText.toLowerCase().includes("click") || 
+                                              finalCtaText.toLowerCase().includes("link") ||
+                                              finalCtaText.length < 10;
+
+                            if (isGeneric) {
+                                if (classifiedBusinessType === 'Recruitment & Team Hiring') {
+                                    const recruitmentVariations = [
+                                        `Berminat nak tambah income or join team? Isi borang/set slot kat sini: ➡️ ${finalCtaUrl}`,
+                                        `Pendaftaran dropship/ejen baru tengah open, jom register sekarang: ➡️ ${finalCtaUrl}`,
+                                        `Nak start jana income kedua? WhatsApp/Daftar kat sini terus: ➡️ ${finalCtaUrl}`,
+                                        `Slot kemasukan ahli baru sangat terhad, lock slot korang kat link ni: ➡️ ${finalCtaUrl}`
+                                    ];
+                                    const rIndex = Math.floor(Math.random() * recruitmentVariations.length);
+                                    ctaText = recruitmentVariations[rIndex];
+                                } else if (classifiedBusinessType === 'Business & Services Promotion') {
+                                    const businessVariations = [
+                                        `Ushar details penuh / tempah slot servis kat link ni: ➡️ ${finalCtaUrl}`,
+                                        `Korang tengok portfolio kerja & senarai servis kami kat sini: ➡️ ${finalCtaUrl}`,
+                                        `Berminat nak bincang projek or dapatkan quotation? Roger aku kat sini: ➡️ ${finalCtaUrl}`,
+                                        `Tengok senarai harga & service detail kat website rasmi kami: ➡️ ${finalCtaUrl}`
+                                    ];
+                                    const bIndex = Math.floor(Math.random() * businessVariations.length);
+                                    ctaText = businessVariations[bIndex];
+                                } else {
+                                    // Products & Affiliate
+                                    const affiliateVariations = [
+                                        `Korang check sendiri review & rating buyer kat kedai ni: ➡️ ${finalCtaUrl}`,
+                                        `Ushar harga flash sale paling murah & baki stok kat sini: ➡️ ${finalCtaUrl}`,
+                                        `Benda viral ni tengah ada discount, ushar cepat kat link ni: ➡️ ${finalCtaUrl}`,
+                                        `Tengok baki stok & grab harga promo kat shopee/tiktok shop ni: ➡️ ${finalCtaUrl}`
+                                    ];
+                                    const aIndex = Math.floor(Math.random() * affiliateVariations.length);
+                                    ctaText = affiliateVariations[aIndex];
+                                }
+                            } else {
+                                ctaText = `${finalCtaText} ➡️ ${finalCtaUrl}`;
+                            }
                         }
                         
                         // Insert into DB

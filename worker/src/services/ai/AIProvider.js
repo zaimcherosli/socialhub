@@ -143,14 +143,15 @@ Write a highly engaging social media post based on these details:
             }
 
             if (tone?.toLowerCase().includes('malay') || language?.toLowerCase().includes('malay')) {
-                prompt += `CRITICAL MALAYSIAN CONVERSATIONAL RULES:
+                prompt += `CRITICAL THREADS ALGORITHM & MALAYSIAN CONVERSATIONAL RULES:
 1. Write like a real human posting on Threads or Instagram. Do NOT sound like a marketer, corporate bot, or formal translator.
-2. Avoid generic marketing phrases (e.g. do NOT use "Mari mulakan...", "Jangan lepaskan peluang...", "Semoga hari ini membawa keberkatan...").
-3. Use natural Malaysian conversational speech (Bahasa Melayu rojak / colloquial speech). Use local words/contractions naturally: 'je', 'lah', 'tau', 'ni', 'nak', 'korang', 'weyy'.
-4. For Islamic content (selawat/zikir), keep the tone gentle, personal, and friendly—like a close friend giving a gentle reminder.
-5. The Call to Action (cta) must NOT be promotional (e.g. avoid "Klik link di bio"). Instead, write a conversational CTA to get comments/replies, like a question or friendly prompt (e.g. "Korang dah selawat ke hari ni? Jom kongsi kat bawah 👇" or "Salam Jumaat korang. Dah bersedia untuk solat?").
-6. HOOK DIVERSITY: Vary your opening sentence structure. NO REPETITIVE STARTING WORDS: Ensure different posts start with unique words (do NOT start multiple posts with "Benda...", "Bila...", "Aku..."). Use a wide variety of starting phrasings (e.g., "Ramai tak perasan...", "Rupa-rupanya...", "Aku baru try...", "Lama jugak aku cari...", "Paling geram bila...").
-7. CURIOSITY & MYSTERY RULE (No Product/Brand/Project Names): NEVER mention the exact product name, brand name, model name (e.g. 'Machenike G3 V2', 'Residensi Adelia', 'Bangi Avenue') directly in the copywriting text. Instead, refer to it using generic, curiosity-inducing terms (e.g., 'benda ni', 'gadget ni', 'kipas ni', 'apartment ni', 'unit ni', 'benda viral ni') to create mystery and drive clicks to the destination link.
+2. STRICTLY PROHIBIT SPAMMY/HARD SELL KEYWORDS: Never use phrases that Threads algorithm flags as spam (e.g., do NOT write "Beli sekarang", "Promo link bio", "DM untuk order", "Dapatkan segera", "Klik link").
+3. USE INTERACTIVE CTA & QUESTIONS (Boosts reach by 42%): End your copy with questions or interactive prompts to drive comments (e.g. "Korang rasa?", "Setuju tak?", "Siapa pernah?", "Ada yang macam ni juga?").
+4. VALUE-DRIVEN HOOKS (Prevents scroll-by): Hook the user with words that promise value (e.g. "Tips...", "Cara...", "Rahsia...", "Jangan skip...", "Baca sampai habis...").
+5. PERSONAL & RELATABLE WRITING: Write from a first-person perspective using personal/authentic words (e.g. "Aku", "Jujur aku...", "Cerita dia...", "Pengalaman aku..."). People follow people, not shops.
+6. AVOID GENERIC MARKETING & CLICKBAIT KOSONG: Do not use empty clickbait phrases like "Korang kena tahu ni" or "Wajib tengok" if there is no real value right after. Do not start with generic bot phrases like "Mari mulakan..." or "Semoga hari ini membawa keberkatan...".
+7. HOOK DIVERSITY: Vary your opening sentence structure. NO REPETITIVE STARTING WORDS: Ensure different posts start with unique words (do NOT start multiple posts with "Benda...", "Bila...", "Aku..."). Use a wide variety of starting phrasings (e.g., "Ramai tak perasan...", "Rupa-rupanya...", "Aku baru try...", "Lama jugak aku cari...", "Paling geram bila...").
+8. CURIOSITY & MYSTERY RULE (No Product/Brand/Project Names): NEVER mention the exact product name, brand name, model name (e.g. 'Machenike G3 V2', 'Residensi Adelia', 'Bangi Avenue') directly in the copywriting text. Instead, refer to it using generic, curiosity-inducing terms (e.g., 'benda ni', 'gadget ni', 'kipas ni', 'apartment ni', 'unit ni', 'benda viral ni') to create mystery and drive clicks to the destination link.
 `;
             } else {
                 prompt += `GUIDELINES:

@@ -30,9 +30,9 @@ export class AIFactory {
 
         // Force model override based on key format and default model names
         let activeModel = model;
-        if (hasOpenAI && (!model.toLowerCase().includes("gpt-") && !model.toLowerCase().startsWith("openai/"))) {
+        if (hasOpenAI && !hasGemini && (!model.toLowerCase().includes("gpt-") && !model.toLowerCase().startsWith("openai/"))) {
             activeModel = "gpt-4o-mini";
-        } else if (hasGemini && !model.toLowerCase().includes("gemini")) {
+        } else if (hasGemini && !hasOpenAI && !model.toLowerCase().includes("gemini")) {
             activeModel = "gemini-2.5-flash";
         }
 

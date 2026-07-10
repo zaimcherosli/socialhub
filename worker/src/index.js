@@ -295,7 +295,7 @@ async function getAIEnvironment(db, workspaceId, env, encryptionSecret, subscrip
         starter:    'nousresearch/hermes-3-llama-3.1-405b:free',
         pro:        'gemini-2.5-flash',
         agency:     'openai/gpt-4o-mini',
-        enterprise: 'openai/gpt-5.5-2026-04-23',
+        enterprise: 'openai/gpt-5.6-sol',
     };
 
     // 1. Check global settings if database exists (stored under user_id = 1 / admin)

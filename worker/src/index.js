@@ -1918,26 +1918,51 @@ export default {
                         const performanceFeedback = await getPerformanceFeedback(env.DB, activeWorkspace.workspace_id);
                         const nicheData = await getNicheInstructions(env.DB, product);
                         
-                        const result = await provider.generateCaption({
-                            businessType,
-                            product: product + performanceFeedback,
-                            targetAudience: targetAudience || 'General public',
-                            goal: goal || 'Brand awareness',
-                            tone: tone || 'Professional',
-                            language: language || 'Bahasa Melayu',
-                            postFormat: postFormat || 'single',
-                            funnelStage: funnelStage || 'none',
-                            customInstructions: getFactPreservingInstructions(aiEnv.custom_ai_instructions),
-                            nicheRules: nicheData ? nicheData.rules : null,
-                            nicheExampleOutput: nicheData ? nicheData.example_output : null
-                        });
+                        let result;
+                        let modelUsed = aiEnv.OPENROUTER_MODEL || "unknown";
+                        try {
+                            result = await provider.generateCaption({
+                                businessType,
+                                product: product + performanceFeedback,
+                                targetAudience: targetAudience || 'General public',
+                                goal: goal || 'Brand awareness',
+                                tone: tone || 'Professional',
+                                language: language || 'Bahasa Melayu',
+                                postFormat: postFormat || 'single',
+                                funnelStage: funnelStage || 'none',
+                                customInstructions: getFactPreservingInstructions(aiEnv.custom_ai_instructions),
+                                nicheRules: nicheData ? nicheData.rules : null,
+                                nicheExampleOutput: nicheData ? nicheData.example_output : null
+                            });
+                        } catch (e) {
+                            console.error("AI Generation failed, falling back to free Llama model:", e);
+                            const fallbackEnv = { ...aiEnv, OPENROUTER_MODEL: "meta-llama/llama-3.2-3b-instruct:free" };
+                            if (!aiEnv._workspaceKeySet) {
+                                fallbackEnv.OPENROUTER_API_KEY = env.OPENROUTER_API_KEY;
+                            }
+                            const fallbackProvider = AIFactory.getProvider(fallbackEnv);
+                            result = await fallbackProvider.generateCaption({
+                                businessType,
+                                product: product + performanceFeedback,
+                                targetAudience: targetAudience || 'General public',
+                                goal: goal || 'Brand awareness',
+                                tone: tone || 'Professional',
+                                language: language || 'Bahasa Melayu',
+                                postFormat: postFormat || 'single',
+                                funnelStage: funnelStage || 'none',
+                                customInstructions: getFactPreservingInstructions(fallbackEnv.custom_ai_instructions),
+                                nicheRules: nicheData ? nicheData.rules : null,
+                                nicheExampleOutput: nicheData ? nicheData.example_output : null
+                            });
+                            modelUsed = `${aiEnv.OPENROUTER_MODEL} (failed, fell back to free Llama)`;
+                        }
 
-                        await logActivity(activeWorkspace.workspace_id, user.id, 'ai_generate', `Generated caption for business "${businessType}": ${(product || '').substring(0, 30)}...`);
+                        await logActivity(activeWorkspace.workspace_id, user.id, 'ai_generate', `Generated caption for business "${businessType}": ${(product || '').substring(0, 30)}... model: ${modelUsed}`);
 
                         return new Response(JSON.stringify({
                             success: true,
                             result,
-                            model_used: aiEnv.OPENROUTER_MODEL,
+                            model_used: modelUsed,
                             credits_remaining: maxCredits - currentCreditsUsed - 1
                         }), { status: 200, headers: corsHeaders });
                     } catch (e) {
@@ -2520,56 +2545,96 @@ CRITICAL TONE RULES:
                         });
                         
                         let responseText = "";
-                        if (provider.constructor?.name === 'CloudflareAIProvider' || typeof provider.ai?.run === 'function') {
-                            const res = await provider.ai.run(provider.model || '@cf/meta/llama-3.2-3b-instruct', {
-                                messages: [
-                                    { role: "system", content: "You must output strictly a JSON object." },
-                                    { role: "user", content: systemPrompt }
-                                ]
-                            });
-                            responseText = typeof res === 'string' ? res : (res.choices?.[0]?.message?.content || res.response || JSON.stringify(res));
-                        } else if (provider.constructor?.name === 'GeminiProvider') {
-                            const genUrl = `https://generativelanguage.googleapis.com/v1beta/models/${provider.model}:generateContent?key=${provider.apiKey}`;
-                            const res = await fetch(genUrl, {
-                                method: "POST",
-                                headers: { "Content-Type": "application/json" },
-                                body: JSON.stringify({
-                                    contents: [{ parts: [{ text: systemPrompt }] }],
-                                    generationConfig: { responseMimeType: "application/json" }
-                                })
-                             });
-                            if (res.ok) {
-                                const data = await res.json();
-                                responseText = data.candidates?.[0]?.content?.parts?.[0]?.text || "";
+                        let modelUsed = provider.model || "unknown";
+
+                        try {
+                            if (provider.constructor?.name === 'CloudflareAIProvider' || typeof provider.ai?.run === 'function') {
+                                const res = await provider.ai.run(provider.model || '@cf/meta/llama-3.2-3b-instruct', {
+                                    messages: [
+                                        { role: "system", content: "You must output strictly a JSON object." },
+                                        { role: "user", content: systemPrompt }
+                                    ]
+                                });
+                                responseText = typeof res === 'string' ? res : (res.choices?.[0]?.message?.content || res.response || JSON.stringify(res));
+                            } else if (provider.constructor?.name === 'GeminiProvider') {
+                                const genUrl = `https://generativelanguage.googleapis.com/v1beta/models/${provider.model}:generateContent?key=${provider.apiKey}`;
+                                const res = await fetch(genUrl, {
+                                    method: "POST",
+                                    headers: { "Content-Type": "application/json" },
+                                    body: JSON.stringify({
+                                        contents: [{ parts: [{ text: systemPrompt }] }],
+                                        generationConfig: { responseMimeType: "application/json" }
+                                    })
+                                 });
+                                if (res.ok) {
+                                    const data = await res.json();
+                                    responseText = data.candidates?.[0]?.content?.parts?.[0]?.text || "";
+                                } else {
+                                    const errText = await res.text();
+                                    console.error(`Gemini Direct API call failed: ${res.status} - ${errText}`);
+                                }
                             } else {
-                                const errText = await res.text();
-                                console.error(`Gemini Direct API call failed: ${res.status} - ${errText}`);
+                                // OpenAI or OpenRouter
+                                const endpoint = provider.constructor?.name === 'OpenAIProvider' 
+                                    ? "https://api.openai.com/v1/chat/completions" 
+                                    : "https://openrouter.ai/api/v1/chat/completions";
+                                const headers = {
+                                    "Authorization": `Bearer ${provider.apiKey}`,
+                                    "Content-Type": "application/json"
+                                };
+                                if (provider.constructor?.name === 'OpenRouterProvider') {
+                                    headers["HTTP-Referer"] = "https://socialhub.zaimrosli.my";
+                                    headers["X-Title"] = "SocialHub Autoposter";
+                                }
+                                const res = await fetch(endpoint, {
+                                    method: "POST",
+                                    headers,
+                                    body: JSON.stringify({
+                                        model: provider.model,
+                                        messages: [{ role: "user", content: systemPrompt }],
+                                        temperature: 0.7
+                                    })
+                                });
+                                if (res.ok) {
+                                    const data = await res.json();
+                                    responseText = data.choices?.[0]?.message?.content || "";
+                                } else {
+                                    const errText = await res.text();
+                                    console.error(`OpenRouter/OpenAI API call failed: ${res.status} - ${errText}`);
+                                }
                             }
-                        } else {
-                            // OpenAI or OpenRouter
-                            const endpoint = provider.constructor?.name === 'OpenAIProvider' 
-                                ? "https://api.openai.com/v1/chat/completions" 
-                                : "https://openrouter.ai/api/v1/chat/completions";
-                            const headers = {
-                                "Authorization": `Bearer ${provider.apiKey}`,
-                                "Content-Type": "application/json"
-                            };
-                            if (provider.constructor?.name === 'OpenRouterProvider') {
-                                headers["HTTP-Referer"] = "https://socialhub.zaimrosli.my";
-                                headers["X-Title"] = "SocialHub Autoposter";
-                            }
-                            const res = await fetch(endpoint, {
-                                method: "POST",
-                                headers,
-                                body: JSON.stringify({
-                                    model: provider.model,
-                                    messages: [{ role: "user", content: systemPrompt }],
-                                    temperature: 0.7
-                                })
-                            });
-                            if (res.ok) {
-                                const data = await res.json();
-                                responseText = data.choices?.[0]?.message?.content || "";
+                        } catch (e) {
+                            console.error("Primary AI provider call failed:", e);
+                        }
+
+                        // Robust fallback: If selected provider failed or returned empty response, fall back to OpenRouter free Llama model
+                        if (!responseText) {
+                            console.warn(`Primary AI model ${modelUsed} failed. Retrying with robust fallback to OpenRouter free Llama model...`);
+                            const fallbackApiKey = env.OPENROUTER_API_KEY;
+                            if (fallbackApiKey) {
+                                try {
+                                    const res = await fetch("https://openrouter.ai/api/v1/chat/completions", {
+                                        method: "POST",
+                                        headers: {
+                                            "Authorization": `Bearer ${fallbackApiKey}`,
+                                            "Content-Type": "application/json",
+                                            "HTTP-Referer": "https://socialhub.zaimrosli.my",
+                                            "X-Title": "SocialHub Autoposter Fallback"
+                                        },
+                                        body: JSON.stringify({
+                                            model: "meta-llama/llama-3.2-3b-instruct:free",
+                                            messages: [{ role: "user", content: systemPrompt }],
+                                            temperature: 0.7
+                                        })
+                                    });
+                                    if (res.ok) {
+                                        const data = await res.json();
+                                        responseText = data.choices?.[0]?.message?.content || "";
+                                        modelUsed = `${modelUsed} (failed, fell back to free Llama)`;
+                                    }
+                                } catch (e) {
+                                    console.error("Robust fallback Llama call failed:", e);
+                                }
                             }
                         }
 
@@ -2732,7 +2797,7 @@ CRITICAL TONE RULES:
                             activeWorkspace.workspace_id,
                             user.id,
                             'ai_generate',
-                            `Autoposter URL generation: url=${(url || '').substring(0, 40)}`
+                            `Autoposter URL generation (model: ${modelUsed}): url=${(url || '').substring(0, 40)}`
                         );
 
                         return new Response(JSON.stringify({ success: true, status: finalStatus, publishAt }), { status: 200, headers: corsHeaders });

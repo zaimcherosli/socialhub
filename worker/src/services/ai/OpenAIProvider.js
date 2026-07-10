@@ -7,6 +7,13 @@ export class OpenAIProvider extends AIProvider {
         this.model = model || "gpt-4o-mini";
     }
 
+    // Reasoning models (gpt-5+, o1/o3 family) do NOT support temperature
+    isReasoningModel() {
+        const m = this.model.toLowerCase();
+        return m.startsWith('o1') || m.startsWith('o3') || m.startsWith('o4') ||
+               m.startsWith('gpt-5') || m.includes('gpt-5.');
+    }
+
     async generateCaption({ businessType, product, targetAudience, goal, tone, language, customInstructions, postFormat, funnelStage, nicheRules, nicheExampleOutput }) {
         const prompt = this.assembleCaptionPrompt({ businessType, product, targetAudience, goal, tone, language, customInstructions, postFormat, funnelStage, nicheRules, nicheExampleOutput });
 
@@ -21,7 +28,7 @@ export class OpenAIProvider extends AIProvider {
                 messages: [
                     { role: "user", content: prompt }
                 ],
-                temperature: 0.7
+                ...(this.isReasoningModel() ? {} : { temperature: 0.7 })
             })
         });
 
@@ -108,7 +115,7 @@ Provide the output in a strict JSON format with the following keys. Return ONLY 
                 messages: [
                     { role: "user", content: prompt }
                 ],
-                temperature: 0.7
+                ...(this.isReasoningModel() ? {} : { temperature: 0.7 })
             })
         });
 
@@ -158,7 +165,7 @@ Provide the output in a strict JSON format with the following keys. Return ONLY 
             body: JSON.stringify({
                 model: this.model,
                 messages: messages,
-                temperature: 0.7
+                ...(this.isReasoningModel() ? {} : { temperature: 0.7 })
             })
         });
         if (!response.ok) {

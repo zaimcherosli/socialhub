@@ -231,6 +231,61 @@ async function decryptToken(encryptedStr, secret) {
     }
 }
 
+async function runFallbackAI(systemPrompt, env) {
+    // 1. Try Cloudflare Workers AI (since it requires no keys and is fast/internal)
+    if (env.AI) {
+        try {
+            console.log("[FallbackAI] Attempting Cloudflare Workers AI fallback...");
+            const res = await env.AI.run('@cf/meta/llama-3.2-3b-instruct', {
+                messages: [
+                    { role: "system", content: "You must output strictly a JSON object." },
+                    { role: "user", content: systemPrompt }
+                ]
+            });
+            const text = typeof res === 'string' ? res : (res.choices?.[0]?.message?.content || res.response || JSON.stringify(res));
+            if (text) {
+                console.log("[FallbackAI] Cloudflare Workers AI fallback successful.");
+                return { text, model: "@cf/meta/llama-3.2-3b-instruct (fallback)" };
+            }
+        } catch (e) {
+            console.error("[FallbackAI] Cloudflare Workers AI fallback failed:", e);
+        }
+    }
+
+    // 2. Try OpenRouter Free Llama if key is present
+    if (env.OPENROUTER_API_KEY) {
+        try {
+            console.log("[FallbackAI] Attempting OpenRouter free Llama fallback...");
+            const res = await fetch("https://openrouter.ai/api/v1/chat/completions", {
+                method: "POST",
+                headers: {
+                    "Authorization": `Bearer ${env.OPENROUTER_API_KEY}`,
+                    "Content-Type": "application/json",
+                    "HTTP-Referer": "https://socialhub.zaimrosli.my",
+                    "X-Title": "SocialHub Autoposter Fallback"
+                },
+                body: JSON.stringify({
+                    model: "meta-llama/llama-3.2-3b-instruct:free",
+                    messages: [{ role: "user", content: systemPrompt }],
+                    temperature: 0.7
+                })
+            });
+            if (res.ok) {
+                const data = await res.json();
+                const text = data.choices?.[0]?.message?.content || "";
+                if (text) {
+                    console.log("[FallbackAI] OpenRouter free Llama fallback successful.");
+                    return { text, model: "meta-llama/llama-3.2-3b-instruct:free (fallback)" };
+                }
+            }
+        } catch (e) {
+            console.error("[FallbackAI] OpenRouter free Llama fallback failed:", e);
+        }
+    }
+
+    return null;
+}
+
 async function getAIEnvironment(db, workspaceId, env, encryptionSecret, subscriptionPlan) {
     const aiEnv = { ...env };
     
@@ -1935,13 +1990,8 @@ export default {
                                 nicheExampleOutput: nicheData ? nicheData.example_output : null
                             });
                         } catch (e) {
-                            console.error("AI Generation failed, falling back to free Llama model:", e);
-                            const fallbackEnv = { ...aiEnv, OPENROUTER_MODEL: "meta-llama/llama-3.2-3b-instruct:free" };
-                            if (!aiEnv._workspaceKeySet) {
-                                fallbackEnv.OPENROUTER_API_KEY = env.OPENROUTER_API_KEY;
-                            }
-                            const fallbackProvider = AIFactory.getProvider(fallbackEnv);
-                            result = await fallbackProvider.generateCaption({
+                            console.error("AI Generation failed, falling back to robust system models:", e);
+                            const systemPrompt = provider.assembleCaptionPrompt({
                                 businessType,
                                 product: product + performanceFeedback,
                                 targetAudience: targetAudience || 'General public',
@@ -1950,11 +2000,38 @@ export default {
                                 language: language || 'Bahasa Melayu',
                                 postFormat: postFormat || 'single',
                                 funnelStage: funnelStage || 'none',
-                                customInstructions: getFactPreservingInstructions(fallbackEnv.custom_ai_instructions),
+                                customInstructions: getFactPreservingInstructions(aiEnv.custom_ai_instructions),
                                 nicheRules: nicheData ? nicheData.rules : null,
                                 nicheExampleOutput: nicheData ? nicheData.example_output : null
                             });
-                            modelUsed = `${aiEnv.OPENROUTER_MODEL} (failed, fell back to free Llama)`;
+
+                            const fallback = await runFallbackAI(systemPrompt, env);
+                            if (fallback) {
+                                let jsonStr = fallback.text;
+                                if (jsonStr.startsWith("```json")) {
+                                    jsonStr = jsonStr.substring(7);
+                                } else if (jsonStr.startsWith("```")) {
+                                    jsonStr = jsonStr.substring(3);
+                                }
+                                if (jsonStr.endsWith("```")) {
+                                    jsonStr = jsonStr.substring(0, jsonStr.length - 3);
+                                }
+                                try {
+                                    result = JSON.parse(jsonStr.trim());
+                                    if (result && Array.isArray(result.caption)) {
+                                        result.caption = result.caption.join('---thread-separator---');
+                                    }
+                                } catch (err) {
+                                    result = {
+                                        caption: fallback.text,
+                                        cta: "",
+                                        hashtags: []
+                                    };
+                                }
+                                modelUsed = `${aiEnv.OPENROUTER_MODEL} (failed, fell back to ${fallback.model})`;
+                            } else {
+                                throw e;
+                            }
                         }
 
                         await logActivity(activeWorkspace.workspace_id, user.id, 'ai_generate', `Generated caption for business "${businessType}": ${(product || '').substring(0, 30)}... model: ${modelUsed}`);
@@ -2607,34 +2684,13 @@ CRITICAL TONE RULES:
                             console.error("Primary AI provider call failed:", e);
                         }
 
-                        // Robust fallback: If selected provider failed or returned empty response, fall back to OpenRouter free Llama model
+                        // Robust fallback: If selected provider failed or returned empty response, fall back using our helper
                         if (!responseText) {
-                            console.warn(`Primary AI model ${modelUsed} failed. Retrying with robust fallback to OpenRouter free Llama model...`);
-                            const fallbackApiKey = env.OPENROUTER_API_KEY;
-                            if (fallbackApiKey) {
-                                try {
-                                    const res = await fetch("https://openrouter.ai/api/v1/chat/completions", {
-                                        method: "POST",
-                                        headers: {
-                                            "Authorization": `Bearer ${fallbackApiKey}`,
-                                            "Content-Type": "application/json",
-                                            "HTTP-Referer": "https://socialhub.zaimrosli.my",
-                                            "X-Title": "SocialHub Autoposter Fallback"
-                                        },
-                                        body: JSON.stringify({
-                                            model: "meta-llama/llama-3.2-3b-instruct:free",
-                                            messages: [{ role: "user", content: systemPrompt }],
-                                            temperature: 0.7
-                                        })
-                                    });
-                                    if (res.ok) {
-                                        const data = await res.json();
-                                        responseText = data.choices?.[0]?.message?.content || "";
-                                        modelUsed = `${modelUsed} (failed, fell back to free Llama)`;
-                                    }
-                                } catch (e) {
-                                    console.error("Robust fallback Llama call failed:", e);
-                                }
+                            console.warn(`Primary AI model ${modelUsed} failed. Retrying with robust fallbacks...`);
+                            const fallback = await runFallbackAI(systemPrompt, env);
+                            if (fallback) {
+                                responseText = fallback.text;
+                                modelUsed = `${modelUsed} (failed, fell back to ${fallback.model})`;
                             }
                         }
 

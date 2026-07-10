@@ -8,12 +8,17 @@ export const notificationService = {
             container.id = 'toastContainer';
             Object.assign(container.style, {
                 position: 'fixed',
-                bottom: '2rem',
-                right: '2rem',
+                bottom: '5rem',
+                left: '50%',
+                transform: 'translateX(-50%)',
                 display: 'flex',
                 flexDirection: 'column',
+                alignItems: 'center',
                 gap: '0.75rem',
-                zIndex: '2000'
+                zIndex: '9999',
+                width: 'max-content',
+                maxWidth: 'calc(100vw - 2rem)',
+                pointerEvents: 'none'
             });
             document.body.appendChild(container);
         }
@@ -30,39 +35,43 @@ export const notificationService = {
         Object.assign(toast.style, {
             background: bg,
             color: '#fff',
-            padding: '1rem 1.5rem',
-            borderRadius: 'var(--radius-sm)',
-            boxShadow: 'var(--shadow-lg)',
+            padding: '0.85rem 1.25rem',
+            borderRadius: '50px',
+            boxShadow: '0 8px 32px rgba(0,0,0,0.35)',
             fontSize: '0.875rem',
-            fontWeight: '500',
+            fontWeight: '600',
             display: 'flex',
             alignItems: 'center',
-            gap: '0.75rem',
-            minWidth: '280px',
-            animation: 'slideIn 0.3s cubic-bezier(0.16, 1, 0.3, 1) forwards'
+            gap: '0.6rem',
+            maxWidth: 'calc(100vw - 2rem)',
+            width: 'max-content',
+            textAlign: 'center',
+            pointerEvents: 'auto',
+            backdropFilter: 'blur(8px)',
+            animation: 'toastSlideUp 0.35s cubic-bezier(0.16, 1, 0.3, 1) forwards'
         });
 
-        toast.innerHTML = `<span>${icon}</span><span style="flex:1;">${message}</span>`;
+        toast.innerHTML = `<span>${icon}</span><span style="flex:1;word-break:break-word;">${message}</span>`;
         container.appendChild(toast);
 
-        // Slide-in keyframe style injected dynamically if not present
+        // Slide-up keyframe style injected dynamically if not present
         if (!document.getElementById('toastStyles')) {
             const style = document.createElement('style');
             style.id = 'toastStyles';
             style.textContent = `
-                @keyframes slideIn {
-                    from { transform: translateX(100%) translateY(10px); opacity: 0; }
-                    to { transform: translateX(0) translateY(0); opacity: 1; }
+                @keyframes toastSlideUp {
+                    from { transform: translateY(20px); opacity: 0; }
+                    to { transform: translateY(0); opacity: 1; }
                 }
-                @keyframes fadeOut {
-                    to { opacity: 0; transform: translateY(-10px); }
+                @keyframes toastFadeOut {
+                    to { opacity: 0; transform: translateY(10px); }
                 }
             `;
             document.head.appendChild(style);
         }
 
         setTimeout(() => {
-            toast.style.animation = 'fadeOut 0.4s ease forwards';
+            toast.style.animation = 'toastFadeOut 0.4s ease forwards';
             setTimeout(() => toast.remove(), 400);
         }, duration);
     },

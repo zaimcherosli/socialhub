@@ -2717,9 +2717,28 @@ CRITICAL TONE RULES:
                             throw new Error("AI provider returned empty response.");
                         }
 
-                        // Clean up markdown block wrapping
-                        const cleaned = responseText.replace(/```json/i, '').replace(/```/g, '').trim();
-                        const parsed = JSON.parse(cleaned);
+                        // Robust JSON extraction — handles:
+                        // 1. Markdown code fences (```json ... ```)
+                        // 2. Reasoning model preamble text before the JSON
+                        // 3. Truncated responses (find the last complete JSON object)
+                        function extractJSON(raw) {
+                            if (!raw) return null;
+                            // Strip markdown fences
+                            let s = raw.replace(/```json\s*/gi, '').replace(/```\s*/g, '').trim();
+                            // Try parsing directly first
+                            try { return JSON.parse(s); } catch (_) {}
+                            // Find first { and last } and try to parse that slice
+                            const start = s.indexOf('{');
+                            const end = s.lastIndexOf('}');
+                            if (start !== -1 && end !== -1 && end > start) {
+                                try { return JSON.parse(s.slice(start, end + 1)); } catch (_) {}
+                            }
+                            return null;
+                        }
+                        const parsed = extractJSON(responseText);
+                        if (!parsed) {
+                            throw new Error(`AI response could not be parsed as JSON. Model: ${modelUsed}`);
+                        }
 
                         // Normalize caption — some AI models (e.g. OpenAI) return caption as an array of slides
                         const rawCaption = parsed.caption || parsed.text || parsed.content || "";

@@ -293,9 +293,9 @@ async function getAIEnvironment(db, workspaceId, env, encryptionSecret, subscrip
     const PLAN_DEFAULT_MODELS = {
         free:       'nousresearch/hermes-3-llama-3.1-405b:free',
         starter:    'nousresearch/hermes-3-llama-3.1-405b:free',
-        pro:        'gemini-2.5-flash',
+        pro:        'google/gemini-3.5-flash',
         agency:     'openai/gpt-4o-mini',
-        enterprise: 'openai/gpt-5.6-sol',
+        enterprise: 'openai/gpt-5.5',
     };
 
     // 1. Check global settings if database exists (stored under user_id = 1 / admin)

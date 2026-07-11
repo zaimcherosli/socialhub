@@ -2955,7 +2955,16 @@ CRITICAL TONE RULES:
                             // 2. Insert subsequent slides as child posts waiting for trigger
                             for (let i = 1; i < cards.length; i++) {
                                 let slideText = cards[i];
-                                const slideImage = (scrapedImages && scrapedImages[i]) ? scrapedImages[i] : null;
+                                let slideImage = null;
+                                
+                                if (i === cards.length - 1) {
+                                    // Last slide gets scrapedImages[1] (Link 2 image) if exists, else fallback to scrapedImages[0]
+                                    slideImage = (scrapedImages && scrapedImages.length > 1) ? scrapedImages[1] : ((scrapedImages && scrapedImages[0]) ? scrapedImages[0] : null);
+                                } else if (!isProperty) {
+                                    // Non-property niche: distribute sequentially
+                                    slideImage = (scrapedImages && scrapedImages[i]) ? scrapedImages[i] : null;
+                                }
+                                
                                 const slideImageSuffix = slideImage ? `\n\n📷 ${slideImage}` : "";
 
                                 if (i === cards.length - 1) {
@@ -2987,7 +2996,15 @@ CRITICAL TONE RULES:
                                 if (cards.length > 0) {
                                     // Distribute scraped images across cards
                                     for (let i = 0; i < cards.length; i++) {
-                                        const cardImage = (scrapedImages && scrapedImages[i]) ? scrapedImages[i] : null;
+                                        let cardImage = null;
+                                        if (i === cards.length - 1) {
+                                            cardImage = (scrapedImages && scrapedImages.length > 1) ? scrapedImages[1] : ((scrapedImages && scrapedImages[0]) ? scrapedImages[0] : null);
+                                        } else if (i === 0) {
+                                            cardImage = (scrapedImages && scrapedImages[0]) ? scrapedImages[0] : null;
+                                        } else if (!isProperty) {
+                                            cardImage = (scrapedImages && scrapedImages[i]) ? scrapedImages[i] : null;
+                                        }
+                                        
                                         const cardImageSuffix = cardImage ? `\n\n📷 ${cardImage}` : "";
 
                                         if (i === cards.length - 1) {

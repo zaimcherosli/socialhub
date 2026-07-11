@@ -158,7 +158,8 @@ CREATE TABLE IF NOT EXISTS scheduled_posts (
     reposts_count INTEGER DEFAULT 0,
     quotes_count INTEGER DEFAULT 0,
     reach_count INTEGER DEFAULT 0,
-    last_insights_sync TEXT
+    last_insights_sync TEXT,
+    source_url TEXT
 );
 
 CREATE INDEX IF NOT EXISTS idx_scheduled_posts_user ON scheduled_posts(user_id);

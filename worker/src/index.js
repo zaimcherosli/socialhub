@@ -2938,8 +2938,8 @@ CRITICAL TONE RULES:
                             const parentContent = `${cards[0]}${parentImageSuffix}`.trim();
 
                             const result = await env.DB.prepare(
-                                `INSERT INTO scheduled_posts (user_id, workspace_id, account_id, platform, content, status, publish_at, created_at, updated_at)
-                                 VALUES (?, ?, ?, ?, ?, ?, ?, (datetime('now')), (datetime('now')))`
+                                `INSERT INTO scheduled_posts (user_id, workspace_id, account_id, platform, content, status, publish_at, source_url, created_at, updated_at)
+                                 VALUES (?, ?, ?, ?, ?, ?, ?, ?, (datetime('now')), (datetime('now')))`
                             ).bind(
                                 user.id,
                                 activeWorkspace.workspace_id,
@@ -2947,7 +2947,8 @@ CRITICAL TONE RULES:
                                 'threads',
                                 parentContent,
                                 finalStatus,
-                                publishAt
+                                publishAt,
+                                url
                             ).run();
                             
                             const parentId = result.meta.last_row_id;
@@ -2974,8 +2975,8 @@ CRITICAL TONE RULES:
                                 }
                                 
                                 await env.DB.prepare(
-                                    `INSERT INTO scheduled_posts (user_id, workspace_id, account_id, platform, content, status, publish_at, trigger_type, trigger_threshold, parent_post_id, created_at, updated_at)
-                                     VALUES (?, ?, ?, ?, ?, 'waiting_trigger', ?, ?, ?, ?, (datetime('now')), (datetime('now')))`
+                                    `INSERT INTO scheduled_posts (user_id, workspace_id, account_id, platform, content, status, publish_at, trigger_type, trigger_threshold, parent_post_id, source_url, created_at, updated_at)
+                                     VALUES (?, ?, ?, ?, ?, 'waiting_trigger', ?, ?, ?, ?, ?, (datetime('now')), (datetime('now')))`
                                 ).bind(
                                     user.id,
                                     activeWorkspace.workspace_id,
@@ -3022,8 +3023,8 @@ CRITICAL TONE RULES:
                             }
 
                             await env.DB.prepare(
-                                `INSERT INTO scheduled_posts (user_id, workspace_id, account_id, platform, content, status, publish_at, created_at, updated_at)
-                                 VALUES (?, ?, ?, ?, ?, ?, ?, (datetime('now')), (datetime('now')))`
+                                `INSERT INTO scheduled_posts (user_id, workspace_id, account_id, platform, content, status, publish_at, source_url, created_at, updated_at)
+                                 VALUES (?, ?, ?, ?, ?, ?, ?, ?, (datetime('now')), (datetime('now')))`
                             ).bind(
                                 user.id,
                                 activeWorkspace.workspace_id,
@@ -3031,7 +3032,8 @@ CRITICAL TONE RULES:
                                 'threads',
                                 fullContent,
                                 finalStatus,
-                                publishAt
+                                publishAt,
+                                url
                             ).run();
                         }
 

@@ -2934,7 +2934,7 @@ CRITICAL TONE RULES:
 
                         if (hasTrigger && cards.length > 1) {
                             // 1. Insert Slide 1 (Parent)
-                            const parentImageSuffix = (scrapedImages && scrapedImages[0]) ? `\n\n📷 ${scrapedImages[0]}` : "";
+                            const parentImageSuffix = (!isProperty && scrapedImages && scrapedImages[0]) ? `\n\n📷 ${scrapedImages[0]}` : "";
                             const parentContent = `${cards[0]}${parentImageSuffix}`.trim();
 
                             const result = await env.DB.prepare(
@@ -3000,7 +3000,7 @@ CRITICAL TONE RULES:
                                         if (i === cards.length - 1) {
                                             cardImage = (scrapedImages && scrapedImages.length > 1) ? scrapedImages[1] : ((scrapedImages && scrapedImages[0]) ? scrapedImages[0] : null);
                                         } else if (i === 0) {
-                                            cardImage = (scrapedImages && scrapedImages[0]) ? scrapedImages[0] : null;
+                                            cardImage = (!isProperty && scrapedImages && scrapedImages[0]) ? scrapedImages[0] : null;
                                         } else if (!isProperty) {
                                             cardImage = (scrapedImages && scrapedImages[i]) ? scrapedImages[i] : null;
                                         }

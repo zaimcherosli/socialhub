@@ -2982,8 +2982,9 @@ CRITICAL TONE RULES:
                                 let slideImage = null;
                                 
                                 if (i === cards.length - 1) {
-                                    // Last slide gets scrapedImages[1] (Link 2 image) if exists, else fallback to scrapedImages[0]
-                                    slideImage = (scrapedImages && scrapedImages.length > 1) ? scrapedImages[1] : ((scrapedImages && scrapedImages[0]) ? scrapedImages[0] : null);
+                                    // Last slide: only show image if there are 2+ scraped images (dual-link scenario)
+                                    // For property single link, suppress image to avoid showing owner's promo card
+                                    slideImage = (scrapedImages && scrapedImages.length > 1) ? scrapedImages[1] : null;
                                 } else if (!isProperty) {
                                     // Non-property niche: distribute sequentially
                                     slideImage = (scrapedImages && scrapedImages[i]) ? scrapedImages[i] : null;
@@ -3022,7 +3023,9 @@ CRITICAL TONE RULES:
                                     for (let i = 0; i < cards.length; i++) {
                                         let cardImage = null;
                                         if (i === cards.length - 1) {
-                                            cardImage = (scrapedImages && scrapedImages.length > 1) ? scrapedImages[1] : ((scrapedImages && scrapedImages[0]) ? scrapedImages[0] : null);
+                                            // Last slide: only show image if there are 2+ scraped images (dual-link scenario)
+                                            // For property single link, suppress image to avoid showing owner's promo card
+                                            cardImage = (scrapedImages && scrapedImages.length > 1) ? scrapedImages[1] : null;
                                         } else if (i === 0) {
                                             cardImage = (!isProperty && scrapedImages && scrapedImages[0]) ? scrapedImages[0] : null;
                                         } else if (!isProperty) {

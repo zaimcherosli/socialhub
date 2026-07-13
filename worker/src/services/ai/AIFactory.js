@@ -47,8 +47,10 @@ export class AIFactory {
         const isGemini = activeModel.toLowerCase().includes("gemini");
 
         if (isGemini) {
-            // Use direct GeminiProvider ONLY if we have a direct Gemini API key
-            if (hasGemini) {
+            const isWorkspaceOpenRouter = hasWorkspaceKey && workspaceKey.startsWith("sk-or-");
+
+            // Use direct GeminiProvider ONLY if we have a direct Gemini API key and workspace is not using OpenRouter
+            if (hasGemini && !isWorkspaceOpenRouter) {
                 const apiKey = env.GEMINI_API_KEY || (workspaceKey.startsWith("AIza") ? workspaceKey : "");
                 if (apiKey) {
                     let cleanModel = activeModel;
@@ -66,9 +68,9 @@ export class AIFactory {
                 }
             }
             
-            // Otherwise, if we have OpenRouter key, route to OpenRouter
-            if (hasOpenRouter) {
-                const apiKey = env.OPENROUTER_API_KEY || (workspaceKey.startsWith("sk-or-") ? workspaceKey : "");
+            // Otherwise, route to OpenRouter
+            if (hasOpenRouter || isWorkspaceOpenRouter) {
+                const apiKey = isWorkspaceOpenRouter ? workspaceKey : env.OPENROUTER_API_KEY;
                 if (apiKey) {
                     return new OpenRouterProvider(apiKey, activeModel);
                 }

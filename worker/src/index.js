@@ -1762,6 +1762,8 @@ export default {
             switch (url.pathname) {
                 // ==================== SAAS MULTI-TENANT REST API ====================
 
+
+
                 // ── AI Settings: GET/POST model preference & API key per workspace ──
                 case '/api/ai/settings': {
                     const user = await getAuthUser();

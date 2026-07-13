@@ -10,6 +10,8 @@ export class GeminiProvider extends AIProvider {
             targetModel = 'gemini-2.5-flash';
         }
         this.model = targetModel;
+        // Thinking models (3.5 Flash, 2.5 Pro, etc.) need thinkingConfig disabled for structured JSON output
+        this.isThinkingModel = targetModel.includes('3.5') || targetModel.includes('2.5-pro') || targetModel.includes('thinking');
     }
 
     async generateCaption({ businessType, product, targetAudience, goal, tone, language, customInstructions, postFormat, funnelStage, nicheRules, nicheExampleOutput }) {
@@ -25,7 +27,8 @@ export class GeminiProvider extends AIProvider {
                     parts: [{ text: prompt }]
                 }],
                 generationConfig: {
-                    responseMimeType: "application/json"
+                    responseMimeType: "application/json",
+                    ...(this.isThinkingModel ? { thinkingConfig: { thinkingBudget: 0 } } : {})
                 }
             })
         });
@@ -36,13 +39,13 @@ export class GeminiProvider extends AIProvider {
         }
 
         const data = await response.json();
-        if (!data.candidates || data.candidates.length === 0 || 
-            !data.candidates[0].content || !data.candidates[0].content.parts || 
-            data.candidates[0].content.parts.length === 0) {
+        const parts = data.candidates?.[0]?.content?.parts || [];
+        if (parts.length === 0) {
             throw new Error("Invalid API response format from Gemini.");
         }
 
-        const rawText = data.candidates[0].content.parts[0].text.trim();
+        // Scan all parts — thinking models may add thoughtSignature alongside text
+        const rawText = (parts.find(p => p.text && !p.thoughtSignature)?.text || parts.find(p => p.text)?.text || "").trim();
         try {
             const parsed = JSON.parse(rawText);
             if (parsed && Array.isArray(parsed.caption)) {

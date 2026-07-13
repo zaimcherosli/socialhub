@@ -2702,17 +2702,25 @@ CRITICAL TONE RULES:
                                 responseText = typeof res === 'string' ? res : (res.choices?.[0]?.message?.content || res.response || JSON.stringify(res));
                             } else if (provider.constructor?.name === 'GeminiProvider') {
                                 const genUrl = `https://generativelanguage.googleapis.com/v1beta/models/${provider.model}:generateContent?key=${provider.apiKey}`;
+                                const isThinkingModel = provider.model && (provider.model.includes('3.5') || provider.model.includes('2.5-pro') || provider.model.includes('thinking'));
                                 const res = await fetch(genUrl, {
                                     method: "POST",
                                     headers: { "Content-Type": "application/json" },
                                     body: JSON.stringify({
                                         contents: [{ parts: [{ text: systemPrompt }] }],
-                                        generationConfig: { responseMimeType: "application/json" }
+                                        generationConfig: {
+                                            responseMimeType: "application/json",
+                                            ...(isThinkingModel ? { thinkingConfig: { thinkingBudget: 0 } } : {})
+                                        }
                                     })
                                  });
                                 if (res.ok) {
                                     const data = await res.json();
-                                    responseText = data.candidates?.[0]?.content?.parts?.[0]?.text || "";
+                                    const parts = data.candidates?.[0]?.content?.parts || [];
+                                    // Scan all parts for the text output (thinking models may split across multiple parts)
+                                    responseText = parts.find(p => p.text && !p.thoughtSignature)?.text
+                                        || parts.find(p => p.text)?.text
+                                        || "";
                                 } else {
                                     const errText = await res.text();
                                     console.error(`Gemini Direct API call failed: ${res.status} - ${errText}`);

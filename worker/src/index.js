@@ -2646,7 +2646,7 @@ CRITICAL TONE RULES:
                         const nicheData = await getNicheInstructions(env.DB, productContext);
                         
                         const lowerCtx = (productContext || "").toLowerCase();
-                        const isProperty = lowerCtx.includes("apartment") || lowerCtx.includes("semi d") || lowerCtx.includes("teres") || lowerCtx.includes("kondo") || lowerCtx.includes("house") || lowerCtx.includes("property") || lowerCtx.includes("hartanah") || lowerCtx.includes("bilik") || lowerCtx.includes("sqft") || url.includes("propmall") || url.includes("mudah");
+                        const isProperty = lowerCtx.includes("apartment") || lowerCtx.includes("semi d") || lowerCtx.includes("teres") || lowerCtx.includes("kondo") || lowerCtx.includes("house") || lowerCtx.includes("property") || lowerCtx.includes("hartanah") || lowerCtx.includes("bilik") || lowerCtx.includes("sqft") || lowerCtx.includes("rumah") || lowerCtx.includes("sewa") || lowerCtx.includes("landed") || lowerCtx.includes("tingkat") || lowerCtx.includes("bilik air") || lowerCtx.includes("lot") || lowerCtx.includes("freehold") || lowerCtx.includes("leasehold") || url.includes("propmall") || url.includes("mudah") || (nicheData && (nicheData.niche_key === 'hartanah' || nicheData.niche_key === 'property'));
 
                         const provider = AIFactory.getProvider(aiEnv);
 
@@ -2936,10 +2936,10 @@ CRITICAL TONE RULES:
                                 } else {
                                     // Products & Affiliate
                                     const affiliateVariations = [
-                                        `Korang check sendiri review & rating buyer kat kedai ni: ➡️ ${finalCtaUrl}`,
-                                        `Ushar harga flash sale paling murah & baki stok kat sini: ➡️ ${finalCtaUrl}`,
+                                        `Korang check sendiri review & rating buyer kat sini: ➡️ ${finalCtaUrl}`,
+                                        `Ushar harga & baki stok kat link ni: ➡️ ${finalCtaUrl}`,
                                         `Benda viral ni tengah ada discount, ushar cepat kat link ni: ➡️ ${finalCtaUrl}`,
-                                        `Tengok baki stok & grab harga promo kat shopee/tiktok shop ni: ➡️ ${finalCtaUrl}`
+                                        `Aku drop link kat sini kalau ada yang nak ushar dulu: ➡️ ${finalCtaUrl}`
                                     ];
                                     const aIndex = Math.floor(Math.random() * affiliateVariations.length);
                                     ctaText = affiliateVariations[aIndex];

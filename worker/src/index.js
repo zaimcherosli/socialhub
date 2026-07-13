@@ -2431,6 +2431,21 @@ export default {
                                 .trim();
                         }
 
+                        // For affiliate/ecommerce links (Shopee, TikTok, Lazada) — strip price mentions and
+                        // spec/feature bullet lines from productContext so AI doesn't leak pricing in copywriting.
+                        // This preserves the curiosity gap that drives clicks.
+                        const isAffiliateUrl = /shopee\.|tiktok\.|lazada\.|aliexpress\./i.test(url);
+                        if (isAffiliateUrl && productContext) {
+                            productContext = productContext
+                                // Remove RM price mentions e.g. "RM30.39", "RM 30.39", "harga RM 30", "price RM30"
+                                .replace(/(?:harga|price|dari|from|mulai|serendah|as low as)?\s*RM\s*[\d,.]+/gi, '')
+                                // Remove lines that are mostly specs/numbers (e.g. "100% Polyester", "30x40cm", "Size: XL")
+                                .replace(/(?:^|\n)[^\n]*(?:size|saiz|dimension|material|bahan|weight|berat|cm|mm|inch|%):[^\n]*/gi, '\n')
+                                // Clean up
+                                .replace(/\n{3,}/g, '\n\n')
+                                .trim();
+                        }
+
 
                         // URL slug fallback only if we still have nothing
                         if (!productContext) {

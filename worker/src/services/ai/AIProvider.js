@@ -173,6 +173,11 @@ Write a highly engaging social media post based on these details:
 
             prompt += `- ${formatInstructions}\n\n`;
 
+            // Inject niche-specific rules prominently if available (even without example_output)
+            if (nicheRules && Array.isArray(nicheRules) && nicheRules.length > 0) {
+                prompt += `CRITICAL NICHE RULES — You MUST follow these rules EXACTLY. These override generic copywriting guidelines:\n${nicheRules.map((r, i) => `${i + 1}. ${r}`).join('\n')}\n\n`;
+            }
+
             if (customInstructions) {
                 prompt += `Follow these copywriting guidelines closely:\n${customInstructions}\n\n`;
             }

@@ -301,15 +301,39 @@ async function getAIEnvironment(db, workspaceId, env, encryptionSecret, subscrip
     // 1. Check global settings if database exists (stored under user_id = 1 / admin)
     if (db) {
         try {
-            const toggles = await db.prepare(
-                "SELECT setting_key, setting_value FROM settings WHERE user_id = 1 AND setting_key IN ('sys_gemini_disabled', 'sys_openai_disabled')"
+            const sysSettings = await db.prepare(
+                "SELECT setting_key, setting_value FROM settings WHERE user_id = 1 AND setting_key IN ('sys_gemini_disabled', 'sys_openai_disabled', 'sys_gemini_api_key_enc', 'sys_openrouter_api_key_enc', 'sys_openai_api_key_enc')"
             ).all();
-            if (toggles && toggles.results) {
-                const isGeminiDisabled = toggles.results.some(s => s.setting_key === 'sys_gemini_disabled' && s.setting_value === 'true');
-                const isOpenAIDisabled = toggles.results.some(s => s.setting_key === 'sys_openai_disabled' && s.setting_value === 'true');
+            if (sysSettings && sysSettings.results) {
+                const isGeminiDisabled = sysSettings.results.some(s => s.setting_key === 'sys_gemini_disabled' && s.setting_value === 'true');
+                const isOpenAIDisabled = sysSettings.results.some(s => s.setting_key === 'sys_openai_disabled' && s.setting_value === 'true');
                 
-                if (isGeminiDisabled) aiEnv.GEMINI_API_KEY = "";
-                if (isOpenAIDisabled) aiEnv.OPENAI_API_KEY = "";
+                if (isGeminiDisabled) {
+                    aiEnv.GEMINI_API_KEY = "";
+                } else {
+                    const row = sysSettings.results.find(s => s.setting_key === 'sys_gemini_api_key_enc');
+                    if (row && row.setting_value) {
+                        const decrypted = await decryptToken(row.setting_value, encryptionSecret);
+                        if (decrypted) aiEnv.GEMINI_API_KEY = decrypted;
+                    }
+                }
+                
+                if (isOpenAIDisabled) {
+                    aiEnv.OPENAI_API_KEY = "";
+                } else {
+                    const row = sysSettings.results.find(s => s.setting_key === 'sys_openai_api_key_enc');
+                    if (row && row.setting_value) {
+                        const decrypted = await decryptToken(row.setting_value, encryptionSecret);
+                        if (decrypted) aiEnv.OPENAI_API_KEY = decrypted;
+                    }
+                }
+
+                // Load global OpenRouter key fallback
+                const rowOr = sysSettings.results.find(s => s.setting_key === 'sys_openrouter_api_key_enc');
+                if (rowOr && rowOr.setting_value) {
+                    const decrypted = await decryptToken(rowOr.setting_value, encryptionSecret);
+                    if (decrypted) aiEnv.OPENROUTER_API_KEY = decrypted;
+                }
             }
         } catch (_) {}
     }
@@ -5417,23 +5441,48 @@ CRITICAL LANGUAGE / SPEECH RULES:
 
                     if (request.method === 'GET') {
                         const rows = await env.DB.prepare(
-                            "SELECT setting_key, setting_value FROM settings WHERE user_id = 1 AND setting_key IN ('sys_gemini_disabled', 'sys_openai_disabled')"
+                            "SELECT setting_key, setting_value FROM settings WHERE user_id = 1 AND setting_key IN ('sys_gemini_disabled', 'sys_openai_disabled', 'sys_gemini_api_key_enc', 'sys_openrouter_api_key_enc', 'sys_openai_api_key_enc')"
                         ).all().catch(() => null);
                         
                         const sys_gemini_disabled = rows?.results?.some(r => r.setting_key === 'sys_gemini_disabled' && r.setting_value === 'true') || false;
                         const sys_openai_disabled = rows?.results?.some(r => r.setting_key === 'sys_openai_disabled' && r.setting_value === 'true') || false;
+                        
+                        const geminiEnc = rows?.results?.find(r => r.setting_key === 'sys_gemini_api_key_enc')?.setting_value;
+                        const openrouterEnc = rows?.results?.find(r => r.setting_key === 'sys_openrouter_api_key_enc')?.setting_value;
+                        const openaiEnc = rows?.results?.find(r => r.setting_key === 'sys_openai_api_key_enc')?.setting_value;
+                        
+                        const decryptAndMask = async (encStr) => {
+                            if (!encStr) return '';
+                            const decrypted = await decryptToken(encStr, encryptionSecret);
+                            if (!decrypted) return '';
+                            if (decrypted.length <= 12) return '●●●●●●●●';
+                            return decrypted.substring(0, 8) + '●'.repeat(decrypted.length - 12) + decrypted.substring(decrypted.length - 4);
+                        };
+
+                        const sys_gemini_api_key = await decryptAndMask(geminiEnc);
+                        const sys_openrouter_api_key = await decryptAndMask(openrouterEnc);
+                        const sys_openai_api_key = await decryptAndMask(openaiEnc);
 
                         return new Response(JSON.stringify({
                             success: true,
                             settings: {
                                 sys_gemini_disabled,
-                                sys_openai_disabled
+                                sys_openai_disabled,
+                                sys_gemini_api_key,
+                                sys_openrouter_api_key,
+                                sys_openai_api_key
                             }
                         }), { status: 200, headers: corsHeaders });
                     }
 
                     if (request.method === 'POST') {
-                        const { sys_gemini_disabled, sys_openai_disabled } = await request.json();
+                        const { 
+                            sys_gemini_disabled, 
+                            sys_openai_disabled,
+                            sys_gemini_api_key,
+                            sys_openrouter_api_key,
+                            sys_openai_api_key 
+                        } = await request.json();
                         
                         // Insert or Update sys_gemini_disabled
                         await env.DB.prepare(
@@ -5446,6 +5495,31 @@ CRITICAL LANGUAGE / SPEECH RULES:
                             `INSERT OR REPLACE INTO settings (user_id, setting_key, setting_value, updated_at) 
                              VALUES (1, 'sys_openai_disabled', ?, datetime('now'))`
                         ).bind(sys_openai_disabled === true ? "true" : "false").run();
+
+                        // Handle Key Updates (skip if masked, delete if empty, encrypt and save if new)
+                        const updateKey = async (rawKey, dbKeyName) => {
+                            if (rawKey === undefined) return;
+                            if (rawKey.includes('●')) return; // Ignore masked placeholder
+                            if (!rawKey.trim()) {
+                                // Delete setting
+                                await env.DB.prepare(
+                                    `DELETE FROM settings WHERE user_id = 1 AND setting_key = ?`
+                                ).bind(dbKeyName).run();
+                            } else {
+                                // Encrypt and save
+                                const encrypted = await encryptToken(rawKey.trim(), encryptionSecret);
+                                if (encrypted) {
+                                    await env.DB.prepare(
+                                        `INSERT OR REPLACE INTO settings (user_id, setting_key, setting_value, updated_at) 
+                                         VALUES (1, ?, ?, datetime('now'))`
+                                    ).bind(dbKeyName, encrypted).run();
+                                }
+                            }
+                        };
+
+                        await updateKey(sys_gemini_api_key, 'sys_gemini_api_key_enc');
+                        await updateKey(sys_openrouter_api_key, 'sys_openrouter_api_key_enc');
+                        await updateKey(sys_openai_api_key, 'sys_openai_api_key_enc');
 
                         return new Response(JSON.stringify({
                             success: true,

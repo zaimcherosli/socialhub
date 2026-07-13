@@ -2999,7 +2999,7 @@ CRITICAL TONE RULES:
                                     // - Dual links (2+ images): use scrapedImages[1] (Link 2 image)
                                     // - Single Propmall/Mudah link: use scrapedImages[0] (proper listing photo)
                                     // - Single Telegram link: NO image (suppress owner's promo card)
-                                    const isSingleTelegramLink = scrapedImages && scrapedImages.length === 1 && (url.includes('t.me') || url.includes('telegram.me') || url.includes('telesco.pe') || url.includes('nakcuba.my'));
+                                    const isSingleTelegramLink = !mediaUrl && scrapedImages && scrapedImages.length === 1 && (url.includes('t.me') || url.includes('telegram.me') || url.includes('telesco.pe') || url.includes('nakcuba.my'));
                                     slideImage = (scrapedImages && scrapedImages.length > 1) ? scrapedImages[1] : (isSingleTelegramLink ? null : (scrapedImages && scrapedImages[0] ? scrapedImages[0] : null));
                                 } else if (!isProperty) {
                                     // Non-property niche: distribute sequentially
@@ -3043,7 +3043,7 @@ CRITICAL TONE RULES:
                                             // - Dual links (2+ images): use scrapedImages[1] (Link 2 image)
                                             // - Single Propmall/Mudah link: use scrapedImages[0] (proper listing photo)
                                             // - Single Telegram link: NO image (suppress owner's promo card)
-                                            const isSingleTelegramLink = scrapedImages && scrapedImages.length === 1 && (url.includes('t.me') || url.includes('telegram.me') || url.includes('telesco.pe') || url.includes('nakcuba.my'));
+                                            const isSingleTelegramLink = !mediaUrl && scrapedImages && scrapedImages.length === 1 && (url.includes('t.me') || url.includes('telegram.me') || url.includes('telesco.pe') || url.includes('nakcuba.my'));
                                             cardImage = (scrapedImages && scrapedImages.length > 1) ? scrapedImages[1] : (isSingleTelegramLink ? null : (scrapedImages && scrapedImages[0] ? scrapedImages[0] : null));
                                         } else if (i === 0) {
                                             cardImage = (!isProperty && scrapedImages && scrapedImages[0]) ? scrapedImages[0] : null;

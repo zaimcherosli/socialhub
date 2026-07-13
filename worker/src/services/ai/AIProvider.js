@@ -119,7 +119,7 @@ ${nicheExampleOutput.trim()}
 
 Generate thread BARU mengikut gaya penulisan, tone, dan struktur umum dari contoh di atas, tetapi menggunakan maklumat produk/hartanah di bawah.
 PENTING:
-1. Jangan tiru atau salin bulat-bulat ayat pembuka (hook) dari contoh di atas. Pelbagaikan gaya pembuka untuk setiap post baru (contohnya: mulakan dengan soalan menarik, highlight harga/tawaran terus, atau sebut masalah utama pembeli). Pastikan ia unik dan natural.
+1. HOOK WAJIB — Untuk ayat pembuka Slide 1, WAJIB gunakan gaya hook berikut (pilihan rawak sistem, MESTI diikut): [${chosenHook.name}] — ${chosenHook.pattern}. JANGAN guna gaya hook lain selain yang dinyatakan. JANGAN tiru atau salin bulat-bulat hook dari contoh di atas.
 2. Sekiranya maklumat di bawah adalah topik perbincangan, perkongsian tips, atau perbandingan umum (BUKAN iklan/listing spesifik bagi unit tertentu), JANGAN reka atau reka-reka (hallucinate) butiran unit (seperti saiz sqft, bilangan bilik, status freehold/leasehold, fasiliti, atau meminta viewing). Sebaliknya, fokus sepenuhnya untuk membincangkan topik/tips tersebut menggunakan gaya bahasa dan tone dari contoh.
 3. PERATURAN MISTERI & CTR (CURIOSITY RULE): JANGAN sebut nama spesifik produk, nama jenama, model produk (seperti 'Machenike G3 V2', 'Residensi Adelia', 'Bangi Avenue') di dalam teks copywriting. Sebaliknya, gunakan nama am atau kata ganti misteri (seperti 'benda ni', 'gadget ni', 'kipas ni', 'apartment ni', 'unit ni', 'benda viral ni') untuk membina rasa ingin tahu (curiosity) pembaca supaya mereka terpaksa klik pautan (link) untuk mengetahui nama/jenama produk tersebut.
 
@@ -192,15 +192,7 @@ Write a highly engaging social media post based on these details:
 6. CURIOSITY GAP (Do NOT satisfy curiosity too early): Avoid describing the exact physical features, specifications, or appearance of the product (e.g., do NOT mention size, color, exact button placements, or specifications). Focus entirely on the PROBLEM solved or the RESULT/TRANSFORMATION (e.g., write "sejak guna benda ni, masalah bau hapak dalam tandas terus hilang" instead of describing a deodorizer spray). Let the reader click the link to see what the item actually looks like.
 7. BUYING INTENT PRIMING (Give a strong reason to buy/click): In your copywriting, build interest to purchase by mentioning trusted seller reviews, massive price drops, flash sales, or high unit sales (e.g. "Korang check sendiri review kat kedai ni, ramai kata berkesan...", "Nasib baik aku beli time tengah offer semalam...", "Aku amik dari seller ni sebab shipping terpaling laju...").
 8. AVOID GENERIC MARKETING & CLICKBAIT KOSONG: Do not use empty clickbait phrases like "Korang kena tahu ni" if there is no real value right after. Do not start with generic bot phrases like "Mari mulakan...".
-9. HOOK DIVERSITY & APPROVED PATTERNS (Vislo Hook Secrets Library): Vary your opening sentence structure. NO REPETITIVE STARTING WORDS. Use one of these high-converting hook patterns for the first sentence of Slide 1 to capture immediate attention:
-   - Pecahkan Mitos: "Tahukah anda, [mitos popular] sebenarnya tak betul? Kajian/pengalaman tunjuk sebaliknya..."
-   - Kongsi Kesilapan: "Jangan buat silap macam saya. [Terangkan kesilapan]. Hasilnya?..."
-   - Cara Luar Biasa: "Daripada [buat cara biasa/standard], cuba [cara luar biasa] ni untuk [manfaat]..."
-   - Jawab Soalan: "Soalan hari ini: [Soalan]? Jawapan: Kalau nak [manfaat], ini yang perlu anda buat..."
-   - Tanya Soalan Gagal: "Pernah tak cuba [dapatkan hasil] tapi gagal? Kenapa agaknya tu berlaku?..."
-   - Minta Pendapat (A/B): "Ada yang kata [cara A lebih baik], yang lain kata [cara B lebih bagus]. Apa pandangan korang?..."
-   - Testimoni / Bukti: "Kalau [kumpulan orang/siapa] boleh [dapat hasil luar biasa] dengan [benda ni], korang pun mesti boleh!"
-   - Bongkar Rahsia: "[Manfaat] sebenarnya tak susah pun kalau tahu rahsia ni. Ini apa yang aku buat..."
+9. HOOK WAJIB (MESTI IKUT — pilihan rawak sistem): Untuk ayat pembuka Slide 1, WAJIB gunakan gaya hook berikut sahaja: [${chosenHook.name}] — ${chosenHook.pattern}. JANGAN guna mana-mana gaya hook lain selain ini. Ini mengelakkan pengulangan opening yang sama berulang kali.
 10. CURIOSITY & MYSTERY RULE (No Product/Brand/Project Names): NEVER mention the exact product name, brand name, model name (e.g. 'Machenike G3 V2') directly in the copywriting text. Instead, refer to it using generic, curiosity-inducing terms (e.g., 'benda ni', 'gadget ni', 'kipas ni', 'apartment ni', 'unit ni', 'benda viral ni') to create mystery and drive clicks to the destination link.
 `;
             } else {

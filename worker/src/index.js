@@ -2595,7 +2595,7 @@ export default {
                             if (priceText) {
                                 greetingText += priceText;
                             }
-                            greetingText += `. Boleh bagi details?`;
+                            greetingText += `. Boleh bagi details?\n\nRujukan: ${url}`;
 
                             // Safely encode greeting — scraped text may contain malformed Unicode (lone surrogates)
                             let safeGreeting = greetingText

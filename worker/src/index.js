@@ -2830,6 +2830,9 @@ CRITICAL TONE RULES:
 
 
 
+                        const isAffiliate = (nicheData && nicheData.niche_key === 'affiliate') || 
+                                            (url.includes('shopee') || url.includes('tiktok') || url.includes('lazada') || url.includes('aliexpress') || url.includes('nakcuba.my'));
+
                         // Sale vs Rent detection: check scraped content + WA URL text (encoded)
                         // Check full product context AND scraped content for keywords
                         const fullDetectionText = (productContext + " " + scrapedTitle + " " + scrapedDescription + " " + url).toLowerCase();
@@ -2871,6 +2874,19 @@ CRITICAL TONE RULES:
                                     }
                                 });
                             }
+                            hashtagsText = tagsArray.join(" ");
+                        } else if (isAffiliate) {
+                            const affiliateTags = ["#affiliate", "#shopee", "#shopeefinds", "#racunshopee"];
+                            if (url.toLowerCase().includes("tiktok")) {
+                                affiliateTags.push("#tiktokshop", "#racuntiktok");
+                            }
+                            
+                            let tagsArray = hashtagsText.split(/\s+/).filter(Boolean).map(t => t.startsWith('#') ? t : `#${t}`);
+                            affiliateTags.forEach(t => {
+                                if (!tagsArray.map(x => x.toLowerCase()).includes(t.toLowerCase())) {
+                                    tagsArray.push(t);
+                                }
+                            });
                             hashtagsText = tagsArray.join(" ");
                         }
 
@@ -2940,7 +2956,18 @@ CRITICAL TONE RULES:
                                         `Korang check sendiri review & rating buyer kat sini: ➡️ ${finalCtaUrl}`,
                                         `Ushar harga & baki stok kat link ni: ➡️ ${finalCtaUrl}`,
                                         `Benda viral ni tengah ada discount, ushar cepat kat link ni: ➡️ ${finalCtaUrl}`,
-                                        `Aku drop link kat sini kalau ada yang nak ushar dulu: ➡️ ${finalCtaUrl}`
+                                        `Aku drop link kat sini kalau ada yang nak ushar dulu: ➡️ ${finalCtaUrl}`,
+                                        `Nah link kalau ada yang nak try sendiri: ➡️ ${finalCtaUrl}`,
+                                        `Saja kongsi link ni kot-kot ada yang perlukan juga: ➡️ ${finalCtaUrl}`,
+                                        `Kot lah ada yang tengah cari barang ni, ni link dia: ➡️ ${finalCtaUrl}`,
+                                        `Boleh check details or ushar design lain kat link ni: ➡️ ${finalCtaUrl}`,
+                                        `Aku ambil dari seller ni sebab trusted & rating tinggi: ➡️ ${finalCtaUrl}`,
+                                        `Mana yang berminat nak tengok spec penuh, roger link ni: ➡️ ${finalCtaUrl}`,
+                                        `Korang tengok lah sendiri feedback buyer kat link ni: ➡️ ${finalCtaUrl}`,
+                                        `Ini pautan kedai yang aku beli hari tu, shipping laju: ➡️ ${finalCtaUrl}`,
+                                        `Try ushar link ni cepat sebelum stok habis or harga naik: ➡️ ${finalCtaUrl}`,
+                                        `Nah, aku share link kedai ni untuk mudahkan korang: ➡️ ${finalCtaUrl}`,
+                                        `Kalau nak settlekan masalah ni cepat, pergi dapatkan kat link ni: ➡️ ${finalCtaUrl}`
                                     ];
                                     const aIndex = Math.floor(Math.random() * affiliateVariations.length);
                                     ctaText = affiliateVariations[aIndex];

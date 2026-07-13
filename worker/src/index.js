@@ -755,10 +755,9 @@ const extractTelegramTitle = (scrapedTitle, scrapedDescription) => {
     if (!scrapedDescription) return scrapedTitle || "";
     
     // Clean emojis and bullet markers from each line
-    // Also strip variation selectors and heavy exclamation marks like ❗️ or ❗
     const rawLines = scrapedDescription.split('\n');
     const cleanLines = rawLines.map(l => {
-        let val = l.replace(/[✅✨🏠📌🔥*‼️•⁠🏡❗️❗]/g, '').replace(/^[-–\s]+/, '').trim();
+        let val = l.replace(/[✅✨🏠📌🔥*‼️•⁠🏡❗️❗\-–\s]/g, ' ').replace(/\s+/g, ' ').trim();
         // Strip out contact links/handles (wasap.my, wa.me, wa.link, t.me, bit.ly, etc.)
         val = val.replace(/(?:https?:\/\/)?(?:www\.)?(?:wasap\.my|wa\.me|wa\.link|t\.me|bit\.ly)\/[a-zA-Z0-9_/.-]+/gi, '');
         // Clean leading transition prepositions left after link strip
@@ -766,44 +765,41 @@ const extractTelegramTitle = (scrapedTitle, scrapedDescription) => {
         return val.trim();
     }).filter(Boolean);
 
-    // Priority 1: Find the main listing line containing property type + transaction type
-    // e.g. "For Sale - Semi D Cluster Two Storey House SP 10 Bandar Saujana Putra"
-    const mainListingRegex = /(?:For\s*Sale|WTS|WTL|For\s*Rent|Sewa|Jual).*(?:Storey|Tingkat|Terrace|Teres|Semi.?D|Bungalow|Banglo|Condo|Apartment|Pangsapuri|Flat|House|Rumah)/i;
-    const mainLine = cleanLines.find(l => mainListingRegex.test(l));
-    if (mainLine) {
-        return mainLine.replace(/^(?:For\s*Sale|WTS|WTL|For\s*Rent|Sewa|Jual)\s*[-–:]?\s*/i, '').substring(0, 100).trim();
+    const buildingTypeRegex = /\b(Storey|Tingkat|Sty|Terrace|Teres|Semi.?D|Bungalow|Banglo|Condo|Condominium|Kondominium|Apartment|Pangsapuri|Flat|Townhouse|House|Rumah|Suite|Office|Shoplot|Cluster)\b/i;
+    const locationKeyword = /\b(Bandar|Taman|Pandan|Subang|Shah|Alam|Petaling|Ampang|Rawang|Semenyih|Dengkil|Klang|Cheras|Setapak|Puchong|Serdang|Cyberjaya|Putrajaya|Kajang|Sepang|Sri|Damansara|Kepong|Selayang|Batu|Seremban|Nilai|Alam|Perdana|Indah|Permai|Damai|Maju|Jaya|Murni|Harmoni|Saujana|Putra|Prima|Utama|Raya|Seksyen|BSP|SP\s*\d+|Bangi|Gombak|Setiawangsa|Wangsa|Maju|Bukit|Jalil|Banting|Jenjarom|Salak|Tinggi|Semenyih|Kajang|Klang|Kuala|Lumpur|KL|Sentul)\b/i;
+
+    // Search for a line with building type and check neighboring lines for location context
+    for (let i = 0; i < cleanLines.length; i++) {
+        const line = cleanLines[i];
+        if (buildingTypeRegex.test(line)) {
+            // Exclude long description sentences that start with common descriptions
+            if (line.length > 80 && (line.toLowerCase().startsWith("the ") || line.toLowerCase().startsWith("this ") || line.toLowerCase().startsWith("is "))) {
+                continue;
+            }
+            // If the line has building type, check if it also has location
+            if (locationKeyword.test(line)) {
+                return line.substring(0, 100).trim();
+            }
+            // Otherwise check if the next line has location
+            if (i + 1 < cleanLines.length && locationKeyword.test(cleanLines[i+1])) {
+                const combined = `${line} - ${cleanLines[i+1]}`;
+                return combined.substring(0, 100).trim();
+            }
+            // If next line is not location, check if previous line was a short header
+            if (i - 1 >= 0 && cleanLines[i-1].length < 30 && locationKeyword.test(cleanLines[i-1])) {
+                const combined = `${line} - ${cleanLines[i-1]}`;
+                return combined.substring(0, 100).trim();
+            }
+            // Return building type line alone
+            return line.substring(0, 100).trim();
+        }
     }
 
-    // Definitions
-    const buildingTypeRegex = /\b(Storey|Tingkat|Sty|Terrace|Teres|Semi.?D|Bungalow|Banglo|Condo|Condominium|Kondominium|Apartment|Pangsapuri|Flat|Townhouse|House|Rumah|Suite|Office|Shoplot|Cluster)\b/i;
-    const landTypeRegex = /\b(Land|Tanah|Lot)\b/i;
-    const propertyTypeRegex = /\b(Storey|Tingkat|Sty|Terrace|Teres|Semi.?D|Bungalow|Banglo|Condo|Condominium|Kondominium|Apartment|Pangsapuri|Flat|Townhouse|House|Rumah|Suite|Office|Shoplot|Land|Tanah|Lot|Cluster)\b/i;
-    
-    const locationKeyword = /\b(Bandar|Taman|Pandan|Subang|Shah Alam|Petaling|Ampang|Rawang|Semenyih|Dengkil|Klang|Cheras|Setapak|Puchong|Serdang|Cyberjaya|Putrajaya|Kajang|Sepang|Sri|KL|Kuala Lumpur|Damansara|Kepong|Selayang|Batu|Seremban|Nilai|Alam|Perdana|Indah|Permai|Damai|Maju|Jaya|Murni|Harmoni|Saujana|Putra|Prima|Utama|Raya|Seksyen|BSP|SP\s*\d+|Bangi|Gombak|Setiawangsa|Wangsa Maju|Bukit Jalil|Banting|Jenjarom|Salak Tinggi|Semenyih)\b/i;
+    // Fallback: search for location keyword alone
+    const locLine = cleanLines.find(l => l.length > 3 && locationKeyword.test(l));
+    if (locLine) return locLine.substring(0, 100).trim();
 
-    // Sub-Priority 2a: Building Type AND Location
-    const bestBuildingLine = cleanLines.find(l => buildingTypeRegex.test(l) && locationKeyword.test(l));
-    if (bestBuildingLine) return bestBuildingLine.substring(0, 100).trim();
-
-    // Sub-Priority 2b: Building Type alone (excluding bullet features containing words like 'luas', 'belakang' to avoid feature matching)
-    const buildingAloneLine = cleanLines.find(l => l.length > 5 && buildingTypeRegex.test(l) && !/Asking\s*Price|ASKING|PRICE|Land\s*Area|Built\s*Up|Bedrooms|Bathrooms|sqft/i.test(l));
-    if (buildingAloneLine) return buildingAloneLine.substring(0, 100).trim();
-
-    // Sub-Priority 2c: Land/Tanah Type AND Location
-    const bestLandLine = cleanLines.find(l => landTypeRegex.test(l) && locationKeyword.test(l));
-    if (bestLandLine) return bestLandLine.substring(0, 100).trim();
-
-    // Sub-Priority 2d: Land/Tanah Type alone (excluding bullet features containing 'luas', 'belakang' to avoid feature matching)
-    const landAloneLine = cleanLines.find(l => l.length > 5 && landTypeRegex.test(l) && !/Luas|Belakang|Depan|Sisi|Tepi|Asking\s*Price|ASKING|PRICE|Land\s*Area|Built\s*Up|Bedrooms|Bathrooms|sqft/i.test(l));
-    if (landAloneLine) return landAloneLine.substring(0, 100).trim();
-
-    // Fallback to general property type if none of the above matched
-    const anyTypeLine = cleanLines.find(l => l.length > 5 && propertyTypeRegex.test(l) && !/Asking\s*Price|ASKING|PRICE|Land\s*Area|Built\s*Up|Bedrooms|Bathrooms|sqft/i.test(l));
-    if (anyTypeLine) return anyTypeLine.substring(0, 100).trim();
-
-    // Priority 4: Fallback to first non-trivial line (ignoring dates, deposits, furnishings, levels)
-    const firstLine = cleanLines.find(l => l.length > 10 && !/^\d+|MAHAFIZ|IQI|REN|PEA|NEARBY|DETAILS|EASY\s*ACCESS|ASKING|PRICE|Kemasukan|Sewa|Sewaan|Deposit|Move\s*In|Kemasukan\s*Segera|Furnished|Furnish|Level|Block|Tingkat|Booking/i.test(l));
-    return firstLine ? firstLine.substring(0, 100).trim() : (scrapedTitle || "");
+    return scrapedTitle || "";
 };
 
 // Helper: Auto-shorten any ecommerce links found inside post content
@@ -2592,10 +2588,24 @@ export default {
                             if (locationInfo && !greetingTitle.toLowerCase().includes(locationInfo.toLowerCase().split(' ')[0].toLowerCase())) {
                                 greetingText += ` di ${locationInfo}`;
                             }
-                            if (priceText) {
-                                greetingText += priceText;
+                             if (priceText) {
+                                 greetingText += priceText;
+                             }
+                             let refText = "";
+                            if (url) {
+                                try {
+                                    const u = new URL(url);
+                                    if (u.hostname === 't.me' || u.hostname === 'telegram.me' || u.hostname === 'telesco.pe') {
+                                        const parts = u.pathname.split('/').filter(Boolean);
+                                        if (parts.length > 0) {
+                                            refText = `\n\n[Ref: ${parts[0]}]`;
+                                        }
+                                    } else {
+                                        refText = `\n\n[Ref: ${u.hostname.replace('www.', '')}]`;
+                                    }
+                                } catch (_) {}
                             }
-                            greetingText += `. Boleh bagi details?\n\nRujukan: ${url}`;
+                            greetingText += `. Boleh bagi details?${refText}`;
 
                             // Safely encode greeting — scraped text may contain malformed Unicode (lone surrogates)
                             let safeGreeting = greetingText

@@ -52,23 +52,16 @@ export class AIFactory {
                 const apiKey = env.GEMINI_API_KEY || (workspaceKey.startsWith("AIza") ? workspaceKey : "");
                 if (apiKey) {
                     let cleanModel = activeModel;
-                    // Map hallucinated models to actual direct Google models
-                    if (cleanModel.toLowerCase().includes("gemini-3.5-flash")) {
-                        cleanModel = "gemini-2.5-flash";
-                    } else if (cleanModel.toLowerCase().includes("gemini-3.1-pro")) {
-                        cleanModel = "gemini-2.5-pro";
-                    }
-                    
                     if (cleanModel.includes('/')) {
                         const parts = cleanModel.split('/');
                         const lastPart = parts[parts.length - 1];
                         if (lastPart.toLowerCase().includes('gemini')) {
                             cleanModel = lastPart;
                         } else {
-                            cleanModel = 'gemini-2.5-flash';
+                            cleanModel = 'gemini-3.5-flash';
                         }
                     }
-                    if (!cleanModel) cleanModel = 'gemini-2.5-flash';
+                    if (!cleanModel) cleanModel = 'gemini-3.5-flash';
                     return new GeminiProvider(apiKey, cleanModel);
                 }
             }
@@ -77,14 +70,7 @@ export class AIFactory {
             if (hasOpenRouter) {
                 const apiKey = env.OPENROUTER_API_KEY || (workspaceKey.startsWith("sk-or-") ? workspaceKey : "");
                 if (apiKey) {
-                    let cleanModel = activeModel;
-                    // Map OpenRouter hallucinated model names to correct ones
-                    if (cleanModel.toLowerCase().includes("gemini-3.5-flash")) {
-                        cleanModel = cleanModel.replace(/gemini-3.5-flash/i, "gemini-2.5-flash");
-                    } else if (cleanModel.toLowerCase().includes("gemini-3.1-pro")) {
-                        cleanModel = cleanModel.replace(/gemini-3.1-pro/i, "gemini-2.5-pro");
-                    }
-                    return new OpenRouterProvider(apiKey, cleanModel);
+                    return new OpenRouterProvider(apiKey, activeModel);
                 }
             }
             

@@ -10,8 +10,8 @@ export class GeminiProvider extends AIProvider {
             targetModel = 'gemini-2.5-flash';
         }
         this.model = targetModel;
-        // Thinking models (3.5 Flash, 2.5 Pro, etc.) need thinkingConfig disabled for structured JSON output
-        this.isThinkingModel = targetModel.includes('3.5') || targetModel.includes('2.5-pro') || targetModel.includes('thinking');
+        // Thinking models (Pro and thinking series) need thinkingConfig disabled for structured JSON output
+        this.isThinkingModel = targetModel.includes('pro') || targetModel.includes('thinking');
     }
 
     async generateCaption({ businessType, product, targetAudience, goal, tone, language, customInstructions, postFormat, funnelStage, nicheRules, nicheExampleOutput }) {

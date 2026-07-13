@@ -2718,7 +2718,7 @@ CRITICAL TONE RULES:
                                 responseText = typeof res === 'string' ? res : (res.choices?.[0]?.message?.content || res.response || JSON.stringify(res));
                             } else if (provider.constructor?.name === 'GeminiProvider') {
                                 const genUrl = `https://generativelanguage.googleapis.com/v1beta/models/${provider.model}:generateContent?key=${provider.apiKey}`;
-                                const isThinkingModel = provider.model && (provider.model.includes('3.5') || provider.model.includes('2.5-pro') || provider.model.includes('thinking'));
+                                const isThinkingModel = provider.model && (provider.model.includes('pro') || provider.model.includes('thinking'));
                                 const res = await fetch(genUrl, {
                                     method: "POST",
                                     headers: { "Content-Type": "application/json" },

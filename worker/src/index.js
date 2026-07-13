@@ -893,6 +893,7 @@ const getNicheInstructions = async (db, productContext) => {
                         rules = JSON.parse(niche.rules || "[]");
                     } catch (_) {}
                     return {
+                        niche_key: niche.niche_key || null,
                         name: niche.name,
                         rules: rules,
                         example_output: niche.example_output || null

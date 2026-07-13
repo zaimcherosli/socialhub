@@ -44,26 +44,56 @@ export class AIFactory {
         }
 
         // 2. Gemini Check
-        const isGemini = hasGemini || activeModel.toLowerCase().includes("gemini");
+        const isGemini = activeModel.toLowerCase().includes("gemini");
 
         if (isGemini) {
-            const apiKey = env.GEMINI_API_KEY || env.OPENROUTER_API_KEY || workspaceKey;
-            if (!apiKey) {
-                if (env.AI) return new CloudflareAIProvider(env.AI);
-                throw new Error("Missing GEMINI_API_KEY configuration in environment variables.");
-            }
-            let cleanModel = activeModel;
-            if (cleanModel.includes('/')) {
-                const parts = cleanModel.split('/');
-                const lastPart = parts[parts.length - 1];
-                if (lastPart.toLowerCase().includes('gemini')) {
-                    cleanModel = lastPart;
-                } else {
-                    cleanModel = 'gemini-2.5-flash';
+            // Use direct GeminiProvider ONLY if we have a direct Gemini API key
+            if (hasGemini) {
+                const apiKey = env.GEMINI_API_KEY || (workspaceKey.startsWith("AIza") ? workspaceKey : "");
+                if (apiKey) {
+                    let cleanModel = activeModel;
+                    // Map hallucinated models to actual direct Google models
+                    if (cleanModel.toLowerCase().includes("gemini-3.5-flash")) {
+                        cleanModel = "gemini-2.5-flash";
+                    } else if (cleanModel.toLowerCase().includes("gemini-3.1-pro")) {
+                        cleanModel = "gemini-2.5-pro";
+                    }
+                    
+                    if (cleanModel.includes('/')) {
+                        const parts = cleanModel.split('/');
+                        const lastPart = parts[parts.length - 1];
+                        if (lastPart.toLowerCase().includes('gemini')) {
+                            cleanModel = lastPart;
+                        } else {
+                            cleanModel = 'gemini-2.5-flash';
+                        }
+                    }
+                    if (!cleanModel) cleanModel = 'gemini-2.5-flash';
+                    return new GeminiProvider(apiKey, cleanModel);
                 }
             }
-            if (!cleanModel) cleanModel = 'gemini-2.5-flash';
-            return new GeminiProvider(apiKey, cleanModel);
+            
+            // Otherwise, if we have OpenRouter key, route to OpenRouter
+            if (hasOpenRouter) {
+                const apiKey = env.OPENROUTER_API_KEY || (workspaceKey.startsWith("sk-or-") ? workspaceKey : "");
+                if (apiKey) {
+                    let cleanModel = activeModel;
+                    // Map OpenRouter hallucinated model names to correct ones
+                    if (cleanModel.toLowerCase().includes("gemini-3.5-flash")) {
+                        cleanModel = cleanModel.replace(/gemini-3.5-flash/i, "gemini-2.5-flash");
+                    } else if (cleanModel.toLowerCase().includes("gemini-3.1-pro")) {
+                        cleanModel = cleanModel.replace(/gemini-3.1-pro/i, "gemini-2.5-pro");
+                    }
+                    return new OpenRouterProvider(apiKey, cleanModel);
+                }
+            }
+            
+            // Fallback to Cloudflare AI
+            if (env.AI) {
+                return new CloudflareAIProvider(env.AI, '@cf/meta/llama-3.2-3b-instruct');
+            }
+            
+            throw new Error("Missing GEMINI_API_KEY or OPENROUTER_API_KEY configuration for Gemini model.");
         }
 
         // 3. Cloudflare AI Check

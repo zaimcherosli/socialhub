@@ -2952,8 +2952,20 @@ CRITICAL TONE RULES:
                         
                         // Insert into DB
                         const hasTrigger = triggerType === 'views' || triggerType === 'likes';
+                        
+                        let processedCaption = caption;
+                        let replacedPlaceholder = false;
+                        if (/\{\{(SHOPEE_LINK|link)\}\}/i.test(processedCaption)) {
+                            processedCaption = processedCaption.replace(/(?:➡️\s*)?\{\{(SHOPEE_LINK|link)\}\}/gi, `➡️ ${finalCtaUrl}`);
+                            replacedPlaceholder = true;
+                        }
+                        
+                        if (replacedPlaceholder) {
+                            ctaText = "";
+                        }
+
                         const cards = (postFormat === 'short_thread' || postFormat === 'deep_thread')
-                            ? caption.split(/[\n\r]*---thread-separator---[\n\r]*/).map(c => c.trim()).filter(Boolean)
+                            ? processedCaption.split(/[\n\r]*---thread-separator---[\n\r]*/).map(c => c.trim()).filter(Boolean)
                             : [];
 
                         if (hasTrigger && cards.length > 1) {
@@ -3049,10 +3061,10 @@ CRITICAL TONE RULES:
                                     }
                                     fullContent = cards.join('\n---thread-separator---\n');
                                 } else {
-                                    fullContent = `${caption}\n\n${ctaText}\n\n${hashtagsText}${imageSuffix}`.trim();
+                                    fullContent = `${processedCaption}\n\n${ctaText}\n\n${hashtagsText}${imageSuffix}`.trim();
                                 }
                             } else {
-                                fullContent = `${caption}\n\n${ctaText}\n\n${hashtagsText}${imageSuffix}`.trim();
+                                fullContent = `${processedCaption}\n\n${ctaText}\n\n${hashtagsText}${imageSuffix}`.trim();
                             }
 
                             await env.DB.prepare(

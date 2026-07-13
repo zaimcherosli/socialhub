@@ -2939,7 +2939,9 @@ CRITICAL TONE RULES:
                                         `Nak start jana income kedua? WhatsApp/Daftar kat sini terus: ➡️ ${finalCtaUrl}`,
                                         `Slot kemasukan ahli baru sangat terhad, lock slot korang kat link ni: ➡️ ${finalCtaUrl}`
                                     ];
-                                    const rIndex = Math.floor(Math.random() * recruitmentVariations.length);
+                                    const rIndex = (index !== undefined && index !== null)
+                                        ? (parseInt(index) % recruitmentVariations.length)
+                                        : Math.floor(Math.random() * recruitmentVariations.length);
                                     ctaText = recruitmentVariations[rIndex];
                                 } else if (classifiedBusinessType === 'Business & Services Promotion') {
                                     const businessVariations = [
@@ -2948,7 +2950,9 @@ CRITICAL TONE RULES:
                                         `Berminat nak bincang projek or dapatkan quotation? Roger aku kat sini: ➡️ ${finalCtaUrl}`,
                                         `Tengok senarai harga & service detail kat website rasmi kami: ➡️ ${finalCtaUrl}`
                                     ];
-                                    const bIndex = Math.floor(Math.random() * businessVariations.length);
+                                    const bIndex = (index !== undefined && index !== null)
+                                        ? (parseInt(index) % businessVariations.length)
+                                        : Math.floor(Math.random() * businessVariations.length);
                                     ctaText = businessVariations[bIndex];
                                 } else {
                                     // Products & Affiliate
@@ -2967,9 +2971,11 @@ CRITICAL TONE RULES:
                                         `Ini pautan kedai yang aku beli hari tu, shipping laju: ➡️ ${finalCtaUrl}`,
                                         `Try ushar link ni cepat sebelum stok habis or harga naik: ➡️ ${finalCtaUrl}`,
                                         `Nah, aku share link kedai ni untuk mudahkan korang: ➡️ ${finalCtaUrl}`,
-                                        `Kalau nak settlekan masalah ni cepat, pergi dapatkan kat link ni: ➡️ ${finalCtaUrl}`
+                                        `Kalau nak dapatkan barang ni terus, boleh pergi kat link ni: ➡️ ${finalCtaUrl}`
                                     ];
-                                    const aIndex = Math.floor(Math.random() * affiliateVariations.length);
+                                    const aIndex = (index !== undefined && index !== null)
+                                        ? (parseInt(index) % affiliateVariations.length)
+                                        : Math.floor(Math.random() * affiliateVariations.length);
                                     ctaText = affiliateVariations[aIndex];
                                 }
                             } else {

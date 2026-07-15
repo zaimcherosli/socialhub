@@ -2026,7 +2026,8 @@ export default {
                                 funnelStage: funnelStage || 'none',
                                 customInstructions: getFactPreservingInstructions(aiEnv.custom_ai_instructions),
                                 nicheRules: nicheData ? nicheData.rules : null,
-                                nicheExampleOutput: nicheData ? nicheData.example_output : null
+                                nicheExampleOutput: nicheData ? nicheData.example_output : null,
+                                isPreset: isPreset
                             });
                         } catch (e) {
                             console.error("AI Generation failed, falling back to robust system models:", e);
@@ -2041,7 +2042,8 @@ export default {
                                 funnelStage: funnelStage || 'none',
                                 customInstructions: getFactPreservingInstructions(aiEnv.custom_ai_instructions),
                                 nicheRules: nicheData ? nicheData.rules : null,
-                                nicheExampleOutput: nicheData ? nicheData.example_output : null
+                                nicheExampleOutput: nicheData ? nicheData.example_output : null,
+                                isPreset: isPreset
                             });
 
                             const fallback = await runFallbackAI(systemPrompt, env);

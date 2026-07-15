@@ -44,22 +44,9 @@ export class AIProvider {
         postFormat,
         funnelStage,
         nicheRules,
-        nicheExampleOutput
+        nicheExampleOutput,
+        isPreset
     }) {
-        const hooks = [
-            { name: 'Pecahkan Mitos', pattern: 'Mulakan Slide 1 dengan format "Tahukah anda, [mitos popular/andaian salah] sebenarnya tak betul? [Terangkan kenapa / Kajian atau pengalaman tunjuk sebaliknya]..."' },
-            { name: 'Kongsi Kesilapan', pattern: 'Mulakan Slide 1 dengan format "Jangan buat silap macam saya/aku dulu. [Terangkan kesilapan]. Hasilnya? [Apa berlaku]..."' },
-            { name: 'Cara Luar Biasa', pattern: 'Mulakan Slide 1 dengan format "Daripada [buat cara biasa/standard], cuba [cara luar biasa/alternatif] ni untuk [manfaat]..."' },
-            { name: 'Jawab Soalan', pattern: 'Mulakan Slide 1 dengan format "Soalan hari ini: [Soalan/Kemusykilan]? Jawapan: Kalau nak [manfaat], ini yang perlu anda buat..."' },
-            { name: 'Tanya Soalan Gagal', pattern: 'Mulakan Slide 1 dengan format "Pernah tak cuba [dapatkan hasil] tapi gagal? Kenapa agaknya tu berlaku?..."' },
-            { name: 'Minta Pendapat (A/B)', pattern: 'Mulakan Slide 1 dengan format "Ada yang kata [cara A lebih baik], yang lain kata [cara B lebih bagus]. Apa pandangan korang?..."' },
-            { name: 'Testimoni / Bukti', pattern: 'Mulakan Slide 1 dengan format "Kalau [kumpulan orang/siapa] pun boleh [dapat hasil luar biasa] dengan [benda ni], korang pun mesti boleh!"' },
-            { name: 'Bongkar Rahsia', pattern: 'Mulakan Slide 1 dengan format "[Manfaat] sebenarnya tak susah pun kalau tahu rahsia ni. Ini apa yang aku buat..."' }
-        ];
-        const chosenHook = hooks[Math.floor(Math.random() * hooks.length)];
-
-        let prompt = "";
-
         // Format formatting instructions & JSON structure
         let formatInstructions = "";
         if (postFormat === 'deep_thread') {
@@ -100,6 +87,39 @@ export class AIProvider {
   "hashtags": ["hashtag1", "hashtag2", "hashtag3"]
 }`;
         }
+
+        if (isPreset) {
+            const prompt = `You are a social media content creator.
+Write a highly engaging, warm and natural social media post based on these details:
+- Category: ${businessType}
+- Content Focus/Instructions: ${product}
+- Tone: ${tone || 'Friendly & Casual'}
+- Language: ${language || 'Malay'}
+
+PENTING:
+- Sila tulis jawapan anda secara semulajadi. Jangan paksa sebarang marketing hook, jualan (hard sell), promosi, tawaran harga, atau rujukan perumahan/ejen di dalam bebenang/post ini. Ini adalah post sosial/salam santai sahaja.
+- Tulis dari sudut pandang pertama (seperti "aku", "kami", "kita") yang santai mengikut tone pilihan.
+
+${formatInstructions}
+
+Provide the output in a strict JSON format with the following keys. Return ONLY the JSON object, with no markdown code blocks, explanations, or additional text:
+${jsonStructure}`;
+            return prompt;
+        }
+
+        const hooks = [
+            { name: 'Pecahkan Mitos', pattern: 'Mulakan Slide 1 dengan format "Tahukah anda, [mitos popular/andaian salah] sebenarnya tak betul? [Terangkan kenapa / Kajian atau pengalaman tunjuk sebaliknya]..."' },
+            { name: 'Kongsi Kesilapan', pattern: 'Mulakan Slide 1 dengan format "Jangan buat silap macam saya/aku dulu. [Terangkan kesilapan]. Hasilnya? [Apa berlaku]..."' },
+            { name: 'Cara Luar Biasa', pattern: 'Mulakan Slide 1 dengan format "Daripada [buat cara biasa/standard], cuba [cara luar biasa/alternatif] ni untuk [manfaat]..."' },
+            { name: 'Jawab Soalan', pattern: 'Mulakan Slide 1 dengan format "Soalan hari ini: [Soalan/Kemusykilan]? Jawapan: Kalau nak [manfaat], ini yang perlu anda buat..."' },
+            { name: 'Tanya Soalan Gagal', pattern: 'Mulakan Slide 1 dengan format "Pernah tak cuba [dapatkan hasil] tapi gagal? Kenapa agaknya tu berlaku?..."' },
+            { name: 'Minta Pendapat (A/B)', pattern: 'Mulakan Slide 1 dengan format "Ada yang kata [cara A lebih baik], yang lain kata [cara B lebih bagus]. Apa pandangan korang?..."' },
+            { name: 'Testimoni / Bukti', pattern: 'Mulakan Slide 1 dengan format "Kalau [kumpulan orang/siapa] pun boleh [dapat hasil luar biasa] dengan [benda ni], korang pun mesti boleh!"' },
+            { name: 'Bongkar Rahsia', pattern: 'Mulakan Slide 1 dengan format "[Manfaat] sebenarnya tak susah pun kalau tahu rahsia ni. Ini apa yang aku buat..."' }
+        ];
+        const chosenHook = hooks[Math.floor(Math.random() * hooks.length)];
+
+        let prompt = "";
 
         // Custom example output prompt format
         if (nicheExampleOutput && nicheExampleOutput.trim() !== '') {

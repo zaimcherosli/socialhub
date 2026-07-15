@@ -18,9 +18,9 @@ export class CloudflareAIProvider extends AIProvider {
         this.model = targetModel;
     }
 
-    async generateCaption({ businessType, product, targetAudience, goal, tone, language, customInstructions, postFormat, funnelStage, nicheRules, nicheExampleOutput }) {
+    async generateCaption({ businessType, product, targetAudience, goal, tone, language, customInstructions, postFormat, funnelStage, nicheRules, nicheExampleOutput, isPreset }) {
         console.log(`[CloudflareAIProvider] Executing run with model: ${this.model}`);
-        const prompt = this.assembleCaptionPrompt({ businessType, product, targetAudience, goal, tone, language, customInstructions, postFormat, funnelStage, nicheRules, nicheExampleOutput });
+        const prompt = this.assembleCaptionPrompt({ businessType, product, targetAudience, goal, tone, language, customInstructions, postFormat, funnelStage, nicheRules, nicheExampleOutput, isPreset });
 
         const response = await this.ai.run(this.model, {
             messages: [

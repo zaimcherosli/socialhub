@@ -7,8 +7,8 @@ export class OpenRouterProvider extends AIProvider {
         this.model = model || "meta-llama/llama-3.2-3b-instruct:free";
     }
 
-    async generateCaption({ businessType, product, targetAudience, goal, tone, language, customInstructions, postFormat, funnelStage, nicheRules, nicheExampleOutput }) {
-        const prompt = this.assembleCaptionPrompt({ businessType, product, targetAudience, goal, tone, language, customInstructions, postFormat, funnelStage, nicheRules, nicheExampleOutput });
+    async generateCaption({ businessType, product, targetAudience, goal, tone, language, customInstructions, postFormat, funnelStage, nicheRules, nicheExampleOutput, isPreset }) {
+        const prompt = this.assembleCaptionPrompt({ businessType, product, targetAudience, goal, tone, language, customInstructions, postFormat, funnelStage, nicheRules, nicheExampleOutput, isPreset });
 
         const response = await fetch("https://openrouter.ai/api/v1/chat/completions", {
             method: "POST",

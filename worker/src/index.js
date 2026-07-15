@@ -2005,7 +2005,11 @@ export default {
                         const aiEnv = await getAIEnvironment(env.DB, activeWorkspace.workspace_id, env, encryptionSecret);
 
                         const provider = AIFactory.getProvider(aiEnv);
-                        const performanceFeedback = await getPerformanceFeedback(env.DB, activeWorkspace.workspace_id);
+                        
+                        // Performance feedback should only be used for custom product posts, not for generic templates/presets
+                        const isPreset = presetType && presetType !== 'default';
+                        const performanceFeedback = isPreset ? "" : await getPerformanceFeedback(env.DB, activeWorkspace.workspace_id);
+                        
                         const nicheData = await getNicheInstructions(env.DB, product);
                         
                         let result;

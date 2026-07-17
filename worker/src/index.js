@@ -2027,12 +2027,14 @@ export default {
                                 customInstructions: getFactPreservingInstructions(aiEnv.custom_ai_instructions),
                                 nicheRules: nicheData ? nicheData.rules : null,
                                 nicheExampleOutput: nicheData ? nicheData.example_output : null,
+                                nicheKey: nicheData ? nicheData.niche_key : null,
                                 isPreset: isPreset
                             });
                         } catch (e) {
                             console.error("AI Generation failed, falling back to robust system models:", e);
                             const systemPrompt = provider.assembleCaptionPrompt({
                                 businessType,
+                                nicheKey: nicheData ? nicheData.niche_key : null,
                                 product: product + performanceFeedback,
                                 targetAudience: targetAudience || 'General public',
                                 goal: goal || 'Brand awareness',

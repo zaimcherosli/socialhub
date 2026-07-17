@@ -14,8 +14,8 @@ export class OpenAIProvider extends AIProvider {
                m.startsWith('gpt-5') || m.includes('gpt-5.');
     }
 
-    async generateCaption({ businessType, product, targetAudience, goal, tone, language, customInstructions, postFormat, funnelStage, nicheRules, nicheExampleOutput, isPreset }) {
-        const prompt = this.assembleCaptionPrompt({ businessType, product, targetAudience, goal, tone, language, customInstructions, postFormat, funnelStage, nicheRules, nicheExampleOutput, isPreset });
+    async generateCaption({ businessType, product, targetAudience, goal, tone, language, customInstructions, postFormat, funnelStage, nicheRules, nicheExampleOutput, nicheKey, isPreset }) {
+        const prompt = this.assembleCaptionPrompt({ businessType, product, targetAudience, goal, tone, language, customInstructions, postFormat, funnelStage, nicheRules, nicheExampleOutput, nicheKey, isPreset });
 
         const response = await fetch("https://api.openai.com/v1/chat/completions", {
             method: "POST",

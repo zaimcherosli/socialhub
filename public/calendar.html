@@ -342,16 +342,81 @@
             width: 100%;
         }
 
-        /* Responsive Table for Mobile (Horizontal Scrolling) */
+        /* Responsive Table Card Styles for Mobile (Stacked View) */
         @media (max-width: 768px) {
-            .table-responsive {
-                overflow-x: auto;
-                -webkit-overflow-scrolling: touch;
-                width: 100%;
+            .table-responsive thead {
+                display: none;
+            }
+            .table-responsive table,
+            .table-responsive tbody,
+            .table-responsive tr,
+            .table-responsive td {
                 display: block;
+                width: 100% !important;
             }
             .table-responsive table {
-                min-width: 850px !important;
+                min-width: 100% !important;
+            }
+            .table-responsive tr {
+                background: var(--color-bg-card);
+                border: 1px solid var(--color-border);
+                border-radius: var(--radius-sm);
+                margin-bottom: 1rem;
+                padding: 1rem;
+                box-shadow: var(--shadow-sm);
+            }
+            .table-responsive td {
+                display: flex !important;
+                align-items: center;
+                justify-content: space-between;
+                padding: 0.5rem 0 !important;
+                border-bottom: none !important;
+                max-width: 100% !important;
+                white-space: normal !important;
+                text-align: left !important;
+            }
+            .table-responsive td::before {
+                content: attr(data-label);
+                font-weight: 600;
+                color: var(--color-text-tertiary);
+                font-size: 0.75rem;
+                text-transform: uppercase;
+                margin-right: 1rem;
+            }
+            .table-responsive td[data-label="Content"] {
+                justify-content: space-between;
+            }
+            .table-responsive td[data-label="Content"] .cell-truncate-text {
+                max-width: 60% !important;
+                text-align: right !important;
+            }
+            .table-responsive td[data-label="Actions"] {
+                display: block !important;
+                border-top: 1px dashed var(--color-border) !important;
+                margin-top: 0.75rem !important;
+                padding-top: 0.75rem !important;
+                text-align: center !important;
+            }
+            .table-responsive td[data-label="Actions"]::before {
+                display: none !important;
+            }
+            .table-responsive td[data-label="Actions"] > div {
+                display: flex !important;
+                width: 100% !important;
+                justify-content: space-between !important;
+                gap: 0.5rem !important;
+                flex-wrap: nowrap !important;
+            }
+            .table-responsive td[data-label="Actions"] .btn,
+            .table-responsive td[data-label="Actions"] a {
+                flex: 1 !important;
+                justify-content: center !important;
+                text-align: center !important;
+                padding: 0.45rem 0.5rem !important;
+                font-size: 0.75rem !important;
+                white-space: nowrap !important;
+                display: inline-flex !important;
+                align-items: center !important;
             }
         }
 

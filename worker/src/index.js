@@ -789,7 +789,7 @@ const extractTelegramTitle = (scrapedTitle, scrapedDescription) => {
         return val.trim();
     }).filter(Boolean);
 
-    const buildingTypeRegex = /\b(Storey|Tingkat|Sty|Terrace|Teres|Semi.?D|Bungalow|Banglo|Condo|Condominium|Kondominium|Apartment|Pangsapuri|Flat|Townhouse|House|Rumah|Suite|Office|Shoplot|Cluster)\b/i;
+    const buildingTypeRegex = /\b(Storey|Tingkat|Sty|Terrace|Teres|Semi.?D|Bungalow|Banglo|Condo|Condominium|Kondominium|Apartment|Pangsapuri|Flat|Townhouse|House|Rumah|Suite|Office|Shoplot|Shop.?[Ll]ot|Shop\s+[Ll]ot|Kedai|Pejabat|SoHo|Serviced|Landed|Cluster|Retail|Commercial)\b/i;
     const locationKeyword = /\b(Bandar|Taman|Pandan|Subang|Shah|Alam|Petaling|Ampang|Rawang|Semenyih|Dengkil|Klang|Cheras|Setapak|Puchong|Serdang|Cyberjaya|Putrajaya|Kajang|Sepang|Sri|Damansara|Kepong|Selayang|Batu|Seremban|Nilai|Alam|Perdana|Indah|Permai|Damai|Maju|Jaya|Murni|Harmoni|Saujana|Putra|Prima|Utama|Raya|Seksyen|BSP|SP\s*\d+|Bangi|Gombak|Setiawangsa|Wangsa|Maju|Bukit|Jalil|Banting|Jenjarom|Salak|Tinggi|Semenyih|Kajang|Klang|Kuala|Lumpur|KL|Sentul)\b/i;
 
     // Search for a line with building type and check neighboring lines for location context

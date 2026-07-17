@@ -766,6 +766,59 @@ const extractPrice = (text) => {
     return "";
 };
 
+// Helper: Robust check to see if a post is a real estate/property listing
+const isPropertyListing = (text, url, nicheKey) => {
+    const lowerCtx = (text || "").toLowerCase();
+    const lowerUrl = (url || "").toLowerCase();
+
+    // 1. E-commerce/Affiliate links are NEVER property listings
+    if (
+        lowerUrl.includes("shopee") || 
+        lowerUrl.includes("shope.ee") || 
+        lowerUrl.includes("tiktok.com") || 
+        lowerUrl.includes("lazada.com") || 
+        lowerUrl.includes("aliexpress.com") || 
+        lowerUrl.includes("amazon.com")
+    ) {
+        return false;
+    }
+
+    // 2. If it contains clear affiliate indicators in text/context, it's not a property
+    if (
+        lowerCtx.includes("beg kuning") || 
+        lowerCtx.includes("racun shopee") || 
+        lowerCtx.includes("racun tiktok") || 
+        lowerCtx.includes("affiliate shopee")
+    ) {
+        return false;
+    }
+
+    // 3. Robust regex boundaries for real estate keywords
+    const propertyRegex = /\b(apartment|kondo|condo|condominium|pangsapuri|flat|townhouse|semi-?d|semi\s+d|bungalow|banglo|teres|terrace|hartanah|properti|property|properties|viewing|built-up|sqft|sq\.ft|freehold|leasehold)\b/i;
+    
+    // Multi-word phrases for common but generic words
+    const houseRegex = /\b(rumah sewa|sewa rumah|rumah untuk dijual|rumah dijual|beli rumah|cari rumah|jual rumah|ejen hartanah|ren\d*|booking unit)\b/i;
+    const commercialRegex = /\b(shop.?lot|shop\s+lot|kedai\s+sewa|sewa\s+kedai|pejabat|commercial\s+unit|retail\s+space)\b/i;
+
+    const hasPropertyKeywords = propertyRegex.test(lowerCtx) || houseRegex.test(lowerCtx) || commercialRegex.test(lowerCtx);
+    const hasPropertyUrls = lowerUrl.includes("propmall") || lowerUrl.includes("mudah.my") || lowerUrl.includes("iproperty") || lowerUrl.includes("propertyguru");
+
+    const isHartanahNiche = nicheKey === 'hartanah' || nicheKey === 'property';
+
+    // If it's a known property URL, it's a property
+    if (hasPropertyUrls) return true;
+
+    // If it's a hartanah niche and has basic property keywords, it's a property
+    if (isHartanahNiche && hasPropertyKeywords) return true;
+
+    // If it has strong property keywords and is NOT an obvious home decor / furniture retail post
+    if (hasPropertyKeywords && !lowerCtx.includes("beanbag") && !lowerCtx.includes("furniture") && !lowerCtx.includes("homedecor")) {
+        return true;
+    }
+
+    return false;
+};
+
 // Helper: Check if a URL points to a specific Telegram channel post
 const isTelegramPostUrl = (urlStr) => {
     try {
@@ -1316,7 +1369,7 @@ async function handleTelegramUpdate(update, env, encryptionSecret, jwtSecret) {
 
                     // Compile prompts
                     const provider = AIFactory.getProvider(aiEnv);
-                    const isProperty = scraped.title.toLowerCase().includes("property") || scraped.description.toLowerCase().includes("apartment") || scraped.description.toLowerCase().includes("semi d") || scraped.description.toLowerCase().includes("teres") || scraped.description.toLowerCase().includes("house") || scraped.description.toLowerCase().includes("hartanah");
+                    const isProperty = isPropertyListing(scraped.title + " " + scraped.description, targetUrl, null);
 
                     const nicheInstructions = isProperty 
                         ? '["You MUST include the property price (e.g. RM 325,000 or RM 325k) in the copywriting.","NEVER include any phone numbers, agent names, or agency names."]'
@@ -2691,7 +2744,7 @@ CRITICAL TONE RULES:
                         const nicheData = await getNicheInstructions(env.DB, productContext);
                         
                         const lowerCtx = (productContext || "").toLowerCase();
-                        const isProperty = lowerCtx.includes("apartment") || lowerCtx.includes("semi d") || lowerCtx.includes("teres") || lowerCtx.includes("kondo") || lowerCtx.includes("house") || lowerCtx.includes("property") || lowerCtx.includes("hartanah") || lowerCtx.includes("bilik") || lowerCtx.includes("sqft") || lowerCtx.includes("rumah") || lowerCtx.includes("sewa") || lowerCtx.includes("landed") || lowerCtx.includes("tingkat") || lowerCtx.includes("bilik air") || lowerCtx.includes("lot") || lowerCtx.includes("freehold") || lowerCtx.includes("leasehold") || url.includes("propmall") || url.includes("mudah") || (nicheData && (nicheData.niche_key === 'hartanah' || nicheData.niche_key === 'property'));
+                        const isProperty = isPropertyListing(productContext, url, nicheData ? nicheData.niche_key : null);
 
                         const provider = AIFactory.getProvider(aiEnv);
 

@@ -160,7 +160,19 @@ ${product}
 `;
             
             let extraRules = "";
-            if (tone?.toLowerCase().includes('malay') || language?.toLowerCase().includes('malay')) {
+            if (nicheKey === 'hartanah') {
+                // Hartanah-specific engagement rules — replace ALL generic product rules
+                if (tone?.toLowerCase().includes('malay') || language?.toLowerCase().includes('malay')) {
+                    extraRules = `\n\nCRITICAL HARTANAH THREAD RULES (WAJIB IKUT):
+1. Tulis seperti ejen REN yang bercakap dengan kawan rapat — casual, confident, bukan corporate. Guna "aku" bukan "saya".
+2. JANGAN gunakan bahasa hardsell atau fake urgency (e.g. JANGAN tulis "sebelum terlepas", "grab sekarang", "jangan tunggu", "cepat sebelum sold"). CTA mesti natural dan low-pressure.
+3. STRUCTURE WAJIB: Pecahkan kepada 4-5 posting berturutan. Part 1 = Hook teaser (JANGAN reveal nama projek/harga). Part 2-3 = Build up details (size, bilik, fasiliti, lokasi). Part terakhir = Reveal harga + CTA.
+4. CURIOSITY GAP untuk hartanah: Jangan reveal nama projek/pemaju atau harga di Part 1 dan Part 2. Guna teaser lokasi am (e.g. "kawasan Sepang", "area Cheras Selatan") dan hints menarik (e.g. "tanah dia luas gila", "freehold yang dah susah nak jumpa area sini") untuk buat reader scroll terus.
+5. HOOK WAJIB SUDAH DITETAPKAN di atas — IKUT hook yang dinyatakan dalam arahan HOOK WAJIB. JANGAN guna gaya hook lain.
+6. CTA di Part terakhir mesti natural: guna ayat seperti "Drop 'INFO' kat komen" atau "WhatsApp aku kalau nak tengok unit" — JANGAN repeat CTA dua kali dalam part yang sama.
+7. Hashtag relevan letak di part terakhir sahaja.`;
+                }
+            } else if (tone?.toLowerCase().includes('malay') || language?.toLowerCase().includes('malay')) {
                 extraRules = `\n\nCRITICAL THREADS ALGORITHM & MALAYSIAN CONVERSION RULES:
 1. Write like a real human posting on Threads or Instagram. Do NOT sound like a marketer, corporate bot, or formal translator.
 2. STRICTLY PROHIBIT SPAMMY/HARD SELL KEYWORDS: Never use phrases that Threads algorithm flags as spam (e.g., do NOT write "Beli sekarang", "Promo link bio", "DM untuk order", "Dapatkan segera", "Klik link").
@@ -181,6 +193,7 @@ ${product}
    - Bongkar Rahsia: "[Manfaat] sebenarnya tak susah pun kalau tahu rahsia ni. Ini apa yang aku buat..."
 `;
             }
+
             
             prompt += `\n\nAdditional Requirements:\n- Tone: ${tone || 'Friendly & Casual'}\n- Language: ${language || 'Malay'}\n- ${formatInstructions}\n- PENTING: Jangan masukkan nama ejen, nombor REN/PEA/REA, nombor telefon, atau sebarang link wasap/wa.me dari maklumat produk dalam output. CTA dan maklumat hubungi akan diisi oleh sistem secara berasingan. Jangan sebut nama spesifik produk atau nama perumahan untuk membina unsur misteri.${extraRules}\n\nProvide the output in a strict JSON format with the following keys. Return ONLY the JSON object, with no markdown code blocks, explanations, or additional text:\n${jsonStructure}`;
 

@@ -342,49 +342,16 @@
             width: 100%;
         }
 
-        /* Responsive Table Card Styles for Mobile */
+        /* Responsive Table for Mobile (Horizontal Scrolling) */
         @media (max-width: 768px) {
-            .table-responsive thead {
-                display: none;
+            .table-responsive {
+                overflow-x: auto;
+                -webkit-overflow-scrolling: touch;
+                width: 100%;
+                display: block;
             }
             .table-responsive table {
-                min-width: 100% !important;
-            }
-            .table-responsive tr {
-                display: flex;
-                flex-direction: column;
-                background: var(--color-bg-card);
-                border: 1px solid var(--color-border);
-                border-radius: var(--radius-sm);
-                margin-bottom: 1rem;
-                padding: 1rem;
-                box-shadow: var(--shadow-sm);
-            }
-            .table-responsive td {
-                display: flex;
-                align-items: center;
-                justify-content: space-between;
-                padding: 0.5rem 0 !important;
-                border-bottom: none !important;
-                width: 100% !important;
-                max-width: 100% !important;
-                white-space: normal !important;
-                text-align: left !important;
-            }
-            .table-responsive td::before {
-                content: attr(data-label);
-                font-weight: 600;
-                color: var(--color-text-tertiary);
-                font-size: 0.75rem;
-                text-transform: uppercase;
-                margin-right: 1rem;
-            }
-            .table-responsive td[data-label="Action"],
-            .table-responsive td[data-label="Actions"] {
-                justify-content: flex-end;
-                border-top: 1px dashed var(--color-border);
-                margin-top: 0.5rem;
-                padding-top: 0.75rem !important;
+                min-width: 850px !important;
             }
         }
 

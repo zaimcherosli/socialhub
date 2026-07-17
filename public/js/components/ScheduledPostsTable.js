@@ -19,11 +19,11 @@ class ScheduledPostsTable extends HTMLElement {
                     <table style="width: 100%; border-collapse: collapse; text-align: left; font-size: 0.875rem;">
                         <thead>
                             <tr style="border-bottom: 2px solid var(--color-border); color: var(--color-text-tertiary); font-weight: 600;">
-                                <th style="padding: 0.75rem 1rem; white-space: nowrap;">Platform</th>
-                                <th style="padding: 0.75rem 1rem;">Content</th>
-                                <th style="padding: 0.75rem 1rem; white-space: nowrap;">Publish At</th>
-                                <th style="padding: 0.75rem 1rem;">Status</th>
-                                <th style="padding: 0.75rem 1rem; text-align: right;">Actions</th>
+                                <th style="width: 10%; padding: 0.75rem 1.25rem; white-space: nowrap;">Platform</th>
+                                <th style="width: 45%; padding: 0.75rem 1.25rem;">Content</th>
+                                <th style="width: 20%; padding: 0.75rem 1.25rem; white-space: nowrap;">Publish At</th>
+                                <th style="width: 10%; padding: 0.75rem 1.25rem; white-space: nowrap;">Status</th>
+                                <th style="width: 15%; padding: 0.75rem 1.25rem; text-align: right; white-space: nowrap;">Actions</th>
                             </tr>
                         </thead>
                         <tbody id="scheduledTableBody">
@@ -117,25 +117,25 @@ class ScheduledPostsTable extends HTMLElement {
                     : '<em style="color:var(--color-text-tertiary);">No content</em>';
 
                 tr.innerHTML = `
-                    <td data-label="Platform" style="padding: 1rem;">
+                    <td data-label="Platform" style="padding: 1rem 1.25rem; vertical-align: middle;">
                         ${platformHtml}
                     </td>
-                    <td data-label="Content" style="padding: 1rem;">
-                        <span class="cell-truncate-text" style="display: inline-block; max-width: 55vw; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; text-align: right; vertical-align: middle;">${truncatedContent}</span>
+                    <td data-label="Content" style="padding: 1rem 1.25rem; vertical-align: middle;">
+                        <span class="cell-truncate-text" style="display: inline-block; max-width: 25vw; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; text-align: left; vertical-align: middle;">${truncatedContent}</span>
                     </td>
-                    <td data-label="Publish At" style="padding: 1rem; color: var(--color-text-secondary); font-size: 0.8125rem; white-space: nowrap;">
+                    <td data-label="Publish At" style="padding: 1rem 1.25rem; color: var(--color-text-secondary); font-size: 0.8125rem; white-space: nowrap; vertical-align: middle;">
                         ${timeString}
                     </td>
-                    <td data-label="Status" style="padding: 1rem;">
+                    <td data-label="Status" style="padding: 1rem 1.25rem; vertical-align: middle; white-space: nowrap;">
                         <publish-status-badge status="${post.status}"></publish-status-badge>
                     </td>
-                    <td data-label="Actions" style="padding: 1rem; text-align: right;">
-                        <div style="display: flex; gap: 0.5rem; justify-content: flex-end; align-items: center; flex-wrap: wrap;">
-                            <button class="btn btn-secondary btn-sm btn-view-post" data-id="${post.id}" style="padding: 0.25rem 0.5rem; font-size: 0.75rem;">View</button>
+                    <td data-label="Actions" style="padding: 1rem 1.25rem; text-align: right; vertical-align: middle; white-space: nowrap; width: 1%;">
+                        <div style="display: flex; gap: 0.35rem; justify-content: flex-end; align-items: center; flex-wrap: nowrap; white-space: nowrap;">
+                            <button class="btn btn-secondary btn-sm btn-view-post" data-id="${post.id}" style="padding: 0.25rem 0.5rem; font-size: 0.75rem; white-space: nowrap;">View</button>
                             ${post.status === 'scheduled' || post.status === 'failed' ? `
-                                <a href="post-editor.html?id=${post.id}&type=scheduled" class="btn btn-secondary btn-sm" style="padding: 0.25rem 0.5rem; font-size: 0.75rem; text-decoration: none; display: inline-flex; align-items: center;">Edit</a>
-                                <button class="btn btn-secondary btn-sm btn-publish-now" data-id="${post.id}" style="padding: 0.25rem 0.5rem; font-size: 0.75rem;">⚡ Now</button>
-                                <button class="btn btn-danger btn-sm btn-cancel-post" data-id="${post.id}" style="padding: 0.25rem 0.5rem; font-size: 0.75rem;">Cancel</button>
+                                <a href="post-editor.html?id=${post.id}&type=scheduled" class="btn btn-secondary btn-sm" style="padding: 0.25rem 0.5rem; font-size: 0.75rem; text-decoration: none; display: inline-flex; align-items: center; white-space: nowrap;">Edit</a>
+                                <button class="btn btn-secondary btn-sm btn-publish-now" data-id="${post.id}" style="padding: 0.25rem 0.5rem; font-size: 0.75rem; white-space: nowrap;">⚡ Now</button>
+                                <button class="btn btn-danger btn-sm btn-cancel-post" data-id="${post.id}" style="padding: 0.25rem 0.5rem; font-size: 0.75rem; white-space: nowrap;">Cancel</button>
                             ` : ''}
                         </div>
                     </td>

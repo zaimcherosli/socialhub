@@ -1367,13 +1367,10 @@ async function handleTelegramUpdate(update, env, encryptionSecret, jwtSecret) {
 
                     const aiEnv = await getAIEnvironment(env.DB, activeWorkspace.workspace_id, env, encryptionSecret);
 
-                    // Compile prompts
+                    // Compile prompts using dynamic niche guidelines
                     const provider = AIFactory.getProvider(aiEnv);
-                    const isProperty = isPropertyListing(scraped.title + " " + scraped.description, targetUrl, null);
-
-                    const nicheInstructions = isProperty 
-                        ? '["You MUST include the property price (e.g. RM 325,000 or RM 325k) in the copywriting.","NEVER include any phone numbers, agent names, or agency names."]'
-                        : '[]';
+                    const nicheData = await getNicheInstructions(env.DB, scraped.title + " " + scraped.description);
+                    const isProperty = isPropertyListing(scraped.title + " " + scraped.description, targetUrl, nicheData ? nicheData.niche_key : null);
 
                     const promptOptions = {
                         businessType: isProperty ? 'Ejen Hartanah & Properti' : 'Pemasaran Kandungan',
@@ -1382,11 +1379,10 @@ async function handleTelegramUpdate(update, env, encryptionSecret, jwtSecret) {
                         goal: 'Engagement & Lead generation',
                         tone: 'Casual Malaysian Malay (Bahasa Rojak)',
                         language: 'Malay',
-                        customInstructions: [
-                            getFactPreservingInstructions(aiEnv.custom_ai_instructions),
-                            `CRITICAL NICHE RULES:\n${JSON.parse(nicheInstructions).map((r, i) => `${i + 1}. ${r}`).join('\n')}`,
-                            userInstructions ? `USER SPECIFIC GUIDELINES:\n${userInstructions}` : ''
-                        ].filter(Boolean).join('\n\n')
+                        customInstructions: getFactPreservingInstructions(aiEnv.custom_ai_instructions) + (userInstructions ? `\n\nUSER SPECIFIC GUIDELINES:\n${userInstructions}` : ''),
+                        nicheRules: nicheData ? nicheData.rules : (isProperty ? ["You MUST include the property price (e.g. RM 325,000 or RM 325k) in the copywriting.","NEVER include any phone numbers, agent names, or agency names."] : null),
+                        nicheExampleOutput: nicheData ? nicheData.example_output : null,
+                        nicheKey: nicheData ? nicheData.niche_key : (isProperty ? 'hartanah' : null)
                     };
 
                     const aiRes = await provider.generateCaption(promptOptions);

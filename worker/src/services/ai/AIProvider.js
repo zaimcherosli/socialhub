@@ -50,7 +50,7 @@ export class AIProvider {
     }) {
         // Format formatting instructions & JSON structure
         let formatInstructions = "";
-        if (postFormat === 'deep_thread') {
+        if (postFormat === 'deep_thread' || postFormat === 'thread') {
             formatInstructions = `- Format: Thread / Bebenang Berangkai (DEEP). You MUST generate a sequence of exactly 4 to 5 connected slides/posts. The "caption" key in the JSON output MUST be a JSON array of strings containing these 4 to 5 slides in order. Each individual slide/post string in the array must be under 300 characters.`;
         } else if (postFormat === 'short_thread') {
             formatInstructions = `- Format: Thread / Bebenang Ringkas (SHORT). You MUST generate a sequence of exactly 2 to 3 connected slides/posts (no more than 3). The "caption" key in the JSON output MUST be a JSON array of strings containing these 2 to 3 slides in order. Each individual slide/post string in the array must be under 300 characters.`;
@@ -59,7 +59,7 @@ export class AIProvider {
         }
 
         let jsonStructure = "";
-        if (postFormat === 'deep_thread') {
+        if (postFormat === 'deep_thread' || postFormat === 'thread') {
             jsonStructure = `{
   "caption": [
     "Slide 1 content under 300 characters",

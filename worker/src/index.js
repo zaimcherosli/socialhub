@@ -942,7 +942,11 @@ const getNicheInstructionsPrompt = async (db, productContext) => {
             for (const niche of niches.results) {
                 // detection_keywords is a comma-separated list
                 const keywords = (niche.detection_keywords || "").split(',').map(k => k.trim().toLowerCase()).filter(Boolean);
-                if (keywords.some(k => textToAnalyze.includes(k))) {
+                if (keywords.some(k => {
+                    const escaped = k.replace(/[-\/\\^$*+?.()|[\]{}]/g, '\\$&');
+                    const regex = new RegExp(`(?:^|[^a-zA-Z0-9_])${escaped}(?:$|[^a-zA-Z0-9_])`, 'i');
+                    return regex.test(textToAnalyze);
+                })) {
                     matchedNiche = niche.name;
                     // rules is stored as a JSON array string
                     try {
@@ -977,7 +981,11 @@ const getNicheInstructions = async (db, productContext) => {
         if (niches && niches.results) {
             for (const niche of niches.results) {
                 const keywords = (niche.detection_keywords || "").split(',').map(k => k.trim().toLowerCase()).filter(Boolean);
-                if (keywords.some(k => textToAnalyze.includes(k))) {
+                if (keywords.some(k => {
+                    const escaped = k.replace(/[-\/\\^$*+?.()|[\]{}]/g, '\\$&');
+                    const regex = new RegExp(`(?:^|[^a-zA-Z0-9_])${escaped}(?:$|[^a-zA-Z0-9_])`, 'i');
+                    return regex.test(textToAnalyze);
+                })) {
                     let rules = [];
                     try {
                         rules = JSON.parse(niche.rules || "[]");

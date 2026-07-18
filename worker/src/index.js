@@ -108,18 +108,35 @@ async function signJWT(payload, secret) {
     return `${tokenData}.${encodedSignature}`;
 }
 
-async function getPerformanceFeedback(db, workspaceId) {
+async function getPerformanceFeedback(db, workspaceId, nicheKey) {
     try {
+        let sqlFilter = "";
+        
+        // If current post is NOT a property listing, exclude past posts containing property indicators
+        if (nicheKey !== 'hartanah') {
+            sqlFilter += ` AND (content NOT LIKE '%sewa%' AND content NOT LIKE '%rumah%' AND content NOT LIKE '%teres%' AND content NOT LIKE '%kondo%' AND content NOT LIKE '%apartment%' AND content NOT LIKE '%hartanah%' AND content NOT LIKE '%viewing%' AND content NOT LIKE '%rm%')`;
+        }
+        
+        // If current post is NOT automotif, exclude past posts containing automotive indicators
+        if (nicheKey !== 'automotif') {
+            sqlFilter += ` AND (content NOT LIKE '%kereta%' AND content NOT LIKE '%loan%' AND content NOT LIKE '%perodua%' AND content NOT LIKE '%proton%' AND content NOT LIKE '%honda%' AND content NOT LIKE '%toyota%')`;
+        }
+
+        // If current post is NOT affiliate, exclude past posts containing affiliate indicators (like shopee, lazada, tiktok, bag kuning)
+        if (nicheKey !== 'affiliate') {
+            sqlFilter += ` AND (content NOT LIKE '%shopee%' AND content NOT LIKE '%shope.ee%' AND content NOT LIKE '%lazada%' AND content NOT LIKE '%tiktok shop%' AND content NOT LIKE '%beg kuning%' AND content NOT LIKE '%bag kuning%' AND content NOT LIKE '%racun shopee%' AND content NOT LIKE '%racun tiktok%')`;
+        }
+
         const topPosts = await db.prepare(
             `SELECT content, views_count, likes_count, replies_count FROM scheduled_posts 
-             WHERE workspace_id = ? AND status = 'published' AND views_count > 0
+             WHERE workspace_id = ? AND status = 'published' AND views_count > 0 ${sqlFilter}
              ORDER BY (views_count + likes_count * 5 + replies_count * 10) DESC 
              LIMIT 3`
         ).bind(workspaceId).all();
 
         const bottomPosts = await db.prepare(
             `SELECT content, views_count, likes_count, replies_count FROM scheduled_posts 
-             WHERE workspace_id = ? AND status = 'published' AND views_count > 0
+             WHERE workspace_id = ? AND status = 'published' AND views_count > 0 ${sqlFilter}
              ORDER BY (views_count + likes_count * 5 + replies_count * 10) ASC 
              LIMIT 3`
         ).bind(workspaceId).all();
@@ -2055,11 +2072,11 @@ export default {
 
                         const provider = AIFactory.getProvider(aiEnv);
                         
+                        const nicheData = await getNicheInstructions(env.DB, product);
+                        
                         // Performance feedback should only be used for custom product posts, not for generic templates/presets
                         const isPreset = presetType && presetType !== 'default';
-                        const performanceFeedback = isPreset ? "" : await getPerformanceFeedback(env.DB, activeWorkspace.workspace_id);
-                        
-                        const nicheData = await getNicheInstructions(env.DB, product);
+                        const performanceFeedback = isPreset ? "" : await getPerformanceFeedback(env.DB, activeWorkspace.workspace_id, nicheData ? nicheData.niche_key : null);
                         
                         let result;
                         let modelUsed = aiEnv.OPENROUTER_MODEL || "unknown";
@@ -3692,7 +3709,8 @@ CRITICAL LANGUAGE / SPEECH RULES:
                     try {
                         const provider = AIFactory.getProvider(aiEnv);
                         const autopilotService = new AutopilotService(provider);
-                        const performanceFeedback = await getPerformanceFeedback(env.DB, activeWorkspace.workspace_id);
+                        const nicheData = await getNicheInstructions(env.DB, niche);
+                        const performanceFeedback = await getPerformanceFeedback(env.DB, activeWorkspace.workspace_id, nicheData ? nicheData.niche_key : null);
                         
                         const campaign = await autopilotService.generateAutopilotCampaign({
                             niche: niche + performanceFeedback,

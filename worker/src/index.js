@@ -929,7 +929,7 @@ const getFactPreservingInstructions = (rawInstructions) => {
     return `${rawInstructions}\n\nFACT PRESERVATION RULE:\nYou must strictly preserve the real facts from the input/source text (such as the actual location, price, room count, and property specs). Under no circumstances should you invent, guess, or hallucinate a fake price (like RM800,000) or a fake location (like Shah Alam) if it is not in the source text. If your guidelines ask you to avoid or hide the actual price or project name, simply do not mention them at all (omit them) or use general phrases like 'harga berpatutan' or 'lokasi strategik' — but DO NOT fabricate or invent fake details.`;
 };
 // Helper: Get niche classification & guidelines instructions prompt
-const getNicheInstructionsPrompt = async (db, productContext) => {
+const getNicheInstructionsPrompt = async (db, productContext, mode = 'all') => {
     if (!db) return "";
     const textToAnalyze = (productContext || "").toLowerCase();
     
@@ -954,6 +954,16 @@ const getNicheInstructionsPrompt = async (db, productContext) => {
                     } catch (_) {
                         matchedRules = [];
                     }
+
+                    // Apply mode overrides if available
+                    if (niche.mode_overrides) {
+                        try {
+                            const overrides = JSON.parse(niche.mode_overrides);
+                            if (overrides && overrides[mode] && overrides[mode].rules) {
+                                matchedRules = overrides[mode].rules;
+                            }
+                        } catch (_) {}
+                    }
                     break;
                 }
             }
@@ -972,7 +982,7 @@ const getNicheInstructionsPrompt = async (db, productContext) => {
 };
 
 // Helper: Get raw niche classification data
-const getNicheInstructions = async (db, productContext) => {
+const getNicheInstructions = async (db, productContext, mode = 'all') => {
     if (!db) return null;
     const textToAnalyze = (productContext || "").toLowerCase();
     
@@ -990,11 +1000,28 @@ const getNicheInstructions = async (db, productContext) => {
                     try {
                         rules = JSON.parse(niche.rules || "[]");
                     } catch (_) {}
+                    let example_output = niche.example_output || null;
+
+                    // Apply mode overrides if available
+                    if (niche.mode_overrides) {
+                        try {
+                            const overrides = JSON.parse(niche.mode_overrides);
+                            if (overrides && overrides[mode]) {
+                                if (overrides[mode].rules) {
+                                    rules = overrides[mode].rules;
+                                }
+                                if (overrides[mode].example_output !== undefined) {
+                                    example_output = overrides[mode].example_output;
+                                }
+                            }
+                        } catch (_) {}
+                    }
+
                     return {
                         niche_key: niche.niche_key || null,
                         name: niche.name,
                         rules: rules,
-                        example_output: niche.example_output || null
+                        example_output: example_output
                     };
                 }
             }
@@ -1394,7 +1421,7 @@ async function handleTelegramUpdate(update, env, encryptionSecret, jwtSecret) {
 
                     // Compile prompts using dynamic niche guidelines
                     const provider = AIFactory.getProvider(aiEnv);
-                    const nicheData = await getNicheInstructions(env.DB, scraped.title + " " + scraped.description);
+                    const nicheData = await getNicheInstructions(env.DB, scraped.title + " " + scraped.description, 'url_post');
                     const isProperty = isPropertyListing(scraped.title + " " + scraped.description, targetUrl, nicheData ? nicheData.niche_key : null);
 
                     const promptOptions = {
@@ -1580,18 +1607,27 @@ export default {
                     detection_keywords TEXT NOT NULL,
                     rules TEXT NOT NULL,
                     example_output TEXT DEFAULT NULL,
+                    mode_overrides TEXT DEFAULT NULL,
                     created_at TEXT DEFAULT (datetime('now')),
                     updated_at TEXT DEFAULT (datetime('now'))
                 )`).run();
 
+                try {
+                    await env.DB.prepare("ALTER TABLE system_niche_rules ADD COLUMN mode_overrides TEXT DEFAULT NULL").run();
+                } catch (_) { /* Column already exists */ }
+
                 const countRes = await env.DB.prepare("SELECT COUNT(*) as count FROM system_niche_rules").first();
+                const hartanahOverrides = `{"single":{"rules":["You MUST NOT fabricate or invent fake property listings, sizes, prices, or locations if they are not specified in the input.","Focus entirely on answering the user's question, sharing advice, or discussing the topic naturally based on the input text.","Use a casual, professional, first-person REN tone (e.g. 'Aku baru terfikir...', 'Korang perasan tak...').","Do NOT use typical real estate listing templates if the input is general. Avoid templates like 'Baru je list satu unit kat Puchong...' or 'Unit sewa ditawarkan...' unless they match the input topic."],"example_output":"Korang perasan tak, ramai yang nak hias bilik/renovate tapi takut kos melambung?\\n\\nJujur aku cakap, sebenarnya tak perlu pun renovate besar-besaran kalau bajet ketat. Cukup sekadar mulakan dengan satu bilik dulu secara berperingkat.\\n---thread-separator---\\nLangkah pertama, fokus kat pencahayaan (lighting) dan cat dinding. Dua benda ni kos paling minima tapi impak dia paling ketara ubah vibe bilik terus.\\n---thread-separator---\\nLangkah kedua, pilih perabot yang ada fungsi storan tersembunyi (multifunctional) untuk elakkan ruang nampak sempit dan berserabut.\\n---thread-separator---\\nKalau korang nak cari barang hiasan rumah yang murah tapi nampak mewah, drop 'INFO' kat komen bawah. Nanti aku share kedai seller trusted."},"url_post":{"rules":["You MUST extract the property details (type, location, price, specs) from the scraped product/listing info.","Do NOT reveal the project name or exact price in Part 1 or Part 2. Use a general location teaser to build curiosity.","Provide the price and CTA in the final part."]},"autopilot":{"rules":["For Autopilot campaign slides, generate a balanced mix of general home-buying tips, area reviews, market insights, and listings.","Avoid making every generated post look like a direct sales pitch. Focus 60% on value-sharing and 40% on conversions."]}}`;
+
                 if (countRes && countRes.count === 0) {
                     await env.DB.prepare(`
-                        INSERT INTO system_niche_rules (niche_key, name, detection_keywords, rules) VALUES
-                        ('hartanah', 'Ejen Hartanah & Properti', 'rumah,apartment,condo,tanah,teres,semi-d,saujana,hartanah,listing,sale,rent,kondo,bilik,sewa,jual,flat,bungalow,banglo,saujana putra,wangsa melawati,wangsa ceria,dengkil', '["You MUST include the property price (e.g. RM 325,000 or RM 325k) in the copywriting to attract buyers.","Focus on the actual property details (type, location, size/sqft, features, facilities) from the product info.","NEVER include any phone numbers (e.g. 017-xxx xxxx), agent names, PEA/REN numbers, or agency names (e.g. IQI Realty) in the caption or CTA. The only contact method is via the link provided separately.","For real estate/properties, include specific hashtags based on transaction type (e.g. #jualbelirumah #jualrumah #rumahsewa #rumahuntukdijual)."]'),
-                        ('affiliate', 'Affiliate Shopee/TikTok/Lazada', 'shopee,lazada,tiktok shop,beli di,beg kuning,racun shopee,racun tiktok,murah gila,diskaun,voucher,promo,gadget,barang dapur', '["1. PROBLEM (Hook): Panggil target pembaca secara terus, timbulkan rasa ingin tahu / curiosity gap. JANGAN letak harga atau nama produk secara spesifik di bahagian ini. Link affiliate (menggunakan placeholder {{SHOPEE_LINK}}) BOLEH diletakkan di sini secara bersahaja jika sesuai (contoh: \\"lepas aku guna {{SHOPEE_LINK}} ni...\\").","2. Besarkan Masalah (Agitate): Sambung dari hook, besarkan kesan/pain point masalah tu. Boleh letakkan link affiliate {{SHOPEE_LINK}} secara natural.","3. SOLUTION: Cerita macam pengalaman peribadi sendiri. Kena spesifik. Link affiliate {{SHOPEE_LINK}} boleh diletakkan di sini secara natural. Tiada harga disebut.","4. RESULT: Tutup dengan hasil/perubahan konkrit. Nada keseluruhan: kawan bercerita kat kawan, bukan iklan jualan.","RULE: Penempatan Link Affiliate: JANGAN hadkan link affiliate di bahagian akhir sahaja. Link affiliate (menggunakan placeholder {{SHOPEE_LINK}}) BOLEH diletakkan secara dinamik di mana-mana slide/bahagian thread yang paling sesuai mengikut konteks copywriting (contoh: boleh di Hook/Slide 1, Slide 2, Slide 3, atau di bahagian CTA/Slide terakhir). Pelbagaikan kedudukan link ini secara rawak bagi setiap post."]'),
-                        ('automotif', 'Ejen Jual Kereta / Motor', 'kereta,car,perodua,proton,honda,toyota,bulanan,loan,trade-in,deposit,full loan,myvi,bezza,saga,alza,x50', '["Focus on low monthly installments (bayaran bulanan), rebates, or free gifts.","Highlight easy loan approvals, full loan availability, or fast trade-in deals.","Use a professional yet friendly and accessible tone.","Encourage users to check their loan eligibility as the main hook/CTA."]')
-                    `).run();
+                        INSERT INTO system_niche_rules (niche_key, name, detection_keywords, rules, mode_overrides) VALUES
+                        ('hartanah', 'Ejen Hartanah & Properti', 'rumah,apartment,condo,tanah,teres,semi-d,saujana,hartanah,listing,sale,rent,kondo,bilik,sewa,jual,flat,bungalow,banglo,saujana putra,wangsa melawati,wangsa ceria,dengkil', '["You MUST include the property price (e.g. RM 325,000 or RM 325k) in the copywriting to attract buyers.","Focus on the actual property details (type, location, size/sqft, features, facilities) from the product info.","NEVER include any phone numbers (e.g. 017-xxx xxxx), agent names, PEA/REN numbers, or agency names (e.g. IQI Realty) in the caption or CTA. The only contact method is via the link provided separately.","For real estate/properties, include specific hashtags based on transaction type (e.g. #jualbelirumah #jualrumah #rumahsewa #rumahuntukdijual)."]', ?),
+                        ('affiliate', 'Affiliate Shopee/TikTok/Lazada', 'shopee,lazada,tiktok shop,beli di,beg kuning,racun shopee,racun tiktok,murah gila,diskaun,voucher,promo,gadget,barang dapur', '["1. PROBLEM (Hook): Panggil target pembaca secara terus, timbulkan rasa ingin tahu / curiosity gap. JANGAN letak harga atau nama produk secara spesifik di bahagian ini. Link affiliate (menggunakan placeholder {{SHOPEE_LINK}}) BOLEH diletakkan di sini secara bersahaja jika sesuai (contoh: \\"lepas aku guna {{SHOPEE_LINK}} ni...\\").","2. Besarkan Masalah (Agitate): Sambung dari hook, besarkan kesan/pain point masalah tu. Boleh letakkan link affiliate {{SHOPEE_LINK}} secara natural.","3. SOLUTION: Cerita macam pengalaman peribadi sendiri. Kena spesifik. Link affiliate {{SHOPEE_LINK}} boleh diletakkan di sini secara natural. Tiada harga disebut.","4. RESULT: Tutup dengan hasil/perubahan konkrit. Nada keseluruhan: kawan bercerita kat kawan, bukan iklan jualan.","RULE: Penempatan Link Affiliate: JANGAN hadkan link affiliate di bahagian akhir sahaja. Link affiliate (menggunakan placeholder {{SHOPEE_LINK}}) BOLEH diletakkan secara dinamik di mana-mana slide/bahagian thread yang paling sesuai mengikut konteks copywriting (contoh: boleh di Hook/Slide 1, Slide 2, Slide 3, atau di bahagian CTA/Slide terakhir). Pelbagaikan kedudukan link ini secara rawak bagi setiap post."]', NULL),
+                        ('automotif', 'Ejen Jual Kereta / Motor', 'kereta,car,perodua,proton,honda,toyota,bulanan,loan,trade-in,deposit,full loan,myvi,bezza,saga,alza,x50', '["Focus on low monthly installments (bayaran bulanan), rebates, or free gifts.","Highlight easy loan approvals, full loan availability, or fast trade-in deals.","Use a professional yet friendly and accessible tone.","Encourage users to check their loan eligibility as the main hook/CTA."]', NULL)
+                    `).bind(hartanahOverrides).run();
+                } else {
+                    await env.DB.prepare("UPDATE system_niche_rules SET mode_overrides = ? WHERE niche_key = 'hartanah'").bind(hartanahOverrides).run();
                 }
             } catch (_) {}
 
@@ -2080,7 +2116,7 @@ export default {
 
                         const provider = AIFactory.getProvider(aiEnv);
                         
-                        const nicheData = await getNicheInstructions(env.DB, product);
+                        const nicheData = await getNicheInstructions(env.DB, product, 'single');
                         
                         // Performance feedback should only be used for custom product posts, not for generic templates/presets
                         const isPreset = presetType && presetType !== 'default';
@@ -2762,7 +2798,7 @@ CRITICAL TONE RULES:
                         }
 
                         // Add workspace-specific copywriting guidelines and system niche rules
-                        const nicheData = await getNicheInstructions(env.DB, productContext);
+                        const nicheData = await getNicheInstructions(env.DB, productContext, 'url_post');
                         
                         const lowerCtx = (productContext || "").toLowerCase();
                         const isProperty = isPropertyListing(productContext, url, nicheData ? nicheData.niche_key : null);
@@ -3293,7 +3329,7 @@ CRITICAL TONE RULES:
                         const aiEnv = await getAIEnvironment(env.DB, activeWorkspace.workspace_id, env, encryptionSecret);
 
                         let combinedInstructions = getFactPreservingInstructions(aiEnv.custom_ai_instructions || "");
-                        const systemNicheRulesBlock = await getNicheInstructionsPrompt(env.DB, scrapedTitle + " " + (scrapedDescription || ""));
+                        const systemNicheRulesBlock = await getNicheInstructionsPrompt(env.DB, scrapedTitle + " " + (scrapedDescription || ""), 'url_post');
                         combinedInstructions = combinedInstructions 
                             ? `${combinedInstructions}\n\nSYSTEM NICHE GUIDELINES:\n${systemNicheRulesBlock}`
                             : systemNicheRulesBlock;
@@ -3717,7 +3753,7 @@ CRITICAL LANGUAGE / SPEECH RULES:
                     try {
                         const provider = AIFactory.getProvider(aiEnv);
                         const autopilotService = new AutopilotService(provider);
-                        const nicheData = await getNicheInstructions(env.DB, niche);
+                        const nicheData = await getNicheInstructions(env.DB, niche, 'autopilot');
                         const performanceFeedback = await getPerformanceFeedback(env.DB, activeWorkspace.workspace_id, nicheData ? nicheData.niche_key : null);
                         
                         const campaign = await autopilotService.generateAutopilotCampaign({

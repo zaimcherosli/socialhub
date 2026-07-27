@@ -4,8 +4,8 @@
   "description": "Unified social media scheduling calendar, analytics dashboard, and automated publisher.",
   "start_url": "/dashboard.html",
   "display": "standalone",
-  "background_color": "#ffffff",
-  "theme_color": "#2563eb",
+  "background_color": "#0b0f19",
+  "theme_color": "#8b5cf6",
   "orientation": "portrait",
   "icons": [
     {

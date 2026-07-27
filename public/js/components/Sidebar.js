@@ -192,12 +192,12 @@ class Sidebar extends HTMLElement {
                 <div class="sidebar-footer">
                     <div class="user-avatar-row">
                         <div class="avatar-holder">
-                            <span class="avatar-letters" id="sidebarInitials">JD</span>
+                            <span class="avatar-letters" id="sidebarInitials">--</span>
                         </div>
                         <div class="user-info" style="flex: 1; min-width: 0; display: flex; flex-direction: column;">
-                            <span class="user-name" id="sidebarUserName">John Doe</span>
-                            <span class="user-plan">Admin Pro</span>
-                            <span class="user-version" style="font-size: 0.65rem; color: var(--color-text-tertiary); font-weight: 500; margin-top: 0.1rem;">v1.4.27</span>
+                            <span class="user-name" id="sidebarUserName">Loading...</span>
+                            <span class="user-plan">User</span>
+                            <span class="user-version" style="font-size: 0.65rem; color: var(--color-text-tertiary); font-weight: 500; margin-top: 0.1rem;">v1.4.28</span>
                         </div>
                         <button class="header-action-btn" id="btnSidebarLogout" title="Logout" style="padding: 0.35rem; color: var(--color-danger); background: none; border: none; cursor: pointer; display: flex; align-items: center; justify-content: center;">
                             <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">

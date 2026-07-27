@@ -249,7 +249,7 @@ class Header extends HTMLElement {
                     <!-- User Profile Quick Actions -->
                     <div class="header-profile-trigger">
                         <div class="avatar-holder">
-                            <span class="avatar-letters" id="headerInitials">JD</span>
+                            <span class="avatar-letters" id="headerInitials">--</span>
                         </div>
                     </div>
                 </div>

@@ -5,7 +5,7 @@
   "main": "index.js",
   "scripts": {
     "dev": "vite public",
-    "build": "vite build public && node -e \"require('fs').copyFileSync('public/_headers', 'public/dist/_headers')\""
+    "build": "vite build public && node -e \"require('fs').copyFileSync('public/_headers', 'public/dist/_headers'); require('fs').copyFileSync('public/gltd2qpcwmyoozmg5sacsmspqd53de.html', 'public/dist/gltd2qpcwmyoozmg5sacsmspqd53de.html')\""
   },
   "devDependencies": {
     "vite": "^5.2.0",

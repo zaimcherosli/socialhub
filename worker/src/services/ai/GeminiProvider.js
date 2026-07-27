@@ -4,10 +4,10 @@ export class GeminiProvider extends AIProvider {
     constructor(apiKey, model) {
         super();
         this.apiKey = apiKey ? apiKey.replace(/^["']|["']$/g, '') : '';
-        // Use gemini-2.5-flash as default, migrate deprecated gemini-1.5-flash
-        let targetModel = model || 'gemini-2.5-flash';
-        if (targetModel === 'gemini-1.5-flash') {
-            targetModel = 'gemini-2.5-flash';
+        // Use gemini-3.6-flash as default, migrate deprecated older flash models
+        let targetModel = model || 'gemini-3.6-flash';
+        if (targetModel === 'gemini-1.5-flash' || targetModel === 'gemini-2.5-flash' || targetModel === 'gemini-3.5-flash') {
+            targetModel = 'gemini-3.6-flash';
         }
         this.model = targetModel;
         // Thinking models (Pro and thinking series) need thinkingConfig disabled for structured JSON output

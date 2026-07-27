@@ -44,6 +44,8 @@ app-header {
     z-index: 90;
     position: sticky;
     top: 0;
+    display: block;
+    width: 100%;
 }
 
 /* Main Content Container */
@@ -431,6 +433,14 @@ app-header {
         grid-template-areas: 
             "header"
             "main";
+    }
+    
+    app-header {
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 100%;
+        z-index: 1000;
     }
     
     app-sidebar {

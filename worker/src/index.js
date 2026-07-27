@@ -1438,7 +1438,7 @@ async function handleTelegramUpdate(update, env, encryptionSecret, jwtSecret) {
                     };
 
                     const aiRes = await provider.generateCaption(promptOptions);
-                    const fullCaption = `${aiRes.caption}\n\nHubungi untuk info lanjut! ➡️ ${targetUrl}\n\n${(aiRes.hashtags || []).join(' ')}`.trim();
+                    const fullCaption = `${aiRes.caption}\n\nHubungi untuk info lanjut: ${targetUrl}\n\n${(aiRes.hashtags || []).join(' ')}`.trim();
 
                     // Insert as DRAFT into scheduled_posts
                     const result = await env.DB.prepare(
@@ -3052,28 +3052,28 @@ CRITICAL TONE RULES:
                                 // We provide different random variations based on whether it is for Sale or Rent
                                 if (isRent) {
                                     const rentVariations = [
-                                        `Klik link WhatsApp ni untuk roger aku sekarang sebelum unit ni disambar orang lain: ➡️ ${finalCtaUrl}`,
-                                        `Berminat nak sewa? Roger aku sekarang sebelum unit sewa ni terlepas ke orang lain: ➡️ ${finalCtaUrl}`,
-                                        `Tekan link ni untuk WhatsApp aku terus kalau nak set viewing / booking unit sewa ni: ➡️ ${finalCtaUrl}`,
-                                        `Unit sewa macam ni selalunya laju kena grab. Cepat WhatsApp aku kat sini: ➡️ ${finalCtaUrl}`,
-                                        `Kalau nak booking atau nak datang tengok rumah, klik link ni untuk roger aku terus: ➡️ ${finalCtaUrl}`
+                                        `Klik link WhatsApp ni untuk roger aku sekarang sebelum unit ni disambar orang lain: ${finalCtaUrl}`,
+                                        `Berminat nak sewa? Roger aku sekarang sebelum unit sewa ni terlepas ke orang lain: ${finalCtaUrl}`,
+                                        `Tekan link ni untuk WhatsApp aku terus kalau nak set viewing / booking unit sewa ni: ${finalCtaUrl}`,
+                                        `Unit sewa macam ni selalunya laju kena grab. Cepat WhatsApp aku kat sini: ${finalCtaUrl}`,
+                                        `Kalau nak booking atau nak datang tengok rumah, klik link ni untuk roger aku terus: ${finalCtaUrl}`
                                     ];
                                     const randomIndex = Math.floor(Math.random() * rentVariations.length);
                                     ctaText = rentVariations[randomIndex];
                                 } else {
                                     const saleVariations = [
-                                        `Terus WhatsApp aku sekarang untuk semak kelayakan/viewing atau maklumat lanjut: ➡️ ${finalCtaUrl}`,
-                                        `Kalau berminat nak viewing atau semak kelayakan loan, klik link ni untuk WhatsApp aku terus: ➡️ ${finalCtaUrl}`,
-                                        `Berminat nak tahu details lanjut atau nak set viewing? WhatsApp aku kat sini: ➡️ ${finalCtaUrl}`,
-                                        `Tekan link ni untuk WhatsApp aku terus kalau nak semak kelayakan / viewing unit ni: ➡️ ${finalCtaUrl}`,
-                                        `Berminat nak beli? WhatsApp aku terus untuk semak kelayakan loan atau booking unit: ➡️ ${finalCtaUrl}`
+                                        `Terus WhatsApp aku sekarang untuk semak kelayakan/viewing atau maklumat lanjut: ${finalCtaUrl}`,
+                                        `Kalau berminat nak viewing atau semak kelayakan loan, klik link ni untuk WhatsApp aku terus: ${finalCtaUrl}`,
+                                        `Berminat nak tahu details lanjut atau nak set viewing? WhatsApp aku kat sini: ${finalCtaUrl}`,
+                                        `Tekan link ni untuk WhatsApp aku terus kalau nak semak kelayakan / viewing unit ni: ${finalCtaUrl}`,
+                                        `Berminat nak beli? WhatsApp aku terus untuk semak kelayakan loan atau booking unit: ${finalCtaUrl}`
                                     ];
                                     const randomIndex = Math.floor(Math.random() * saleVariations.length);
                                     ctaText = saleVariations[randomIndex];
                                 }
                             } else {
                                 // For property listings that link to marketplaces (Propmall / Mudah) where direct buttons exist on-page
-                                ctaText = `Korang tengok details kat sini: ➡️ ${finalCtaUrl}\n\nKalau ok, terus WhatsApp/Call aku dari link tu untuk semak kelayakan/viewing atau maklumat lanjut.`;
+                                ctaText = `Korang tengok details kat sini: ${finalCtaUrl}\n\nKalau ok, terus WhatsApp/Call aku dari link tu untuk semak kelayakan/viewing atau maklumat lanjut.`;
                             }
                         } else {
                             let finalCtaText = parsed.cta ? parsed.cta.trim() : "";
@@ -3088,10 +3088,10 @@ CRITICAL TONE RULES:
                             if (isGeneric) {
                                 if (classifiedBusinessType === 'Recruitment & Team Hiring') {
                                     const recruitmentVariations = [
-                                        `Berminat nak tambah income or join team? Isi borang/set slot kat sini: ➡️ ${finalCtaUrl}`,
-                                        `Pendaftaran dropship/ejen baru tengah open, jom register sekarang: ➡️ ${finalCtaUrl}`,
-                                        `Nak start jana income kedua? WhatsApp/Daftar kat sini terus: ➡️ ${finalCtaUrl}`,
-                                        `Slot kemasukan ahli baru sangat terhad, lock slot korang kat link ni: ➡️ ${finalCtaUrl}`
+                                        `Berminat nak tambah income or join team? Isi borang/set slot kat sini: ${finalCtaUrl}`,
+                                        `Pendaftaran dropship/ejen baru tengah open, jom register sekarang: ${finalCtaUrl}`,
+                                        `Nak start jana income kedua? WhatsApp/Daftar kat sini terus: ${finalCtaUrl}`,
+                                        `Slot kemasukan ahli baru sangat terhad, lock slot korang kat link ni: ${finalCtaUrl}`
                                     ];
                                     const rIndex = (index !== undefined && index !== null)
                                         ? (parseInt(index) % recruitmentVariations.length)
@@ -3099,10 +3099,10 @@ CRITICAL TONE RULES:
                                     ctaText = recruitmentVariations[rIndex];
                                 } else if (classifiedBusinessType === 'Business & Services Promotion') {
                                     const businessVariations = [
-                                        `Ushar details penuh / tempah slot servis kat link ni: ➡️ ${finalCtaUrl}`,
-                                        `Korang tengok portfolio kerja & senarai servis kami kat sini: ➡️ ${finalCtaUrl}`,
-                                        `Berminat nak bincang projek or dapatkan quotation? Roger aku kat sini: ➡️ ${finalCtaUrl}`,
-                                        `Tengok senarai harga & service detail kat website rasmi kami: ➡️ ${finalCtaUrl}`
+                                        `Ushar details penuh / tempah slot servis kat link ni: ${finalCtaUrl}`,
+                                        `Korang tengok portfolio kerja & senarai servis kami kat sini: ${finalCtaUrl}`,
+                                        `Berminat nak bincang projek or dapatkan quotation? Roger aku kat sini: ${finalCtaUrl}`,
+                                        `Tengok senarai harga & service detail kat website rasmi kami: ${finalCtaUrl}`
                                     ];
                                     const bIndex = (index !== undefined && index !== null)
                                         ? (parseInt(index) % businessVariations.length)
@@ -3111,21 +3111,21 @@ CRITICAL TONE RULES:
                                 } else {
                                     // Products & Affiliate
                                     const affiliateVariations = [
-                                        `Korang check sendiri review & rating buyer kat sini: ➡️ ${finalCtaUrl}`,
-                                        `Ushar harga & baki stok kat link ni: ➡️ ${finalCtaUrl}`,
-                                        `Benda viral ni tengah ada discount, ushar cepat kat link ni: ➡️ ${finalCtaUrl}`,
-                                        `Aku drop link kat sini kalau ada yang nak ushar dulu: ➡️ ${finalCtaUrl}`,
-                                        `Nah link kalau ada yang nak try sendiri: ➡️ ${finalCtaUrl}`,
-                                        `Saja kongsi link ni kot-kot ada yang perlukan juga: ➡️ ${finalCtaUrl}`,
-                                        `Kot lah ada yang tengah cari barang ni, ni link dia: ➡️ ${finalCtaUrl}`,
-                                        `Boleh check details or ushar design lain kat link ni: ➡️ ${finalCtaUrl}`,
-                                        `Aku ambil dari seller ni sebab trusted & rating tinggi: ➡️ ${finalCtaUrl}`,
-                                        `Mana yang berminat nak tengok spec penuh, roger link ni: ➡️ ${finalCtaUrl}`,
-                                        `Korang tengok lah sendiri feedback buyer kat link ni: ➡️ ${finalCtaUrl}`,
-                                        `Ini pautan kedai yang aku beli hari tu, shipping laju: ➡️ ${finalCtaUrl}`,
-                                        `Try ushar link ni cepat sebelum stok habis or harga naik: ➡️ ${finalCtaUrl}`,
-                                        `Nah, aku share link kedai ni untuk mudahkan korang: ➡️ ${finalCtaUrl}`,
-                                        `Kalau nak dapatkan barang ni terus, boleh pergi kat link ni: ➡️ ${finalCtaUrl}`
+                                        `Korang check sendiri review & rating buyer kat sini: ${finalCtaUrl}`,
+                                        `Ushar harga & baki stok kat link ni: ${finalCtaUrl}`,
+                                        `Benda viral ni tengah ada discount, ushar cepat kat link ni: ${finalCtaUrl}`,
+                                        `Aku drop link kat sini kalau ada yang nak ushar dulu: ${finalCtaUrl}`,
+                                        `Nah link kalau ada yang nak try sendiri: ${finalCtaUrl}`,
+                                        `Saja kongsi link ni kot-kot ada yang perlukan juga: ${finalCtaUrl}`,
+                                        `Kot lah ada yang tengah cari barang ni, ni link dia: ${finalCtaUrl}`,
+                                        `Boleh check details or ushar design lain kat link ni: ${finalCtaUrl}`,
+                                        `Aku ambil dari seller ni sebab trusted & rating tinggi: ${finalCtaUrl}`,
+                                        `Mana yang berminat nak tengok spec penuh, roger link ni: ${finalCtaUrl}`,
+                                        `Korang tengok lah sendiri feedback buyer kat link ni: ${finalCtaUrl}`,
+                                        `Ini pautan kedai yang aku beli hari tu, shipping laju: ${finalCtaUrl}`,
+                                        `Try ushar link ni cepat sebelum stok habis or harga naik: ${finalCtaUrl}`,
+                                        `Nah, aku share link kedai ni untuk mudahkan korang: ${finalCtaUrl}`,
+                                        `Kalau nak dapatkan barang ni terus, boleh pergi kat link ni: ${finalCtaUrl}`
                                     ];
                                     const aIndex = (index !== undefined && index !== null)
                                         ? (parseInt(index) % affiliateVariations.length)
@@ -3133,7 +3133,7 @@ CRITICAL TONE RULES:
                                     ctaText = affiliateVariations[aIndex];
                                 }
                             } else {
-                                ctaText = `${finalCtaText} ➡️ ${finalCtaUrl}`;
+                                ctaText = `${finalCtaText} ${finalCtaUrl}`;
                             }
                         }
                         
@@ -3143,7 +3143,7 @@ CRITICAL TONE RULES:
                         let processedCaption = caption;
                         let replacedPlaceholder = false;
                         if (/\{\{(SHOPEE_LINK|link)\}\}/i.test(processedCaption)) {
-                            processedCaption = processedCaption.replace(/(?:➡️\s*)?\{\{(SHOPEE_LINK|link)\}\}/gi, `➡️ ${finalCtaUrl}`);
+                            processedCaption = processedCaption.replace(/(?:➡️\s*)?\{\{(SHOPEE_LINK|link)\}\}/gi, finalCtaUrl);
                             replacedPlaceholder = true;
                         }
                         

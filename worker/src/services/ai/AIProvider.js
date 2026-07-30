@@ -143,6 +143,8 @@ ${jsonStructure}`;
 
         // Select hook library based on niche — hartanah uses property-specific hooks
         const hartanahHooks = [
+            { name: 'REN Personal Finding (Dapat Listing Rare)', pattern: 'Mulakan dari sudut pandang ejen REN yang teruja baru dapat listing — contoh: "Aku baru je dapat 1 listing kat area [kawasan/area teaser] ni. Lain macam betul rumah dia, rugi sangat kalau korang tak tengok dulu..." Jangan sebut nama projek atau harga di Part 1.' },
+            { name: 'REN Viewing Reaction', pattern: 'Mulakan dari sudut pandang ejen yang baru selesai viewing — contoh: "Baru balik dari viewing satu unit kat [kawasan/area teaser]. Sumpah aku terkejut tengok condition & layout rumah ni, betul-betul tak expect deal macam ni..." Jangan sebut nama projek atau harga di Part 1.' },
             { name: 'Teaser Lokasi', pattern: 'Mulakan sebagai ejen REN yang baru dapat listing — contoh: "Baru je list satu unit kat [kawasan/area teaser] yang aku rasa korang patut tahu dulu sebelum ada orang lain jumpa." Jangan sebut nama projek atau harga di Part 1.' },
             { name: 'Curiosity Reveal', pattern: 'Mulakan dengan curiosity line — contoh: "Aku baru lepas viewing satu unit semalam. Jujur aku rasa, kalau korang tengah cari [jenis unit] kat kawasan [area teaser], korang patut scroll terus baca ni." Jangan reveal harga atau nama projek di Part 1.' },
             { name: 'Market Insight', pattern: 'Mulakan dengan penemuan pasaran hartanah — contoh: "Ramai tak sedar, masih ada unit [jenis/kawasan teaser] yang sebenarnya undervalue berbanding pasaran sekarang. Aku baru jumpa satu." Bina curiosity, jangan reveal detail di Part 1.' },

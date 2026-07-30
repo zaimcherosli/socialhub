@@ -89,6 +89,37 @@ export class AIProvider {
 }`;
         }
 
+        // Humanizer Engine & Anti-AI Tropes Rules
+        let toneSpecializationRules = "";
+        if (tone === 'Storyteller (Pengalaman Sebenar)' || tone === 'Storyteller') {
+            toneSpecializationRules = `- STORYTELLER MODE: Open directly with an authentic first-person story or recent personal discovery (e.g., "Dua hari lepas masa aku...", "Dulu aku pernah silap...", "Minggu lepas ada sorang kawan bagitahu..."). Share thoughts, hesitation, and the eventual realization like talking to a close friend.`;
+        } else if (tone === 'Hot Take (Pecah Mitos / Contrarian)' || tone === 'Hot Take') {
+            toneSpecializationRules = `- HOT TAKE / MYTH BUSTING MODE: Open with a bold, controversial, or myth-busting statement (e.g., "Ramai orang salah faham pasal...", "Stop buat benda ni kalau tak nak...", "Mitos paling besar yang ramai orang percaya..."). Explain why common wisdom fails with sharp logic.`;
+        } else if (tone === 'Sembang Santai (Slang Melayu Asli)' || tone === 'Sembang Santai') {
+            toneSpecializationRules = `- SEMBANG SANTAI MODE: Write in ultra-casual Malaysian Threads slang ("gila", "kot", "weh", "haritu", "mat", "tak masuk akal", "jer", "siot", "dulu-dulu", "plak"). Relaxed, effortless, like a WhatsApp group chat.`;
+        } else if (tone === 'Punchy & Minimalist' || tone === 'Minimalist') {
+            toneSpecializationRules = `- PUNCHY & MINIMALIST MODE: Ultra-concise line-by-line micro thoughts (3-6 words per line max). Zero fluff, high impact, clean vertical spacing.`;
+        } else if (tone === 'Ultra-Realistic Malay') {
+            toneSpecializationRules = `- ULTRA-REALISTIC MALAY MODE: Mix Malay and English (Manglish) naturally like top Malaysian Threads creators ("literally", "time tu", "which is", "I mean", "serious talk", "gila").`;
+        } else {
+            toneSpecializationRules = `- TONE MODE: ${tone || 'Friendly & Casual'}`;
+        }
+
+        const antiAiTropesPromptBlock = `
+CRITICAL HUMANIZER ENGINE & STRICT ANTI-AI RULES (MANDATORY TO SOUND 100% LIKE A REAL HUMAN THREADS CREATOR):
+1. ABSOLUTELY FORBIDDEN CLICHÉ AI PHRASES (NEVER USE THESE IN MALAY OR ENGLISH):
+   - ABSOLUTELY FORBIDDEN IN MALAY: "Secara jujurnya", "Sebenarnya", "Bukan itu sahaja", "Secara keseluruhannya", "Menariknya", "Tahu tak...", "Siapa kat sini yang...", "Impak positif", "Dalam era moden ini", "Terokai", "Sesungguhnya", "Sememangnya", "Tak dinafikan", "Mari kita", "Di samping itu", "Lanjutan daripada itu", "Sejujurnya", "Usah pening", "Ingin tahu", "Sedia berkhidmat".
+   - ABSOLUTELY FORBIDDEN IN ENGLISH: "In today's fast-paced world", "Look no further", "Game changer", "At the end of the day", "In conclusion", "Unlock the potential", "Elevate your", "Delve into", "Furthermore", "Moreover", "Tired of...", "Are you looking for...", "In this digital age".
+
+2. DYNAMIC CONVERSATIONAL RHYTHM & TEMPO (Vary sentence lengths):
+   - Combine ultra-short 2-to-4 word punchy fragments (e.g., "Sumpah tak sangka.", "Realiti pahit.", "Benda simple je.") with medium conversational sentences.
+   - Use micro-paragraphs (1 to 2 lines per paragraph maximum with line breaks) for smooth, addicting mobile reading.
+   - Never make all sentences equal length or write long walls of text.
+
+3. TONE & COPYWRITING ANGLE SPECIALIZATION:
+   ${toneSpecializationRules}
+`;
+
         if (isPreset) {
             const prompt = `You are a social media content creator.
 Write a highly engaging, warm and natural social media post based on these details:
@@ -102,6 +133,8 @@ PENTING:
 - Tulis dari sudut pandang pertama (seperti "aku", "kami", "kita") yang santai mengikut tone pilihan.
 
 ${formatInstructions}
+
+${antiAiTropesPromptBlock}
 
 Provide the output in a strict JSON format with the following keys. Return ONLY the JSON object, with no markdown code blocks, explanations, or additional text:
 ${jsonStructure}`;
@@ -183,6 +216,8 @@ PENTING:
 3. Sekiranya maklumat di bawah adalah topik perbincangan, perkongsian tips, atau perbandingan umum (BUKAN listing spesifik bagi unit tertentu), JANGAN reka atau hallucinate butiran unit (seperti saiz sqft, bilangan bilik, status freehold/leasehold, fasiliti, atau harga). Sebaliknya, fokus sepenuhnya untuk membincangkan topik/tips tersebut menggunakan gaya bahasa dan tone dari contoh.
 4. ${nicheKey === 'hartanah' ? 'HARTANAH MYSTERY RULE: JANGAN sebut nama projek, nama pemaju, atau alamat penuh unit di dalam teks Part 1 dan Part 2. Gunakan teaser lokasi am (contoh: "kawasan Puchong", "area Cyberjaya") untuk membina curiosity sebelum reveal di bahagian akhir.' : 'PERATURAN MISTERI & CTR (CURIOSITY RULE): JANGAN sebut nama spesifik produk, nama jenama, atau model produk di dalam teks copywriting. Sebaliknya, gunakan nama am atau kata ganti misteri (seperti "benda ni", "gadget ni", "unit ni") untuk membina rasa ingin tahu (curiosity) pembaca.'}
 
+${antiAiTropesPromptBlock}
+
 ${product}
 `;
             
@@ -241,6 +276,9 @@ Write a highly engaging social media post based on these details:
             }
 
             prompt += `- ${formatInstructions}\n\n`;
+
+            // Inject Humanizer Engine and Anti-AI Tropes rules
+            prompt += `${antiAiTropesPromptBlock}\n\n`;
 
             // Inject niche-specific rules prominently if available (even without example_output)
             if (nicheRules && Array.isArray(nicheRules) && nicheRules.length > 0) {

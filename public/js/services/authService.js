@@ -22,6 +22,34 @@ export const authService = {
     },
 
     /**
+     * Authenticate user via Google OAuth ID token credential
+     * @param {string} credential Google JWT ID Token
+     * @param {boolean} rememberMe 
+     * @returns {Promise<object>} Response payload containing token and user
+     */
+    async loginWithGoogle(credential, rememberMe = true) {
+        console.log('[AuthService] Verifying Google OAuth credential token');
+        const data = await apiClient.post('/auth/google', { credential, rememberMe });
+        if (data && data.token) {
+            sessionService.saveToken(data.token, rememberMe);
+        }
+        return data;
+    },
+
+    /**
+     * Get Google OAuth Client ID configured for this instance
+     * @returns {Promise<string>} Client ID string
+     */
+    async getGoogleClientId() {
+        try {
+            const data = await apiClient.get('/auth/google/client-id');
+            return data?.clientId || '';
+        } catch (_) {
+            return '';
+        }
+    },
+
+    /**
      * Register a new user account
      * @param {string} name 
      * @param {string} email 

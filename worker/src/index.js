@@ -5560,11 +5560,12 @@ CRITICAL LANGUAGE / SPEECH RULES:
 
                     if (request.method === 'GET') {
                         const rows = await env.DB.prepare(
-                            "SELECT setting_key, setting_value FROM settings WHERE user_id = 1 AND setting_key IN ('sys_gemini_disabled', 'sys_openai_disabled', 'sys_gemini_api_key_enc', 'sys_openrouter_api_key_enc', 'sys_openai_api_key_enc')"
+                            "SELECT setting_key, setting_value FROM settings WHERE user_id = 1 AND setting_key IN ('sys_gemini_disabled', 'sys_openai_disabled', 'sys_gemini_api_key_enc', 'sys_openrouter_api_key_enc', 'sys_openai_api_key_enc', 'sys_google_client_id')"
                         ).all().catch(() => null);
                         
                         const sys_gemini_disabled = rows?.results?.some(r => r.setting_key === 'sys_gemini_disabled' && r.setting_value === 'true') || false;
                         const sys_openai_disabled = rows?.results?.some(r => r.setting_key === 'sys_openai_disabled' && r.setting_value === 'true') || false;
+                        const sys_google_client_id = rows?.results?.find(r => r.setting_key === 'sys_google_client_id')?.setting_value || '';
                         
                         const geminiEnc = rows?.results?.find(r => r.setting_key === 'sys_gemini_api_key_enc')?.setting_value;
                         const openrouterEnc = rows?.results?.find(r => r.setting_key === 'sys_openrouter_api_key_enc')?.setting_value;
@@ -5589,7 +5590,8 @@ CRITICAL LANGUAGE / SPEECH RULES:
                                 sys_openai_disabled,
                                 sys_gemini_api_key,
                                 sys_openrouter_api_key,
-                                sys_openai_api_key
+                                sys_openai_api_key,
+                                sys_google_client_id
                             }
                         }), { status: 200, headers: corsHeaders });
                     }
@@ -5600,7 +5602,8 @@ CRITICAL LANGUAGE / SPEECH RULES:
                             sys_openai_disabled,
                             sys_gemini_api_key,
                             sys_openrouter_api_key,
-                            sys_openai_api_key 
+                            sys_openai_api_key,
+                            sys_google_client_id 
                         } = await request.json();
                         
                         // Insert or Update sys_gemini_disabled
@@ -5614,6 +5617,13 @@ CRITICAL LANGUAGE / SPEECH RULES:
                             `INSERT OR REPLACE INTO settings (user_id, setting_key, setting_value, updated_at) 
                              VALUES (1, 'sys_openai_disabled', ?, datetime('now'))`
                         ).bind(sys_openai_disabled === true ? "true" : "false").run();
+
+                        if (sys_google_client_id !== undefined) {
+                            await env.DB.prepare(
+                                `INSERT OR REPLACE INTO settings (user_id, setting_key, setting_value, updated_at) 
+                                 VALUES (1, 'sys_google_client_id', ?, datetime('now'))`
+                            ).bind(sys_google_client_id.trim()).run();
+                        }
 
                         // Handle Key Updates (skip if masked, delete if empty, encrypt and save if new)
                         const updateKey = async (rawKey, dbKeyName) => {
@@ -6485,6 +6495,85 @@ CRITICAL LANGUAGE / SPEECH RULES:
 
                     if (url.pathname === '/api/auth/logout') {
                         return new Response(JSON.stringify({ success: true }), { status: 200, headers: corsHeaders });
+                    }
+
+                    if (url.pathname === '/api/auth/google/client-id') {
+                        let clientId = env.GOOGLE_CLIENT_ID || "";
+                        if (env.DB) {
+                            const row = await env.DB.prepare("SELECT setting_value FROM settings WHERE user_id = 1 AND setting_key = 'sys_google_client_id'").first();
+                            if (row?.setting_value) clientId = row.setting_value;
+                        }
+                        return new Response(JSON.stringify({ success: true, clientId }), { status: 200, headers: corsHeaders });
+                    }
+
+                    if (url.pathname === '/api/auth/google') {
+                        if (request.method !== 'POST') return new Response(JSON.stringify({ error: 'Method not allowed' }), { status: 405, headers: corsHeaders });
+                        const { credential, rememberMe } = await request.json();
+                        if (!credential) return new Response(JSON.stringify({ message: 'Google token is required' }), { status: 400, headers: corsHeaders });
+                        if (!env.DB) return new Response(JSON.stringify({ message: 'DB binding missing' }), { status: 500, headers: corsHeaders });
+
+                        // Verify Google ID Token via Google Tokeninfo API
+                        let googleUser = null;
+                        try {
+                            const gRes = await fetch(`https://oauth2.googleapis.com/tokeninfo?id_token=${encodeURIComponent(credential)}`);
+                            if (!gRes.ok) {
+                                return new Response(JSON.stringify({ message: 'Invalid or expired Google credential' }), { status: 401, headers: corsHeaders });
+                            }
+                            googleUser = await gRes.json();
+                        } catch (err) {
+                            console.error("Google token verification failed:", err);
+                            return new Response(JSON.stringify({ message: 'Google authentication service unreachable' }), { status: 500, headers: corsHeaders });
+                        }
+
+                        if (!googleUser || !googleUser.email || googleUser.email_verified !== 'true') {
+                            return new Response(JSON.stringify({ message: 'Google email verification failed' }), { status: 400, headers: corsHeaders });
+                        }
+
+                        const email = googleUser.email.toLowerCase().trim();
+                        const name = (googleUser.name || email.split('@')[0]).trim();
+
+                        let user = await env.DB.prepare("SELECT * FROM users WHERE email = ?").bind(email).first();
+
+                        if (!user) {
+                            // Auto-register new Google user
+                            const passwordHash = await hashPassword(crypto.randomUUID());
+                            const userUuid = crypto.randomUUID();
+                            
+                            const result = await env.DB.prepare(
+                                "INSERT INTO users (uuid, name, email, password_hash, role, status) VALUES (?, ?, ?, ?, 'user', 'active')"
+                            ).bind(userUuid, name, email, passwordHash).run();
+                            
+                            const userId = result.meta.last_row_id;
+
+                            // Auto-create personal workspace
+                            const wsUuid = crypto.randomUUID();
+                            const wsSlug = `personal-${userId}`;
+                            const wsResult = await env.DB.prepare(
+                                `INSERT INTO workspaces (uuid, name, slug, subscription_plan, subscription_status)
+                                 VALUES (?, ?, ?, 'free', 'active')`
+                            ).bind(wsUuid, `${name}'s Workspace`, wsSlug).run();
+                            const wsId = wsResult.meta.last_row_id;
+
+                            // Add user as owner of their workspace
+                            await env.DB.prepare(
+                                `INSERT INTO workspace_members (workspace_id, user_id, role)
+                                 VALUES (?, ?, 'owner')`
+                            ).bind(wsId, userId).run();
+
+                            await logActivity(wsId, userId, 'register_google', 'User registered via Google OAuth');
+
+                            user = { id: userId, uuid: userUuid, name, email, role: 'user', status: 'active' };
+                        } else {
+                            if (user.status !== 'active') return new Response(JSON.stringify({ message: 'Account suspended' }), { status: 403, headers: corsHeaders });
+                            const nowStr = new Date().toISOString();
+                            await env.DB.prepare("UPDATE users SET last_login = ?, updated_at = ? WHERE id = ?").bind(nowStr, nowStr, user.id).run();
+                        }
+
+                        const expiresInSeconds = rememberMe ? (30 * 24 * 60 * 60) : (24 * 60 * 60);
+                        const expiration = Math.floor(Date.now() / 1000) + expiresInSeconds;
+                        const token = await signJWT({ sub: user.uuid, email: user.email, name: user.name, role: user.role, exp: expiration }, jwtSecret);
+
+                        return new Response(JSON.stringify({ success: true, token, user: { uuid: user.uuid, name: user.name, email: user.email, role: user.role } }), { status: 200, headers: corsHeaders });
                     }
 
                     if (url.pathname === '/api/users/me') {

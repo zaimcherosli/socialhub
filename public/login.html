@@ -183,6 +183,14 @@
                 </button>
             </form>
 
+            <div style="display: flex; align-items: center; margin: 1.25rem 0; color: var(--color-text-tertiary); font-size: 0.8rem;">
+                <div style="flex: 1; height: 1px; background: var(--color-border, #e5e7eb);"></div>
+                <span style="padding: 0 0.75rem; font-weight: 500;">ATAU</span>
+                <div style="flex: 1; height: 1px; background: var(--color-border, #e5e7eb);"></div>
+            </div>
+
+            <div id="googleBtnContainer" style="display: flex; justify-content: center; min-height: 40px; margin-bottom: 0.5rem;"></div>
+
             <div class="auth-footer">
                 Don't have an account? <a href="register.html" class="auth-link">Register here</a>
             </div>
@@ -191,8 +199,40 @@
     </div>
 
     <!-- Script handlers -->
+    <script src="https://accounts.google.com/gsi/client" async defer></script>
     <script type="module">
         import { authService } from './js/services/authService.js';
+
+        window.handleGoogleCredentialResponse = async (response) => {
+            if (!response.credential) return;
+            showAlert('Verifying Google Login...', 'success');
+            try {
+                const res = await authService.loginWithGoogle(response.credential, true);
+                if (res && res.token) {
+                    showAlert('Google Authentication Successful! Redirecting...', 'success');
+                    setTimeout(() => window.location.replace('dashboard.html'), 500);
+                } else {
+                    showAlert(res.message || 'Google Login failed', 'error');
+                }
+            } catch (err) {
+                showAlert(err.message || 'Google Authentication failed', 'error');
+            }
+        };
+
+        // Initialize Google Auth
+        (async () => {
+            const clientId = await authService.getGoogleClientId();
+            if (clientId && window.google?.accounts?.id) {
+                google.accounts.id.initialize({
+                    client_id: clientId,
+                    callback: window.handleGoogleCredentialResponse
+                });
+                google.accounts.id.renderButton(
+                    document.getElementById('googleBtnContainer'),
+                    { theme: 'outline', size: 'large', width: 300, text: 'continue_with' }
+                );
+            }
+        })();
 
         // Check if registration success message passed in URL query
         const urlParams = new URLSearchParams(window.location.search);

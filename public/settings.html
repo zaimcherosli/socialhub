@@ -279,6 +279,27 @@
                             </span>
                         </div>
                     </form>
+
+                    <hr style="border: none; border-top: 1px solid var(--color-border, #e5e7eb); margin: 1.5rem 0;" />
+                    
+                    <h4 style="font-size: 0.95rem; font-weight: 600; margin-bottom: 0.75rem;">Change Password / Tukar Kata Laluan</h4>
+                    <form id="changePasswordForm" onsubmit="event.preventDefault(); handleSaveNewPassword();">
+                        <div class="form-group">
+                            <label class="form-label" for="currentPassword">Current Password (Kata Laluan Semasa)</label>
+                            <input type="password" id="currentPassword" class="form-input" placeholder="••••••••" style="width: 100%;" required />
+                        </div>
+                        <div class="form-group">
+                            <label class="form-label" for="newPassword">New Password (Kata Laluan Baharu - min. 8 aksara)</label>
+                            <input type="password" id="newPassword" class="form-input" placeholder="••••••••" style="width: 100%;" required />
+                        </div>
+                        <div class="save-btn-row">
+                            <button type="submit" class="btn btn-secondary" id="btnSavePassword">Update Password</button>
+                            <span class="save-status" id="passwordSaveStatus">
+                                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
+                                Password Updated!
+                            </span>
+                        </div>
+                    </form>
                 </div>
 
                 <!-- Card 2: Workspace -->
@@ -947,6 +968,42 @@
             }
         }
         window.handleSaveProfile = handleSaveProfile;
+
+        async function handleSaveNewPassword() {
+            const currentPassword = document.getElementById('currentPassword').value;
+            const newPassword = document.getElementById('newPassword').value;
+            const btn = document.getElementById('btnSavePassword');
+
+            if (!currentPassword || !newPassword) {
+                alert('Please fill in current and new passwords.');
+                return;
+            }
+
+            if (newPassword.length < 8) {
+                alert('New password must be at least 8 characters long.');
+                return;
+            }
+
+            btn.disabled = true;
+            btn.textContent = 'Updating...';
+
+            try {
+                const res = await authService.changePassword(currentPassword, newPassword);
+                if (res && res.success) {
+                    showStatus('passwordSaveStatus');
+                    document.getElementById('currentPassword').value = '';
+                    document.getElementById('newPassword').value = '';
+                } else {
+                    alert(res.message || 'Failed to update password.');
+                }
+            } catch (err) {
+                alert(err.message || 'Error updating password.');
+            } finally {
+                btn.disabled = false;
+                btn.textContent = 'Update Password';
+            }
+        }
+        window.handleSaveNewPassword = handleSaveNewPassword;
 
         // ── Load user email from session ───────────────────────
         async function loadUserInfo() {

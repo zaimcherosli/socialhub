@@ -111,6 +111,17 @@ export const authService = {
     async resetPassword(token, newPassword) {
         console.log('[AuthService] Submitting password reset derivation');
         return await apiClient.post('/auth/reset-password', { token, newPassword });
+    },
+
+    /**
+     * Change password for active logged-in user
+     * @param {string} currentPassword 
+     * @param {string} newPassword 
+     * @returns {Promise<object>} Result
+     */
+    async changePassword(currentPassword, newPassword) {
+        console.log('[AuthService] Submitting password change request');
+        return await apiClient.post('/users/change-password', { currentPassword, newPassword });
     }
 };
 

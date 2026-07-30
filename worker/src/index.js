@@ -6608,6 +6608,28 @@ CRITICAL LANGUAGE / SPEECH RULES:
                         return new Response(JSON.stringify({ error: 'Method not allowed' }), { status: 405, headers: corsHeaders });
                     }
 
+                    if (url.pathname === '/api/users/change-password') {
+                        if (request.method !== 'POST') return new Response(JSON.stringify({ error: 'Method not allowed' }), { status: 405, headers: corsHeaders });
+                        const user = await getAuthUser();
+                        if (!user) return new Response(JSON.stringify({ message: 'Unauthorized' }), { status: 401, headers: corsHeaders });
+
+                        const { currentPassword, newPassword } = await request.json();
+                        if (!currentPassword || !newPassword) return new Response(JSON.stringify({ message: 'Current password and new password are required' }), { status: 400, headers: corsHeaders });
+                        if (newPassword.length < 8) return new Response(JSON.stringify({ message: 'New password must be at least 8 characters long' }), { status: 400, headers: corsHeaders });
+
+                        const dbUser = await env.DB.prepare("SELECT * FROM users WHERE id = ?").bind(user.id).first();
+                        if (!dbUser) return new Response(JSON.stringify({ message: 'User not found' }), { status: 404, headers: corsHeaders });
+
+                        const isMatch = await verifyPassword(currentPassword, dbUser.password_hash);
+                        if (!isMatch) return new Response(JSON.stringify({ message: 'Kata laluan semasa tidak tepat.' }), { status: 400, headers: corsHeaders });
+
+                        const newHash = await hashPassword(newPassword);
+                        const nowStr = new Date().toISOString();
+                        await env.DB.prepare("UPDATE users SET password_hash = ?, updated_at = ? WHERE id = ?").bind(newHash, nowStr, user.id).run();
+
+                        return new Response(JSON.stringify({ success: true, message: 'Kata laluan berjaya dikemaskini!' }), { status: 200, headers: corsHeaders });
+                    }
+
                     if (url.pathname === '/api/health') {
                         return new Response(JSON.stringify({ status: 'operational', environment: env.ENVIRONMENT || 'production', bindings: { d1_database: env.DB ? 'configured' : 'missing' } }), { status: 200, headers: corsHeaders });
                     }

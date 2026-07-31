@@ -1,6 +1,6 @@
 {
   "name": "socialhub",
-  "version": "1.4.32",
+  "version": "1.4.33",
   "description": "SocialHub SaaS Foundation",
   "main": "index.js",
   "scripts": {

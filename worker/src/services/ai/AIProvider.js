@@ -190,8 +190,22 @@ ${jsonStructure}`;
             { name: 'Peringatan Mesra / Wake-up Call', pattern: 'Mulakan Slide 1 dengan format "Stop buat benda ni kalau korang masih nak [manfaat]. Korang sebenarnya tengah bazir tenaga & masa je kalau tak ubah cara..."' }
         ];
 
-        const hooksList = nicheKey === 'hartanah' ? hartanahHooks : genericHooks;
-        const hooksInstructions = hooksList.map(h => `- ${h.name}: ${h.pattern}`).join('\n');
+        // Dynamic Hook Selection — Shuffle & randomly pick primary & candidate hooks per generation
+        const baseHooksList = nicheKey === 'hartanah' ? hartanahHooks : genericHooks;
+        const shuffledHooks = [...baseHooksList].sort(() => 0.5 - Math.random());
+        const primaryHook = shuffledHooks[0];
+        const secondaryHooks = shuffledHooks.slice(1, 5);
+
+        const hooksInstructions = `FOKUS GAYA HOOK UTAMA KALI INI (DYNAMIC VARIATION):
+- ${primaryHook.name}: ${primaryHook.pattern}
+
+CADANGAN GAYA ALTERNATIF (Boleh pilih jika lebih sepadan dengan konteks):
+${secondaryHooks.map(h => `- ${h.name}: ${h.pattern}`).join('\n')}
+
+PERATURAN PELBAGAIAN HOOK (ANTI-REPETITION):
+1. JANGAN GUNA AYAT PEMBUKA KLISE ATAU BERULANG. Setiap kali anda menulis, pastikan ayat pembuka Slide 1/Part 1 mempunyai kelainan penuh dari segi emosi, ekspresi, dan struktur.
+2. JANGAN mulakan dengan frasa bosan seperti "Korang tahu tak...", "Adakah anda mencari...", "Secara jujurnya...", "Tahu tak korang...".
+3. Mulakan terus dengan kejutan, ekspresi realistik (e.g. "Sumpah aku terkejut...", "Dua minggu lepas aku perasan...", "Ramai silap bab ni..."), atau situasi sebenar ejen/pengguna.`;
 
         let prompt = "";
 
@@ -213,7 +227,7 @@ ${nicheExampleOutput.trim()}
 
 Generate thread BARU mengikut gaya penulisan, tone, dan struktur umum dari contoh di atas, tetapi menggunakan maklumat produk/hartanah di bawah.
 PENTING:
-1. HOOK SELECTION (WAJIB PILIH SATU GAYA): Sila pilih salah satu daripada gaya hook di dalam [Vislo Hook Secrets Library] di bawah yang paling sepadan dengan topik penulisan anda. Anda WAJIB memulakan ayat pertama di Slide 1 mengikut gaya hook yang dipilih untuk memastikan permulaan yang natural dan menarik. JANGAN mulakan dengan ayat pembuka biasa/templat generic (cth: jangan mulakan dengan "Korang tahu tak...").
+1. HOOK SELECTION (DYNAMIC ROTATION): Sila ikuti arahan gaya hook terpilih di bawah. Anda WAJIB memulakan ayat pertama di Slide 1 mengikut gaya hook yang ditetapkan untuk memastikan kelainan dan permulaan yang segar. JANGAN mulakan dengan ayat pembuka biasa/templat generic.
 2. JENIS HARTANAH WAJIB TEPAT: Baca maklumat di bawah dengan teliti. Kenalpasti jenis hartanah yang sebenar (contoh: shop lot, apartment, rumah teres, bungalow, SoHo, pejabat) dan gunakan istilah YANG SAMA dalam copywriting. JANGAN tukar jenis hartanah (contoh: jangan ubah "shop lot" kepada "unit" atau "apartment"). Kalau ia shop lot, tulis pasal shop lot/kedai. Kalau ia rumah, tulis pasal rumah.
 3. Sekiranya maklumat di bawah adalah topik perbincangan, perkongsian tips, atau perbandingan umum (BUKAN listing spesifik bagi unit tertentu), JANGAN reka atau hallucinate butiran unit (seperti saiz sqft, bilangan bilik, status freehold/leasehold, fasiliti, atau harga). Sebaliknya, fokus sepenuhnya untuk membincangkan topik/tips tersebut menggunakan gaya bahasa dan tone dari contoh.
 4. ${nicheKey === 'hartanah' ? 'HARTANAH MYSTERY RULE: JANGAN sebut nama projek, nama pemaju, atau alamat penuh unit di dalam teks Part 1 dan Part 2. Gunakan teaser lokasi am (contoh: "kawasan Puchong", "area Cyberjaya") untuk membina curiosity sebelum reveal di bahagian akhir.' : 'PERATURAN MISTERI & CTR (CURIOSITY RULE): JANGAN sebut nama spesifik produk, nama jenama, atau model produk di dalam teks copywriting. Sebaliknya, gunakan nama am atau kata ganti misteri (seperti "benda ni", "gadget ni", "unit ni") untuk membina rasa ingin tahu (curiosity) pembaca.'}
@@ -232,11 +246,11 @@ ${product}
 2. JANGAN gunakan bahasa hardsell atau fake urgency (e.g. JANGAN tulis "sebelum terlepas", "grab sekarang", "jangan tunggu", "cepat sebelum sold"). CTA mesti natural dan low-pressure.
 3. STRUCTURE WAJIB: Pecahkan kepada 4-5 posting berturutan. Part 1 = Hook teaser (JANGAN reveal nama projek/harga). Part 2-3 = Build up details (size, bilik, fasiliti, lokasi). Part terakhir = Reveal harga + CTA.
 4. CURIOSITY GAP untuk hartanah: Jangan reveal nama projek/pemaju atau harga di Part 1 dan Part 2. Guna teaser lokasi am (e.g. "kawasan Sepang", "area Cheras Selatan") dan hints menarik (e.g. "tanah dia luas gila", "freehold yang dah susah nak jumpa area sini") untuk buat reader scroll terus.
-5. HOOK SELECTION: Sila pilih salah satu daripada gaya hook hartanah yang dibekalkan di bawah untuk memulakan Part 1/Slide 1. JANGAN mendedahkan nama projek atau harga di Part 1.
+5. HOOK SELECTION & DYNAMIC VARIATION: Sila ikuti panduan gaya hook terpilih di bawah untuk memulakan Part 1/Slide 1. JANGAN mendedahkan nama projek atau harga di Part 1.
 6. CTA di Part terakhir mesti natural: guna ayat seperti "Drop 'INFO' kat komen" atau "WhatsApp aku kalau nak tengok unit" — JANGAN repeat CTA dua kali dalam part yang sama.
 7. Hashtag relevan letak di part terakhir sahaja.
 
-[Vislo Hook Secrets Library - Hartanah]:
+[Vislo Dynamic Hook Engine - Hartanah]:
 ${hooksInstructions}`;
                 }
             } else if (tone?.toLowerCase().includes('malay') || language?.toLowerCase().includes('malay')) {
@@ -249,7 +263,7 @@ ${hooksInstructions}`;
 6. CURIOSITY GAP (Do NOT satisfy curiosity too early): Avoid describing the exact physical features, specifications, or appearance of the product (e.g., do NOT mention size, color, exact button placements, or specifications). Focus entirely on the PROBLEM solved or the RESULT/TRANSFORMATION (e.g., write "sejak guna benda ni, masalah bau hapak dalam tandas terus hilang" instead of describing a deodorizer spray). Let the reader click the link to see what the item actually looks like.
 7. BUYING INTENT PRIMING (Give a strong reason to buy/click): In your copywriting, build interest to purchase by mentioning trusted seller reviews, massive price drops, flash sales, or high unit sales (e.g. "Korang check sendiri review kat kedai ni, ramai kata berkesan...", "Nasib baik aku beli time tengah offer semalam...", "Aku amik dari seller ni sebab shipping terpaling laju...").
 8. AVOID GENERIC MARKETING & CLICKBAIT KOSONG: Do not use empty clickbait phrases like "Korang kena tahu ni" if there is no real value right after. Do not start with generic bot phrases like "Mari mulakan...".
-9. HOOK SELECTION (Vislo Hook Secrets Library - General): Choose one of these approved hook patterns for the first sentence of Slide 1 to capture immediate attention:
+9. HOOK SELECTION (Vislo Dynamic Hook Engine - General): Follow this dynamic hook selection for Slide 1:
 ${hooksInstructions}
 `;
             }

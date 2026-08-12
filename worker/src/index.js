@@ -2514,51 +2514,63 @@ RULES:
                             }
                         }
 
-                        // 2. For Medium & High (or Low fallback), use OpenAI DALL-E 3
+                        // 2. Try OpenAI Image Models Cascade (dall-e-3 -> gpt-image-2 -> dall-e-2)
                         let openAiErrDetail = null;
                         if (!openaiApiKey) {
                             console.warn('[GenerateImage] OPENAI_API_KEY is not configured or failed to decrypt.');
                             openAiErrDetail = 'API key OpenAI tidak ditemui atau gagal didekripsi.';
                         } else if (!imageUrl) {
-                            try {
-                                const openAiRes = await fetch('https://api.openai.com/v1/images/generations', {
-                                    method: 'POST',
-                                    headers: {
-                                        'Content-Type': 'application/json',
-                                        'Authorization': `Bearer ${openaiApiKey}`
-                                    },
-                                    body: JSON.stringify({
-                                        model: 'dall-e-3',
+                            const candidateModels = ['dall-e-3', 'gpt-image-2', 'dall-e-2'];
+                            for (const modelName of candidateModels) {
+                                if (imageUrl) break;
+                                try {
+                                    console.log(`[GenerateImage] Attempting OpenAI image generation with model: ${modelName}...`);
+                                    const payload = {
+                                        model: modelName,
                                         prompt: visualPrompt.slice(0, 1000),
                                         n: 1,
-                                        size: '1024x1024',
-                                        quality: (imgQuality === 'high' || imgQuality === 'hd') ? 'hd' : 'standard'
-                                    })
-                                });
+                                        size: '1024x1024'
+                                    };
+                                    if (modelName === 'dall-e-3') {
+                                        payload.quality = (imgQuality === 'high' || imgQuality === 'hd') ? 'hd' : 'standard';
+                                    }
 
-                                if (openAiRes.ok) {
-                                    const data = await openAiRes.json();
-                                    if (data.data && data.data[0]) {
-                                        if (data.data[0].b64_json) {
-                                            imageUrl = `data:image/jpeg;base64,${data.data[0].b64_json}`;
-                                        } else if (data.data[0].url) {
-                                            imageUrl = data.data[0].url;
+                                    const openAiRes = await fetch('https://api.openai.com/v1/images/generations', {
+                                        method: 'POST',
+                                        headers: {
+                                            'Content-Type': 'application/json',
+                                            'Authorization': `Bearer ${openaiApiKey}`
+                                        },
+                                        body: JSON.stringify(payload)
+                                    });
+
+                                    if (openAiRes.ok) {
+                                        const data = await openAiRes.json();
+                                        if (data.data && data.data[0]) {
+                                            if (data.data[0].b64_json) {
+                                                imageUrl = `data:image/jpeg;base64,${data.data[0].b64_json}`;
+                                            } else if (data.data[0].url) {
+                                                imageUrl = data.data[0].url;
+                                            }
+                                            usedSource = `openai-${modelName}`;
+                                            openAiErrDetail = null;
+                                            console.log(`[GenerateImage] Success with OpenAI model: ${modelName}`);
+                                            break;
                                         }
-                                        usedSource = 'openai-dall-e-3';
+                                    } else {
+                                        const errText = await openAiRes.text();
+                                        console.error(`[OpenAI Image Error for ${modelName} HTTP ${openAiRes.status}]:`, errText);
+                                        try {
+                                            const parsedErr = JSON.parse(errText);
+                                            openAiErrDetail = parsedErr.error?.message || errText;
+                                        } catch (_) {
+                                            openAiErrDetail = errText;
+                                        }
                                     }
-                                } else {
-                                    const errText = await openAiRes.text();
-                                    console.error(`[OpenAI DALL-E 3 Error HTTP ${openAiRes.status}]:`, errText);
-                                    try {
-                                        const parsedErr = JSON.parse(errText);
-                                        openAiErrDetail = parsedErr.error?.message || errText;
-                                    } catch (_) {
-                                        openAiErrDetail = errText;
-                                    }
+                                } catch (oaiErr) {
+                                    console.error(`[OpenAI Image Fetch Error for ${modelName}]:`, oaiErr);
+                                    openAiErrDetail = oaiErr.message;
                                 }
-                            } catch (oaiErr) {
-                                console.error('[OpenAI Image Fetch Error]:', oaiErr);
-                                openAiErrDetail = oaiErr.message;
                             }
                         }
 

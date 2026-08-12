@@ -2161,6 +2161,25 @@ export default {
             const yearMonth = new Date().toISOString().slice(0, 7); // e.g. '2026-08'
             const planLimits = PLANS[plan] || PLANS['free'];
 
+            // Ensure table exists (idempotent auto-migration)
+            try {
+                await env.DB.prepare(`
+                    CREATE TABLE IF NOT EXISTS workspace_usage (
+                        id INTEGER PRIMARY KEY AUTOINCREMENT,
+                        workspace_id INTEGER NOT NULL REFERENCES workspaces(id) ON DELETE CASCADE,
+                        year_month TEXT NOT NULL,
+                        ai_text_count INTEGER DEFAULT 0,
+                        ai_image_credits INTEGER DEFAULT 0,
+                        ai_image_low_count INTEGER DEFAULT 0,
+                        ai_image_medium_count INTEGER DEFAULT 0,
+                        ai_image_high_count INTEGER DEFAULT 0,
+                        created_at TEXT NOT NULL DEFAULT (datetime('now')),
+                        updated_at TEXT NOT NULL DEFAULT (datetime('now')),
+                        UNIQUE(workspace_id, year_month)
+                    )
+                `).run();
+            } catch (_) {}
+
             // Ensure row exists for this month (INSERT OR IGNORE)
             await env.DB.prepare(
                 `INSERT OR IGNORE INTO workspace_usage (workspace_id, year_month)
@@ -2495,7 +2514,7 @@ RULES:
                             }
                         }
 
-                        // 2. For Medium & High (or Low fallback), use OpenAI gpt-image-2
+                        // 2. For Medium & High (or Low fallback), use OpenAI DALL-E 3
                         if (!imageUrl && openaiApiKey) {
                             try {
                                 const openAiRes = await fetch('https://api.openai.com/v1/images/generations', {
@@ -2505,11 +2524,11 @@ RULES:
                                         'Authorization': `Bearer ${openaiApiKey}`
                                     },
                                     body: JSON.stringify({
-                                        model: 'gpt-image-2',
-                                        prompt: visualPrompt,
+                                        model: 'dall-e-3',
+                                        prompt: visualPrompt.slice(0, 1000),
                                         n: 1,
                                         size: '1024x1024',
-                                        quality: openAiQuality
+                                        quality: (imgQuality === 'high' || imgQuality === 'hd') ? 'hd' : 'standard'
                                     })
                                 });
 
@@ -2521,11 +2540,11 @@ RULES:
                                         } else if (data.data[0].url) {
                                             imageUrl = data.data[0].url;
                                         }
-                                        usedSource = 'openai-gpt-image-2';
+                                        usedSource = 'openai-dall-e-3';
                                     }
                                 } else {
                                     const errText = await openAiRes.text();
-                                    console.error('[OpenAI gpt-image-2 Error]:', errText);
+                                    console.error('[OpenAI DALL-E 3 Error]:', errText);
                                 }
                             } catch (oaiErr) {
                                 console.error('[OpenAI Image Fetch Error]:', oaiErr);

@@ -6349,8 +6349,64 @@ CRITICAL LANGUAGE / SPEECH RULES:
                     let debugData = null;
                     if (debugRes.ok) debugData = await debugRes.json();
 
+                    let isTokenValid = false;
+                    let scopes = [];
+                    let expiresAtStr = null;
+                    let linkedIgUsername = null;
+                    let linkedIgId = null;
+                    let pageName = null;
+                    let hasPublishPermission = false;
+
+                    if (debugData && debugData.data) {
+                        isTokenValid = debugData.data.is_valid === true;
+                        scopes = debugData.data.scopes || [];
+                        if (debugData.data.expires_at) {
+                            expiresAtStr = new Date(debugData.data.expires_at * 1000).toLocaleString('ms-MY');
+                        }
+                    }
+
+                    if (scopes.includes('instagram_content_publish') || scopes.includes('instagram_basic')) {
+                        hasPublishPermission = true;
+                    }
+
+                    if (pagesData && pagesData.data && pagesData.data.length > 0) {
+                        for (const page of pagesData.data) {
+                            if (page.instagram_business_account) {
+                                pageName = page.name;
+                                linkedIgUsername = page.instagram_business_account.username || null;
+                                linkedIgId = page.instagram_business_account.id || null;
+                                break;
+                            }
+                        }
+                    }
+
+                    let diagnosisStatus = 'ACTIVE';
+                    let summaryMessageMs = '';
+
+                    if (!isTokenValid) {
+                        diagnosisStatus = 'EXPIRED';
+                        summaryMessageMs = '❌ STATUS: TOKEN META TERBATAL / TAMAT TEMPOH\nSila klik Reconnect untuk memperbaharui akses.';
+                    } else if (!linkedIgUsername) {
+                        diagnosisStatus = 'NO_IG_LINK';
+                        summaryMessageMs = '⚠️ STATUS: AKAUT IG TIADA PAUTAN BUSINESS\nFacebook Page dikesan tetapi tiada Akaun Instagram Business diikat. Pastikan IG anda diset ke Business Account di FB Page Settings.';
+                    } else {
+                        diagnosisStatus = 'ACTIVE';
+                        summaryMessageMs = `✅ STATUS: AKTU / AKTIF SEPENUHNYA!\n\n` +
+                            `• Status Token: Valid & Active (Sah sehingga ${expiresAtStr || '60 hari'})\n` +
+                            `• FB Page: ${pageName || 'Hartanah Online'}\n` +
+                            `• Instagram Business: @${linkedIgUsername} (ID: ${linkedIgId})\n` +
+                            `• Kebenaran Auto-Post IG: ${hasPublishPermission ? 'AKTIF (instagram_content_publish)' : 'KURANG PERMISSION'}`;
+                    }
+
                     return new Response(JSON.stringify({
                         success: true,
+                        diagnosis_status: diagnosisStatus,
+                        is_token_valid: isTokenValid,
+                        linked_ig_username: linkedIgUsername,
+                        linked_ig_id: linkedIgId,
+                        page_name: pageName,
+                        has_publish_permission: hasPublishPermission,
+                        summary_message: summaryMessageMs,
                         pages_raw: pagesData,
                         debug_token_raw: debugData
                     }), { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });

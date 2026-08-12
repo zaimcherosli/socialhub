@@ -493,13 +493,20 @@
                 if (btnDiagnoseIg) {
                     btnDiagnoseIg.addEventListener('click', async () => {
                         try {
+                            btnDiagnoseIg.innerText = '⌛ Diagnosing...';
                             const token = localStorage.getItem('socialhub_jwt') || sessionStorage.getItem('socialhub_jwt');
                             const res = await fetch(`https://api.socialhub.kwikezee.my/api/debug-ig?token=${encodeURIComponent(token)}`, {
                                 headers: { 'Authorization': `Bearer ${token}` }
                             });
                             const data = await res.json();
-                            alert("Hasil Diagnosa Meta API:\n\n" + JSON.stringify(data, null, 2));
+                            btnDiagnoseIg.innerText = '🔍 Diagnosis IG Meta API';
+                            if (data.summary_message) {
+                                alert("📊 UJIAN DIAGNOSIS META & INSTAGRAM API:\n\n" + data.summary_message);
+                            } else {
+                                alert("Hasil Diagnosa Meta API:\n\n" + JSON.stringify(data, null, 2));
+                            }
                         } catch (err) {
+                            btnDiagnoseIg.innerText = '🔍 Diagnosis IG Meta API';
                             alert("Error: " + err.message);
                         }
                     });

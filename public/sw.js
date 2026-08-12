@@ -1,4 +1,7 @@
-const CACHE_NAME = 'socialhub-cache-v80';
+// SocialHub Service Worker — v1.4.96
+// CACHE_NAME is tied to version so old caches auto-purge on every deployment
+const SW_VERSION = '1.4.96';
+const CACHE_NAME = `socialhub-cache-v${SW_VERSION}`;
 const ASSETS_TO_CACHE = [
   '/',
   '/dashboard.html',
@@ -68,29 +71,33 @@ const OFFLINE_PAGE_HTML = `
 `;
 
 self.addEventListener('install', (event) => {
+  console.log(`[SW] Installing v${SW_VERSION}`);
   event.waitUntil(
     caches.open(CACHE_NAME).then((cache) => {
-      console.log('[Service Worker] Caching app shell assets');
-      // Use silent cache addition so a single failed resource doesn't abort the entire install phase
+      console.log('[SW] Caching app shell assets');
       return Promise.allSettled(
         ASSETS_TO_CACHE.map(url => {
-          return cache.add(url).catch(err => console.warn(`[SW] Failed to cache resource: ${url}`, err));
+          // Use cache: 'no-store' to bypass HTTP cache when pre-caching
+          return cache.add(new Request(url, { cache: 'no-store' }))
+            .catch(err => console.warn(`[SW] Failed to cache: ${url}`, err));
         })
       );
     })
   );
-  // Force immediate activation of new Service Worker versions without waiting
+  // Force immediate activation
   self.skipWaiting();
 });
 
 self.addEventListener('activate', (event) => {
+  console.log(`[SW] Activating v${SW_VERSION}`);
   event.waitUntil(
     caches.keys().then((cacheNames) => {
       return Promise.all(
-        cacheNames.map((cache) => {
-          if (cache !== CACHE_NAME) {
-            console.log('[Service Worker] Clearing old cache', cache);
-            return caches.delete(cache);
+        cacheNames.map((cacheName) => {
+          // Delete ALL caches that don't match our current version
+          if (cacheName !== CACHE_NAME) {
+            console.log(`[SW] Purging old cache: ${cacheName}`);
+            return caches.delete(cacheName);
           }
         })
       );
@@ -111,10 +118,15 @@ self.addEventListener('fetch', (event) => {
   const isImage = url.pathname.match(/\.(png|jpg|jpeg|gif|svg|webp|ico)$/i);
 
   if (isHtmlRequest || isJsOrCss) {
+    // ══════════════════════════════════════════════════════════════════════
     // Network-First strategy for HTML + JS + CSS
-    // Always fetch fresh from network; only use cache as offline fallback
+    // CRITICAL: { cache: 'no-store' } forces the fetch to bypass the
+    // browser's HTTP cache entirely. Without this, even "Network-First"
+    // actually hits the HTTP cache first (which may return stale content
+    // if Cache-Control max-age hasn't expired).
+    // ══════════════════════════════════════════════════════════════════════
     event.respondWith(
-      fetch(event.request)
+      fetch(event.request, { cache: 'no-store' })
         .then((response) => {
           if (response && response.status === 200) {
             const responseClone = response.clone();
@@ -123,6 +135,7 @@ self.addEventListener('fetch', (event) => {
           return response;
         })
         .catch(() => {
+          // Network failed — fall back to SW cache (offline support)
           return caches.match(event.request).then((cachedResponse) => {
             if (cachedResponse) return cachedResponse;
             if (isHtmlRequest) {
@@ -159,7 +172,7 @@ self.addEventListener('fetch', (event) => {
 // Receive SKIP_WAITING command from the app when user approves the update
 self.addEventListener('message', (event) => {
   if (event.data && event.data.type === 'SKIP_WAITING') {
-    console.log('[Service Worker] SKIP_WAITING received — activating new version now');
+    console.log('[SW] SKIP_WAITING received — activating new version now');
     self.skipWaiting();
   }
 });

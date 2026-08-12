@@ -1,43 +1,48 @@
-# Cloudflare Pages Headers — SocialHub Automated Cache-Control Rules
+# Cloudflare Pages Headers — SocialHub Cache-Control Rules
+# IMPORTANT: Cloudflare Pages globs use /* for single-level and /** is not supported.
+# Instead, use a catch-all /* rule as default, then override for specific asset types.
 
-# HTML pages — always check for fresh version (no browser cache)
-/*.html
-  Cache-Control: no-cache, must-revalidate
+# ═══════════════════════════════════════════════════════════════════════════════
+# GLOBAL DEFAULT: All files must revalidate with server on every request.
+# This is the CATCH-ALL that applies to everything including nested paths
+# like /js/components/Sidebar.js, /js/services/authService.js, etc.
+# ═══════════════════════════════════════════════════════════════════════════════
+/*
+  Cache-Control: no-cache, no-store, must-revalidate
+  X-Content-Type-Options: nosniff
 
-# Central Configuration Script — never cache stale config
-/js/config.js
-  Cache-Control: no-cache, must-revalidate
-
-# Unhashed JS & CSS modules — revalidate on every visit for instant updates
-/js/*
-  Cache-Control: no-cache, must-revalidate
-
-/css/*
-  Cache-Control: no-cache, must-revalidate
-
-# Static Images & Media — cache 30 days (2,592,000 seconds) for speed
-/*.png
-  Cache-Control: public, max-age=2592000
-
-/*.jpg
-  Cache-Control: public, max-age=2592000
-
-/*.jpeg
-  Cache-Control: public, max-age=2592000
-
-/*.webp
-  Cache-Control: public, max-age=2592000
-
-/*.ico
-  Cache-Control: public, max-age=2592000
-
-/*.svg
-  Cache-Control: public, max-age=2592000
-
-# Vite-built assets with content hashes in filename
-/assets/*
-  Cache-Control: public, max-age=31536000, immutable
-
-# Service worker — never cache (must always be fresh)
+# ═══════════════════════════════════════════════════════════════════════════════
+# Service Worker — NEVER cache (critical for update propagation)
+# ═══════════════════════════════════════════════════════════════════════════════
 /sw.js
   Cache-Control: no-cache, no-store, must-revalidate
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# Static Images — cache 7 days (these rarely change and benefit from caching)
+# ═══════════════════════════════════════════════════════════════════════════════
+/*.png
+  Cache-Control: public, max-age=604800
+
+/*.jpg
+  Cache-Control: public, max-age=604800
+
+/*.jpeg
+  Cache-Control: public, max-age=604800
+
+/*.webp
+  Cache-Control: public, max-age=604800
+
+/*.ico
+  Cache-Control: public, max-age=604800
+
+/*.svg
+  Cache-Control: public, max-age=604800
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# PWA Manifest & Icon — cache 1 day
+# ═══════════════════════════════════════════════════════════════════════════════
+/manifest.json
+  Cache-Control: public, max-age=86400
+
+/socialhub_pwa_icon.png
+  Cache-Control: public, max-age=86400

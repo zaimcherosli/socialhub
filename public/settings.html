@@ -1317,10 +1317,13 @@
                 return;
             }
             try {
+                const wsName = (cachedDebugReport && cachedDebugReport.workspace && cachedDebugReport.workspace.name)
+                    ? String(cachedDebugReport.workspace.name).replace(/\s+/g, '-').toLowerCase()
+                    : 'workspace';
                 const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(cachedDebugReport, null, 2));
                 const downloadAnchor = document.createElement('a');
                 downloadAnchor.setAttribute("href", dataStr);
-                downloadAnchor.setAttribute("download", `socialhub-debug-report-${cachedDebugReport.workspace.name.replace(/\\s+/g, '-').toLowerCase()}-${Date.now()}.json`);
+                downloadAnchor.setAttribute("download", `socialhub-debug-report-${wsName}-${Date.now()}.json`);
                 document.body.appendChild(downloadAnchor);
                 downloadAnchor.click();
                 downloadAnchor.remove();

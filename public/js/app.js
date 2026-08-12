@@ -117,113 +117,119 @@ document.addEventListener('DOMContentLoaded', () => {
 
 if ('serviceWorker' in navigator) {
     window.addEventListener('load', () => {
+        let isUpdating = false;
+
+        function applyUpdate(waitingSW) {
+            if (isUpdating) return;
+            isUpdating = true;
+            console.log('⚡ Triggering silent update activation...');
+            if (waitingSW) {
+                waitingSW.postMessage({ type: 'SKIP_WAITING' });
+            }
+        }
+
+        function isUserEditing() {
+            const activeEl = document.activeElement;
+            if (!activeEl) return false;
+            const tag = activeEl.tagName.toUpperCase();
+            return tag === 'INPUT' || tag === 'TEXTAREA' || activeEl.isContentEditable;
+        }
+
         navigator.serviceWorker.register('/sw.js').then(reg => {
             console.log('🚀 Service Worker registered successfully!', reg.scope);
 
-            // ── Auto-Update Detection ──────────────────────────────────────────
-            // Called when a new SW has been found and is installing
+            // Force immediate check for updates on page load and tab focus
+            reg.update().catch(() => {});
+            document.addEventListener('visibilitychange', () => {
+                if (document.visibilityState === 'visible') {
+                    reg.update().catch(() => {});
+                }
+            });
+
+            // ── Seamless Auto-Update Detection ──────────────────────────────────
             reg.addEventListener('updatefound', () => {
                 const newSW = reg.installing;
                 if (!newSW) return;
 
                 newSW.addEventListener('statechange', () => {
-                    // New SW installed and waiting to activate
                     if (newSW.state === 'installed' && navigator.serviceWorker.controller) {
-                        console.log('[App] New version available — showing update toast');
-                        showUpdateToast(newSW);
+                        console.log('[App] New version installed in background');
+                        applyUpdate(newSW);
                     }
                 });
             });
 
-            // Also check if there's already a waiting SW on page load (e.g. user reopens app)
+            // If a SW is already waiting on load, auto-activate immediately
             if (reg.waiting && navigator.serviceWorker.controller) {
-                console.log('[App] SW already waiting on load — showing update toast');
-                showUpdateToast(reg.waiting);
+                console.log('[App] SW already waiting on load — auto-activating');
+                applyUpdate(reg.waiting);
             }
 
         }).catch(err => console.error('⚠️ Service Worker registration failed:', err));
 
-        // When the new SW takes control, reload the page to use fresh assets
+        // When the new SW takes control, seamlessly reload if not editing
         let refreshing = false;
         navigator.serviceWorker.addEventListener('controllerchange', () => {
-            if (!refreshing) {
+            if (refreshing) return;
+
+            const performReload = () => {
                 refreshing = true;
-                window.location.reload();
+                showSilentUpdateBadge();
+                setTimeout(() => {
+                    window.location.reload();
+                }, 600);
+            };
+
+            if (isUserEditing()) {
+                console.log('[App] User is currently typing — deferring update reload until tab switch or blur');
+                const onNav = () => {
+                    document.removeEventListener('visibilitychange', onNav);
+                    performReload();
+                };
+                document.addEventListener('visibilitychange', onNav, { once: true });
+            } else {
+                performReload();
             }
         });
     });
 }
 
 /**
- * Show a premium floating toast inviting the user to apply the new update.
- * @param {ServiceWorker} newSW - The newly installed waiting service worker
+ * Show a sleek, non-intrusive auto-fading pill badge when update activates
  */
-function showUpdateToast(newSW) {
-    // Avoid duplicate toasts
-    if (document.getElementById('swUpdateToast')) return;
-
-    const toast = document.createElement('div');
-    toast.id = 'swUpdateToast';
-    toast.style.cssText = `
+function showSilentUpdateBadge() {
+    if (document.getElementById('swSilentBadge')) return;
+    const badge = document.createElement('div');
+    badge.id = 'swSilentBadge';
+    const isMobile = window.innerWidth <= 768;
+    const bottomPos = isMobile ? '78px' : '24px';
+    badge.style.cssText = `
         position: fixed;
-        bottom: 24px;
+        bottom: ${bottomPos};
         left: 50%;
-        transform: translateX(-50%) translateY(120px);
-        background: rgba(15, 23, 42, 0.92);
-        backdrop-filter: blur(14px) saturate(160%);
-        -webkit-backdrop-filter: blur(14px) saturate(160%);
-        border: 1px solid rgba(255,255,255,0.1);
-        border-radius: 16px;
-        padding: 0.875rem 1.25rem;
-        box-shadow: 0 8px 32px rgba(0,0,0,0.35);
+        transform: translateX(-50%) translateY(20px);
+        background: linear-gradient(135deg, rgba(124, 58, 237, 0.95), rgba(219, 39, 119, 0.95));
+        color: #ffffff;
+        font-family: system-ui, -apple-system, sans-serif;
+        font-size: 0.8rem;
+        font-weight: 600;
+        padding: 0.5rem 1.1rem;
+        border-radius: 50px;
+        box-shadow: 0 8px 24px rgba(124, 58, 237, 0.35);
+        z-index: 999999;
+        opacity: 0;
+        transition: all 0.3s ease;
+        pointer-events: none;
         display: flex;
         align-items: center;
-        gap: 1rem;
-        z-index: 99999;
-        width: 90%;
-        max-width: 420px;
-        transition: transform 0.4s cubic-bezier(0.16,1,0.3,1), opacity 0.4s ease;
-        opacity: 0;
-        box-sizing: border-box;
+        gap: 0.4rem;
     `;
-
-    toast.innerHTML = `
-        <div style="font-size: 1.5rem; flex-shrink: 0;">🚀</div>
-        <div style="flex: 1; min-width: 0;">
-            <p style="margin: 0 0 0.15rem 0; font-size: 0.875rem; font-weight: 700; color: #f8fafc; font-family: var(--font-heading, system-ui);">Update Available!</p>
-            <p style="margin: 0; font-size: 0.75rem; color: rgba(248,250,252,0.6);">Versi baru SocialHub sudah siap. Tap untuk kemaskini.</p>
-        </div>
-        <div style="display: flex; gap: 0.5rem; flex-shrink: 0;">
-            <button id="swToastDismiss" style="background: rgba(255,255,255,0.1); border: none; font-size: 0.75rem; font-weight: 500; color: rgba(248,250,252,0.7); cursor: pointer; padding: 0.45rem 0.75rem; border-radius: 8px; white-space: nowrap;">Later</button>
-            <button id="swToastRefresh" style="background: #3b82f6; color: #fff; border: none; font-size: 0.8rem; font-weight: 700; padding: 0.45rem 1rem; border-radius: 8px; cursor: pointer; white-space: nowrap; box-shadow: 0 4px 12px rgba(59,130,246,0.4);">Update ✓</button>
-        </div>
-    `;
-
-    document.body.appendChild(toast);
-
-    // Slide in
+    badge.innerHTML = `<span>✨</span><span>Kemaskini perisian digunakan...</span>`;
+    document.body.appendChild(badge);
     requestAnimationFrame(() => {
-        setTimeout(() => {
-            toast.style.transform = 'translateX(-50%) translateY(0)';
-            toast.style.opacity = '1';
-        }, 50);
+        badge.style.opacity = '1';
+        badge.style.transform = 'translateX(-50%) translateY(0)';
     });
-
-    const hideToast = () => {
-        toast.style.transform = 'translateX(-50%) translateY(120px)';
-        toast.style.opacity = '0';
-        setTimeout(() => toast.remove(), 400);
-    };
-
-    document.getElementById('swToastRefresh').addEventListener('click', () => {
-        hideToast();
-        newSW.postMessage({ type: 'SKIP_WAITING' });
-    });
-
-    document.getElementById('swToastDismiss').addEventListener('click', hideToast);
-
-    // Auto-dismiss after 15 seconds if user ignores
-    setTimeout(hideToast, 15000);
 }
 
 let deferredPrompt;

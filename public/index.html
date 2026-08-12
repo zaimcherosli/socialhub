@@ -3,1243 +3,646 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="facebook-domain-verification" content="qdwman1bn21kq5e0h3eadnyvc2pj6u" />
     <meta name="facebook-domain-verification" content="gltd2qpcwmyoozmg5sacsmspqd53de" />
-    <title>SocialHub - Automasi Threads Copywriting & Penjadualan AI Paling Mudah</title>
+    <title>SocialHub — Automasi Copywriting & Penjadualan Threads AI #1 Malaysia</title>
+    <meta name="description" content="Jana kapsyen Threads viral dalam masa 10 saat. Jadualkan secara autopilot. Tanpa laptop. SocialHub — platform automasi media sosial paling canggih untuk usahawan Malaysia.">
     <link rel="icon" type="image/png" href="socialhub_pwa_icon.png">
     <link rel="apple-touch-icon" href="socialhub_pwa_icon.png">
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Outfit:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
-    
+
     <style>
+        /* ── Design Tokens ─────────────────────────────────────────────────── */
         :root {
-            --bg-primary: #0b0f19;
-            --bg-secondary: #131a2e;
-            --bg-glass: rgba(30, 41, 59, 0.45);
-            --border-glass: rgba(255, 255, 255, 0.06);
-            --color-primary: #8b5cf6;
-            --color-secondary: #ec4899;
-            --color-success: #10b981;
-            --text-main: #f3f4f6;
-            --text-muted: #9ca3af;
-            --color-duitnow: #e11d48;
+            --bg:           #ffffff;
+            --bg-soft:      #f8f7ff;
+            --bg-card:      #ffffff;
+            --bg-muted:     #f1f0fe;
+            --border:       #e8e4fa;
+            --border-dark:  #d4cef8;
+            --primary:      #7c3aed;
+            --primary-mid:  #8b5cf6;
+            --primary-light:#a78bfa;
+            --secondary:    #db2777;
+            --accent:       #0ea5e9;
+            --success:      #059669;
+            --text:         #1a1035;
+            --text-mid:     #4b4568;
+            --text-muted:   #7c748f;
+            --shadow-sm:    0 1px 3px rgba(124,58,237,0.08), 0 1px 2px rgba(0,0,0,0.04);
+            --shadow-md:    0 4px 16px rgba(124,58,237,0.1), 0 2px 6px rgba(0,0,0,0.05);
+            --shadow-lg:    0 12px 40px rgba(124,58,237,0.14), 0 4px 12px rgba(0,0,0,0.06);
         }
 
-        * {
-            box-sizing: border-box;
-            margin: 0;
-            padding: 0;
-            scroll-behavior: smooth;
-        }
+        /* ── Reset ──────────────────────────────────────────────────────────── */
+        *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+        html { scroll-behavior: smooth; }
 
         body {
             font-family: 'Inter', sans-serif;
-            background-color: var(--bg-primary);
-            color: var(--text-main);
-            line-height: 1.6;
-            background-image: 
-                radial-gradient(circle at 10% 20%, rgba(139, 92, 246, 0.18) 0%, transparent 40%),
-                radial-gradient(circle at 90% 80%, rgba(236, 72, 153, 0.12) 0%, transparent 40%);
-            background-attachment: fixed;
+            background: var(--bg);
+            color: var(--text);
+            line-height: 1.65;
             overflow-x: hidden;
         }
+        h1, h2, h3, h4 { font-family: 'Outfit', sans-serif; line-height: 1.2; }
 
-        h1, h2, h3, h4 {
-            font-family: 'Outfit', sans-serif;
-            font-weight: 700;
-        }
-
-        header {
-            position: sticky;
-            top: 0;
-            background: rgba(11, 15, 25, 0.85);
-            backdrop-filter: blur(12px);
-            border-bottom: 1px solid var(--border-glass);
-            z-index: 100;
-        }
-
-        .header-container {
-            max-width: 1200px;
-            margin: 0 auto;
-            padding: 1.25rem 2rem;
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-        }
-
-        .logo-section {
-            display: flex;
-            align-items: center;
-            gap: 0.75rem;
-            text-decoration: none;
-            color: var(--text-main);
-        }
-
-        .logo-icon {
-            width: 38px;
-            height: 38px;
-            background: linear-gradient(135deg, var(--color-primary), var(--color-secondary));
-            border-radius: 10px;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            font-family: 'Outfit', sans-serif;
-            font-weight: 900;
-            color: white;
-            font-size: 1.35rem;
-            box-shadow: 0 4px 15px rgba(139, 92, 246, 0.3);
-        }
-
-        .logo-text {
-            font-size: 1.5rem;
-            font-weight: 900;
-            background: linear-gradient(135deg, #fff, #c084fc);
-            -webkit-background-clip: text;
-            -webkit-text-fill-color: transparent;
-        }
-
-        .header-nav {
-            display: flex;
-            align-items: center;
-            gap: 1.5rem;
-        }
-
-        .header-link {
-            color: var(--text-muted);
-            text-decoration: none;
-            font-size: 0.95rem;
-            font-weight: 500;
-            transition: color 0.2s ease;
-        }
-
-        .header-link:hover {
-            color: white;
-        }
-
-        .btn {
-            display: inline-flex;
-            align-items: center;
-            justify-content: center;
-            padding: 0.65rem 1.25rem;
-            border-radius: 8px;
-            font-weight: 600;
-            font-size: 0.95rem;
-            text-decoration: none;
-            cursor: pointer;
-            transition: all 0.3s ease;
-        }
-
-        .btn-primary {
-            background: linear-gradient(135deg, var(--color-primary), var(--color-secondary));
-            color: white;
-            box-shadow: 0 4px 15px rgba(139, 92, 246, 0.4);
-            border: none;
-        }
-
-        .btn-primary:hover {
-            transform: translateY(-2px);
-            box-shadow: 0 6px 20px rgba(139, 92, 246, 0.5);
-        }
-
-        .btn-secondary {
-            background: rgba(255, 255, 255, 0.05);
-            border: 1px solid var(--border-glass);
-            color: white;
-        }
-
-        .btn-secondary:hover {
-            background: rgba(255, 255, 255, 0.1);
-        }
-
-        .hero-section {
-            max-width: 900px;
-            margin: 6rem auto;
-            text-align: center;
-            padding: 0 2rem;
-        }
-
-        .hero-badge {
-            background: rgba(139, 92, 246, 0.1);
-            border: 1px solid rgba(139, 92, 246, 0.3);
-            color: #d8b4fe;
-            padding: 0.35rem 0.8rem;
-            border-radius: 30px;
-            font-size: 0.85rem;
-            font-weight: 600;
-            display: inline-block;
-            margin-bottom: 1.5rem;
-        }
-
-        .hero-title {
-            font-size: 3.5rem;
-            font-weight: 900;
-            line-height: 1.15;
-            background: linear-gradient(135deg, #ffffff 30%, #c084fc 100%);
-            -webkit-background-clip: text;
-            -webkit-text-fill-color: transparent;
-            margin-bottom: 1.5rem;
-            letter-spacing: -0.02em;
-        }
-
-        .hero-subtitle {
-            font-size: 1.2rem;
-            color: var(--text-muted);
-            margin-bottom: 2.5rem;
-            max-width: 700px;
-            margin-left: auto;
-            margin-right: auto;
-        }
-
-        .hero-ctas {
-            display: flex;
-            justify-content: center;
-            gap: 1rem;
-            margin-bottom: 4rem;
-        }
-
-        .hero-ctas .btn {
-            padding: 0.85rem 1.75rem;
-            font-size: 1.05rem;
-        }
-
-        .dashboard-preview {
-            background: var(--bg-glass);
-            border: 1px solid var(--border-glass);
-            border-radius: 16px;
-            padding: 0.75rem;
-            box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5);
-            backdrop-filter: blur(10px);
-            margin-top: 2rem;
-        }
-
-        .preview-img {
-            width: 100%;
-            border-radius: 12px;
-            display: block;
-        }
-
-        .features-section {
-            max-width: 1200px;
-            margin: 8rem auto;
-            padding: 0 2rem;
-        }
-
-        .section-title {
-            text-align: center;
-            font-size: 2.2rem;
-            margin-bottom: 4rem;
-            background: linear-gradient(135deg, #fff, #cbd5e1);
-            -webkit-background-clip: text;
-            -webkit-text-fill-color: transparent;
-        }
-
-        .features-grid {
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
-            gap: 2rem;
-        }
-
-        .feature-card {
-            background: var(--bg-glass);
-            border: 1px solid var(--border-glass);
-            border-radius: 16px;
-            padding: 2.5rem;
-            backdrop-filter: blur(8px);
-            transition: all 0.3s ease;
-        }
-
-        .feature-card:hover {
-            transform: translateY(-5px);
-            border-color: rgba(139, 92, 246, 0.25);
-        }
-
-        .feature-icon-wrapper {
-            width: 48px;
-            height: 48px;
-            background: rgba(139, 92, 246, 0.15);
-            border-radius: 10px;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            margin-bottom: 1.5rem;
-            color: #c084fc;
-        }
-
-        .feature-card h3 {
-            font-size: 1.35rem;
-            color: white;
-            margin-bottom: 1rem;
-        }
-
-        .feature-card p {
-            color: var(--text-muted);
-            font-size: 0.95rem;
-            line-height: 1.6;
-        }
-
-        .target-section {
-            max-width: 1200px;
-            margin: 8rem auto;
-            padding: 0 2rem;
-        }
-
-        .target-grid {
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
-            gap: 2rem;
-            margin-top: 3rem;
-        }
-
-        .target-card {
-            background: rgba(255, 255, 255, 0.02);
-            border: 1px solid var(--border-glass);
-            border-radius: 12px;
-            padding: 2rem;
-            text-align: center;
-            transition: all 0.3s ease;
-        }
-
-        .target-card:hover {
-            border-color: var(--color-primary);
-            background: rgba(139, 92, 246, 0.05);
-        }
-
-        .target-emoji {
-            font-size: 2.5rem;
-            margin-bottom: 1rem;
-            display: inline-block;
-        }
-
-        .target-card h4 {
-            font-size: 1.15rem;
-            color: white;
-            margin-bottom: 0.75rem;
-        }
-
-        .target-card p {
-            font-size: 0.9rem;
-            color: var(--text-muted);
-        }
-
-        .pwa-section {
-            max-width: 1200px;
-            margin: 8rem auto;
-            padding: 4rem 2rem;
-            background: radial-gradient(circle at top left, rgba(139, 92, 246, 0.15), transparent 70%);
-            border: 1px solid var(--border-glass);
-            border-radius: 20px;
-            display: grid;
-            grid-template-columns: 1fr 1fr;
-            gap: 3rem;
-            align-items: center;
-        }
-
-        .pwa-content h2 {
-            font-size: 2.2rem;
-            margin-bottom: 1.5rem;
-            background: linear-gradient(135deg, #fff, #cbd5e1);
-            -webkit-background-clip: text;
-            -webkit-text-fill-color: transparent;
-        }
-
-        .pwa-content p {
-            color: #cbd5e1;
-            font-size: 1rem;
-            margin-bottom: 1.5rem;
-        }
-
-        .pwa-list {
-            list-style: none;
-            display: flex;
-            flex-direction: column;
-            gap: 1rem;
-        }
-
-        .pwa-list-item {
-            display: flex;
-            align-items: flex-start;
-            gap: 0.75rem;
-            font-size: 0.95rem;
-            color: #e2e8f0;
-        }
-
-        .pwa-list-item svg {
-            color: var(--color-secondary);
-            flex-shrink: 0;
-            width: 20px;
-            height: 20px;
-            margin-top: 0.2rem;
-        }
-
-        .pwa-visual {
-            background: rgba(255, 255, 255, 0.02);
-            border: 1px solid var(--border-glass);
-            border-radius: 16px;
-            padding: 2.5rem;
-            text-align: center;
-        }
-
-        .pwa-phone-mockup {
-            width: 180px;
-            height: 340px;
-            border: 8px solid #1f2937;
-            border-radius: 24px;
-            margin: 0 auto;
-            background: #0b0f19;
-            display: flex;
-            flex-direction: column;
-            justify-content: center;
-            align-items: center;
-            box-shadow: 0 10px 25px rgba(0,0,0,0.5);
-            position: relative;
-        }
-
-        .pwa-phone-mockup::before {
+        /* ── Soft gradient background blobs ─────────────────────────────────── */
+        body::before {
             content: '';
-            width: 60px;
-            height: 4px;
-            background: #1f2937;
-            border-radius: 2px;
-            position: absolute;
-            top: 10px;
+            position: fixed; inset: 0; pointer-events: none; z-index: 0;
+            background:
+                radial-gradient(ellipse 70% 50% at 5% 0%, rgba(124,58,237,0.07) 0%, transparent 55%),
+                radial-gradient(ellipse 50% 40% at 95% 15%, rgba(219,39,119,0.05) 0%, transparent 50%),
+                radial-gradient(ellipse 60% 50% at 50% 110%, rgba(14,165,233,0.05) 0%, transparent 60%);
+        }
+        body > * { position: relative; z-index: 1; }
+
+        /* ── Utility ─────────────────────────────────────────────────────────── */
+        .container { max-width: 1200px; margin: 0 auto; padding: 0 2rem; }
+
+        .gradient-text {
+            background: linear-gradient(135deg, var(--primary) 0%, var(--secondary) 100%);
+            -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text;
         }
 
-        @media (max-width: 768px) {
-            .pwa-section {
-                grid-template-columns: 1fr;
-                gap: 2rem;
-            }
+        /* ── Buttons ─────────────────────────────────────────────────────────── */
+        .btn {
+            display: inline-flex; align-items: center; justify-content: center; gap: 0.5rem;
+            padding: 0.75rem 1.5rem; border-radius: 10px;
+            font-family: 'Outfit', sans-serif; font-weight: 700; font-size: 0.95rem;
+            text-decoration: none; cursor: pointer; border: none;
+            transition: all 0.22s cubic-bezier(0.34,1.56,0.64,1); white-space: nowrap;
+        }
+        .btn-primary {
+            background: linear-gradient(135deg, var(--primary), var(--secondary));
+            color: white; box-shadow: 0 4px 14px rgba(124,58,237,0.3);
+        }
+        .btn-primary:hover { transform: translateY(-2px) scale(1.02); box-shadow: 0 8px 24px rgba(124,58,237,0.38); }
+        .btn-outline {
+            background: white; color: var(--primary);
+            border: 1.5px solid var(--border-dark);
+            box-shadow: var(--shadow-sm);
+        }
+        .btn-outline:hover { border-color: var(--primary-light); background: var(--bg-muted); transform: translateY(-1px); }
+        .btn-lg { padding: 1rem 2rem; font-size: 1.05rem; border-radius: 12px; }
+
+        /* ── Header ─────────────────────────────────────────────────────────── */
+        header {
+            position: sticky; top: 0; z-index: 100;
+            background: rgba(255,255,255,0.88);
+            backdrop-filter: blur(16px) saturate(180%);
+            border-bottom: 1px solid var(--border);
+            box-shadow: 0 1px 0 var(--border);
+        }
+        .header-inner {
+            display: flex; align-items: center; justify-content: space-between;
+            padding: 0.9rem 2rem; max-width: 1200px; margin: 0 auto;
+        }
+        .logo-link { display: flex; align-items: center; gap: 0.65rem; text-decoration: none; }
+        .logo-img { width: 34px; height: 34px; border-radius: 9px; object-fit: cover; }
+        .logo-wordmark {
+            font-family: 'Outfit', sans-serif; font-weight: 900; font-size: 1.3rem;
+            background: linear-gradient(135deg, var(--primary), var(--secondary));
+            -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+        }
+        nav { display: flex; align-items: center; gap: 0.4rem; }
+        .nav-link {
+            color: var(--text-mid); text-decoration: none; font-size: 0.9rem; font-weight: 500;
+            padding: 0.5rem 0.85rem; border-radius: 8px; transition: all 0.18s;
+        }
+        .nav-link:hover { color: var(--primary); background: var(--bg-muted); }
+
+        /* ── Badge ─────────────────────────────────────────────────────────── */
+        .badge {
+            display: inline-flex; align-items: center; gap: 0.45rem;
+            background: var(--bg-muted); border: 1px solid var(--border-dark);
+            color: var(--primary); padding: 0.35rem 0.9rem; border-radius: 30px;
+            font-size: 0.8rem; font-weight: 700; letter-spacing: 0.01em;
         }
 
-        .pricing-section {
-            max-width: 1200px;
-            margin: 8rem auto;
-            padding: 0 2rem;
+        /* ── Hero ─────────────────────────────────────────────────────────── */
+        .hero {
+            padding: 4.5rem 2rem 3rem;
+            max-width: 860px; margin: 0 auto; text-align: center;
         }
-
-        .pricing-grid {
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
-            gap: 2rem;
-            margin-top: 3rem;
-            align-items: stretch;
+        .hero-badge { margin-bottom: 1.5rem; }
+        .hero-headline {
+            font-size: clamp(2.2rem, 5.5vw, 4rem);
+            font-weight: 900; letter-spacing: -0.035em;
+            margin-bottom: 1.25rem; color: var(--text);
         }
-
-        .pricing-card {
-            background: var(--bg-glass);
-            border: 1px solid var(--border-glass);
-            border-radius: 16px;
-            padding: 3rem 2.2rem;
-            display: flex;
-            flex-direction: column;
-            position: relative;
-            backdrop-filter: blur(8px);
-            transition: all 0.3s ease;
+        .hero-headline .accent { display: block; }
+        .hero-sub {
+            font-size: 1.05rem; color: var(--text-muted); max-width: 560px;
+            margin: 0 auto 2rem; line-height: 1.75;
         }
+        .hero-ctas { display: flex; justify-content: center; gap: 0.85rem; flex-wrap: wrap; margin-bottom: 1.25rem; }
+        .hero-trust {
+            display: flex; align-items: center; justify-content: center; gap: 0.6rem;
+            font-size: 0.8rem; color: var(--text-muted); flex-wrap: wrap;
+        }
+        .hero-trust-dot { width: 3px; height: 3px; border-radius: 50%; background: var(--border-dark); }
 
-        .pricing-card:hover {
-            border-color: rgba(139, 92, 246, 0.3);
+        /* ── Stats Bar ─────────────────────────────────────────────────────── */
+        .stats-bar {
+            max-width: 680px; margin: 2.5rem auto 0;
+            display: grid; grid-template-columns: repeat(3,1fr);
+            border: 1px solid var(--border); border-radius: 14px; overflow: hidden;
+            box-shadow: var(--shadow-md);
+        }
+        .stat-item {
+            background: white; padding: 1.25rem 1rem; text-align: center;
+            border-right: 1px solid var(--border);
+        }
+        .stat-item:last-child { border-right: none; }
+        .stat-num {
+            font-family: 'Outfit', sans-serif; font-weight: 900; font-size: 1.8rem;
+            background: linear-gradient(135deg, var(--primary), var(--secondary));
+            -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+            margin-bottom: 0.15rem;
+        }
+        .stat-label { font-size: 0.75rem; color: var(--text-muted); font-weight: 500; }
+
+        /* ── Dashboard Preview ─────────────────────────────────────────────── */
+        .preview-wrapper { max-width: 1000px; margin: 4rem auto 5rem; padding: 0 2rem; }
+        .preview-frame {
+            background: white; border: 1px solid var(--border);
+            border-radius: 20px; padding: 1rem;
+            box-shadow: var(--shadow-lg), 0 40px 80px -20px rgba(124,58,237,0.12);
+        }
+        .preview-topbar {
+            display: flex; align-items: center; gap: 0.5rem;
+            margin-bottom: 1rem; padding: 0 0.25rem;
+        }
+        .dot { width: 10px; height: 10px; border-radius: 50%; }
+        .dot-r { background: #ff5f57; } .dot-y { background: #ffbd2e; } .dot-g { background: #28c840; }
+        .preview-url {
+            flex: 1; background: var(--bg-soft); border: 1px solid var(--border);
+            border-radius: 6px; padding: 0.3rem 0.75rem; font-size: 0.75rem; color: var(--text-muted); text-align: center;
+        }
+        .preview-screen {
+            background: var(--bg-soft); border: 1px solid var(--border);
+            border-radius: 12px; height: 300px;
+            display: flex; align-items: center; justify-content: center;
+        }
+        .preview-inner { text-align: center; }
+        .preview-logo-img { width: 60px; height: 60px; border-radius: 16px; margin: 0 auto 1rem; display: block; }
+        .preview-title { font-size: 1.25rem; font-weight: 700; color: var(--text); margin-bottom: 0.4rem; }
+        .preview-sub { font-size: 0.82rem; color: var(--text-muted); max-width: 280px; }
+        .preview-chips { display: flex; justify-content: center; gap: 0.5rem; margin-top: 1rem; flex-wrap: wrap; }
+        .chip {
+            font-size: 0.72rem; font-weight: 600; padding: 0.25rem 0.7rem; border-radius: 20px;
+        }
+        .chip-purple { background: var(--bg-muted); color: var(--primary); border: 1px solid var(--border-dark); }
+        .chip-green { background: #ecfdf5; color: var(--success); border: 1px solid #a7f3d0; }
+        .chip-blue { background: #f0f9ff; color: #0284c7; border: 1px solid #bae6fd; }
+
+        /* ── Section shared ─────────────────────────────────────────────────── */
+        section { padding: 5rem 0; }
+        .section-eyebrow {
+            font-size: 0.75rem; font-weight: 800; letter-spacing: 0.1em; text-transform: uppercase;
+            color: var(--primary); margin-bottom: 0.75rem;
+        }
+        .section-title { font-size: clamp(1.7rem, 3.2vw, 2.4rem); font-weight: 800; color: var(--text); margin-bottom: 0.85rem; }
+        .section-sub { font-size: 0.95rem; color: var(--text-muted); max-width: 560px; line-height: 1.7; margin-bottom: 3rem; }
+
+        /* ── Feature Cards ─────────────────────────────────────────────────── */
+        .features-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(290px, 1fr)); gap: 1.25rem; }
+        .feature-card {
+            background: white; border: 1px solid var(--border);
+            border-radius: 16px; padding: 1.75rem;
+            box-shadow: var(--shadow-sm);
+            transition: all 0.25s ease;
+        }
+        .feature-card:hover {
+            border-color: var(--primary-light); box-shadow: var(--shadow-md);
             transform: translateY(-3px);
         }
+        .feature-icon {
+            width: 44px; height: 44px; border-radius: 11px;
+            background: var(--bg-muted); border: 1px solid var(--border-dark);
+            display: flex; align-items: center; justify-content: center;
+            font-size: 1.3rem; margin-bottom: 1.1rem;
+        }
+        .feature-icon.cyan { background: #f0f9ff; border-color: #bae6fd; }
+        .feature-icon.pink { background: #fdf2f8; border-color: #f9a8d4; }
+        .feature-icon.green { background: #f0fdf4; border-color: #a7f3d0; }
+        .feature-icon.amber { background: #fffbeb; border-color: #fde68a; }
+        .feature-card h3 { font-size: 1.05rem; color: var(--text); margin-bottom: 0.5rem; font-weight: 700; }
+        .feature-card p { font-size: 0.87rem; color: var(--text-muted); line-height: 1.65; }
+        .feature-tag {
+            display: inline-block; margin-top: 0.85rem;
+            font-size: 0.7rem; font-weight: 700; letter-spacing: 0.04em;
+            padding: 0.2rem 0.65rem; border-radius: 20px;
+        }
+        .tag-green { background: #ecfdf5; color: var(--success); }
+        .tag-blue { background: #f0f9ff; color: #0284c7; }
+        .tag-pink { background: #fdf2f8; color: #be185d; }
+        .tag-amber { background: #fffbeb; color: #d97706; }
 
+        /* ── Audience Cards ─────────────────────────────────────────────────── */
+        .audience-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 1rem; }
+        .audience-card {
+            background: white; border: 1px solid var(--border);
+            border-radius: 14px; padding: 1.5rem; text-align: center;
+            box-shadow: var(--shadow-sm); transition: all 0.22s;
+        }
+        .audience-card:hover { border-color: var(--primary-light); box-shadow: var(--shadow-md); transform: translateY(-3px); }
+        .audience-emoji { font-size: 2.2rem; margin-bottom: 0.75rem; display: block; }
+        .audience-card h4 { font-size: 0.95rem; color: var(--text); margin-bottom: 0.4rem; font-weight: 700; }
+        .audience-card p { font-size: 0.82rem; color: var(--text-muted); line-height: 1.6; }
+
+        /* ── Divider ──────────────────────────────────────────────────────── */
+        .divider { height: 1px; background: var(--border); max-width: 1200px; margin: 0 auto; }
+
+        /* ── PWA Section ────────────────────────────────────────────────────── */
+        .pwa-wrap {
+            background: linear-gradient(135deg, var(--bg-muted) 0%, white 100%);
+            border: 1px solid var(--border); border-radius: 24px; padding: 4rem;
+            display: grid; grid-template-columns: 1fr 1fr; gap: 4rem; align-items: center;
+        }
+        .pwa-list { list-style: none; display: flex; flex-direction: column; gap: 1.25rem; margin-top: 1.5rem; }
+        .pwa-item { display: flex; gap: 0.9rem; align-items: flex-start; }
+        .pwa-check {
+            width: 22px; height: 22px; border-radius: 6px; flex-shrink: 0; margin-top: 0.1rem;
+            background: linear-gradient(135deg, var(--primary), var(--secondary));
+            display: flex; align-items: center; justify-content: center; color: white;
+        }
+        .pwa-item strong { color: var(--text); font-weight: 700; display: block; margin-bottom: 0.2rem; }
+        .pwa-item span { font-size: 0.87rem; color: var(--text-muted); line-height: 1.6; }
+        .phone-mockup-img {
+            width: 250px; height: auto; display: block;
+            margin: 0 auto; border-radius: 36px;
+            filter: drop-shadow(0 16px 36px rgba(124,58,237,0.18));
+            transition: transform 0.3s ease;
+        }
+        .phone-mockup-img:hover { transform: translateY(-4px); }
+
+        /* ── Pricing ─────────────────────────────────────────────────────────── */
+        .pricing-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 1.5rem; align-items: stretch; }
+        .pricing-card {
+            background: white; border: 1px solid var(--border); border-radius: 20px; padding: 2.25rem 2rem;
+            display: flex; flex-direction: column; position: relative;
+            box-shadow: var(--shadow-sm); transition: all 0.25s;
+        }
+        .pricing-card:hover { box-shadow: var(--shadow-lg); transform: translateY(-4px); }
         .pricing-card.popular {
-            border: 2px solid var(--color-primary);
-            background: linear-gradient(180deg, rgba(20, 27, 47, 0.9) 0%, rgba(11, 15, 25, 0.9) 100%);
-            box-shadow: 0 10px 30px rgba(139, 92, 246, 0.15);
+            border: 2px solid var(--primary);
+            box-shadow: 0 8px 30px rgba(124,58,237,0.15);
         }
-
-        .popular-badge {
-            position: absolute;
-            top: -12px;
-            left: 50%;
-            transform: translateX(-50%);
-            background: var(--color-primary);
-            color: white;
-            padding: 0.25rem 0.8rem;
-            border-radius: 20px;
-            font-size: 0.75rem;
-            font-weight: 700;
-            text-transform: uppercase;
-            letter-spacing: 0.05em;
+        .popular-tag {
+            position: absolute; top: -12px; left: 50%; transform: translateX(-50%);
+            background: linear-gradient(135deg, var(--primary), var(--secondary));
+            color: white; font-size: 0.7rem; font-weight: 800; letter-spacing: 0.06em;
+            text-transform: uppercase; padding: 0.3rem 0.9rem; border-radius: 20px; white-space: nowrap;
         }
+        .plan-name { font-size: 0.8rem; font-weight: 800; text-transform: uppercase; letter-spacing: 0.08em; color: var(--text-muted); margin-bottom: 1rem; }
+        .plan-price-row { display: flex; align-items: baseline; gap: 0.2rem; margin-bottom: 1.5rem; }
+        .plan-currency { font-size: 1.2rem; font-weight: 700; color: var(--text); }
+        .plan-price { font-size: 3rem; font-weight: 900; font-family: 'Outfit', sans-serif; color: var(--text); line-height: 1; }
+        .plan-period { font-size: 0.82rem; color: var(--text-muted); }
+        .plan-features { list-style: none; flex: 1; display: flex; flex-direction: column; gap: 0.8rem; margin-bottom: 2rem; }
+        .plan-feature { display: flex; align-items: center; gap: 0.65rem; font-size: 0.87rem; color: var(--text-mid); }
+        .check { flex-shrink: 0; }
+        .pricing-card .btn { width: 100%; }
 
-        .plan-name {
-            font-size: 1.25rem;
-            font-weight: 600;
-            color: var(--text-muted);
-            margin-bottom: 0.75rem;
+        /* ── CTA Section ─────────────────────────────────────────────────────── */
+        .cta-section {
+            text-align: center; padding: 6rem 2rem;
+            background: linear-gradient(135deg, var(--bg-muted) 0%, #fdf4ff 100%);
+            border-top: 1px solid var(--border); border-bottom: 1px solid var(--border);
         }
+        .cta-section h2 { font-size: clamp(1.8rem, 4vw, 2.8rem); font-weight: 900; color: var(--text); margin-bottom: 1rem; }
+        .cta-section p { color: var(--text-muted); font-size: 1rem; max-width: 480px; margin: 0 auto 2rem; }
 
-        .plan-price-box {
-            display: flex;
-            align-items: baseline;
-            margin-bottom: 2rem;
-        }
-
-        .plan-currency {
-            font-size: 1.5rem;
-            font-weight: 700;
-            color: white;
-        }
-
-        .plan-price {
-            font-size: 3rem;
-            font-weight: 800;
-            color: white;
-            font-family: 'Outfit', sans-serif;
-        }
-
-        .plan-period {
-            font-size: 0.95rem;
-            color: var(--text-muted);
-            margin-left: 0.25rem;
-        }
-
-        .plan-features-list {
-            list-style: none;
-            margin-bottom: 3rem;
-            display: flex;
-            flex-direction: column;
-            gap: 1rem;
-            flex-grow: 1;
-        }
-
-        .plan-feature-item {
-            display: flex;
-            align-items: center;
-            gap: 0.75rem;
-            font-size: 0.95rem;
-            color: #cbd5e1;
-        }
-
-        .plan-feature-item svg {
-            color: var(--color-success);
-            flex-shrink: 0;
-            width: 18px;
-            height: 18px;
-        }
-
-        .pricing-card .btn {
-            width: 100%;
-        }
-
-        /* Modal styling */
-        .modal {
-            position: fixed;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
-            background: rgba(11, 15, 25, 0.85);
-            backdrop-filter: blur(8px);
-            z-index: 200;
-            display: none;
-            align-items: center;
-            justify-content: center;
-            padding: 1rem;
-        }
-
-        .modal-card {
-            background: var(--bg-secondary);
-            border: 1px solid var(--border-glass);
-            border-radius: 20px;
-            width: 100%;
-            max-width: 580px;
-            box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.8);
-            overflow: hidden;
-            display: flex;
-            flex-direction: column;
-            animation: modalScale 0.3s cubic-bezier(0.16, 1, 0.3, 1);
-        }
-
-        @keyframes modalScale {
-            from { transform: scale(0.95); opacity: 0; }
-            to { transform: scale(1); opacity: 1; }
-        }
-
-        .modal-header {
-            padding: 1.5rem 2rem;
-            border-bottom: 1px solid var(--border-glass);
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-        }
-
-        .modal-title {
-            font-size: 1.35rem;
-            color: white;
-        }
-
-        .modal-close {
-            background: none;
-            border: none;
-            color: var(--text-muted);
-            cursor: pointer;
-            padding: 0.25rem;
-            transition: color 0.2s;
-        }
-
-        .modal-close:hover {
-            color: white;
-        }
-
-        .modal-body {
-            padding: 2rem;
-            overflow-y: auto;
-            max-height: calc(100vh - 12rem);
-        }
-
-        .checkout-summary {
-            background: rgba(255, 255, 255, 0.02);
-            border: 1px solid var(--border-glass);
-            border-radius: 10px;
-            padding: 1.25rem;
-            margin-bottom: 1.5rem;
-        }
-
-        .summary-row {
-            display: flex;
-            justify-content: space-between;
-            margin-bottom: 0.5rem;
-            font-size: 0.95rem;
-        }
-
-        .summary-row.total {
-            margin-top: 0.5rem;
-            padding-top: 0.5rem;
-            border-top: 1px dashed var(--border-glass);
-            font-weight: 700;
-            color: white;
-            font-size: 1.1rem;
-        }
-
-        .payment-tabs {
-            display: grid;
-            grid-template-columns: 1fr 1fr;
-            background: rgba(255, 255, 255, 0.03);
-            padding: 0.25rem;
-            border-radius: 8px;
-            margin-bottom: 1.5rem;
-            border: 1px solid var(--border-glass);
-        }
-
-        .pay-tab {
-            padding: 0.75rem;
-            border: none;
-            background: none;
-            color: var(--text-muted);
-            font-weight: 600;
-            font-size: 0.9rem;
-            border-radius: 6px;
-            cursor: pointer;
-            transition: all 0.2s;
-            text-align: center;
-        }
-
-        .pay-tab.active {
-            background: var(--color-primary);
-            color: white;
-        }
-
-        .tab-panel {
-            display: none;
-        }
-
-        .tab-panel.active {
-            display: block;
-        }
-
-        .qr-section {
-            text-align: center;
-            padding: 1rem 0;
-        }
-
-        .qr-mock-box {
-            width: 200px;
-            height: 200px;
-            background: white;
-            border-radius: 12px;
-            margin: 0 auto 1.5rem;
-            padding: 0.75rem;
-            display: flex;
-            flex-direction: column;
-            justify-content: space-between;
-            align-items: center;
-            border: 4px solid var(--color-duitnow);
-            position: relative;
-        }
-
-        .qr-duitnow-logo {
-            color: var(--color-duitnow);
-            font-weight: 800;
-            font-size: 0.8rem;
-            font-family: 'Outfit', sans-serif;
-            text-transform: uppercase;
-        }
-
-        .qr-code-drawing {
-            width: 140px;
-            height: 140px;
-            background-image: 
-                radial-gradient(square, #000 25%, transparent 25%),
-                linear-gradient(45deg, transparent 46%, #000 46%, #000 54%, transparent 54%);
-            background-size: 10px 10px;
-            border: 2px solid #000;
-        }
-
-        .qr-account-name {
-            font-size: 0.85rem;
-            font-weight: 700;
-            color: #1f2937;
-        }
-
-        .qr-info-text {
-            font-size: 0.85rem;
-            color: var(--text-muted);
-            margin-bottom: 1.5rem;
-        }
-
-        .form-group {
-            margin-bottom: 1.25rem;
-            text-align: left;
-        }
-
-        .form-label {
-            display: block;
-            font-size: 0.85rem;
-            font-weight: 600;
-            color: var(--text-muted);
-            margin-bottom: 0.5rem;
-        }
-
-        .form-control {
-            width: 100%;
-            padding: 0.75rem 1rem;
-            background: rgba(255, 255, 255, 0.02);
-            border: 1px solid var(--border-glass);
-            border-radius: 8px;
-            color: white;
-            font-size: 0.95rem;
-            outline: none;
-            transition: border-color 0.2s;
-        }
-
-        .form-control:focus {
-            border-color: var(--color-primary);
-        }
-
-        .form-file {
-            width: 100%;
-            padding: 0.6rem;
-            background: rgba(255, 255, 255, 0.02);
-            border: 1px dashed var(--border-glass);
-            border-radius: 8px;
-            color: var(--text-muted);
-            outline: none;
-            cursor: pointer;
-        }
-
-        .checkout-actions {
-            margin-top: 2rem;
-        }
-
-        .checkout-actions .btn {
-            width: 100%;
-            padding: 0.85rem;
-            font-size: 1.05rem;
-        }
-
-        .fpx-container {
-            text-align: center;
-            padding: 1.5rem 0;
-        }
-
-        .fpx-logo-grid {
-            display: flex;
-            justify-content: center;
-            flex-wrap: wrap;
-            gap: 1.5rem;
-            margin-bottom: 2rem;
-            opacity: 0.7;
-        }
-
-        .fpx-logo-text {
-            font-weight: 900;
-            font-size: 1.5rem;
-            color: #3b82f6;
-            font-family: 'Outfit', sans-serif;
-            letter-spacing: -0.05em;
-        }
-
-        .fpx-desc {
-            font-size: 0.9rem;
-            color: var(--text-muted);
-            margin-bottom: 2rem;
-        }
-
+        /* ── Footer ─────────────────────────────────────────────────────────── */
         footer {
-            border-top: 1px solid var(--border-glass);
-            padding: 4rem 2rem;
-            text-align: center;
-            color: var(--text-muted);
-            font-size: 0.9rem;
-            margin-top: 8rem;
+            padding: 2.5rem 2rem; border-top: 1px solid var(--border);
+            max-width: 1200px; margin: 0 auto;
+            display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 1rem;
         }
+        .footer-brand { display: flex; align-items: center; gap: 0.6rem; }
+        .footer-logo { width: 28px; height: 28px; border-radius: 7px; }
+        .footer-name { font-family: 'Outfit', sans-serif; font-weight: 800; font-size: 1rem; color: var(--text); }
+        .footer-copy { font-size: 0.8rem; color: var(--text-muted); }
+        .footer-links { display: flex; gap: 1.25rem; }
+        .footer-links a { font-size: 0.8rem; color: var(--text-muted); text-decoration: none; transition: color 0.18s; }
+        .footer-links a:hover { color: var(--primary); }
 
-        .show-mobile {
-            display: none !important;
-        }
+        /* ── Pulse dot ─────────────────────────────────────────────────────── */
+        @keyframes pulse { 0%,100%{opacity:1;transform:scale(1);} 50%{opacity:0.5;transform:scale(0.8);} }
+        .pulse-dot { width: 7px; height: 7px; border-radius: 50%; background: var(--success); display: inline-block; animation: pulse 2s ease-in-out infinite; }
 
-        /* ── Pricing Slider (Mobile) ── */
-        .pricing-slider-wrapper {
-            display: none;
+        /* ── Modal ─────────────────────────────────────────────────────────── */
+        .modal {
+            position: fixed; inset: 0;
+            background: rgba(26,16,53,0.5); backdrop-filter: blur(8px);
+            z-index: 200; display: none; align-items: center; justify-content: center; padding: 1rem;
         }
-        .pricing-slider {
-            display: flex;
-            overflow-x: auto;
-            scroll-snap-type: x mandatory;
-            -webkit-overflow-scrolling: touch;
-            gap: 1.25rem;
-            padding: 1rem 0 1.5rem;
-            scrollbar-width: none;
+        .modal-card {
+            background: white; border: 1px solid var(--border); border-radius: 20px;
+            width: 100%; max-width: 520px;
+            box-shadow: 0 30px 60px rgba(124,58,237,0.15);
+            animation: modalPop 0.28s cubic-bezier(0.16,1,0.3,1);
         }
-        .pricing-slider::-webkit-scrollbar { display: none; }
-        .pricing-slider .pricing-card {
-            flex: 0 0 82vw;
-            scroll-snap-align: center;
-            min-width: 82vw;
-        }
-        .slider-dots {
-            display: flex;
-            justify-content: center;
-            gap: 0.5rem;
-            margin-top: 1rem;
-        }
-        .slider-dot {
-            width: 8px;
-            height: 8px;
-            border-radius: 50%;
-            background: rgba(255,255,255,0.2);
-            transition: all 0.3s;
-            cursor: pointer;
-        }
-        .slider-dot.active {
-            background: var(--color-primary);
-            width: 24px;
-            border-radius: 4px;
-        }
+        @keyframes modalPop { from{opacity:0;transform:scale(0.94) translateY(8px);} to{opacity:1;transform:scale(1) translateY(0);} }
+        .modal-head { padding: 1.4rem 1.75rem; border-bottom: 1px solid var(--border); display: flex; justify-content: space-between; align-items: center; }
+        .modal-head h3 { font-size: 1.15rem; color: var(--text); }
+        .modal-close { background: none; border: none; color: var(--text-muted); cursor: pointer; font-size: 1.1rem; }
+        .modal-close:hover { color: var(--text); }
+        .modal-body { padding: 1.75rem; max-height: 70vh; overflow-y: auto; }
+        .checkout-summary { background: var(--bg-soft); border: 1px solid var(--border); border-radius: 10px; padding: 1.1rem; margin-bottom: 1.25rem; }
+        .summary-row { display: flex; justify-content: space-between; font-size: 0.87rem; margin-bottom: 0.45rem; color: var(--text-muted); }
+        .summary-row span:last-child { color: var(--text); font-weight: 600; }
+        .summary-row.total { border-top: 1px dashed var(--border); padding-top: 0.65rem; margin-top: 0.4rem; font-weight: 700; font-size: 0.95rem; }
+        .summary-row.total span { color: var(--text); }
+        .pay-tabs { display: grid; grid-template-columns: 1fr 1fr; background: var(--bg-soft); border: 1px solid var(--border); border-radius: 8px; padding: 0.2rem; margin-bottom: 1.25rem; }
+        .pay-tab { padding: 0.6rem; border: none; background: none; color: var(--text-muted); font-weight: 600; font-size: 0.85rem; border-radius: 6px; cursor: pointer; transition: all 0.18s; }
+        .pay-tab.active { background: white; color: var(--primary); box-shadow: var(--shadow-sm); }
+        .tab-panel { display: none; }
+        .tab-panel.active { display: block; }
+        .form-group { margin-bottom: 0.9rem; }
+        .form-label { display: block; font-size: 0.78rem; font-weight: 600; color: var(--text-mid); margin-bottom: 0.35rem; }
+        .form-control { width: 100%; padding: 0.65rem 0.9rem; background: white; border: 1.5px solid var(--border); border-radius: 8px; color: var(--text); font-size: 0.87rem; outline: none; transition: border-color 0.18s; }
+        .form-control:focus { border-color: var(--primary); }
+        .form-file { width: 100%; padding: 0.6rem; background: var(--bg-soft); border: 1.5px dashed var(--border-dark); border-radius: 8px; color: var(--text-muted); cursor: pointer; }
+        .qr-box { width: 175px; height: 175px; background: white; border-radius: 10px; margin: 0 auto 0.85rem; display: flex; flex-direction: column; justify-content: space-between; align-items: center; padding: 0.6rem; border: 3px solid #e11d48; }
+        .qr-brand { color: #e11d48; font-weight: 800; font-size: 0.72rem; text-transform: uppercase; }
+        .qr-pattern { width: 115px; height: 115px; background-image: radial-gradient(square, #000 25%, transparent 25%), linear-gradient(45deg, transparent 46%, #000 46%, #000 54%, transparent 54%); background-size: 10px 10px; border: 2px solid #000; }
+        .qr-name { font-size: 0.68rem; font-weight: 700; color: #1f2937; text-align: center; }
+        .fpx-logos { display: flex; justify-content: center; gap: 1.5rem; margin-bottom: 1.25rem; opacity: 0.85; font-weight: 900; font-size: 1.35rem; }
+        .fpx-label { color: #3b82f6; font-family: 'Outfit', sans-serif; }
+        .toyyib-label { color: #6366f1; font-family: 'Outfit', sans-serif; }
+        .fpx-desc { font-size: 0.82rem; color: var(--text-muted); text-align: center; margin-bottom: 1.25rem; }
+        .modal-cta { width: 100%; padding: 0.85rem; font-size: 0.95rem; margin-top: 0.75rem; }
 
+        /* ── Responsive ─────────────────────────────────────────────────────── */
         @media (max-width: 768px) {
-            html, body {
-                overflow-x: hidden;
-                max-width: 100vw;
-            }
-            .header-container {
-                flex-direction: row;
-                justify-content: space-between;
-                padding: 0.8rem 1rem;
-                width: 100%;
-                max-width: 100vw;
-            }
-            .header-nav {
-                width: auto;
-                justify-content: flex-end;
-                gap: 0.75rem;
-            }
-            .hide-mobile {
-                display: none !important;
-            }
-            .show-mobile {
-                display: inline-block !important;
-            }
-            .header-nav .btn {
-                padding: 0.45rem 0.85rem;
-                font-size: 0.85rem;
-                white-space: nowrap;
-            }
-            .hero-section {
-                margin: 2.5rem auto;
-                padding: 0 1.25rem;
-                width: 100%;
-            }
-            .hero-title {
-                font-size: 2rem;
-                word-break: break-word;
-            }
-            .hero-subtitle {
-                font-size: 0.95rem;
-            }
-            .hero-actions {
-                flex-direction: column;
-                gap: 0.75rem;
-            }
-            .hero-actions .btn {
-                width: 100%;
-                justify-content: center;
-            }
-            .features-section,
-            .target-section,
-            .pricing-section {
-                margin: 4rem auto;
-                padding: 0 1.25rem;
-                width: 100%;
-            }
-            .section-title {
-                font-size: 1.6rem;
-                margin-bottom: 2rem;
-            }
-            .features-grid {
-                grid-template-columns: minmax(0, 1fr);
-                gap: 1.25rem;
-            }
-            .feature-card {
-                padding: 1.75rem 1.25rem;
-            }
-            .target-grid {
-                grid-template-columns: repeat(2, minmax(0, 1fr));
-                gap: 1rem;
-            }
-            .target-card {
-                padding: 1.25rem 1rem;
-            }
-            .target-emoji { font-size: 2rem; }
-            .target-card h4 { font-size: 0.95rem; }
-            .target-card p { font-size: 0.8rem; }
-            .pwa-section {
-                margin: 3rem 1.25rem;
-                width: calc(100% - 2.5rem);
-                padding: 2rem 1.25rem;
-                grid-template-columns: 1fr;
-                gap: 1.5rem;
-            }
-            .pwa-content h2 {
-                font-size: 1.6rem;
-            }
-            .pwa-visual {
-                display: none;
-            }
-            /* Pricing: hide grid, show slider on mobile */
-            .pricing-grid {
-                display: none !important;
-            }
-            .pricing-slider-wrapper {
-                display: block;
-                margin-top: 2rem;
-            }
-            .modal-card {
-                max-width: 100%;
-                margin: 0;
-                border-radius: 16px 16px 0 0;
-            }
-            .modal {
-                align-items: flex-end;
-            }
-            .modal-body {
-                padding: 1.25rem;
-            }
-            .modal-header {
-                padding: 1.25rem 1.25rem;
-            }
-            .checkout-actions {
-                flex-direction: column;
-                gap: 0.5rem;
-            }
-            .checkout-actions .btn {
-                width: 100%;
-            }
-            footer {
-                margin-top: 4rem;
-                padding: 2.5rem 1.25rem;
-            }
+            .header-inner { padding: 0.85rem 1.25rem; }
+            .nav-link { display: none; }
+            .hero { padding: 3.5rem 1.25rem 2.5rem; }
+            .hero-headline { font-size: clamp(1.9rem, 8vw, 2.8rem); letter-spacing: -0.025em; }
+            .hero-sub { font-size: 0.95rem; }
+            .btn-lg { padding: 0.85rem 1.5rem; font-size: 0.95rem; }
+            .stats-bar { margin: 2rem 1.25rem 0; max-width: 100%; }
+            .stat-num { font-size: 1.5rem; }
+            .stat-label { font-size: 0.7rem; }
+            .container { padding: 0 1.25rem; }
+            section { padding: 3.5rem 0; }
+            .features-grid { grid-template-columns: 1fr; gap: 1rem; }
+            .audience-grid { grid-template-columns: 1fr 1fr; gap: 0.85rem; }
+            .pwa-wrap { grid-template-columns: 1fr; gap: 2rem; padding: 2rem 1.5rem; }
+            .phone-mockup { display: none; }
+            .preview-wrapper { padding: 0 1.25rem; margin-bottom: 3rem; }
+            footer { flex-direction: column; align-items: flex-start; padding: 2rem 1.25rem; gap: 0.75rem; }
+            .footer-links { gap: 1rem; }
+            .cta-section { padding: 4rem 1.5rem; }
+        }
+        @media (max-width: 480px) {
+            .audience-grid { grid-template-columns: 1fr; }
+            .hero-trust { display: none; }
+            .footer-links { flex-wrap: wrap; }
+        }
+
+        /* ── Mobile Pricing Slider ──────────────────────────────────────────── */
+        .pricing-slider-wrapper { display: none; }
+        @media (max-width: 640px) {
+            .pricing-grid { display: none; }
+            .pricing-slider-wrapper { display: block; }
+            .pricing-slider { display: flex; overflow-x: auto; scroll-snap-type: x mandatory; gap: 1rem; padding-bottom: 0.5rem; scrollbar-width: none; }
+            .pricing-slider::-webkit-scrollbar { display: none; }
+            .pricing-slider .pricing-card { flex-shrink: 0; width: 85vw; scroll-snap-align: center; }
+            .slider-dots { display: flex; justify-content: center; gap: 0.5rem; margin-top: 1.25rem; }
+            .slider-dot { width: 7px; height: 7px; border-radius: 50%; background: var(--border-dark); transition: background 0.2s; }
+            .slider-dot.active { background: var(--primary); }
         }
     </style>
 </head>
 <body>
 
-    <header>
-        <div class="header-container">
-            <a href="#" class="logo-section">
-                <div class="logo-icon">
-                    <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" style="display: block;">
-                        <path d="M21.5 2v6h-6M21.34 15.57a10 10 0 1 1-.57-8.38l5.67-5.67"/>
-                    </svg>
-                </div>
-                <span class="logo-text">SocialHub</span>
-            </a>
-            
-            <nav class="header-nav">
-                <a href="guide.html" class="header-link hide-mobile">Panduan Pengguna</a>
-                <a href="login.html" class="header-link hide-mobile">Log Masuk</a>
-                <a href="login.html" class="btn btn-primary"><span class="hide-mobile">Daftar Percuma</span><span class="show-mobile">Log Masuk</span></a>
-            </nav>
-        </div>
-    </header>
+<!-- ── HEADER ───────────────────────────────────────────────────────────── -->
+<header>
+    <div class="header-inner">
+        <a href="#" class="logo-link">
+            <img src="socialhub_pwa_icon.png" alt="SocialHub" class="logo-img">
+            <span class="logo-wordmark">SocialHub</span>
+        </a>
+        <nav>
+            <a href="guide.html" class="nav-link">Panduan</a>
+            <a href="login.html" class="nav-link">Log Masuk</a>
+            <a href="register.html" class="btn btn-primary" style="padding:0.5rem 1.1rem; font-size:0.88rem;">Daftar Percuma</a>
+        </nav>
+    </div>
+</header>
 
-    <!-- Hero Section -->
-    <section class="hero-section">
-        <span class="hero-badge">Enjin Copywriting Threads #1 Malaysia</span>
-        <h1 class="hero-title">Automasi Copywriting & Penjadualan Threads AI</h1>
-        <p class="hero-subtitle">Bina content berkualiti tinggi, bebenang (Thread Storm) yang realistik, dan jadualkan secara automatik 15 minit selepas posting terakhir anda secara pukal.</p>
-        
-        <div class="hero-ctas">
-            <a href="login.html" class="btn btn-primary">Mula Secara Percuma</a>
-            <a href="guide.html" class="btn btn-secondary">Lihat Dokumentasi</a>
-        </div>
+<!-- ── HERO ─────────────────────────────────────────────────────────────── -->
+<section class="hero">
+    <div class="hero-badge"><span class="badge">✦ Platform Copywriting Threads #1 Malaysia</span></div>
+    <h1 class="hero-headline">
+        Jana Caption Viral.<br>
+        <span class="accent gradient-text">Jadual Autopilot.<br>Tanpa Laptop.</span>
+    </h1>
+    <p class="hero-sub">
+        SocialHub menjana kapsyen Threads berkualiti tinggi dalam masa bawah 10 saat — dengan gaya bahasa Melayu/Manglish yang terasa semulajadi, bukan robot. Kemudian jadualkan secara automatik di cloud 24/7.
+    </p>
+    <div class="hero-ctas">
+        <a href="register.html" class="btn btn-primary btn-lg">
+            <svg width="17" height="17" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M13 10V3L4 14h7v7l9-11h-7z"/></svg>
+            Mula Percuma Sekarang
+        </a>
+        <a href="guide.html" class="btn btn-outline btn-lg">Lihat Demo</a>
+    </div>
+    <div class="hero-trust">
+        <span class="pulse-dot"></span>
+        <span>Tiada kad kredit diperlukan</span>
+        <span class="hero-trust-dot"></span>
+        <span>Percuma untuk dicuba</span>
+        <span class="hero-trust-dot"></span>
+        <span>Deploy dalam masa &lt; 1 minit</span>
+    </div>
+</section>
 
-        <div class="dashboard-preview">
-            <!-- Simulated glowing placeholder UI image -->
-            <div style="background: #111827; height: 380px; border-radius: 12px; display: flex; align-items: center; justify-content: center; border: 1px solid rgba(255,255,255,0.05);">
-                <div style="text-align: center;">
-                    <div class="logo-icon" style="margin: 0 auto 1.5rem; width: 60px; height: 60px; font-size: 2rem;">S</div>
-                    <h3 style="color: white; margin-bottom: 0.5rem; font-size: 1.5rem;">SocialHub Interactive Dashboard</h3>
-                    <p style="color: var(--text-muted); font-size: 0.9rem;">Sistem Pemasaran & Auto-Poster Paling Berkuasa di Threads</p>
+<!-- ── STATS ─────────────────────────────────────────────────────────────── -->
+<div class="container">
+    <div class="stats-bar">
+        <div class="stat-item"><div class="stat-num">10s</div><div class="stat-label">Jana caption penuh</div></div>
+        <div class="stat-item"><div class="stat-num">24/7</div><div class="stat-label">Autopilot di cloud</div></div>
+        <div class="stat-item"><div class="stat-num">100%</div><div class="stat-label">Bebas dari laptop</div></div>
+    </div>
+</div>
+
+<!-- ── PREVIEW ───────────────────────────────────────────────────────────── -->
+<div class="preview-wrapper">
+    <div class="preview-frame">
+        <div class="preview-topbar">
+            <div class="dot dot-r"></div><div class="dot dot-y"></div><div class="dot dot-g"></div>
+            <div class="preview-url">socialhub.zaimrosli.my/ai-generate</div>
+        </div>
+        <div class="preview-screen">
+            <div class="preview-inner">
+                <img src="socialhub_pwa_icon.png" alt="SocialHub" class="preview-logo-img">
+                <div class="preview-title">AI Caption Generator ✨</div>
+                <div class="preview-sub">Jana kapsyen Threads viral dalam Bahasa Melayu natural yang terasa ditulis oleh manusia</div>
+                <div class="preview-chips">
+                    <span class="chip chip-purple">🏠 Hartanah</span>
+                    <span class="chip chip-purple">🛍️ Affiliate</span>
+                    <span class="chip chip-green">✓ AI Aktif</span>
+                    <span class="chip chip-blue">⚡ 10 saat</span>
                 </div>
             </div>
         </div>
-    </section>
-    <section class="features-section">
-        <h2 class="section-title">Kuasa Automasi Sepenuhnya Di Tangan Anda</h2>
-        
+    </div>
+</div>
+
+<!-- ── FEATURES ──────────────────────────────────────────────────────────── -->
+<section>
+    <div class="container">
+        <div class="section-eyebrow">Ciri Utama</div>
+        <h2 class="section-title">Kuasa Yang Tiada <span class="gradient-text">Tandingan</span></h2>
+        <p class="section-sub">Setiap ciri direka khas untuk pasaran Malaysia — bukan alat generik dari Barat yang tak faham konteks tempatan.</p>
+
         <div class="features-grid">
             <div class="feature-card">
-                <div class="feature-icon-wrapper">
-                    <svg width="24" height="24" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"></path>
-                    </svg>
-                </div>
+                <div class="feature-icon">🧠</div>
                 <h3>Tone "Ultra-Realistic Malay"</h3>
-                <p>Kapsyen yang dihasilkan menggunakan singkatan tempatan dan gaya bahasa rojak (Manglish) natural, menjadikannya kelihatan seperti ditulis oleh manusia, bukan bot AI formal.</p>
+                <p>Caption dijana menggunakan singkatan tempatan, Manglish natural dan gaya bahasa rojak — terasa seperti ditulis oleh manusia, bukan AI formal yang kaku.</p>
+                <span class="feature-tag tag-green">✓ Eksklusif Malaysia</span>
             </div>
-
             <div class="feature-card">
-                <div class="feature-icon-wrapper">
-                    <svg width="24" height="24" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"></path>
-                    </svg>
-                </div>
-                <h3>Telegram Multi-Image Scraper 🌟</h3>
-                <p>Sedut listing/affiliate dari link Telegram berserta <strong>galeri gambar penuh</strong>. Enjin AI kami akan mengagihkan setiap gambar ke slide thread yang berbeza secara automatik!</p>
+                <div class="feature-icon cyan">📷</div>
+                <h3>Telegram Multi-Image Scraper</h3>
+                <p>Sedut listing dari link Telegram berserta <strong>galeri gambar penuh</strong> secara automatik. AI agihkan setiap gambar ke slide thread berbeza.</p>
+                <span class="feature-tag tag-blue">⭐ Feature Terhangat</span>
             </div>
-
             <div class="feature-card">
-                <div class="feature-icon-wrapper">
-                    <svg width="24" height="24" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1"></path>
-                    </svg>
-                </div>
-                <h3>Link Redirect & Analytics nakcuba.my</h3>
-                <p>Tukar pautan affiliate/WhatsApp anda secara automatik kepada link jenama tempatan nakcuba.my untuk mengesan statistik klik pengguna dengan tepat secara masa-nyata.</p>
+                <div class="feature-icon pink">🔗</div>
+                <h3>Link Redirect & Analytics</h3>
+                <p>Tukar pautan affiliate/WhatsApp kepada link jenama <strong>nakcuba.my</strong> secara automatik — kesan klik pengguna secara masa-nyata.</p>
+                <span class="feature-tag tag-pink">📊 Analytics Penuh</span>
+            </div>
+            <div class="feature-card">
+                <div class="feature-icon green">⏰</div>
+                <h3>Autopilot Staggered Queue</h3>
+                <p>Jadualkan posting secara pukal. Sistem hantar setiap post <strong>15 minit</strong> selepas posting terakhir — simulasi aktiviti organik semulajadi.</p>
+                <span class="feature-tag tag-green">✓ Set-and-Forget</span>
+            </div>
+            <div class="feature-card">
+                <div class="feature-icon">🏠</div>
+                <h3>Mod Ejen Hartanah</h3>
+                <p>Jana ulasan listing profesional dari URL Telegram. Pangkas automatik info REN/Tel dari caption untuk elak spam dan protect listing anda.</p>
+                <span class="feature-tag tag-green">✓ REN/PEA Ready</span>
+            </div>
+            <div class="feature-card">
+                <div class="feature-icon amber">🪝</div>
+                <h3>50 Rahsia Hook Vislo</h3>
+                <p>AI jana hook berdasarkan 50 template terbukti viral untuk Threads — Curiosity Gap, Confession, Controversial Statement untuk tingkatkan engagement.</p>
+                <span class="feature-tag tag-amber">🔥 Viral Hook Engine</span>
             </div>
         </div>
-    </section>
+    </div>
+</section>
 
-    <!-- Target Audience Section -->
-    <section class="target-section">
-        <h2 class="section-title">Siapa Yang Wajib Gunakan SocialHub?</h2>
-        <div class="target-grid">
-            <div class="target-card">
-                <span class="target-emoji">🏠</span>
-                <h4>Ejen Hartanah (REN/PEA)</h4>
-                <p>Jana ulasan hartanah profesional secara automatik terus dari link listing. Menyokong pengedaran gambar dari listing Telegram, serta pangkas pintar maklumat REN/Tel untuk elak spam.</p>
-            </div>
-            
-            <div class="target-card">
-                <span class="target-emoji">🛍️</span>
-                <h4>Ejen Affiliate (Shopee/TikTok)</h4>
-                <p>Hasilkan kapsyen bercirikan **Curiosity Gap** (Jurang Rasa Ingin Tahu) yang menukarkan pembaca menjadi klik pembeli berkualiti tinggi, menyelesaikan masalah "banyak klik tapi tiada sales".</p>
-            </div>
-
-            <div class="target-card">
-                <span class="target-emoji">🚗</span>
-                <h4>Ejen Jualan Kereta / Motor</h4>
-                <p>Tonjolkan tawaran bulanan rendah, free gifts, dan galakkan audiens memeriksa kelayakan pinjaman dengan call-to-action yang mesra dan tidak agresif.</p>
-            </div>
-
-            <div class="target-card">
-                <span class="target-emoji">✍️</span>
-                <h4>Content Creator & Pemasar</h4>
-                <p>Rancang bebenang (Thread Storm) yang panjang secara tersusun mengikut template **50 Rahsia Hook Vislo** untuk melonjakkan interaksi (engagement) & likes.</p>
-            </div>
+<!-- ── TARGET AUDIENCE ───────────────────────────────────────────────────── -->
+<section style="padding:3rem 0 5rem; background: var(--bg-soft);">
+    <div class="container">
+        <div class="section-eyebrow">Siapa Yang Sesuai</div>
+        <h2 class="section-title">Dibina <span class="gradient-text">Untuk Anda</span></h2>
+        <p class="section-sub">SocialHub direka khas untuk usahawan, ejen, dan content creator Malaysia yang ingin scale tanpa kerja keras tambahan.</p>
+        <div class="audience-grid">
+            <div class="audience-card"><span class="audience-emoji">🏠</span><h4>Ejen Hartanah (REN/PEA)</h4><p>Jana ulasan listing profesional dari link Telegram. Auto-agih gambar, auto-pangkas info peribadi. Jimat masa, jaga reputasi.</p></div>
+            <div class="audience-card"><span class="audience-emoji">🛍️</span><h4>Ejen Affiliate (Shopee/TikTok)</h4><p>Caption Curiosity Gap yang menukar pembaca jadi klik pembeli. Selesaikan masalah "banyak klik tapi tiada sales" sekali gus.</p></div>
+            <div class="audience-card"><span class="audience-emoji">🚗</span><h4>Ejen Jualan Kereta / Motor</h4><p>Tonjolkan tawaran bulanan rendah, free gifts, dan CTA kelayakan pinjaman yang mesra — bukan agresif dan menakutkan.</p></div>
+            <div class="audience-card"><span class="audience-emoji">✍️</span><h4>Content Creator & Pemasar</h4><p>Rancang Thread Storm panjang mengikut template viral. Tingkatkan engagement, likes, dan follower organik tanpa penat.</p></div>
         </div>
-    </section>
+    </div>
+</section>
 
-    <!-- PWA & Cloud Autopilot Section -->
-    <section class="pwa-section">
-        <div class="pwa-content">
-            <h2>Akses Di Mana-Mana. Autopilot Bergerak Sendiri.</h2>
-            <p>Dibina berasaskan teknologi <strong>Progressive Web App (PWA)</strong>, SocialHub bukan sahaja sekadar laman web biasa. Anda boleh pasang (install) aplikasi ini terus ke skrin telefon pintar anda seperti aplikasi native tanpa perlu memuat turun dari App Store.</p>
-            
-            <ul class="pwa-list">
-                <li class="pwa-list-item">
-                    <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
-                    <span><strong>100% Bebas Laptop:</strong> Rancang dan generate posting menggunakan telefon pintar semasa dalam perjalanan atau sedang bercuti.</span>
-                </li>
-                <li class="pwa-list-item">
-                    <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
-                    <span><strong>Server Autopilot (Set-and-Forget):</strong> Laptop atau telefon anda tidak perlu diaktifkan untuk menghantar post. Enjin Cloudflare Workers kami menguruskan penghantaran post berjadual anda secara automatik di cloud 24/7.</span>
-                </li>
-                <li class="pwa-list-item">
-                    <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
-                    <span><strong>Notifikasi Pintar & Ringan:</strong> Aplikasi PWA kami sangat ringan, menjimatkan kuota internet, dan dimuatkan serta-merta tanpa lag.</span>
-                </li>
-            </ul>
-        </div>
-        
-        <div class="pwa-visual">
-            <div class="pwa-phone-mockup">
-                <div class="logo-icon" style="width: 50px; height: 50px; font-size: 1.5rem; margin-bottom: 1rem; margin-top: 0;">S</div>
-                <div style="font-family: 'Outfit', sans-serif; color: white; font-weight: 700; font-size: 0.95rem;">SocialHub App</div>
-                <div style="font-size: 0.7rem; color: var(--color-success); font-weight: 600; margin-top: 0.5rem; background: rgba(16,185,129,0.1); padding: 0.2rem 0.5rem; border-radius: 20px;">✓ Installed on Device</div>
-            </div>
-        </div>
-    </section>
-
-    <!-- Pricing Section -->
-    <section id="pricing" class="pricing-section">
-        <h2 class="section-title">Pilih Pelan Pemasaran Anda</h2>
-
-        <div class="pricing-grid">
-            <!-- Tier 1 -->
-            <div class="pricing-card">
-                <div class="plan-name">Starter (Pro)</div>
-                <div class="plan-price-box">
-                    <span class="plan-currency">RM</span>
-                    <span class="plan-price">29</span>
-                    <span class="plan-period">/bulan</span>
-                </div>
-                <ul class="plan-features-list">
-                    <li class="plan-feature-item">
-                        <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path></svg>
-                        <strong>250</strong> Kredit AI Generasi Sebulan
+<!-- ── PWA ─────────────────────────────────────────────────────────────── -->
+<section>
+    <div class="container">
+        <div class="pwa-wrap">
+            <div>
+                <div class="section-eyebrow">Progressive Web App</div>
+                <h2 class="section-title">Akses Di Mana-Mana.<br><span class="gradient-text">Bergerak Tanpa Berhenti.</span></h2>
+                <ul class="pwa-list">
+                    <li class="pwa-item">
+                        <div class="pwa-check"><svg width="13" height="13" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="3" d="M5 13l4 4L19 7"/></svg></div>
+                        <div><strong>100% Bebas Laptop</strong><span>Generate dan jadualkan posting menggunakan telefon pintar sahaja — semasa dalam perjalanan, bercuti, atau rehat.</span></div>
                     </li>
-                    <li class="plan-feature-item">
-                        <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path></svg>
-                        Pautan <strong>3 Akaun Threads</strong>
+                    <li class="pwa-item">
+                        <div class="pwa-check"><svg width="13" height="13" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="3" d="M5 13l4 4L19 7"/></svg></div>
+                        <div><strong>Server Autopilot (Set-and-Forget)</strong><span>Telefon anda tidak perlu ON untuk hantar post. Cloudflare Workers uruskan penghantaran 24/7 di cloud.</span></div>
                     </li>
-                    <li class="plan-feature-item">
-                        <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path></svg>
-                        Autopilot Staggered Queue
-                    </li>
-                    <li class="plan-feature-item">
-                        <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path></svg>
-                        Penyekatan Nombor REN & WhatsApp
+                    <li class="pwa-item">
+                        <div class="pwa-check"><svg width="13" height="13" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="3" d="M5 13l4 4L19 7"/></svg></div>
+                        <div><strong>Install Seperti App Native</strong><span>Tambah ke skrin utama telefon terus dari browser — tanpa App Store. Ringan, pantas, jimat kuota data.</span></div>
                     </li>
                 </ul>
-                <button class="btn btn-secondary btn-order" data-plan="Starter (Pro)" data-price="29">Langgan Sekarang</button>
             </div>
+            <div style="display:flex; justify-content:center;">
+                <img src="pwa_mobile_screen.jpg" alt="SocialHub Mobile App" class="phone-mockup-img">
+            </div>
+        </div>
+    </div>
+</section>
 
-            <!-- Tier 2 -->
+<!-- ── PRICING ───────────────────────────────────────────────────────────── -->
+<section id="pricing" style="background: var(--bg-soft);">
+    <div class="container">
+        <div style="text-align:center; margin-bottom:3rem;">
+            <div class="section-eyebrow">Harga Pelan</div>
+            <h2 class="section-title">Pilih Pelan <span class="gradient-text">Yang Sesuai</span></h2>
+            <p style="color:var(--text-muted); font-size:0.95rem;">Mula percuma. Scale bila bersedia. Batalkan bila-bila masa.</p>
+        </div>
+
+        <!-- Desktop -->
+        <div class="pricing-grid">
+            <div class="pricing-card">
+                <div class="plan-name">Starter · Pro</div>
+                <div class="plan-price-row"><span class="plan-currency">RM</span><span class="plan-price">29</span><span class="plan-period">/bulan</span></div>
+                <ul class="plan-features">
+                    <li class="plan-feature"><svg class="check" width="16" height="16" fill="none" stroke="#059669" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7"/></svg><span><strong>250</strong> Kapsyen AI sebulan</span></li>
+                    <li class="plan-feature"><svg class="check" width="16" height="16" fill="none" stroke="#059669" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7"/></svg><span>🎨 <strong>30</strong> Gambar Standard + <strong>10</strong> HD</span></li>
+                    <li class="plan-feature"><svg class="check" width="16" height="16" fill="none" stroke="#059669" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7"/></svg>Pautan <strong>3 Akaun</strong> Threads</li>
+                    <li class="plan-feature"><svg class="check" width="16" height="16" fill="none" stroke="#059669" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7"/></svg>Autopilot Staggered Queue</li>
+                    <li class="plan-feature"><svg class="check" width="16" height="16" fill="none" stroke="#059669" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7"/></svg>Penyekatan Nombor REN &amp; WhatsApp</li>
+                </ul>
+                <button class="btn btn-outline btn-order" data-plan="Starter (Pro)" data-price="29">Langgan Sekarang</button>
+            </div>
             <div class="pricing-card popular">
-                <div class="popular-badge">Paling Popular</div>
-                <div class="plan-name" style="color: #d8b4fe;">Growth (Gold)</div>
-                <div class="plan-price-box">
-                    <span class="plan-currency">RM</span>
-                    <span class="plan-price">59</span>
-                    <span class="plan-period">/bulan</span>
-                </div>
-                <ul class="plan-features-list">
-                    <li class="plan-feature-item">
-                        <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path></svg>
-                        <strong>800</strong> Kredit AI Generasi Sebulan
-                    </li>
-                    <li class="plan-feature-item">
-                        <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path></svg>
-                        Pautan <strong>10 Akaun Threads</strong>
-                    </li>
-                    <li class="plan-feature-item">
-                        <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path></svg>
-                        Semua Ciri Pelan Starter
-                    </li>
-                    <li class="plan-feature-item">
-                        <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path></svg>
-                        Graf Followers & Analitis Penuh
-                    </li>
+                <div class="popular-tag">⭐ Paling Popular</div>
+                <div class="plan-name" style="color:var(--primary);">Growth · Gold</div>
+                <div class="plan-price-row"><span class="plan-currency">RM</span><span class="plan-price">59</span><span class="plan-period">/bulan</span></div>
+                <ul class="plan-features">
+                    <li class="plan-feature"><svg class="check" width="16" height="16" fill="none" stroke="#059669" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7"/></svg><span><strong>800</strong> Kredit AI sebulan</span></li>
+                    <li class="plan-feature"><svg class="check" width="16" height="16" fill="none" stroke="#059669" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7"/></svg>Pautan <strong>10 Akaun</strong> Threads</li>
+                    <li class="plan-feature"><svg class="check" width="16" height="16" fill="none" stroke="#059669" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7"/></svg>Semua Ciri Pelan Starter</li>
+                    <li class="plan-feature"><svg class="check" width="16" height="16" fill="none" stroke="#059669" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7"/></svg>Graf Followers & Analitis Penuh</li>
                 </ul>
                 <button class="btn btn-primary btn-order" data-plan="Growth (Gold)" data-price="59">Langgan Sekarang</button>
             </div>
-
-            <!-- Tier 3 -->
             <div class="pricing-card">
-                <div class="plan-name">Agency (Premium)</div>
-                <div class="plan-price-box">
-                    <span class="plan-currency">RM</span>
-                    <span class="plan-price">149</span>
-                    <span class="plan-period">/bulan</span>
-                </div>
-                <ul class="plan-features-list">
-                    <li class="plan-feature-item">
-                        <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path></svg>
-                        <strong>2,500</strong> Kredit AI Generasi Sebulan
-                    </li>
-                    <li class="plan-feature-item">
-                        <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path></svg>
-                        <strong>Akaun Tanpa Had</strong>
-                    </li>
-                    <li class="plan-feature-item">
-                        <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path></svg>
-                        Sistem Ahli Pasukan (Team Members)
-                    </li>
-                    <li class="plan-feature-item">
-                        <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path></svg>
-                        API Key Gemini/OpenAI Sendiri
-                    </li>
+                <div class="plan-name">Agency · Premium</div>
+                <div class="plan-price-row"><span class="plan-currency">RM</span><span class="plan-price">149</span><span class="plan-period">/bulan</span></div>
+                <ul class="plan-features">
+                    <li class="plan-feature"><svg class="check" width="16" height="16" fill="none" stroke="#059669" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7"/></svg><span><strong>2,500</strong> Kredit AI sebulan</span></li>
+                    <li class="plan-feature"><svg class="check" width="16" height="16" fill="none" stroke="#059669" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7"/></svg><strong>Akaun Tanpa Had</strong></li>
+                    <li class="plan-feature"><svg class="check" width="16" height="16" fill="none" stroke="#059669" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7"/></svg>Sistem Ahli Pasukan (Team)</li>
+                    <li class="plan-feature"><svg class="check" width="16" height="16" fill="none" stroke="#059669" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7"/></svg>API Key Gemini/OpenAI Sendiri</li>
                 </ul>
-                <button class="btn btn-secondary btn-order" data-plan="Agency (Premium)" data-price="149">Langgan Sekarang</button>
+                <button class="btn btn-outline btn-order" data-plan="Agency (Premium)" data-price="149">Langgan Sekarang</button>
             </div>
         </div>
 
-        <!-- Mobile Pricing Slider (hidden on desktop, shown on mobile via CSS) -->
+        <!-- Mobile Slider -->
         <div class="pricing-slider-wrapper" id="pricingSliderWrapper">
             <div class="pricing-slider" id="pricingSlider">
-                <!-- Slide 1: Starter -->
-                <div class="pricing-card">
-                    <div class="plan-name">Starter (Pro)</div>
-                    <div class="plan-price-box">
-                        <span class="plan-currency">RM</span>
-                        <span class="plan-price">29</span>
-                        <span class="plan-period">/bulan</span>
-                    </div>
-                    <ul class="plan-features-list">
-                        <li class="plan-feature-item"><svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path></svg><strong>250</strong> Kredit AI Generasi Sebulan</li>
-                        <li class="plan-feature-item"><svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path></svg>Pautan <strong>3 Akaun Threads</strong></li>
-                        <li class="plan-feature-item"><svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path></svg>Autopilot Staggered Queue</li>
-                        <li class="plan-feature-item"><svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path></svg>Penyekatan Nombor REN &amp; WhatsApp</li>
-                    </ul>
-                    <button class="btn btn-secondary btn-order" data-plan="Starter (Pro)" data-price="29">Langgan Sekarang</button>
-                </div>
-                <!-- Slide 2: Growth -->
-                <div class="pricing-card popular">
-                    <div class="popular-badge">Paling Popular</div>
-                    <div class="plan-name" style="color: #d8b4fe;">Growth (Gold)</div>
-                    <div class="plan-price-box">
-                        <span class="plan-currency">RM</span>
-                        <span class="plan-price">59</span>
-                        <span class="plan-period">/bulan</span>
-                    </div>
-                    <ul class="plan-features-list">
-                        <li class="plan-feature-item"><svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path></svg><strong>800</strong> Kredit AI Generasi Sebulan</li>
-                        <li class="plan-feature-item"><svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path></svg>Pautan <strong>10 Akaun Threads</strong></li>
-                        <li class="plan-feature-item"><svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path></svg>Semua Ciri Pelan Starter</li>
-                        <li class="plan-feature-item"><svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path></svg>Graf Followers &amp; Analitis Penuh</li>
-                    </ul>
-                    <button class="btn btn-primary btn-order" data-plan="Growth (Gold)" data-price="59">Langgan Sekarang</button>
-                </div>
-                <!-- Slide 3: Agency -->
-                <div class="pricing-card">
-                    <div class="plan-name">Agency (Premium)</div>
-                    <div class="plan-price-box">
-                        <span class="plan-currency">RM</span>
-                        <span class="plan-price">149</span>
-                        <span class="plan-period">/bulan</span>
-                    </div>
-                    <ul class="plan-features-list">
-                        <li class="plan-feature-item"><svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path></svg><strong>2,500</strong> Kredit AI Generasi Sebulan</li>
-                        <li class="plan-feature-item"><svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path></svg><strong>Akaun Tanpa Had</strong></li>
-                        <li class="plan-feature-item"><svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path></svg>Sistem Ahli Pasukan (Team Members)</li>
-                        <li class="plan-feature-item"><svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path></svg>API Key Gemini/OpenAI Sendiri</li>
-                    </ul>
-                    <button class="btn btn-secondary btn-order" data-plan="Agency (Premium)" data-price="149">Langgan Sekarang</button>
-                </div>
+                <div class="pricing-card"><div class="plan-name">Starter · Pro</div><div class="plan-price-row"><span class="plan-currency">RM</span><span class="plan-price">29</span><span class="plan-period">/bulan</span></div><ul class="plan-features"><li class="plan-feature"><svg class="check" width="16" height="16" fill="none" stroke="#059669" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7"/></svg><strong>250</strong>&nbsp;Kapsyen AI sebulan</li><li class="plan-feature"><svg class="check" width="16" height="16" fill="none" stroke="#059669" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7"/></svg>🎨 <strong>30</strong> Standard + <strong>10</strong> HD</li><li class="plan-feature"><svg class="check" width="16" height="16" fill="none" stroke="#059669" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7"/></svg>Pautan <strong>3 Akaun</strong> Threads</li><li class="plan-feature"><svg class="check" width="16" height="16" fill="none" stroke="#059669" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7"/></svg>Autopilot Queue</li></ul><button class="btn btn-outline btn-order" data-plan="Starter (Pro)" data-price="29">Langgan Sekarang</button></div>
+                <div class="pricing-card popular"><div class="popular-tag">⭐ Paling Popular</div><div class="plan-name" style="color:var(--primary);">Growth · Gold</div><div class="plan-price-row"><span class="plan-currency">RM</span><span class="plan-price">59</span><span class="plan-period">/bulan</span></div><ul class="plan-features"><li class="plan-feature"><svg class="check" width="16" height="16" fill="none" stroke="#059669" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7"/></svg><strong>800</strong>&nbsp;Kapsyen AI sebulan</li><li class="plan-feature"><svg class="check" width="16" height="16" fill="none" stroke="#059669" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7"/></svg>🎨 <strong>80</strong> Standard + <strong>30</strong> HD</li><li class="plan-feature"><svg class="check" width="16" height="16" fill="none" stroke="#059669" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7"/></svg>Pautan <strong>10 Akaun</strong></li><li class="plan-feature"><svg class="check" width="16" height="16" fill="none" stroke="#059669" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7"/></svg>Graf &amp; Analitis Penuh</li></ul><button class="btn btn-primary btn-order" data-plan="Growth (Gold)" data-price="59">Langgan Sekarang</button></div>
+                <div class="pricing-card"><div class="plan-name">Agency · Premium</div><div class="plan-price-row"><span class="plan-currency">RM</span><span class="plan-price">149</span><span class="plan-period">/bulan</span></div><ul class="plan-features"><li class="plan-feature"><svg class="check" width="16" height="16" fill="none" stroke="#059669" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7"/></svg><strong>2,500</strong>&nbsp;Kapsyen AI sebulan</li><li class="plan-feature"><svg class="check" width="16" height="16" fill="none" stroke="#059669" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7"/></svg>🌟 <strong>250</strong> Standard + <strong>100</strong> HD</li><li class="plan-feature"><svg class="check" width="16" height="16" fill="none" stroke="#059669" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7"/></svg><strong>Akaun Tanpa Had</strong></li><li class="plan-feature"><svg class="check" width="16" height="16" fill="none" stroke="#059669" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7"/></svg>Sistem Pasukan + API Sendiri</li></ul><button class="btn btn-outline btn-order" data-plan="Agency (Premium)" data-price="149">Langgan Sekarang</button></div>
             </div>
             <div class="slider-dots" id="sliderDots">
                 <span class="slider-dot active" data-index="0"></span>
@@ -1247,225 +650,127 @@
                 <span class="slider-dot" data-index="2"></span>
             </div>
         </div>
-    </section>
+    </div>
+</section>
 
-    <!-- Payment Modal -->
-    <div id="paymentModal" class="modal">
-        <div class="modal-card">
-            <div class="modal-header">
-                <h3 class="modal-title">Checkout Langganan</h3>
-                <button id="closeModalBtn" class="modal-close">
-                    <svg width="24" height="24" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
-                    </svg>
-                </button>
+<!-- ── CTA BANNER ────────────────────────────────────────────────────────── -->
+<div class="cta-section">
+    <img src="socialhub_pwa_icon.png" alt="SocialHub" style="width:60px;height:60px;border-radius:16px;margin:0 auto 1.5rem;display:block;box-shadow:0 8px 24px rgba(124,58,237,0.2);">
+    <h2>Bersedia Untuk <span class="gradient-text">Automate?</span></h2>
+    <p>Lebih 10 saat daripada sekarang, anda boleh dah ada caption Threads pertama yang siap dijadualkan.</p>
+    <div style="display:flex;justify-content:center;gap:0.85rem;flex-wrap:wrap;">
+        <a href="register.html" class="btn btn-primary btn-lg">
+            <svg width="17" height="17" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M13 10V3L4 14h7v7l9-11h-7z"/></svg>
+            Cuba Percuma Sekarang
+        </a>
+        <a href="guide.html" class="btn btn-outline btn-lg">Baca Panduan</a>
+    </div>
+</div>
+
+<!-- ── FOOTER ────────────────────────────────────────────────────────────── -->
+<footer>
+    <div class="footer-brand">
+        <img src="socialhub_pwa_icon.png" alt="SocialHub" class="footer-logo">
+        <span class="footer-name">SocialHub</span>
+    </div>
+    <span class="footer-copy">© 2026 SocialHub · Dibina untuk usahawan Malaysia</span>
+    <div class="footer-links">
+        <a href="privacy/index.html">Privasi</a>
+        <a href="terms/index.html">Terma</a>
+        <a href="guide.html">Panduan</a>
+        <a href="login.html">Log Masuk</a>
+    </div>
+</footer>
+
+<!-- ── PAYMENT MODAL ─────────────────────────────────────────────────────── -->
+<div id="paymentModal" class="modal">
+    <div class="modal-card">
+        <div class="modal-head">
+            <h3>Checkout Langganan</h3>
+            <button id="closeModalBtn" class="modal-close">✕</button>
+        </div>
+        <div class="modal-body">
+            <div class="checkout-summary">
+                <div class="summary-row"><span>Pakej Pilihan:</span><span id="summaryPlanName">-</span></div>
+                <div class="summary-row"><span>Tempoh:</span><span>Bulanan (Recurring)</span></div>
+                <div class="summary-row total"><span>Jumlah:</span><span id="summaryPlanPrice">RM 0.00</span></div>
             </div>
-            
-            <div class="modal-body">
-                <div class="checkout-summary">
-                    <div class="summary-row">
-                        <span style="color: var(--text-muted);">Pakej Pilihan:</span>
-                        <span id="summaryPlanName" style="color: white; font-weight: 600;">-</span>
-                    </div>
-                    <div class="summary-row">
-                        <span style="color: var(--text-muted);">Talian/Tempoh:</span>
-                        <span style="color: white;">Bulanan (Recurring)</span>
-                    </div>
-                    <div class="summary-row total">
-                        <span>Jumlah Pembayaran:</span>
-                        <span id="summaryPlanPrice">RM 0.00</span>
-                    </div>
+            <div class="pay-tabs">
+                <button id="tabFPX" class="pay-tab active">Online Banking / FPX</button>
+                <button id="tabQR" class="pay-tab">DuitNow QR</button>
+            </div>
+            <div id="panelFPX" class="tab-panel active">
+                <div class="fpx-logos"><span class="fpx-label">FPX</span><span class="toyyib-label">TOYYIBPAY</span></div>
+                <p class="fpx-desc">Bayar selamat menggunakan ToyyibPay / FPX Online Banking bank tempatan anda.</p>
+                <button id="payGatewayBtn" class="btn btn-primary modal-cta">Teruskan ke Gerbang Pembayaran</button>
+            </div>
+            <div id="panelQR" class="tab-panel">
+                <div style="text-align:center;padding:1rem 0;">
+                    <div class="qr-box"><div class="qr-brand">DuitNow QR</div><div class="qr-pattern"></div><div class="qr-name">ZAIM ROSLI VENTURES</div></div>
+                    <p style="font-size:0.8rem;color:var(--text-muted);margin-bottom:1rem;">Imbas QR di atas dan muat naik resit setelah selesai.</p>
+                    <form id="qrUploadForm">
+                        <div class="form-group"><label class="form-label">Nama Penuh</label><input type="text" id="custName" class="form-control" placeholder="cth. Zaim Rosli" required></div>
+                        <div class="form-group"><label class="form-label">E-mel Berdaftar</label><input type="email" id="custEmail" class="form-control" placeholder="email@domain.com" required></div>
+                        <div class="form-group"><label class="form-label">Resit Transaksi (PDF / Gambar)</label><input type="file" id="receiptFile" class="form-file" accept="image/*,application/pdf" required></div>
+                        <button type="submit" class="btn btn-primary modal-cta">Hantar Bukti Pembayaran</button>
+                    </form>
                 </div>
-
-                <div class="payment-tabs">
-                    <button id="tabFPX" class="pay-tab active">Online Banking / FPX</button>
-                    <button id="tabQR" class="pay-tab">DuitNow QR</button>
-                </div>
-
-                <!-- Panel FPX Gateway -->
-                <div id="panelFPX" class="tab-panel active">
-                    <div class="fpx-container">
-                        <div class="fpx-logo-grid">
-                            <span class="fpx-logo-text">FPX</span>
-                            <span style="color: #6366f1; font-weight: 800; font-size: 1.5rem;">TOYYIBPAY</span>
-                        </div>
-                        <p class="fpx-desc">Bayar secara selamat menggunakan ToyyibPay / FPX Online Banking bank tempatan anda.</p>
-                        
-                        <div class="checkout-actions">
-                            <button id="payGatewayBtn" class="btn btn-primary">Teruskan ke Gerbang Pembayaran</button>
-                        </div>
-                    </div>
-                </div>
-
-                <!-- Panel DuitNow QR -->
-                <div id="panelQR" class="tab-panel">
-                    <div class="qr-section">
-                        <div class="qr-mock-box">
-                            <div class="qr-duitnow-logo">DuitNow QR</div>
-                            <div class="qr-code-drawing"></div>
-                            <div class="qr-account-name">ZAIM ROSLI VENTURES</div>
-                        </div>
-                        <p class="qr-info-text">Imbas kod QR di atas menggunakan aplikasi bank/e-wallet anda. Sila muat naik resit pembayaran di bawah setelah selesai.</p>
-                        
-                        <form id="qrUploadForm">
-                            <div class="form-group">
-                                <label class="form-label">Nama Penuh Anda</label>
-                                <input type="text" id="custName" class="form-control" placeholder="cth. Zaim Rosli" required>
-                            </div>
-                            <div class="form-group">
-                                <label class="form-label">E-mel Berdaftar</label>
-                                <input type="email" id="custEmail" class="form-control" placeholder="email@domain.com" required>
-                            </div>
-                            <div class="form-group">
-                                <label class="form-label">Muat Naik Resit Transaksi (PDF / Image)</label>
-                                <input type="file" id="receiptFile" class="form-file" accept="image/*,application/pdf" required>
-                            </div>
-
-                            <div class="checkout-actions">
-                                <button type="submit" class="btn btn-primary">Hantar Bukti Pembayaran</button>
-                            </div>
-                        </form>
-                    </div>
-                </div>
-
             </div>
         </div>
     </div>
+</div>
 
-    <footer>
-        <p>&copy; 2026 SocialHub. Hak Cipta Terpelihara. Dibina untuk komuniti pencipta content & usahawan Malaysia.</p>
-    </footer>
-
-    <script>
-        const modal = document.getElementById('paymentModal');
-        const closeModalBtn = document.getElementById('closeModalBtn');
-        const btnOrders = document.querySelectorAll('.btn-order');
-        
-        const summaryPlanName = document.getElementById('summaryPlanName');
-        const summaryPlanPrice = document.getElementById('summaryPlanPrice');
-
-        // Opening modal
-        btnOrders.forEach(btn => {
-            btn.addEventListener('click', () => {
-                const planName = btn.getAttribute('data-plan');
-                const price = btn.getAttribute('data-price');
-                
-                summaryPlanName.textContent = planName;
-                summaryPlanPrice.textContent = `RM ${price}.00`;
-                
-                modal.style.display = 'flex';
-            });
+<script>
+    const modal = document.getElementById('paymentModal');
+    document.querySelectorAll('.btn-order').forEach(btn => {
+        btn.addEventListener('click', () => {
+            document.getElementById('summaryPlanName').textContent = btn.dataset.plan;
+            document.getElementById('summaryPlanPrice').textContent = `RM ${btn.dataset.price}.00`;
+            modal.style.display = 'flex';
         });
+    });
+    document.getElementById('closeModalBtn').addEventListener('click', () => modal.style.display = 'none');
+    window.addEventListener('click', e => { if (e.target === modal) modal.style.display = 'none'; });
 
-        // Closing modal
-        closeModalBtn.addEventListener('click', () => {
-            modal.style.display = 'none';
+    const tabFPX = document.getElementById('tabFPX'), tabQR = document.getElementById('tabQR');
+    const panelFPX = document.getElementById('panelFPX'), panelQR = document.getElementById('panelQR');
+    tabFPX.addEventListener('click', () => { tabFPX.classList.add('active'); tabQR.classList.remove('active'); panelFPX.classList.add('active'); panelQR.classList.remove('active'); });
+    tabQR.addEventListener('click', () => { tabQR.classList.add('active'); tabFPX.classList.remove('active'); panelQR.classList.add('active'); panelFPX.classList.remove('active'); });
+    document.getElementById('payGatewayBtn').addEventListener('click', () => { alert('Menghubungkan ke ToyyibPay/FPX Gateway...'); modal.style.display = 'none'; });
+    document.getElementById('qrUploadForm').addEventListener('submit', e => {
+        e.preventDefault();
+        alert(`Terima kasih ${document.getElementById('custName').value}! Resit diterima. Admin akan semak dan aktifkan akaun dalam 10-15 minit.`);
+        modal.style.display = 'none'; e.target.reset();
+    });
+
+    const pricingSlider = document.getElementById('pricingSlider');
+    const sliderDots = document.querySelectorAll('.slider-dot');
+    let autoSlideInterval;
+    function updateDots(idx) { sliderDots.forEach((d,i) => d.classList.toggle('active', i === idx)); }
+    if (pricingSlider) {
+        pricingSlider.addEventListener('scroll', () => {
+            const cw = pricingSlider.querySelector('.pricing-card').getBoundingClientRect().width;
+            updateDots(Math.min(2, Math.max(0, Math.round(pricingSlider.scrollLeft / (cw + 16)))));
         });
-
-        window.addEventListener('click', (e) => {
-            if (e.target === modal) {
-                modal.style.display = 'none';
-            }
-        });
-
-        // Tabs switching logic
-        const tabFPX = document.getElementById('tabFPX');
-        const tabQR = document.getElementById('tabQR');
-        const panelFPX = document.getElementById('panelFPX');
-        const panelQR = document.getElementById('panelQR');
-
-        tabFPX.addEventListener('click', () => {
-            tabFPX.classList.add('active');
-            tabQR.classList.remove('active');
-            panelFPX.classList.add('active');
-            panelQR.classList.remove('active');
-        });
-
-        tabQR.addEventListener('click', () => {
-            tabQR.classList.add('active');
-            tabFPX.classList.remove('active');
-            panelQR.classList.add('active');
-            panelFPX.classList.remove('active');
-        });
-
-        // Simulate FPX payment
-        document.getElementById('payGatewayBtn').addEventListener('click', () => {
-            alert('Menghubungkan ke ToyyibPay/FPX Gateway Simulation... Sila lengkapkan pembayaran di tetingkap yang dibuka.');
-            modal.style.display = 'none';
-        });
-
-        // Simulate QR upload submit
-        document.getElementById('qrUploadForm').addEventListener('submit', (e) => {
-            e.preventDefault();
-            const name = document.getElementById('custName').value;
-            alert(`Terima kasih ${name}! Resit pembayaran anda telah diterima. Pihak pentadbir (admin) akan menyemak resit anda dan mengaktifkan akaun dalam masa 10-15 minit.`);
-            modal.style.display = 'none';
-            document.getElementById('qrUploadForm').reset();
-        });
-
-        // Pricing Slider (Mobile)
-        const pricingSlider = document.getElementById('pricingSlider');
-        const sliderDots = document.querySelectorAll('.slider-dot');
-        let autoSlideInterval;
-
-        function updateDots(activeIndex) {
-            sliderDots.forEach((dot, idx) => {
-                if (idx === activeIndex) {
-                    dot.classList.add('active');
-                } else {
-                    dot.classList.remove('active');
-                }
-            });
-        }
-
-        if (pricingSlider) {
-            pricingSlider.addEventListener('scroll', () => {
-                const cardWidth = pricingSlider.querySelector('.pricing-card').getBoundingClientRect().width;
-                const gap = 20;
-                const scrollLeft = pricingSlider.scrollLeft;
-                const activeIndex = Math.round(scrollLeft / (cardWidth + gap));
-                const clampedIndex = Math.min(2, Math.max(0, activeIndex));
-                updateDots(clampedIndex);
-            });
-
-            sliderDots.forEach(dot => {
-                dot.addEventListener('click', () => {
-                    clearInterval(autoSlideInterval);
-                    const index = parseInt(dot.getAttribute('data-index'));
-                    const width = pricingSlider.clientWidth;
-                    const cardWidth = pricingSlider.querySelector('.pricing-card').getBoundingClientRect().width;
-                    const gap = 20; // 1.25rem = 20px
-                    pricingSlider.scrollTo({
-                        left: index * (cardWidth + gap),
-                        behavior: 'smooth'
-                    });
-                    updateDots(index);
-                });
-            });
-
-            // Auto-slide logic
-            const startAutoSlide = () => {
-                autoSlideInterval = setInterval(() => {
-                    const width = pricingSlider.clientWidth;
-                    const cardWidth = pricingSlider.querySelector('.pricing-card').getBoundingClientRect().width;
-                    const gap = 20;
-                    const scrollLeft = pricingSlider.scrollLeft;
-                    let nextIndex = Math.round(scrollLeft / (cardWidth + gap)) + 1;
-                    if (nextIndex >= 3) nextIndex = 0;
-                    pricingSlider.scrollTo({
-                        left: nextIndex * (cardWidth + gap),
-                        behavior: 'smooth'
-                    });
-                }, 5000);
-            };
-
-            // Detect user touch/interaction to clear auto slide
-            pricingSlider.addEventListener('touchstart', () => {
+        sliderDots.forEach(dot => {
+            dot.addEventListener('click', () => {
                 clearInterval(autoSlideInterval);
-            }, { passive: true });
-
-            startAutoSlide();
-        }
-    </script>
+                const idx = parseInt(dot.dataset.index);
+                pricingSlider.scrollTo({ left: idx * (pricingSlider.querySelector('.pricing-card').getBoundingClientRect().width + 16), behavior: 'smooth' });
+                updateDots(idx);
+            });
+        });
+        const startAuto = () => {
+            autoSlideInterval = setInterval(() => {
+                const cw = pricingSlider.querySelector('.pricing-card').getBoundingClientRect().width;
+                let next = Math.round(pricingSlider.scrollLeft / (cw + 16)) + 1;
+                if (next >= 3) next = 0;
+                pricingSlider.scrollTo({ left: next * (cw + 16), behavior: 'smooth' });
+            }, 4500);
+        };
+        pricingSlider.addEventListener('touchstart', () => clearInterval(autoSlideInterval), { passive: true });
+        startAuto();
+    }
+</script>
 </body>
 </html>

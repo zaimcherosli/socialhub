@@ -3,434 +3,266 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>SocialHub - Panduan Pengguna & Pusat Dokumentasi</title>
+    <title>SocialHub — Panduan Pengguna & Dokumentasi</title>
+    <meta name="description" content="Pusat Panduan dan Dokumentasi Pengguna SocialHub — Pelajari cara setup, enjin AI, auto-scheduling, dan pengurusan akaun.">
     <link rel="icon" type="image/png" href="socialhub_pwa_icon.png">
+    <link rel="apple-touch-icon" href="socialhub_pwa_icon.png">
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Outfit:wght@400;500;600;700;800&display=swap" rel="stylesheet">
-    
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Outfit:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
+
     <style>
+        /* ── Design Tokens ─────────────────────────────────────────────────── */
         :root {
-            --bg-primary: #0b0f19;
-            --bg-secondary: #131a2e;
-            --bg-glass: rgba(30, 41, 59, 0.45);
-            --border-glass: rgba(255, 255, 255, 0.06);
-            --color-primary: #8b5cf6;
-            --color-secondary: #ec4899;
-            --color-success: #10b981;
-            --text-main: #f3f4f6;
-            --text-muted: #9ca3af;
+            --bg:           #ffffff;
+            --bg-soft:      #f8f7ff;
+            --bg-card:      #ffffff;
+            --bg-muted:     #f1f0fe;
+            --border:       #e8e4fa;
+            --border-dark:  #d4cef8;
+            --primary:      #7c3aed;
+            --primary-mid:  #8b5cf6;
+            --primary-light:#a78bfa;
+            --secondary:    #db2777;
+            --success:      #059669;
+            --text:         #1a1035;
+            --text-mid:     #4b4568;
+            --text-muted:   #7c748f;
+            --shadow-sm:    0 1px 3px rgba(124,58,237,0.08), 0 1px 2px rgba(0,0,0,0.04);
+            --shadow-md:    0 4px 16px rgba(124,58,237,0.1), 0 2px 6px rgba(0,0,0,0.05);
         }
 
-        * {
-            box-sizing: border-box;
-            margin: 0;
-            padding: 0;
+        /* ── Reset ──────────────────────────────────────────────────────────── */
+        *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+        html, body {
             scroll-behavior: smooth;
+            overflow-x: hidden;
+            max-width: 100vw;
         }
 
         body {
             font-family: 'Inter', sans-serif;
-            background-color: var(--bg-primary);
-            color: var(--text-main);
-            line-height: 1.6;
-            background-image: 
-                radial-gradient(circle at 10% 20%, rgba(139, 92, 246, 0.15) 0%, transparent 40%),
-                radial-gradient(circle at 90% 80%, rgba(236, 72, 153, 0.1) 0%, transparent 40%);
-            background-attachment: fixed;
+            background: var(--bg);
+            color: var(--text);
+            line-height: 1.65;
         }
 
-        h1, h2, h3, h4 {
-            font-family: 'Outfit', sans-serif;
-            font-weight: 700;
+        h1, h2, h3, h4 { font-family: 'Outfit', sans-serif; line-height: 1.2; word-break: break-word; }
+
+        /* ── Soft background radial ─────────────────────────────────────────── */
+        body::before {
+            content: '';
+            position: fixed; inset: 0; pointer-events: none; z-index: 0;
+            background:
+                radial-gradient(ellipse 60% 40% at 10% 0%, rgba(124,58,237,0.06) 0%, transparent 60%),
+                radial-gradient(ellipse 50% 40% at 90% 100%, rgba(219,39,119,0.05) 0%, transparent 60%);
+        }
+        body > * { position: relative; z-index: 1; }
+
+        /* ── Utility ─────────────────────────────────────────────────────────── */
+        .gradient-text {
+            background: linear-gradient(135deg, var(--primary) 0%, var(--secondary) 100%);
+            -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text;
         }
 
+        /* ── Header ─────────────────────────────────────────────────────────── */
         header {
-            position: sticky;
-            top: 0;
-            background: rgba(11, 15, 25, 0.8);
-            backdrop-filter: blur(12px);
-            border-bottom: 1px solid var(--border-glass);
-            z-index: 100;
+            position: sticky; top: 0; z-index: 100;
+            background: rgba(255,255,255,0.95);
+            backdrop-filter: blur(16px) saturate(180%);
+            border-bottom: 1px solid var(--border);
+            box-shadow: 0 1px 0 var(--border);
         }
-
         .header-container {
-            max-width: 1200px;
-            margin: 0 auto;
-            padding: 1rem 2rem;
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-        }
-
-        .logo-section {
-            display: flex;
-            align-items: center;
-            gap: 0.75rem;
-            text-decoration: none;
-            color: var(--text-main);
-        }
-
-        .logo-icon {
-            width: 36px;
-            height: 36px;
-            background: linear-gradient(135deg, var(--color-primary), var(--color-secondary));
-            border-radius: 8px;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            font-family: 'Outfit', sans-serif;
-            font-weight: 800;
-            color: white;
-            font-size: 1.25rem;
-        }
-
-        .logo-text {
-            font-size: 1.35rem;
-            font-weight: 800;
-            background: linear-gradient(135deg, #fff, #a78bfa);
-            -webkit-background-clip: text;
-            -webkit-text-fill-color: transparent;
-        }
-
-        .search-container {
-            position: relative;
-            width: 300px;
-        }
-
-        .search-input {
+            max-width: 1200px; margin: 0 auto;
+            padding: 0.85rem 2rem;
+            display: flex; justify-content: space-between; align-items: center; gap: 1rem;
             width: 100%;
-            padding: 0.6rem 1rem 0.6rem 2.5rem;
-            background: var(--bg-glass);
-            border: 1px solid var(--border-glass);
-            border-radius: 8px;
-            color: var(--text-main);
-            font-size: 0.9rem;
-            outline: none;
-            transition: all 0.3s ease;
+        }
+        .logo-section { display: flex; align-items: center; gap: 0.65rem; text-decoration: none; shrink: 0; }
+        .logo-img { width: 34px; height: 34px; border-radius: 9px; object-fit: cover; flex-shrink: 0; }
+        .logo-text {
+            font-family: 'Outfit', sans-serif; font-weight: 900; font-size: 1.3rem;
+            background: linear-gradient(135deg, var(--primary), var(--secondary));
+            -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+            white-space: nowrap;
         }
 
+        /* ── Search Input ──────────────────────────────────────────────────── */
+        .search-container { position: relative; width: 280px; flex-shrink: 1; }
+        .search-input {
+            width: 100%; padding: 0.55rem 1rem 0.55rem 2.4rem;
+            background: var(--bg-soft); border: 1.5px solid var(--border);
+            border-radius: 10px; color: var(--text); font-size: 0.88rem; outline: none;
+            transition: all 0.2s ease;
+        }
         .search-input:focus {
-            border-color: var(--color-primary);
-            box-shadow: 0 0 10px rgba(139, 92, 246, 0.2);
+            border-color: var(--primary); background: white;
+            box-shadow: 0 0 0 3px rgba(124,58,237,0.12);
         }
-
         .search-icon {
-            position: absolute;
-            left: 0.75rem;
-            top: 50%;
-            transform: translateY(-50%);
-            color: var(--text-muted);
-            width: 16px;
-            height: 16px;
+            position: absolute; left: 0.75rem; top: 50%; transform: translateY(-50%);
+            color: var(--text-muted); width: 16px; height: 16px; pointer-events: none;
         }
 
+        /* ── Layout ─────────────────────────────────────────────────────────── */
         .main-layout {
-            max-width: 1200px;
-            margin: 2rem auto;
-            padding: 0 2rem;
-            display: grid;
-            grid-template-columns: 280px 1fr;
-            gap: 2.5rem;
+            max-width: 1200px; margin: 2rem auto; padding: 0 2rem;
+            display: grid; grid-template-columns: 260px minmax(0, 1fr); gap: 2.5rem;
+            width: 100%;
         }
 
         aside {
-            position: sticky;
-            top: 5.5rem;
-            height: calc(100vh - 7.5rem);
-            overflow-y: auto;
+            position: sticky; top: 5rem; height: calc(100vh - 6.5rem); overflow-y: auto;
+            min-width: 0;
         }
 
         .nav-card {
-            background: var(--bg-glass);
-            border: 1px solid var(--border-glass);
-            border-radius: 12px;
-            padding: 1.5rem 1rem;
-            backdrop-filter: blur(8px);
+            background: white; border: 1px solid var(--border);
+            border-radius: 16px; padding: 1.25rem 0.85rem;
+            box-shadow: var(--shadow-sm);
+            width: 100%; min-width: 0;
         }
-
         .nav-title {
-            font-size: 0.8rem;
-            text-transform: uppercase;
-            letter-spacing: 0.05em;
-            color: var(--text-muted);
-            margin-bottom: 1rem;
-            padding-left: 0.75rem;
-            font-weight: 600;
+            font-size: 0.75rem; font-weight: 800; letter-spacing: 0.08em;
+            text-transform: uppercase; color: var(--primary);
+            margin-bottom: 0.85rem; padding-left: 0.75rem;
         }
-
-        .nav-list {
-            list-style: none;
-            display: flex;
-            flex-direction: column;
-            gap: 0.5rem;
-        }
-
+        .nav-list { list-style: none; display: flex; flex-direction: column; gap: 0.35rem; }
         .nav-link {
-            display: block;
-            padding: 0.6rem 0.75rem;
-            color: var(--text-muted);
-            text-decoration: none;
-            font-size: 0.9rem;
-            font-weight: 500;
-            border-radius: 6px;
-            transition: all 0.2s ease;
+            display: block; padding: 0.55rem 0.75rem;
+            color: var(--text-mid); text-decoration: none;
+            font-size: 0.88rem; font-weight: 500; border-radius: 8px;
+            transition: all 0.18s ease;
         }
-
-        .nav-link:hover {
-            color: var(--text-main);
-            background: rgba(255, 255, 255, 0.03);
-            padding-left: 0.95rem;
-        }
-
+        .nav-link:hover { color: var(--primary); background: var(--bg-soft); }
         .nav-link.active {
-            color: white;
-            background: linear-gradient(135deg, rgba(139, 92, 246, 0.2), rgba(236, 72, 153, 0.1));
-            border-left: 3px solid var(--color-primary);
+            color: var(--primary); font-weight: 700;
+            background: var(--bg-muted); border-left: 3px solid var(--primary);
             padding-left: 0.65rem;
         }
 
-        .content-section {
-            display: flex;
-            flex-direction: column;
-            gap: 2rem;
-        }
+        /* ── Content Section ───────────────────────────────────────────────── */
+        .content-section { display: flex; flex-direction: column; gap: 2rem; min-width: 0; width: 100%; }
 
         .doc-card {
-            background: var(--bg-glass);
-            border: 1px solid var(--border-glass);
-            border-radius: 16px;
-            padding: 2.2rem;
-            backdrop-filter: blur(8px);
-            transition: transform 0.3s ease, border-color 0.3s ease;
+            background: white; border: 1px solid var(--border);
+            border-radius: 20px; padding: 2.25rem;
+            box-shadow: var(--shadow-sm);
+            transition: border-color 0.2s ease, box-shadow 0.2s ease;
+            min-width: 0; width: 100%;
+            overflow-wrap: break-word; word-break: break-word;
         }
-
-        .doc-card:hover {
-            border-color: rgba(139, 92, 246, 0.25);
-        }
+        .doc-card:hover { border-color: var(--border-dark); box-shadow: var(--shadow-md); }
 
         .badge {
-            display: inline-block;
-            padding: 0.25rem 0.6rem;
-            font-size: 0.75rem;
-            font-weight: 600;
-            text-transform: uppercase;
-            border-radius: 4px;
-            margin-bottom: 0.75rem;
+            display: inline-block; padding: 0.25rem 0.65rem;
+            font-size: 0.72rem; font-weight: 800; text-transform: uppercase;
+            border-radius: 20px; margin-bottom: 0.75rem; letter-spacing: 0.04em;
         }
+        .badge-purple { background: var(--bg-muted); color: var(--primary); border: 1px solid var(--border-dark); }
+        .badge-green { background: #ecfdf5; color: var(--success); border: 1px solid #a7f3d0; }
 
-        .badge-purple {
-            background: rgba(139, 92, 246, 0.15);
-            color: #c084fc;
-            border: 1px solid rgba(139, 92, 246, 0.3);
-        }
+        .doc-title { font-size: 1.6rem; font-weight: 800; color: var(--text); margin-bottom: 1rem; overflow-wrap: break-word; }
+        .doc-card p { color: var(--text-mid); font-size: 0.93rem; margin-bottom: 1.15rem; line-height: 1.7; overflow-wrap: break-word; }
+        .doc-card p strong { color: var(--text); }
+        .doc-card code { background: var(--bg-muted); padding: 0.15rem 0.4rem; border-radius: 4px; font-size: 0.85em; font-family: monospace; color: var(--primary); word-break: break-all; }
 
-        .badge-green {
-            background: rgba(16, 185, 129, 0.15);
-            color: #34d399;
-            border: 1px solid rgba(16, 185, 129, 0.3);
-        }
+        .step-list { margin: 1rem 0; padding-left: 1.25rem; display: flex; flex-direction: column; gap: 0.75rem; }
+        .step-item { color: var(--text-mid); font-size: 0.92rem; line-height: 1.65; overflow-wrap: break-word; }
+        .step-item strong { color: var(--text); }
 
-        .doc-title {
-            font-size: 1.75rem;
-            margin-bottom: 1rem;
-            background: linear-gradient(135deg, #fff, #e2e8f0);
-            -webkit-background-clip: text;
-            -webkit-text-fill-color: transparent;
-        }
-
-        .doc-card p {
-            color: #cbd5e1;
-            font-size: 0.95rem;
-            margin-bottom: 1.25rem;
-        }
-
-        .step-list {
-            margin: 1rem 0;
-            padding-left: 1.25rem;
-            display: flex;
-            flex-direction: column;
-            gap: 0.75rem;
-        }
-
-        .step-item {
-            color: #cbd5e1;
-            font-size: 0.95rem;
-        }
-
-        .step-item strong {
-            color: white;
-        }
-
-        .feature-grid {
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
-            gap: 1.25rem;
-            margin-top: 1.5rem;
-        }
-
+        .feature-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 1rem; margin-top: 1.25rem; width: 100%; min-width: 0; }
         .feature-item {
-            background: rgba(255, 255, 255, 0.02);
-            border: 1px solid rgba(255, 255, 255, 0.04);
-            border-radius: 8px;
-            padding: 1.2rem;
+            background: var(--bg-soft); border: 1px solid var(--border);
+            border-radius: 12px; padding: 1.1rem; min-width: 0;
         }
-
-        .feature-item h4 {
-            font-size: 1rem;
-            margin-bottom: 0.5rem;
-            color: white;
-            display: flex;
-            align-items: center;
-            gap: 0.5rem;
-        }
-
-        .feature-item p {
-            font-size: 0.85rem;
-            color: var(--text-muted);
-            margin-bottom: 0;
-        }
+        .feature-item h4 { font-size: 0.95rem; margin-bottom: 0.4rem; color: var(--text); display: flex; align-items: center; gap: 0.4rem; }
+        .feature-item p { font-size: 0.83rem; color: var(--text-muted); margin-bottom: 0; line-height: 1.55; }
 
         .alert-box {
-            background: rgba(236, 72, 153, 0.07);
-            border-left: 4px solid var(--color-secondary);
-            border-radius: 4px;
-            padding: 1rem;
-            margin: 1.5rem 0;
-            display: flex;
-            gap: 0.75rem;
-            align-items: flex-start;
+            background: #fff5f8; border-left: 4px solid var(--secondary);
+            border-radius: 8px; padding: 1rem 1.25rem; margin: 1.25rem 0;
+            display: flex; gap: 0.75rem; align-items: flex-start;
+            min-width: 0; overflow-wrap: break-word;
         }
-
-        .alert-box svg {
-            color: var(--color-secondary);
-            flex-shrink: 0;
-            width: 20px;
-            height: 20px;
-            margin-top: 0.1rem;
-        }
-
-        .alert-box p {
-            margin: 0;
-            font-size: 0.9rem;
-            color: #f1f5f9;
-        }
+        .alert-box svg { color: var(--secondary); flex-shrink: 0; width: 20px; height: 20px; margin-top: 0.15rem; }
+        .alert-box p { margin: 0; font-size: 0.88rem; color: var(--text-mid); overflow-wrap: break-word; }
 
         .highlight-box {
-            background: rgba(139, 92, 246, 0.08);
-            border: 1px solid rgba(139, 92, 246, 0.2);
-            border-radius: 8px;
-            padding: 1.25rem;
-            margin-top: 1.25rem;
+            background: var(--bg-soft); border: 1.5px solid var(--border-dark);
+            border-radius: 12px; padding: 1.25rem 1.5rem; margin-top: 1.25rem;
+            min-width: 0; overflow-wrap: break-word;
         }
+        .highlight-box h4 { color: var(--primary); margin-bottom: 0.6rem; font-size: 0.95rem; }
+        .highlight-box ol { padding-left: 1.2rem; display: flex; flex-direction: column; gap: 0.4rem; }
+        .highlight-box li { font-size: 0.88rem; color: var(--text-mid); overflow-wrap: break-word; }
 
-        .highlight-box h4 {
-            color: #d8b4fe;
-            margin-bottom: 0.5rem;
+        /* ── Table ──────────────────────────────────────────────────────────── */
+        .table-container {
+            overflow-x: auto; max-width: 100%; width: 100%; margin-bottom: 1.5rem;
+            border: 1px solid var(--border); border-radius: 12px; box-shadow: var(--shadow-sm);
+            -webkit-overflow-scrolling: touch;
         }
+        table { width: 100%; min-width: 520px; border-collapse: collapse; text-align: left; font-size: 0.85rem; color: var(--text-mid); }
+        thead tr { background: var(--bg-soft); border-bottom: 1px solid var(--border); }
+        th { padding: 0.75rem 1rem; font-weight: 700; color: var(--text); white-space: nowrap; }
+        tbody tr { border-bottom: 1px solid var(--border); }
+        tbody tr:last-child { border-bottom: none; }
+        td { padding: 0.75rem 1rem; }
 
-        .highlight-box ol {
-            padding-left: 1.2rem;
-            display: flex;
-            flex-direction: column;
-            gap: 0.5rem;
-        }
-
-        .highlight-box li {
-            font-size: 0.9rem;
-            color: #cbd5e1;
-        }
-
+        /* ── Footer ─────────────────────────────────────────────────────────── */
         footer {
-            border-top: 1px solid var(--border-glass);
-            padding: 2.5rem 2rem;
-            text-align: center;
-            color: var(--text-muted);
-            font-size: 0.85rem;
-            margin-top: 5rem;
+            border-top: 1px solid var(--border);
+            padding: 2.5rem 1.25rem; text-align: center;
+            color: var(--text-muted); font-size: 0.85rem; margin-top: 4rem;
         }
+        footer a { color: var(--primary); text-decoration: none; font-weight: 600; }
 
+        /* ── Mobile Responsive Override ─────────────────────────────────────── */
         @media (max-width: 768px) {
-            html, body {
-                overflow-x: hidden;
-                max-width: 100vw;
-            }
-            .header-container {
-                flex-direction: row;
-                justify-content: space-between;
-                padding: 0.8rem 1rem;
-                width: 100%;
-                gap: 0.75rem;
-            }
-            .logo-text {
-                font-size: 1.10rem;
-            }
-            .search-container {
-                width: 130px;
-            }
+            .header-container { padding: 0.75rem 1rem; gap: 0.5rem; }
+            .logo-text { font-size: 1.05rem; }
+            .logo-img { width: 28px; height: 28px; }
+            .search-container { width: 130px; }
+            .search-input { font-size: 0.78rem; padding: 0.45rem 0.6rem 0.45rem 2rem; }
+            .search-icon { left: 0.5rem; width: 14px; height: 14px; }
+            
             .main-layout {
-                grid-template-columns: minmax(0, 1fr);
+                grid-template-columns: 1fr;
                 padding: 0 1rem;
-                gap: 1.5rem;
+                gap: 1.25rem;
                 margin: 1rem auto;
-                max-width: 100vw;
-                width: 100%;
             }
-            aside {
-                position: static;
-                height: auto;
-                margin-bottom: 0.5rem;
-                max-width: 100%;
-                min-width: 0;
-            }
-            .nav-card {
-                padding: 0.75rem;
-                max-width: 100%;
-                min-width: 0;
-            }
-            .nav-title {
-                display: none;
-            }
+            aside { position: static; height: auto; margin-bottom: 0.25rem; }
+            .nav-card { padding: 0.5rem 0.6rem; border-radius: 12px; }
+            .nav-title { display: none; }
             .nav-list {
                 flex-direction: row;
                 overflow-x: auto;
-                gap: 0.5rem;
-                padding-bottom: 0.5rem;
+                gap: 0.35rem;
+                padding-bottom: 0.2rem;
                 -webkit-overflow-scrolling: touch;
                 scrollbar-width: none;
-                max-width: 100%;
             }
-            .nav-list::-webkit-scrollbar {
-                display: none;
-            }
-            .nav-list li {
-                flex-shrink: 0;
-            }
-            .nav-link {
-                font-size: 0.78rem;
-                padding: 0.4rem 0.65rem;
-                white-space: nowrap;
-            }
-            .content-section {
-                min-width: 0;
-                max-width: 100%;
-            }
-            .doc-card {
-                padding: 1.5rem 1.15rem;
-                max-width: 100%;
-                min-width: 0;
-                word-wrap: break-word;
-                overflow-wrap: break-word;
-                box-sizing: border-box;
-            }
-            .feature-grid {
-                grid-template-columns: minmax(0, 1fr);
-                gap: 1rem;
-            }
-            footer {
-                padding: 2rem 1rem;
-                margin-top: 3rem;
-            }
+            .nav-list::-webkit-scrollbar { display: none; }
+            .nav-list li { flex-shrink: 0; }
+            .nav-link { font-size: 0.78rem; padding: 0.4rem 0.65rem; white-space: nowrap; }
+
+            .doc-card { padding: 1.35rem 1rem; border-radius: 14px; }
+            .doc-title { font-size: 1.3rem; }
+            .doc-card p { font-size: 0.88rem; }
+            .feature-grid { grid-template-columns: 1fr; gap: 0.75rem; }
+            .feature-item { padding: 0.9rem; }
+            .step-list { padding-left: 1rem; }
+            .step-item { font-size: 0.88rem; }
+            .highlight-box { padding: 1rem; }
+            footer { padding: 2rem 1rem; margin-top: 2.5rem; }
+        }
+
+        @media (max-width: 400px) {
+            .logo-text { font-size: 0.95rem; }
+            .search-container { width: 110px; }
         }
     </style>
 </head>
@@ -439,19 +271,15 @@
     <header>
         <div class="header-container">
             <a href="index.html" class="logo-section">
-                <div class="logo-icon">
-                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" style="display: block;">
-                        <path d="M21.5 2v6h-6M21.34 15.57a10 10 0 1 1-.57-8.38l5.67-5.67"/>
-                    </svg>
-                </div>
+                <img src="socialhub_pwa_icon.png" alt="SocialHub" class="logo-img">
                 <span class="logo-text">SocialHub Docs</span>
             </a>
             
             <div class="search-container">
-                <svg class="search-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                <svg class="search-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path>
                 </svg>
-                <input type="text" id="guideSearch" class="search-input" placeholder="Cari topik panduan...">
+                <input type="text" id="guideSearch" class="search-input" placeholder="Cari panduan...">
             </div>
         </div>
     </header>
@@ -503,11 +331,11 @@
                 <ul class="step-list">
                     <li class="step-item"><strong>Langkah 2.1:</strong> Log masuk ke Dashboard SocialHub anda dan navigasi ke bahagian <strong>Accounts</strong> di menu tepi.</li>
                     <li class="step-item"><strong>Langkah 2.2:</strong> Klik butang <strong>Connect Accounts</strong> dan pilih platform <strong>Threads</strong>.</li>
-                    <li class="step-item"><strong>Langkah 2.3:</strong> Sahkan kebenaran (authorize) akaun anda dengan meluluskan akses `threads_basic` dan `threads_manage_insights` agar sistem boleh menyiarkan post serta membaca data analytics akaun anda.</li>
+                    <li class="step-item"><strong>Langkah 2.3:</strong> Sahkan kebenaran (authorize) akaun anda dengan meluluskan akses <code>threads_basic</code> dan <code>threads_manage_insights</code> agar sistem boleh menyiarkan post serta membaca data analytics akaun anda.</li>
                 </ul>
 
                 <div class="alert-box">
-                    <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                    <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"></path>
                     </svg>
                     <p><strong>Nota Keselamatan:</strong> Token akaun media sosial anda disulitkan secara tegar (encrypted) di dalam pangkalan data kami menggunakan kunci penyulitan khusus untuk keselamatan maksimum akaun anda.</p>
@@ -535,8 +363,8 @@
                 
                 <ul class="step-list">
                     <li class="step-item"><strong>Auto-Scraping:</strong> Cuma masukkan link pautan jualan (seperti iklan hartanah atau link affiliate). Sistem akan melawat halaman tersebut, mengumpul maklumat spesifik produk (tajuk, penerangan, gambar), lalu menghantarnya kepada AI.</li>
-                    <li class="step-item"><strong>Pemendek Link Automatik (`nakcuba.my`):</strong> Sistem akan menukar link panjang affiliate atau WhatsApp anda kepada link pendek jenama tempatan `https://nakcuba.my/l/[kod]` secara automatik bagi mengesan statistik klik.</li>
-                    <li class="step-item"><strong>Auto-Staggering (Langsung Jadual):</strong> Apabila butang <strong>Schedule Post</strong> diklik, sistem akan terus menjadualkan post tersebut secara automatik dengan selang masa <strong>15 minit selepas posting berjadual terakhir</strong> Zaim. Tiada lagi keperluan popup modal manual!</li>
+                    <li class="step-item"><strong>Pemendek Link Automatik (<code>nakcuba.my</code>):</strong> Sistem akan menukar link panjang affiliate atau WhatsApp anda kepada link pendek jenama tempatan <code>https://nakcuba.my/l/[kod]</code> secara automatik bagi mengesan statistik klik.</li>
+                    <li class="step-item"><strong>Auto-Staggering (Langsung Jadual):</strong> Apabila butang <strong>Schedule Post</strong> diklik, sistem akan terus menjadualkan post tersebut secara automatik dengan selang masa <strong>15 minit selepas posting berjadual terakhir</strong>. Tiada lagi keperluan popup modal manual!</li>
                 </ul>
             </section>
 
@@ -546,69 +374,65 @@
                 <h2 class="doc-title">5. Pelan Langganan, Had Workspace & Set API Key Sendiri</h2>
                 <p>SocialHub mengguna pakai model langganan <strong>per-Workspace (bukan per-Account)</strong>. Ini bermakna, caj langganan dikenakan bagi setiap projek/ruang kerja yang anda naiktaraf (upgrade). Sebarang workspace baru yang dicipta akan bermula dengan pelan Free secara lalai.</p>
 
-                <h3 style="color: white; margin: 1.5rem 0 1rem; font-size: 1.15rem;">📋 Jadual Pemetaan Pelan & Had Sumber (D1 DB):</h3>
-                <div style="overflow-x: auto; max-width: 100%; width: 100%; margin-bottom: 2rem; border: 1px solid var(--border-glass); border-radius: 8px;">
-                    <table style="width: 100%; min-width: 600px; border-collapse: collapse; text-align: left; font-size: 0.85rem; color: #cbd5e1;">
+                <h3 style="color: var(--text); margin: 1.5rem 0 1rem; font-size: 1.1rem; font-weight: 700;">📋 Jadual Pemetaan Pelan & Had Sumber (D1 DB):</h3>
+                <div class="table-container">
+                    <table>
                         <thead>
-                            <tr style="background: rgba(255,255,255,0.03); border-bottom: 1px solid var(--border-glass);">
-                                <th style="padding: 0.75rem 1rem; font-weight: 600; color: white;">Plan (DB Code)</th>
-                                <th style="padding: 0.75rem 1rem; font-weight: 600; color: white;">Pakej Jualan</th>
-                                <th style="padding: 0.75rem 1rem; font-weight: 600; color: white;">Kredit AI /mth</th>
-                                <th style="padding: 0.75rem 1rem; font-weight: 600; color: white;">Had Akaun Threads</th>
-                                <th style="padding: 0.75rem 1rem; font-weight: 600; color: white;">Had Queue Posting</th>
+                            <tr>
+                                <th>Plan (DB Code)</th>
+                                <th>Pakej Jualan</th>
+                                <th>Kredit AI /mth</th>
+                                <th>Had Akaun Threads</th>
+                                <th>Had Queue Posting</th>
                             </tr>
                         </thead>
                         <tbody>
-                            <tr style="border-bottom: 1px solid var(--border-glass);">
-                                <td style="padding: 0.75rem 1rem; font-family: monospace;">free</td>
-                                <td style="padding: 0.75rem 1rem;">Free Trial (RM0)</td>
-                                <td style="padding: 0.75rem 1rem;">20 Kredit</td>
-                                <td style="padding: 0.75rem 1rem;">1 Akaun</td>
-                                <td style="padding: 0.75rem 1rem;">10 Posts</td>
-                            </tr>
-                            <tr style="border-bottom: 1px solid var(--border-glass);">
-                                <td style="padding: 0.75rem 1rem; font-family: monospace;">pro</td>
-                                <td style="padding: 0.75rem 1rem; font-weight: 600;">Starter (Pro) (RM29)</td>
-                                <td style="padding: 0.75rem 1rem;">250 Kredit</td>
-                                <td style="padding: 0.75rem 1rem;">3 Akaun</td>
-                                <td style="padding: 0.75rem 1rem;">50 Posts</td>
-                            </tr>
-                            <tr style="border-bottom: 1px solid var(--border-glass);">
-                                <td style="padding: 0.75rem 1rem; font-family: monospace;">agency</td>
-                                <td style="padding: 0.75rem 1rem; font-weight: 600;">Growth (Gold) (RM59)</td>
-                                <td style="padding: 0.75rem 1rem;">800 Kredit</td>
-                                <td style="padding: 0.75rem 1rem;">10 Akaun</td>
-                                <td style="padding: 0.75rem 1rem;">500 Posts</td>
+                            <tr>
+                                <td style="font-family: monospace;">free</td>
+                                <td>Free Trial (RM0)</td>
+                                <td>20 Kredit</td>
+                                <td>1 Akaun</td>
+                                <td>10 Posts</td>
                             </tr>
                             <tr>
-                                <td style="padding: 0.75rem 1rem; font-family: monospace;">enterprise</td>
-                                <td style="padding: 0.75rem 1rem; font-weight: 600;">Agency (Premium) (RM149)</td>
-                                <td style="padding: 0.75rem 1rem;">2,500 Kredit</td>
-                                <td style="padding: 0.75rem 1rem;">Unlimited</td>
-                                <td style="padding: 0.75rem 1rem;">5,000 Posts</td>
+                                <td style="font-family: monospace;">pro</td>
+                                <td style="font-weight: 600;">Starter (Pro) (RM29)</td>
+                                <td>250 Kredit</td>
+                                <td>3 Akaun</td>
+                                <td>50 Posts</td>
+                            </tr>
+                            <tr>
+                                <td style="font-family: monospace;">agency</td>
+                                <td style="font-weight: 600;">Growth (Gold) (RM59)</td>
+                                <td>800 Kredit</td>
+                                <td>10 Akaun</td>
+                                <td>500 Posts</td>
+                            </tr>
+                            <tr>
+                                <td style="font-family: monospace;">enterprise</td>
+                                <td style="font-weight: 600;">Agency (Premium) (RM149)</td>
+                                <td>2,500 Kredit</td>
+                                <td>Unlimited</td>
+                                <td>5,000 Posts</td>
                             </tr>
                         </tbody>
                     </table>
                 </div>
 
-                <p>Mulai <strong>v1.3.0</strong>, platform kami telah dilengkapi dengan <strong>Global API Key</strong> yang dipasang secara selamat pada server backend. Ini bermakna anda <strong>tidak perlu lagi memasukkan API Key anda sendiri</strong> untuk mula menggunakan model premium seperti <strong>Gemini 3.6 Flash</strong>, <strong>GPT-4o</strong> atau <strong>GPT-5.5 / Pro</strong>. Anda hanya perlu pilih model kegemaran anda di Settings dan mula menjana!</p>
+                <p>Mulai <strong>v1.3.0</strong>, platform kami telah dilengkapi dengan <strong>Global API Key</strong> yang dipasang secara selamat pada server backend. Ini bermakna anda <strong>tidak perlu lagi memasukkan API Key anda sendiri</strong> untuk mula menggunakan model premium seperti <strong>Gemini 3.6 Flash</strong>, <strong>GPT-4o</strong> atau <strong>GPT-5.5 / Pro</strong>.</p>
 
                 <p style="margin-top: 1rem;">Bagaimanapun, jika anda mahu menggunakan API Key peribadi anda sendiri bagi <strong>membuang had kredit penjanaan AI (bypass limit)</strong>, anda masih boleh berbuat demikian secara PERCUMA melalui ruangan <strong>AI API Key</strong> di halaman Settings.</p>
 
                 <div class="highlight-box">
                     <h4>Cara Dapatkan API Key Gemini/OpenAI Percuma (BYOK):</h4>
                     <ol>
-                        <li>Layari laman web <strong><a href="https://aistudio.google.com/" target="_blank" style="color: #c084fc; text-decoration: underline;">Google AI Studio</a></strong> untuk Gemini Key, atau <strong><a href="https://platform.openai.com/" target="_blank" style="color: #c084fc; text-decoration: underline;">OpenAI Platform</a></strong> untuk OpenAI Key.</li>
+                        <li>Layari laman web <strong><a href="https://aistudio.google.com/" target="_blank" style="color: var(--primary); text-decoration: underline;">Google AI Studio</a></strong> untuk Gemini Key, atau <strong><a href="https://platform.openai.com/" target="_blank" style="color: var(--primary); text-decoration: underline;">OpenAI Platform</a></strong> untuk OpenAI Key.</li>
                         <li>Log masuk menggunakan akaun anda.</li>
                         <li>Dapatkan/Jana API Key baru anda.</li>
-                        <li>Pergi ke dashboard SocialHub, navigasi ke <strong>Settings</strong> > <strong>Workspace Settings</strong>.</li>
-                        <li>Tampal kod tersebut ke dalam ruangan **AI API Key** dan klik **Save AI Settings**.</li>
+                        <li>Pergi ke dashboard SocialHub, navigasi ke <strong>Settings</strong> &gt; <strong>Workspace Settings</strong>.</li>
+                        <li>Tampal kod tersebut ke dalam ruangan <strong>AI API Key</strong> dan klik <strong>Save AI Settings</strong>.</li>
                     </ol>
                 </div>
-                
-                <p style="margin-top: 1.25rem;"><strong>Sebab Utama Menggunakan Gemini 3.6 Flash & GPT-5.5:</strong> 
-                <br>• <strong>Gemini 3.6 Flash:</strong> Model terbaik untuk keseimbangan kos &amp; kelajuan, menyokong data scraping yang besar, serta menjana gaya penulisan rojak Malaysia yang sangat bersahaja.
-                <br>• <strong>GPT-5.5 / Pro:</strong> Model berasaskan <em>Reasoning</em> (penaakulan mendalam) yang sangat pintar untuk menyusun bebenang post (Thread Storm) yang logik, tersusun, dan mempunyai kadar conversion yang tinggi.</p>
             </section>
 
             <!-- Section 6 -->
@@ -618,9 +442,9 @@
                 <p>Tab <strong>Analytics</strong> membekalkan maklumat terperinci mengenai prestasi akaun Threads anda secara visual:</p>
 
                 <ul class="step-list">
-                    <li class="step-item"><strong>Followers Growth (Graf Pertumbuhan):</strong> Menunjukkan perkembangan jumlah followers secara harian. Jika Zaim baru sahaja menyambungkan akaun, data akan mula diplot secara automatik sebaik sahaja log data pertama direkodkan.</li>
-                    <li class="step-item"><strong>Cron Sync (Penyelarasan Automatik):</strong> Sistem backend kami menjalankan proses penyelarasan di latar belakang secara berkala (cron job berjalan setiap minit untuk queue posting, dan setiap 4 jam untuk mengemas kini insights posts & followers count akaun anda dari server Meta).</li>
-                    <li class="step-item"><strong>Threads Insights API:</strong> SocialHub mematuhi garis panduan Meta rasmi dengan menggunakan Threads Insights API yang selamat untuk menarik data statistik posting (views, likes, replies, reposts) tanpa menjejaskan privasi akaun.</li>
+                    <li class="step-item"><strong>Followers Growth (Graf Pertumbuhan):</strong> Menunjukkan perkembangan jumlah followers secara harian. Data akan mula diplot secara automatik sebaik sahaja log data pertama direkodkan.</li>
+                    <li class="step-item"><strong>Cron Sync (Penyelarasan Automatik):</strong> Sistem backend kami menjalankan penyelarasan di latar belakang secara berkala (cron job berjalan setiap minit untuk queue posting, dan setiap 4 jam untuk mengemas kini insights posts & followers count).</li>
+                    <li class="step-item"><strong>Threads Insights API:</strong> SocialHub mematuhi garis panduan Meta rasmi dengan menggunakan Threads Insights API yang selamat.</li>
                 </ul>
             </section>
 
@@ -629,11 +453,10 @@
     </div>
 
     <footer>
-        <p>&copy; 2026 SocialHub. Hak Cipta Terpelihara. Panduan Pengguna & After-Sales Reference Portal.</p>
+        <p>&copy; 2026 SocialHub. Hak Cipta Terpelihara. <a href="index.html">Kembali ke Laman Utama</a></p>
     </footer>
 
     <script>
-        // Sidebar active state highlight on scroll
         const sections = document.querySelectorAll('section');
         const navLinks = document.querySelectorAll('.nav-link');
 
@@ -641,7 +464,6 @@
             let current = '';
             sections.forEach(section => {
                 const sectionTop = section.offsetTop;
-                const sectionHeight = section.clientHeight;
                 if (pageYOffset >= (sectionTop - 150)) {
                     current = section.getAttribute('id');
                 }
@@ -655,7 +477,6 @@
             });
         });
 
-        // Interactive search functionality
         const searchInput = document.getElementById('guideSearch');
         const docCards = document.querySelectorAll('.doc-card');
 

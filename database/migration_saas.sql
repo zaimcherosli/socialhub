@@ -50,6 +50,31 @@ ALTER TABLE scheduled_posts ADD COLUMN workspace_id INTEGER REFERENCES workspace
 ALTER TABLE posts ADD COLUMN workspace_id INTEGER REFERENCES workspaces(id) ON DELETE CASCADE;
 ALTER TABLE media ADD COLUMN workspace_id INTEGER REFERENCES workspaces(id) ON DELETE CASCADE;
 
+-- 5b. Create workspace_usage table for AI Quota & Developer Cost Control
+-- This table tracks monthly AI usage (captions + image credits) per workspace.
+-- It is reset every month (by year_month key) to enforce subscription plan limits.
+CREATE TABLE IF NOT EXISTS workspace_usage (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    workspace_id INTEGER NOT NULL REFERENCES workspaces(id) ON DELETE CASCADE,
+    year_month TEXT NOT NULL,                   -- e.g. '2026-08' (reset monthly)
+    ai_text_count INTEGER DEFAULT 0,            -- AI caption generations used
+    ai_image_credits INTEGER DEFAULT 0,         -- Total image credits consumed
+    ai_image_low_count INTEGER DEFAULT 0,       -- Low quality (Cloudflare SDXL) count
+    ai_image_medium_count INTEGER DEFAULT 0,    -- Medium quality (OpenAI Standard) count
+    ai_image_high_count INTEGER DEFAULT 0,      -- High quality (OpenAI HD) count
+    created_at TEXT NOT NULL DEFAULT (datetime('now')),
+    updated_at TEXT NOT NULL DEFAULT (datetime('now')),
+    UNIQUE(workspace_id, year_month)
+);
+
+-- 5c. Plan limits reference (for reference — enforced in backend worker)
+-- | Plan       | ai_text_limit | image_credit_limit | medium_limit | high_limit |
+-- | free       | 20            | 10                 | 2            | 0          |
+-- | starter    | 100           | 50                 | 30           | 10         |
+-- | pro        | 300           | 200                | 80           | 30         |
+-- | agency     | 1000          | 600                | 250          | 100        |
+-- | enterprise | unlimited     | unlimited          | unlimited    | unlimited  |
+
 -- 6. Indexes for optimized SaaS multi-tenant queries
 CREATE INDEX IF NOT EXISTS idx_social_accounts_workspace ON social_accounts(workspace_id);
 CREATE INDEX IF NOT EXISTS idx_scheduled_posts_workspace ON scheduled_posts(workspace_id);

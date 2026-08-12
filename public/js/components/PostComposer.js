@@ -1,5 +1,6 @@
 import { socialService } from '../services/socialService.js';
 import { validationService } from '../services/validationService.js';
+import { apiClient } from '../utils/api.js';
 
 class PostComposer extends HTMLElement {
     async connectedCallback() {
@@ -24,6 +25,39 @@ class PostComposer extends HTMLElement {
                             <span id="composerLimitWarning" style="color: var(--color-danger); font-size: 0.75rem; font-weight: 600; display: none;"></span>
                         </div>
                         <textarea id="composerContent" class="form-input" rows="6" placeholder="What would you like to share?" style="width: 100%; resize: vertical;"></textarea>
+                    </div>
+
+                    <div class="form-group">
+                        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.35rem;">
+                            <label class="form-label" for="composerMediaUrl" style="margin: 0;">Media / Image Link</label>
+                            <div style="display: inline-flex; align-items: center; gap: 0.35rem;">
+                                <select id="composerAiImageQuality" style="font-size: 0.72rem; padding: 0.25rem 0.4rem; border-radius: var(--radius-xs); border: 1px solid var(--color-border); background: var(--color-bg-primary); color: var(--color-text-primary); font-weight: 600; cursor: pointer;" title="Pilih kualiti gambar AI">
+                                    <option value="low">⚡ Low Quality</option>
+                                    <option value="medium" selected>⚖️ Medium</option>
+                                    <option value="high">✨ High Quality (HD)</option>
+                                </select>
+                                <button type="button" class="btn btn-secondary" id="btnComposerGenerateAiImage" style="font-size: 0.75rem; padding: 0.3rem 0.65rem; border-radius: var(--radius-xs); display: inline-flex; align-items: center; gap: 0.35rem; font-weight: 600;">
+                                    ✨ Generate AI Image
+                                </button>
+                            </div>
+                        </div>
+                        <input type="url" id="composerMediaUrl" class="form-input" placeholder="Paste photo link or click 'Generate AI Image' button above" style="width: 100%;" />
+                        
+                        <!-- Visual Image Preview Box -->
+                        <div id="composerImagePreviewBox" style="display: none; margin-top: 0.75rem; position: relative; border-radius: var(--radius-sm); overflow: hidden; border: 1px solid var(--color-border); background: var(--color-bg-accent); text-align: center; padding: 0.5rem;">
+                            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.5rem; padding: 0 0.25rem;">
+                                <span style="font-size: 0.75rem; font-weight: 600; color: var(--color-text-secondary); display: flex; align-items: center; gap: 0.35rem;">
+                                    🖼️ Image Visual Preview
+                                </span>
+                                <button type="button" id="btnRemoveComposerAiImage" style="background: rgba(239, 68, 68, 0.15); color: var(--color-danger); border: 1px solid var(--color-danger); border-radius: 4px; padding: 0.15rem 0.5rem; font-size: 0.72rem; font-weight: 600; cursor: pointer;">
+                                    🗑️ Buang Gambar
+                                </button>
+                            </div>
+                            <img id="composerImagePreviewTag" src="" alt="AI Generated Preview" style="max-width: 100%; max-height: 260px; object-fit: contain; border-radius: 6px; border: 1px solid var(--color-border); display: block; margin: 0 auto; background: #000;" />
+                            <div id="composerImageSourceBadge" style="display: none; margin-top: 0.5rem; font-size: 0.72rem; font-weight: 600; color: #a78bfa; background: rgba(124, 58, 237, 0.12); border: 1px solid rgba(139, 92, 246, 0.25); border-radius: 20px; padding: 0.25rem 0.75rem; align-items: center; justify-content: center; gap: 0.35rem;">
+                                ✨ Image created by OpenAI (gpt-image-2)
+                            </div>
+                        </div>
                     </div>
 
                     <div class="form-group">
@@ -64,6 +98,9 @@ class PostComposer extends HTMLElement {
                             </div>
                         </div>
                         <p id="previewText" style="font-size: 0.875rem; color: var(--color-text-primary); line-height: 1.4; word-break: break-word; margin: 0; min-height: 24px;">Your preview will appear here...</p>
+                        <div id="feedPreviewImageContainer" style="display: none; margin-top: 0.75rem;">
+                            <img id="feedPreviewImageTag" src="" style="width: 100%; border-radius: var(--radius-xs); border: 1px solid var(--color-border); max-height: 280px; object-fit: cover;" />
+                        </div>
                     </div>
                 </div>
             </div>
@@ -116,6 +153,106 @@ class PostComposer extends HTMLElement {
             }
         });
 
+        // Visual Image Preview elements
+        const composerPreviewBox = this.querySelector('#composerImagePreviewBox');
+        const composerPreviewTag = this.querySelector('#composerImagePreviewTag');
+        const feedImageContainer = this.querySelector('#feedPreviewImageContainer');
+        const feedImageTag = this.querySelector('#feedPreviewImageTag');
+        const btnRemoveComposerImg = this.querySelector('#btnRemoveComposerAiImage');
+
+        const updateComposerPreview = () => {
+            const url = mediaInput ? mediaInput.value.trim() : '';
+            if (url) {
+                if (composerPreviewTag) composerPreviewTag.src = url;
+                if (composerPreviewBox) composerPreviewBox.style.display = 'block';
+                if (feedImageTag) feedImageTag.src = url;
+                if (feedImageContainer) feedImageContainer.style.display = 'block';
+            } else {
+                if (composerPreviewTag) composerPreviewTag.src = '';
+                if (composerPreviewBox) composerPreviewBox.style.display = 'none';
+                if (feedImageTag) feedImageTag.src = '';
+                if (feedImageContainer) feedImageContainer.style.display = 'none';
+            }
+        };
+
+        if (mediaInput) {
+            mediaInput.addEventListener('input', updateComposerPreview);
+            mediaInput.addEventListener('change', updateComposerPreview);
+        }
+
+        if (btnRemoveComposerImg) {
+            btnRemoveComposerImg.addEventListener('click', () => {
+                if (mediaInput) mediaInput.value = '';
+                updateComposerPreview();
+            });
+        }
+
+        if (btnGenAiImage) {
+            btnGenAiImage.addEventListener('click', async (e) => {
+                e.preventDefault();
+                const captionText = contentArea.value.trim() || titleInput.value.trim();
+                if (!captionText) {
+                    if (window.notificationService) {
+                        window.notificationService.error('Sila tulis kapsyen atau tajuk pos terlebih dahulu.');
+                    } else {
+                        alert('Sila tulis kapsyen atau tajuk pos terlebih dahulu.');
+                    }
+                    return;
+                }
+
+                btnGenAiImage.disabled = true;
+                const origBtnText = btnGenAiImage.innerHTML;
+                btnGenAiImage.innerHTML = `⏳ Generating AI Image...`;
+
+                try {
+                    const selectedQuality = document.getElementById('composerAiImageQuality')?.value || 'medium';
+                    const data = await apiClient.post('/ai/generate-image', { caption: captionText, quality: selectedQuality });
+                    if (data && (data.image_url || data.success)) {
+                        const imgUrl = data.image_url || data.media?.thumbnail;
+                        if (imgUrl) {
+                            mediaInput.value = imgUrl;
+                            updateComposerPreview();
+                            let sourceMsg = '✨ Gambar AI berjaya dijana!';
+                            let badgeText = '✨ Image created by OpenAI (gpt-image-2)';
+                            if (data.source === 'openai-gpt-image-2') {
+                                sourceMsg = '✨ Gambar AI (OpenAI gpt-image-2) berjaya dijana!';
+                                badgeText = '✨ Image created by OpenAI (gpt-image-2)';
+                            } else if (data.source === 'cloudflare-sdxl') {
+                                sourceMsg = '⚠️ OpenAI tergendala / tiada kredit. Gambar AI dijana menggunakan Fallback: Cloudflare Workers AI (Stable Diffusion)';
+                                badgeText = '⚡ Image created by Cloudflare Workers AI (Stable Diffusion XL)';
+                            } else if (data.source === 'unsplash-fallback') {
+                                sourceMsg = '⚠️ Enjin AI tergendala. Gambar diambil daripada Fallback: Unsplash Stock';
+                                badgeText = '🖼️ Image from Unsplash Stock Library';
+                            }
+
+                            const composerBadge = document.getElementById('composerImageSourceBadge');
+                            if (composerBadge) {
+                                composerBadge.innerHTML = badgeText;
+                                composerBadge.style.display = 'inline-flex';
+                            }
+
+                            if (window.notificationService) {
+                                window.notificationService.success(sourceMsg);
+                            }
+                        } else {
+                            throw new Error('Gagal mendapatkan URL gambar AI.');
+                        }
+                    } else {
+                        throw new Error(data?.error || data?.message || 'Gagal menjana gambar AI');
+                    }
+                } catch (err) {
+                    if (window.notificationService) {
+                        window.notificationService.error(`AI Image generation error: ${err.message}`);
+                    } else {
+                        alert(`AI Image generation error: ${err.message}`);
+                    }
+                } finally {
+                    btnGenAiImage.disabled = false;
+                    btnGenAiImage.innerHTML = origBtnText;
+                }
+            });
+        }
+
         // Trigger Publish Now event
         btnPublish.addEventListener('click', () => {
             const state = this.getComposerState();
@@ -144,9 +281,34 @@ class PostComposer extends HTMLElement {
         });
     }
 
+    setLoading(loading, text = '') {
+        const btnPublish = this.querySelector('#composerBtnPublish');
+        const btnSchedule = this.querySelector('#composerBtnSchedule');
+        if (loading) {
+            if (btnPublish) {
+                btnPublish.disabled = true;
+                btnPublish.dataset.origText = btnPublish.innerHTML;
+                btnPublish.innerHTML = `⏳ ${text || 'Publishing...'}`;
+            }
+            if (btnSchedule) btnSchedule.disabled = true;
+        } else {
+            if (btnPublish) {
+                btnPublish.disabled = false;
+                btnPublish.innerHTML = btnPublish.dataset.origText || '⚡ Publish Now';
+            }
+            if (btnSchedule) btnSchedule.disabled = false;
+        }
+    }
+
     getComposerState() {
         const title = this.querySelector('#composerTitle').value;
-        const content = this.querySelector('#composerContent').value;
+        const rawContent = this.querySelector('#composerContent').value;
+        const mediaUrl = this.querySelector('#composerMediaUrl')?.value?.trim();
+        
+        let content = rawContent;
+        if (mediaUrl && !rawContent.includes(mediaUrl)) {
+            content = `${rawContent}\n\n📷 ${mediaUrl}`;
+        }
         
         const checkedBoxes = Array.from(this.querySelectorAll('.composer-channel-checkbox:checked'));
         const targets = checkedBoxes.map(cb => ({

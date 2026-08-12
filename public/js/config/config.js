@@ -7,7 +7,7 @@ export const CONFIG = {
                   window.location.hostname.startsWith('10.') ||
                   window.location.hostname.startsWith('172.')
         ? `http://${window.location.hostname}:8787/api`
-        : 'https://api.socialhub.zaimrosli.my/api',
+        : 'https://api.socialhub.kwikezee.my/api',
     PLATFORMS: {
         THREADS: 'threads',
         FACEBOOK: 'facebook',

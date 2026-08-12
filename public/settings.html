@@ -357,15 +357,20 @@
                         </div>
                     </div>
 
-                    <div class="info-box" id="smartAIBanner" style="background: linear-gradient(135deg, rgba(99,102,241,0.08), rgba(168,85,247,0.08)); border-color: rgba(99,102,241,0.3); display: flex; align-items: center; gap: 0.75rem;">
-                        <span style="font-size: 1.25rem;">🤖</span>
-                        <div style="flex: 1;">
-                            <div style="font-size: 0.82rem; font-weight: 700; color: var(--color-text-primary); margin-bottom: 0.15rem;">Smart AI Mode — <span id="smartAIModelLabel" style="color: var(--color-primary);">Auto-selecting...</span></div>
-                            <div style="font-size: 0.72rem; color: var(--color-text-secondary);">AI model dipilih secara automatik berdasarkan plan anda. Tiada konfigurasi diperlukan.</div>
+                    <div class="info-box" id="smartAIBanner" style="background: linear-gradient(135deg, rgba(99,102,241,0.08), rgba(168,85,247,0.08)); border-color: rgba(99,102,241,0.3); display: flex; flex-direction: column; gap: 0.5rem; padding: 0.85rem 1rem;">
+                        <div style="display: flex; justify-content: space-between; align-items: center; width: 100%; flex-wrap: wrap; gap: 0.5rem;">
+                            <div style="font-size: 0.85rem; font-weight: 700; color: var(--color-text-primary); display: flex; align-items: center; gap: 0.35rem; flex-wrap: wrap;">
+                                <span>🤖 Smart AI Mode</span>
+                                <span style="color: var(--color-text-muted);">—</span>
+                                <span id="smartAIModelLabel" style="color: var(--color-primary); font-weight: 600;">Auto-selecting...</span>
+                            </div>
+                            <button id="btnAdvancedToggle" style="background: var(--color-bg-surface, #fff); border: 1px solid var(--color-border); border-radius: var(--radius-sm); padding: 0.35rem 0.75rem; font-size: 0.75rem; font-weight: 600; color: var(--color-text-secondary); cursor: pointer; white-space: nowrap; transition: all 0.2s;" onclick="toggleAdvancedAI()">
+                                ⚙️ Advanced
+                            </button>
                         </div>
-                        <button id="btnAdvancedToggle" style="background: none; border: 1px solid var(--color-border); border-radius: var(--radius-sm); padding: 0.35rem 0.75rem; font-size: 0.72rem; font-weight: 600; color: var(--color-text-secondary); cursor: pointer; white-space: nowrap;" onclick="toggleAdvancedAI()">
-                            ⚙️ Advanced
-                        </button>
+                        <div style="font-size: 0.75rem; color: var(--color-text-secondary); line-height: 1.4;">
+                            AI model dipilih secara automatik berdasarkan plan anda. Tiada konfigurasi diperlukan.
+                        </div>
                     </div>
 
                     <div id="advancedAISection" style="display: none;">
@@ -692,8 +697,135 @@
                         </div>
                     </div>
                 </div>
+                <!-- ==================== SUBSCRIPTION & USAGE SECTION ==================== -->
+                <div class="card" id="subscriptionCard" style="padding: 1.5rem; margin-top: 2rem;">
+                    <div class="settings-section-header" style="margin-bottom: 1.5rem;">
+                        <div class="settings-icon-wrap" style="background: rgba(139,92,246,0.15);">
+                            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#8b5cf6" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                <path d="M12 2L2 7l10 5 10-5-10-5z"/><path d="M2 17l10 5 10-5"/><path d="M2 12l10 5 10-5"/>
+                            </svg>
+                        </div>
+                        <div>
+                            <h3>📊 Langganan &amp; Penggunaan AI</h3>
+                            <p>Semak had kredit AI bulanan anda dan status pakej semasa.</p>
+                        </div>
+                    </div>
 
-            </div>
+                    <!-- Active Plan Banner -->
+                    <div id="subPlanBanner" style="
+                        background: linear-gradient(135deg, rgba(139,92,246,0.15) 0%, rgba(59,130,246,0.12) 100%);
+                        border: 1px solid rgba(139,92,246,0.3);
+                        border-radius: 14px;
+                        padding: 1.25rem 1.5rem;
+                        display: flex;
+                        align-items: center;
+                        justify-content: space-between;
+                        gap: 1rem;
+                        flex-wrap: wrap;
+                        margin-bottom: 1.5rem;
+                    ">
+                        <div style="display:flex; align-items:center; gap: 1rem;">
+                            <div id="subPlanIcon" style="
+                                width: 48px; height: 48px; border-radius: 12px;
+                                background: rgba(139,92,246,0.2);
+                                display: flex; align-items: center; justify-content: center;
+                                font-size: 1.5rem;
+                            ">🚀</div>
+                            <div>
+                                <div style="font-size: 0.75rem; color: var(--color-text-secondary); font-weight: 500; margin-bottom: 0.2rem;">Pakej Aktif</div>
+                                <div id="subPlanName" style="font-size: 1.2rem; font-weight: 800; color: #c4b5fd;">—</div>
+                                <div id="subPlanMonth" style="font-size: 0.72rem; color: var(--color-text-secondary);">Penggunaan dikira semula setiap bulan</div>
+                            </div>
+                        </div>
+                        <a href="https://socialhub.my/pricing" target="_blank" class="btn btn-primary" style="
+                            background: linear-gradient(135deg,#8b5cf6,#6366f1);
+                            border-color: transparent;
+                            font-size: 0.8rem;
+                            padding: 0.5rem 1.2rem;
+                            white-space: nowrap;
+                        ">
+                            ⬆️ Naik Taraf Pakej
+                        </a>
+                    </div>
+
+                    <!-- Usage Progress Rows -->
+                    <div style="display: flex; flex-direction: column; gap: 1.1rem;">
+
+                        <!-- AI Captions -->
+                        <div>
+                            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:0.4rem;">
+                                <span style="font-size:0.82rem; font-weight:600;">✍️ Kapsyen AI (Caption)</span>
+                                <span id="subTextStat" style="font-size:0.82rem; font-weight:700; color:#8b5cf6;">— / —</span>
+                            </div>
+                            <div style="background:var(--color-border,rgba(255,255,255,0.1)); border-radius:99px; height:8px; overflow:hidden;">
+                                <div id="subTextBar" style="height:100%; width:0%; border-radius:99px; background:linear-gradient(90deg,#8b5cf6,#6366f1); transition:width 0.9s cubic-bezier(.4,0,.2,1);"></div>
+                            </div>
+                        </div>
+
+                        <!-- Low Quality Images -->
+                        <div>
+                            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:0.4rem;">
+                                <span style="font-size:0.82rem; font-weight:600;">🖼️ Gambar Percuma (Cloudflare SDXL)</span>
+                                <span id="subLowStat" style="font-size:0.82rem; font-weight:700; color:#22c55e;">— / —</span>
+                            </div>
+                            <div style="background:var(--color-border,rgba(255,255,255,0.1)); border-radius:99px; height:8px; overflow:hidden;">
+                                <div id="subLowBar" style="height:100%; width:0%; border-radius:99px; background:linear-gradient(90deg,#22c55e,#16a34a); transition:width 0.9s cubic-bezier(.4,0,.2,1);"></div>
+                            </div>
+                            <div style="font-size:0.68rem; color:var(--color-text-secondary); margin-top:0.25rem;">Percuma — dikuasakan oleh Cloudflare AI</div>
+                        </div>
+
+                        <!-- Medium Quality Images -->
+                        <div>
+                            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:0.4rem;">
+                                <span style="font-size:0.82rem; font-weight:600;">🎨 Gambar Standard (OpenAI gpt-image-2)</span>
+                                <span id="subMedStat" style="font-size:0.82rem; font-weight:700; color:#f59e0b;">— / —</span>
+                            </div>
+                            <div style="background:var(--color-border,rgba(255,255,255,0.1)); border-radius:99px; height:8px; overflow:hidden;">
+                                <div id="subMedBar" style="height:100%; width:0%; border-radius:99px; background:linear-gradient(90deg,#f59e0b,#d97706); transition:width 0.9s cubic-bezier(.4,0,.2,1);"></div>
+                            </div>
+                            <div style="font-size:0.68rem; color:var(--color-text-secondary); margin-top:0.25rem;">~RM0.18 / gambar (dikawal oleh had pakej)</div>
+                        </div>
+
+                        <!-- High Quality Images -->
+                        <div>
+                            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:0.4rem;">
+                                <span style="font-size:0.82rem; font-weight:600;">🌟 Gambar HD (OpenAI gpt-image-2 HD)</span>
+                                <span id="subHdStat" style="font-size:0.82rem; font-weight:700; color:#ef4444;">— / —</span>
+                            </div>
+                            <div style="background:var(--color-border,rgba(255,255,255,0.1)); border-radius:99px; height:8px; overflow:hidden;">
+                                <div id="subHdBar" style="height:100%; width:0%; border-radius:99px; background:linear-gradient(90deg,#a855f7,#7c3aed); transition:width 0.9s cubic-bezier(.4,0,.2,1);"></div>
+                            </div>
+                            <div style="font-size:0.68rem; color:var(--color-text-secondary); margin-top:0.25rem;">~RM0.36 / gambar HD (dikawal oleh had pakej)</div>
+                        </div>
+
+                    </div>
+
+                    <!-- Plan Comparison Mini-Table -->
+                    <div style="margin-top: 1.75rem;">
+                        <div style="font-size:0.8rem; font-weight:700; color:var(--color-text-secondary); margin-bottom:0.75rem; text-transform:uppercase; letter-spacing:0.06em;">Perbandingan Pakej</div>
+                        <div style="overflow-x:auto;">
+                            <table style="width:100%; border-collapse:collapse; font-size:0.78rem;">
+                                <thead>
+                                    <tr style="border-bottom:1px solid var(--color-border,rgba(255,255,255,0.1));">
+                                        <th style="text-align:left; padding:0.5rem 0.75rem; color:var(--color-text-secondary); font-weight:600;">Pakej</th>
+                                        <th style="text-align:center; padding:0.5rem 0.75rem; color:var(--color-text-secondary); font-weight:600;">Kapsyen AI</th>
+                                        <th style="text-align:center; padding:0.5rem 0.75rem; color:var(--color-text-secondary); font-weight:600;">Gambar Standard</th>
+                                        <th style="text-align:center; padding:0.5rem 0.75rem; color:var(--color-text-secondary); font-weight:600;">Gambar HD</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="planCompareTable">
+                                    <tr style="border-bottom:1px solid var(--color-border,rgba(255,255,255,0.06));"><td style="padding:0.5rem 0.75rem;">🆓 Free</td><td style="text-align:center; padding:0.5rem 0.75rem;">20</td><td style="text-align:center; padding:0.5rem 0.75rem;">2</td><td style="text-align:center; padding:0.5rem 0.75rem;">0</td></tr>
+                                    <tr style="border-bottom:1px solid var(--color-border,rgba(255,255,255,0.06));"><td style="padding:0.5rem 0.75rem;">⚡ Pro (RM29)</td><td style="text-align:center; padding:0.5rem 0.75rem;">250</td><td style="text-align:center; padding:0.5rem 0.75rem;">30</td><td style="text-align:center; padding:0.5rem 0.75rem;">10</td></tr>
+                                    <tr style="border-bottom:1px solid var(--color-border,rgba(255,255,255,0.06));"><td style="padding:0.5rem 0.75rem;">🏢 Agency (RM59)</td><td style="text-align:center; padding:0.5rem 0.75rem;">800</td><td style="text-align:center; padding:0.5rem 0.75rem;">80</td><td style="text-align:center; padding:0.5rem 0.75rem;">30</td></tr>
+                                    <tr><td style="padding:0.5rem 0.75rem;">👑 Enterprise (RM149)</td><td style="text-align:center; padding:0.5rem 0.75rem;">2,500</td><td style="text-align:center; padding:0.5rem 0.75rem;">250</td><td style="text-align:center; padding:0.5rem 0.75rem;">100</td></tr>
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+                <!-- ============================================================== -->
+
+            </div><!-- /settings-grid -->
         </main>
 
     </div>
@@ -734,7 +866,9 @@
             const isHidden = section.style.display === 'none';
             section.style.display = isHidden ? 'block' : 'none';
             btn.textContent = isHidden ? '✕ Close Advanced' : '⚙️ Advanced';
-            btn.style.color = isHidden ? 'var(--color-danger)' : 'var(--color-text-secondary)';
+            btn.style.color = isHidden ? '#ef4444' : 'var(--color-text-secondary)';
+            btn.style.borderColor = isHidden ? 'rgba(239, 68, 68, 0.4)' : 'var(--color-border)';
+            btn.style.background = isHidden ? 'rgba(239, 68, 68, 0.05)' : 'var(--color-bg-surface, #fff)';
         };
 
 
@@ -1304,6 +1438,52 @@
 
         loadApiKeys();
         loadTelegramStatus();
+
+        // ─── Subscription & Usage Loader ────────────────────────────────────
+        async function loadSubscriptionUsage() {
+            try {
+                const res = await apiClient.get('/api/workspaces/usage');
+                if (!res || !res.success) return;
+
+                const u = res.usage;
+                const planNames = { free:'Free', starter:'Starter', pro:'Pro (RM29)', agency:'Agency (RM59)', enterprise:'Enterprise (RM149)' };
+                const planIcons = { free:'🆓', starter:'⚡', pro:'⚡', agency:'🏢', enterprise:'👑' };
+
+                // Plan banner
+                const el = (id) => document.getElementById(id);
+                if (el('subPlanName')) el('subPlanName').textContent = planNames[res.plan] || res.plan;
+                if (el('subPlanIcon')) el('subPlanIcon').textContent = planIcons[res.plan] || '🚀';
+                if (el('subPlanMonth')) el('subPlanMonth').textContent = `Penggunaan bulan ${res.year_month} — dikira semula bulan depan`;
+
+                const setRow = (statId, barId, used, limit, warnColor) => {
+                    if (el(statId)) el(statId).textContent = `${used} / ${limit}`;
+                    if (el(barId)) {
+                        const pct = limit > 0 ? Math.min(100, Math.round((used/limit)*100)) : 0;
+                        el(barId).style.width = pct + '%';
+                        if (pct >= 90) el(barId).style.background = 'linear-gradient(90deg,#ef4444,#b91c1c)';
+                        else if (pct >= 70) el(barId).style.background = 'linear-gradient(90deg,#f59e0b,#d97706)';
+                    }
+                };
+
+                setRow('subTextStat', 'subTextBar', u.ai_text.used,         u.ai_text.limit);
+                setRow('subLowStat',  'subLowBar',  u.ai_image_low.used,    u.ai_image_low.limit);
+                setRow('subMedStat',  'subMedBar',  u.ai_image_medium.used, u.ai_image_medium.limit);
+                setRow('subHdStat',   'subHdBar',   u.ai_image_high.used,   u.ai_image_high.limit);
+
+                // Highlight current plan row in comparison table
+                const rows = document.querySelectorAll('#planCompareTable tr');
+                const planRowMap = { free:0, starter:0, pro:1, agency:2, enterprise:3 };
+                const activeRow = rows[planRowMap[res.plan] ?? 0];
+                if (activeRow) {
+                    activeRow.style.background = 'rgba(139,92,246,0.12)';
+                    activeRow.style.borderRadius = '8px';
+                }
+            } catch(e) {
+                console.warn('[SubscriptionUsage] Failed to load:', e);
+            }
+        }
+        loadSubscriptionUsage();
+        // ────────────────────────────────────────────────────────────────────
     </script>
 </body>
 </html>

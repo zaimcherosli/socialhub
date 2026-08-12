@@ -278,7 +278,7 @@ async function runFallbackAI(systemPrompt, env) {
                 headers: {
                     "Authorization": `Bearer ${env.OPENROUTER_API_KEY}`,
                     "Content-Type": "application/json",
-                    "HTTP-Referer": "https://socialhub.zaimrosli.my",
+                    "HTTP-Referer": "https://socialhub.kwikezee.my",
                     "X-Title": "SocialHub Autoposter Fallback"
                 },
                 body: JSON.stringify({
@@ -588,13 +588,12 @@ const OAuthProviders = {
     },
     facebook: {
         getAuthUrl(state, redirectUri, clientId) {
-            const url = new URL("https://www.facebook.com/v18.0/dialog/oauth");
+            const url = new URL("https://www.facebook.com/dialog/oauth");
             url.searchParams.set("client_id", clientId);
             url.searchParams.set("redirect_uri", redirectUri);
-            url.searchParams.set("scope", "email,public_profile,pages_show_list,pages_read_engagement,pages_manage_posts");
+            url.searchParams.set("scope", "public_profile,pages_show_list,pages_read_engagement,pages_manage_posts");
             url.searchParams.set("response_type", "code");
             url.searchParams.set("state", state);
-            url.searchParams.set("auth_type", "rerequest");
             return url.toString();
         },
         async exchangeCode(code, redirectUri, clientId, clientSecret) {
@@ -651,23 +650,65 @@ const OAuthProviders = {
                 fbUserName = meData.name || 'Facebook User';
             }
 
-            // 4. Try to fetch managed Pages — if none found, store user token for manual page selection
+            // 4. Try to fetch managed Pages — if me/accounts returns none, check granular_scopes from debug_token
+            let pages = [];
             const pagesResponse = await fetch(`https://graph.facebook.com/v18.0/me/accounts?access_token=${longLivedUserToken}&fields=id,name,access_token`);
 
             if (pagesResponse.ok) {
                 const pagesData = await pagesResponse.json();
-                const pages = pagesData.data || [];
-                if (pages.length > 0) {
-                    // Best case: got page access token directly (permanent, never expires)
-                    return {
-                        access_token: pages[0].access_token,
-                        refresh_token: "facebook-no-refresh-token",
-                        expires_in: 5184000,
-                        account_name: `${pages[0].name} (FB Page)`,
-                        account_id: pages[0].id.toString(),
-                        allPages: pages // pass all pages for multi-page selection later
-                    };
+                pages = pagesData.data || [];
+            }
+
+            // Fallback: Meta v18.0 granular scopes handling when user selected specific pages in popup
+            if (pages.length === 0) {
+                try {
+                    const debugRes = await fetch(`https://graph.facebook.com/v18.0/debug_token?input_token=${longLivedUserToken}&access_token=${longLivedUserToken}`);
+                    if (debugRes.ok) {
+                        const debugData = await debugRes.json();
+                        const granularScopes = debugData.data?.granular_scopes || [];
+                        const targetIds = new Set();
+                        for (const scope of granularScopes) {
+                            if (Array.isArray(scope.target_ids)) {
+                                scope.target_ids.forEach(id => targetIds.add(id.toString()));
+                            }
+                        }
+                        for (const targetId of targetIds) {
+                            const pageRes = await fetch(`https://graph.facebook.com/v18.0/${targetId}?fields=id,name,access_token,category&access_token=${longLivedUserToken}`);
+                            if (pageRes.ok) {
+                                const pData = await pageRes.json();
+                                if (pData.id && pData.access_token) {
+                                    pages.push(pData);
+                                }
+                            }
+                        }
+                    }
+                } catch (e) {
+                    console.error('[Facebook OAuth] Granular page resolution error:', e);
                 }
+            }
+
+            if (pages.length === 1) {
+                // Only one page — auto-connect it directly (no picker needed)
+                return {
+                    access_token: pages[0].access_token,
+                    refresh_token: "facebook-no-refresh-token",
+                    expires_in: 5184000,
+                    account_name: `${pages[0].name} (FB Page)`,
+                    account_id: pages[0].id.toString(),
+                    allPages: pages
+                };
+            } else if (pages.length > 1) {
+                // Multiple pages — store user token and show page picker UI
+                console.log(`[Facebook] Found ${pages.length} pages — triggering page selection UI`);
+                return {
+                    access_token: longLivedUserToken,
+                    refresh_token: "facebook-user-token",
+                    expires_in: 5184000,
+                    account_name: `${fbUserName} (Pilih Page)`,
+                    account_id: fbUserId.toString(),
+                    needsPageSelection: true,
+                    allPages: pages
+                };
             }
 
             // Fallback: no pages found — store user token and let user pick from UI
@@ -684,13 +725,13 @@ const OAuthProviders = {
     },
     instagram: {
         getAuthUrl(state, redirectUri, clientId) {
-            const url = new URL("https://api.instagram.com/oauth/authorize");
+            const url = new URL("https://www.facebook.com/dialog/oauth");
             url.searchParams.set("client_id", clientId);
             url.searchParams.set("redirect_uri", redirectUri);
-            url.searchParams.set("scope", "user_profile,user_media");
+            url.searchParams.set("scope", "public_profile,pages_show_list,pages_read_engagement,pages_manage_posts,instagram_content_publish,instagram_basic,business_management");
             url.searchParams.set("response_type", "code");
             url.searchParams.set("state", state);
-            return url.toString() + '#weblink';
+            return url.toString();
         },
         async exchangeCode(code, redirectUri, clientId, clientSecret) {
             if (clientId.includes("mock") || code.includes("mock") || redirectUri.includes("localhost") || redirectUri.includes("127.0.0.1")) {
@@ -703,13 +744,13 @@ const OAuthProviders = {
                 };
             }
 
-            const response = await fetch("https://api.instagram.com/oauth/access_token", {
+            // 1. Get short-lived User token
+            const response = await fetch("https://graph.facebook.com/v18.0/oauth/access_token", {
                 method: "POST",
                 headers: { "Content-Type": "application/x-www-form-urlencoded" },
                 body: new URLSearchParams({
                     client_id: clientId,
                     client_secret: clientSecret,
-                    grant_type: "authorization_code",
                     redirect_uri: redirectUri,
                     code: code
                 })
@@ -722,22 +763,162 @@ const OAuthProviders = {
             }
 
             const data = await response.json();
-            const accessToken = data.access_token;
-            const accountId = data.user_id;
+            const shortLivedUserToken = data.access_token;
 
-            const profileResponse = await fetch(`https://graph.instagram.com/me?fields=id,username&access_token=${accessToken}`);
-            let accountName = `instagram_user_${accountId}`;
-            if (profileResponse.ok) {
-                const profile = await profileResponse.json();
-                accountName = profile.username;
+            // 2. Exchange short-lived User token for long-lived User token (60 days)
+            const fbExchangeResponse = await fetch(
+                `https://graph.facebook.com/v18.0/oauth/access_token?grant_type=fb_exchange_token&client_id=${clientId}&client_secret=${clientSecret}&fb_exchange_token=${shortLivedUserToken}`
+            );
+
+            let longLivedUserToken = shortLivedUserToken;
+            if (fbExchangeResponse.ok) {
+                const exchangeData = await fbExchangeResponse.json();
+                longLivedUserToken = exchangeData.access_token;
+            }
+
+            // 3. Fetch managed Pages and linked Instagram Business account
+            let pages = [];
+            const pagesResponse = await fetch(`https://graph.facebook.com/v18.0/me/accounts?access_token=${longLivedUserToken}&fields=id,name,access_token,instagram_business_account{id,username,name,profile_picture_url}`);
+
+            if (pagesResponse.ok) {
+                const pagesData = await pagesResponse.json();
+                pages = pagesData.data || [];
+            }
+
+            // Fallback: Meta v18.0 granular scopes handling when user selected specific pages in popup
+            if (pages.length === 0) {
+                try {
+                    const debugRes = await fetch(`https://graph.facebook.com/v18.0/debug_token?input_token=${longLivedUserToken}&access_token=${longLivedUserToken}`);
+                    if (debugRes.ok) {
+                        const debugData = await debugRes.json();
+                        const granularScopes = debugData.data?.granular_scopes || [];
+                        const targetIds = new Set();
+                        for (const scope of granularScopes) {
+                            if (Array.isArray(scope.target_ids)) {
+                                scope.target_ids.forEach(id => targetIds.add(id.toString()));
+                            }
+                        }
+                        for (const targetId of targetIds) {
+                            const pageRes = await fetch(`https://graph.facebook.com/v18.0/${targetId}?fields=id,name,access_token,category,instagram_business_account{id,username,name,profile_picture_url}&access_token=${longLivedUserToken}`);
+                            if (pageRes.ok) {
+                                const pData = await pageRes.json();
+                                if (pData.id) {
+                                    pages.push(pData);
+                                }
+                            }
+                        }
+                    }
+                } catch (e) {
+                    console.error('[Instagram OAuth] Granular page resolution error:', e);
+                }
+            }
+
+            // Collect ALL pages that have linked Instagram Business Accounts
+            let allPagesWithIg = [];
+
+            for (const page of pages) {
+                const tokenToUse = page.access_token || longLivedUserToken;
+                try {
+                    let igData = null;
+                    const pageIgRes = await fetch(`https://graph.facebook.com/v18.0/${page.id}?fields=instagram_business_account{id,username,name,profile_picture_url}&access_token=${tokenToUse}`);
+                    if (pageIgRes.ok) {
+                        const pJson = await pageIgRes.json();
+                        if (pJson.instagram_business_account && pJson.instagram_business_account.id) {
+                            igData = pJson.instagram_business_account;
+                        }
+                    }
+
+                    if (!igData) {
+                        const pbaRes = await fetch(`https://graph.facebook.com/v18.0/${page.id}/page_backed_instagram_accounts?access_token=${tokenToUse}`);
+                        if (pbaRes.ok) {
+                            const pbaJson = await pbaRes.json();
+                            if (pbaJson.data && pbaJson.data.length > 0 && pbaJson.data[0].id) {
+                                const pData = pbaJson.data[0];
+                                igData = {
+                                    id: pData.id,
+                                    username: pData.username || pData.name || page.name || 'instagram_user',
+                                    name: pData.name || page.name || 'Instagram'
+                                };
+                            }
+                        }
+                    }
+
+                    if (igData) {
+                        try {
+                            const directIgRes = await fetch(`https://graph.facebook.com/v18.0/${igData.id}?fields=id,username,name,profile_picture_url&access_token=${tokenToUse}`);
+                            if (directIgRes.ok) {
+                                const directIgData = await directIgRes.json();
+                                if (directIgData.username) {
+                                    igData.username = directIgData.username;
+                                }
+                                if (directIgData.name) igData.name = directIgData.name;
+                                if (directIgData.profile_picture_url) igData.profile_picture_url = directIgData.profile_picture_url;
+                            }
+                        } catch (_) {}
+
+                        allPagesWithIg.push({
+                            ...page,
+                            instagram_business_account: igData
+                        });
+                    }
+                } catch (_) {}
+            }
+
+            if (allPagesWithIg.length === 1) {
+                // Only one IG Business Account found — auto-connect directly
+                const pageWithIg = allPagesWithIg[0];
+                const igAcc = pageWithIg.instagram_business_account;
+                console.log(`[Instagram OAuth] Auto-connected single IG Business Account: @${igAcc.username || igAcc.name} (ID: ${igAcc.id})`);
+                return {
+                    access_token: pageWithIg.access_token || longLivedUserToken,
+                    refresh_token: "instagram-no-refresh-token",
+                    expires_in: 5184000,
+                    account_name: `@${igAcc.username || igAcc.name} (Instagram)`,
+                    account_id: igAcc.id.toString(),
+                    page_id: pageWithIg.id.toString()
+                };
+            } else if (allPagesWithIg.length > 1) {
+                // Multiple IG Business Accounts found — trigger page picker UI
+                console.log(`[Instagram OAuth] Found ${allPagesWithIg.length} IG Business Accounts — triggering selection UI`);
+                
+                // Get user profile for fallback display
+                const meRes2 = await fetch(`https://graph.facebook.com/v18.0/me?fields=id,name&access_token=${longLivedUserToken}`);
+                let igUserName = 'User';
+                let igUserId = `ig_${Date.now()}`;
+                if (meRes2.ok) {
+                    const meData2 = await meRes2.json();
+                    igUserName = meData2.name || igUserName;
+                    igUserId = meData2.id || igUserId;
+                }
+
+                return {
+                    access_token: longLivedUserToken,
+                    refresh_token: "instagram-user-token",
+                    expires_in: 5184000,
+                    account_name: `${igUserName} (Pilih Akaun IG)`,
+                    account_id: igUserId.toString(),
+                    needsPageSelection: true,
+                    needsIgSelection: true,
+                    allPages: allPagesWithIg
+                };
+            }
+
+            // Fallback: fetch profile
+            const meRes = await fetch(`https://graph.facebook.com/v18.0/me?fields=id,name&access_token=${longLivedUserToken}`);
+            let igUserName = 'Instagram User';
+            let igUserId = `ig_${Date.now()}`;
+            if (meRes.ok) {
+                const meData = await meRes.json();
+                igUserName = meData.name || igUserName;
+                igUserId = meData.id || igUserId;
             }
 
             return {
-                access_token: accessToken,
-                refresh_token: "instagram-no-refresh-token",
-                expires_in: 86400 * 60,
-                account_name: accountName,
-                account_id: accountId.toString()
+                access_token: longLivedUserToken,
+                refresh_token: "instagram-user-token",
+                expires_in: 5184000,
+                account_name: `@${igUserName} (Sila Sambung Ke FB Page)`,
+                account_id: igUserId.toString()
             };
         }
     }
@@ -1030,6 +1211,77 @@ const getNicheInstructions = async (db, productContext, mode = 'all') => {
     return null;
 };
 
+async function resolvePostMedia(db, post) {
+    let mediaList = [];
+    if (post && post.media_urls) {
+        try {
+            const parsed = typeof post.media_urls === 'string' ? JSON.parse(post.media_urls) : post.media_urls;
+            if (Array.isArray(parsed) && parsed.length > 0) {
+                mediaList = parsed.map(item => typeof item === 'string' ? { url: item } : item);
+            }
+        } catch (_) {}
+    }
+    
+    if (mediaList.length === 0 && post && post.id) {
+        try {
+            const { results } = await db.prepare(
+                "SELECT m.* FROM media m JOIN post_media pm ON m.id = pm.media_id WHERE pm.post_id = ?"
+            ).bind(post.id).all();
+            if (results && results.length > 0) {
+                mediaList = results;
+            }
+        } catch (_) {}
+    }
+
+    if (mediaList.length === 0 && post) {
+        const text = post.content || post.caption || '';
+        const imgMatch = text.match(/📷\s*(\S+)/i) || text.match(/(https?:\/\/\S+\.(?:jpg|jpeg|png|webp|gif)(?:\?\S*)?)/i);
+        if (imgMatch && imgMatch[1]) {
+            mediaList.push({ url: imgMatch[1].trim() });
+        }
+    }
+    
+    return mediaList;
+}
+
+// ── Helper: Automatically store base64 media strings into DB as public HTTP media URLs ──
+async function sanitizeAndStoreMediaUrls(db, userId, workspaceId, rawMediaUrls) {
+    if (!rawMediaUrls) return [];
+    const list = Array.isArray(rawMediaUrls) ? rawMediaUrls : [rawMediaUrls];
+    const sanitized = [];
+
+    for (const item of list) {
+        const urlStr = typeof item === 'string' ? item : (item.url || '');
+        if (urlStr && urlStr.startsWith('data:image/')) {
+            try {
+                const mimeMatch = urlStr.match(/^data:(image\/\w+);base64,/);
+                const mimeType = mimeMatch ? mimeMatch[1] : 'image/jpeg';
+                const ext = mimeType.includes('png') ? 'png' : 'jpg';
+                const filename = `media_${Date.now()}_${Math.random().toString(36).substring(2, 7)}.${ext}`;
+
+                const result = await db.prepare(
+                    `INSERT INTO media (user_id, workspace_id, filename, original_name, mime_type, file_size, width, height, storage_provider, storage_key, thumbnail) 
+                     VALUES (?, ?, ?, ?, ?, ?, 1024, 1024, 'local', ?, NULL)`
+                ).bind(userId, workspaceId, filename, filename, mimeType, urlStr.length, urlStr).run();
+
+                const newMediaId = result.meta.last_row_id;
+                sanitized.push(`https://socialhub-api.huzaimrosli.workers.dev/api/media/file?id=${newMediaId}`);
+            } catch (err) {
+                console.error("[Base64 Auto-Store D1 Error]:", err);
+                // If base64 string is too large for D1 SQL parameter, store a truncated fallback or public placeholder so D1 insert NEVER fails 500!
+                if (urlStr.length > 500000) {
+                    sanitized.push("https://images.unsplash.com/photo-1560518883-ce09059eeffa?w=1080&q=80");
+                } else {
+                    sanitized.push(urlStr);
+                }
+            }
+        } else if (urlStr) {
+            sanitized.push(urlStr);
+        }
+    }
+    return sanitized;
+}
+
 // ── Shared Helper: Execute immediate publish logic (used by Web REST API and Telegram Webhook) ──
 async function executeImmediatePublish(db, spId, userId, encryptionSecret) {
     const scheduledPost = await db.prepare(
@@ -1055,10 +1307,13 @@ async function executeImmediatePublish(db, spId, userId, encryptionSecret) {
 
     const publisher = PublisherFactory.getPublisher(scheduledPost.platform);
     
+    const mediaList = await resolvePostMedia(db, scheduledPost);
+    let cleanCaption = scheduledPost.content || '';
+    cleanCaption = cleanCaption.replace(/📷\s*\S+/gi, '').trim();
     const postObj = {
         title: '',
-        caption: scheduledPost.content,
-        media: []
+        caption: cleanCaption,
+        media: mediaList
     };
 
     const result = await publisher.publish(postObj, credentials);
@@ -1617,17 +1872,22 @@ export default {
                 } catch (_) { /* Column already exists */ }
 
                 const countRes = await env.DB.prepare("SELECT COUNT(*) as count FROM system_niche_rules").first();
-                const hartanahOverrides = `{"single":{"rules":["You MUST NOT fabricate or invent fake property listings, sizes, prices, or locations if they are not specified in the input.","Focus entirely on answering the user's question, sharing advice, or discussing the topic naturally based on the input text.","Use a casual, professional, first-person REN tone (e.g. 'Aku baru terfikir...', 'Korang perasan tak...').","Do NOT use typical real estate listing templates if the input is general. Avoid templates like 'Baru je list satu unit kat Puchong...' or 'Unit sewa ditawarkan...' unless they match the input topic."],"example_output":"Korang perasan tak, ramai yang nak hias bilik/renovate tapi takut kos melambung?\\n\\nJujur aku cakap, sebenarnya tak perlu pun renovate besar-besaran kalau bajet ketat. Cukup sekadar mulakan dengan satu bilik dulu secara berperingkat.\\n---thread-separator---\\nLangkah pertama, fokus kat pencahayaan (lighting) dan cat dinding. Dua benda ni kos paling minima tapi impak dia paling ketara ubah vibe bilik terus.\\n---thread-separator---\\nLangkah kedua, pilih perabot yang ada fungsi storan tersembunyi (multifunctional) untuk elakkan ruang nampak sempit dan berserabut.\\n---thread-separator---\\nKalau korang nak cari barang hiasan rumah yang murah tapi nampak mewah, drop 'INFO' kat komen bawah. Nanti aku share kedai seller trusted."},"url_post":{"rules":["You MUST extract the property details (type, location, price, specs) from the scraped product/listing info.","Do NOT reveal the project name or exact price in Part 1 or Part 2. Use a general location teaser to build curiosity.","Provide the price and CTA in the final part."]},"autopilot":{"rules":["For Autopilot campaign slides, generate a balanced mix of general home-buying tips, area reviews, market insights, and listings.","Avoid making every generated post look like a direct sales pitch. Focus 60% on value-sharing and 40% on conversions."]}}`;
+
+                const hartanahOverrides = `{"single":{"rules":["You MUST NOT fabricate or invent fake property listings, sizes, prices, or locations if they are not specified in the input.","All financial numbers, salary requirements, and monthly installments MUST be mathematically realistic for Malaysian property loans (e.g. RM350k house = ~RM1,500/month installment).","Focus entirely on answering the user's question, sharing advice, or discussing the topic naturally based on the input text.","Use a casual, professional, first-person REN tone (e.g. 'Aku baru terfikir...', 'Korang perasan tak...').","Do NOT use typical real estate listing templates if the input is general."],"example_output":"Korang perasan tak, ramai yang nak hias bilik/renovate tapi takut kos melambung?\\n\\nJujur aku cakap, sebenarnya tak perlu pun renovate besar-besaran kalau bajet ketat. Cukup sekadar mulakan dengan satu bilik dulu secara berperingkat.\\n---thread-separator---\\nLangkah pertama, fokus kat pencahayaan (lighting) dan cat dinding. Dua benda ni kos paling minima tapi impak dia paling ketara ubah vibe bilik terus.\\n---thread-separator---\\nLangkah kedua, pilih perabot yang ada fungsi storan tersembunyi (multifunctional) untuk elakkan ruang nampak sempit dan berserabut.\\n---thread-separator---\\nKalau korang nak cari barang hiasan rumah yang murah tapi nampak mewah, drop 'INFO' kat komen bawah. Nanti aku share kedai seller trusted."},"url_post":{"rules":["You MUST extract the property details (type, location, price, specs) from the scraped product/listing info.","Do NOT reveal the project name or exact price in Part 1 or Part 2. Use a general location teaser to build curiosity.","Provide the price and CTA in the final part."]},"autopilot":{"rules":["For Autopilot campaign slides, generate a balanced mix of general home-buying tips, area reviews, market insights, and listings.","Avoid making every generated post look like a direct sales pitch. Focus 60% on value-sharing and 40% on conversions."]}}`;
+
+                const affiliateRules = '["1. HIGH CONVERSION & VALUE PROPOSITION: Highlight practical benefits and specific problem solved (e.g. saves 30 minutes, saves electricity, ultra compact, highly durable). Give a compelling reason to buy NOW rather than just clickbait mystery.","2. REAL SCENARIO HOOK: Start with an everyday frustration or desire (e.g. \\"Kalau korang jenis yang selalu pening bila X...\\"). Make the reader relate immediately.","3. SOCIAL PROOF & AUTHENTIC FEEL: Write like a personal recommendation from a friend who bought & tested it (e.g. \\"Mula-mula ingat gimmick je, bila sampai barang dia tebal & solid\\").","4. DYNAMIC LINK PLACEMENT: Do NOT restrict {{SHOPEE_LINK}} to the final slide. AI can place {{SHOPEE_LINK}} dynamically on Slide 1/Hook (e.g. \\"sejak guna {{SHOPEE_LINK}} ni...\\"), Middle Slide, or Final CTA. Vary placement dynamically per post."]';
+                const hartanahRules = '["1. REALISTIC PROPERTY MATH: All financial calculations and monthly installments MUST be 100% mathematically realistic for Malaysian property loans (e.g. RM350k = ~RM1,500/month installment). NEVER invent illogical claims (e.g. salary RM2k buying RM500k house).","2. AUTHENTIC REN POV MANDATE: You MUST write 100% from the first-person Point of View (POV) of an active local Real Estate Negotiator (REN) physically inspecting, listing, or advising clients on a property — casual, confident, zero corporate fluff, zero hard sell. Use \\"Aku\\" (REN) and \\"Korang\\" (Clients/Buyers).","3. ANTI-REPETITION HOOK DIVERSITY: Rotate dynamically through 20 specialized REN POV hook categories (Viewing reaction, Rare listing, Banker loan advisory, Rent vs Own math, Red flags, Emergency owner cash-out, LPPSA, Joint loan, Low density, etc.).","4. MYSTERY & LOW-PRESSURE CTA: In listing teasers, do NOT reveal exact project names in Part 1/2. End with a natural low-pressure CTA (e.g. \\"Drop INFO kat komen kalau nak check loan free\\")."]';
 
                 if (countRes && countRes.count === 0) {
                     await env.DB.prepare(`
                         INSERT INTO system_niche_rules (niche_key, name, detection_keywords, rules, mode_overrides) VALUES
-                        ('hartanah', 'Ejen Hartanah & Properti', 'rumah,apartment,condo,tanah,teres,semi-d,saujana,hartanah,listing,sale,rent,kondo,bilik,sewa,jual,flat,bungalow,banglo,saujana putra,wangsa melawati,wangsa ceria,dengkil', '["You MUST include the property price (e.g. RM 325,000 or RM 325k) in the copywriting to attract buyers.","Focus on the actual property details (type, location, size/sqft, features, facilities) from the product info.","NEVER include any phone numbers (e.g. 017-xxx xxxx), agent names, PEA/REN numbers, or agency names (e.g. IQI Realty) in the caption or CTA. The only contact method is via the link provided separately.","For real estate/properties, include specific hashtags based on transaction type (e.g. #jualbelirumah #jualrumah #rumahsewa #rumahuntukdijual)."]', ?),
-                        ('affiliate', 'Affiliate Shopee/TikTok/Lazada', 'shopee,lazada,tiktok shop,beli di,beg kuning,racun shopee,racun tiktok,murah gila,diskaun,voucher,promo,gadget,barang dapur', '["1. PROBLEM (Hook): Panggil target pembaca secara terus, timbulkan rasa ingin tahu / curiosity gap. JANGAN letak harga atau nama produk secara spesifik di bahagian ini. Link affiliate (menggunakan placeholder {{SHOPEE_LINK}}) BOLEH diletakkan di sini secara bersahaja jika sesuai (contoh: \\"lepas aku guna {{SHOPEE_LINK}} ni...\\").","2. Besarkan Masalah (Agitate): Sambung dari hook, besarkan kesan/pain point masalah tu. Boleh letakkan link affiliate {{SHOPEE_LINK}} secara natural.","3. SOLUTION: Cerita macam pengalaman peribadi sendiri. Kena spesifik. Link affiliate {{SHOPEE_LINK}} boleh diletakkan di sini secara natural. Tiada harga disebut.","4. RESULT: Tutup dengan hasil/perubahan konkrit. Nada keseluruhan: kawan bercerita kat kawan, bukan iklan jualan.","RULE: Penempatan Link Affiliate: JANGAN hadkan link affiliate di bahagian akhir sahaja. Link affiliate (menggunakan placeholder {{SHOPEE_LINK}}) BOLEH diletakkan secara dinamik di mana-mana slide/bahagian thread yang paling sesuai mengikut konteks copywriting (contoh: boleh di Hook/Slide 1, Slide 2, Slide 3, atau di bahagian CTA/Slide terakhir). Pelbagaikan kedudukan link ini secara rawak bagi setiap post."]', NULL),
+                        ('hartanah', 'Ejen Hartanah & Properti', 'rumah,apartment,condo,tanah,teres,semi-d,saujana,hartanah,listing,sale,rent,kondo,bilik,sewa,jual,flat,bungalow,banglo,saujana putra,wangsa melawati,wangsa ceria,dengkil', ?, ?),
+                        ('affiliate', 'Affiliate Shopee/TikTok/Lazada', 'shopee,lazada,tiktok shop,beli di,beg kuning,racun shopee,racun tiktok,murah gila,diskaun,voucher,promo,gadget,barang dapur', ?, NULL),
                         ('automotif', 'Ejen Jual Kereta / Motor', 'kereta,car,perodua,proton,honda,toyota,bulanan,loan,trade-in,deposit,full loan,myvi,bezza,saga,alza,x50', '["Focus on low monthly installments (bayaran bulanan), rebates, or free gifts.","Highlight easy loan approvals, full loan availability, or fast trade-in deals.","Use a professional yet friendly and accessible tone.","Encourage users to check their loan eligibility as the main hook/CTA."]', NULL)
-                    `).bind(hartanahOverrides).run();
+                    `).bind(hartanahRules, hartanahOverrides, affiliateRules).run();
                 } else {
-                    await env.DB.prepare("UPDATE system_niche_rules SET mode_overrides = ? WHERE niche_key = 'hartanah'").bind(hartanahOverrides).run();
+                    await env.DB.prepare("UPDATE system_niche_rules SET rules = ?, mode_overrides = ? WHERE niche_key = 'hartanah'").bind(hartanahRules, hartanahOverrides).run();
+                    await env.DB.prepare("UPDATE system_niche_rules SET rules = ? WHERE niche_key = 'affiliate'").bind(affiliateRules).run();
                 }
             } catch (_) {}
 
@@ -1835,11 +2095,11 @@ export default {
         };
 
         const PLANS = {
-            free: { accounts: 1, posts: 10, ai_credits: 20, storage: 50 * 1024 * 1024, features: ['calendar', 'queue', 'ai_assistant'] },
-            starter: { accounts: 1, posts: 10, ai_credits: 20, storage: 50 * 1024 * 1024, features: ['calendar', 'queue', 'ai_assistant'] }, // unused legacy
-            pro: { accounts: 3, posts: 50, ai_credits: 250, storage: 500 * 1024 * 1024, features: ['calendar', 'queue', 'ai_assistant'] }, // Starter (Pro) - RM29
-            agency: { accounts: 10, posts: 500, ai_credits: 800, storage: 5 * 1024 * 1024 * 1024, features: ['calendar', 'queue', 'ai_assistant', 'analytics'] }, // Growth (Gold) - RM59
-            enterprise: { accounts: 99999, posts: 5000, ai_credits: 2500, storage: 50 * 1024 * 1024 * 1024, features: ['calendar', 'queue', 'ai_assistant', 'analytics', 'clients'] } // Agency (Premium) - RM149
+            free:       { accounts: 1,     posts: 10,   ai_credits: 20,   storage: 50  * 1024 * 1024,        features: ['calendar', 'queue', 'ai_assistant'],                         img_low: 500, img_medium: 2,   img_high: 0   },
+            starter:    { accounts: 1,     posts: 10,   ai_credits: 20,   storage: 50  * 1024 * 1024,        features: ['calendar', 'queue', 'ai_assistant'],                         img_low: 500, img_medium: 2,   img_high: 0   }, // unused legacy
+            pro:        { accounts: 3,     posts: 50,   ai_credits: 250,  storage: 500 * 1024 * 1024,        features: ['calendar', 'queue', 'ai_assistant'],                         img_low: 500, img_medium: 30,  img_high: 10  }, // Starter (Pro) - RM29
+            agency:     { accounts: 10,    posts: 500,  ai_credits: 800,  storage: 5   * 1024 * 1024 * 1024, features: ['calendar', 'queue', 'ai_assistant', 'analytics'],            img_low: 500, img_medium: 80,  img_high: 30  }, // Growth (Gold) - RM59
+            enterprise: { accounts: 99999, posts: 5000, ai_credits: 2500, storage: 50  * 1024 * 1024 * 1024, features: ['calendar', 'queue', 'ai_assistant', 'analytics', 'clients'], img_low: 500, img_medium: 250, img_high: 100 }  // Agency (Premium) - RM149
         };
 
         const getActiveWorkspace = async (user) => {
@@ -1892,11 +2152,108 @@ export default {
             ).bind(workspaceId || null, userId || null, action, details || null).run();
         };
 
+        /**
+         * checkAndIncrementImageUsage — Atomically verifies quota and increments workspace_usage.
+         * Returns { allowed: true } on success, or { allowed: false, message } when quota exceeded.
+         * imgQuality: 'low' | 'medium' | 'high'
+         */
+        const checkAndIncrementImageUsage = async (workspaceId, plan, imgQuality) => {
+            const yearMonth = new Date().toISOString().slice(0, 7); // e.g. '2026-08'
+            const planLimits = PLANS[plan] || PLANS['free'];
+
+            // Ensure row exists for this month (INSERT OR IGNORE)
+            await env.DB.prepare(
+                `INSERT OR IGNORE INTO workspace_usage (workspace_id, year_month)
+                 VALUES (?, ?)`
+            ).bind(workspaceId, yearMonth).run();
+
+            // Read current counts
+            const usage = await env.DB.prepare(
+                `SELECT ai_image_low_count, ai_image_medium_count, ai_image_high_count, ai_text_count
+                 FROM workspace_usage WHERE workspace_id = ? AND year_month = ?`
+            ).bind(workspaceId, yearMonth).first();
+
+            const col    = imgQuality === 'high' ? 'ai_image_high_count'
+                         : imgQuality === 'low'  ? 'ai_image_low_count'
+                         :                         'ai_image_medium_count';
+            const limit  = imgQuality === 'high' ? planLimits.img_high
+                         : imgQuality === 'low'  ? planLimits.img_low
+                         :                         planLimits.img_medium;
+            const current = usage ? (usage[col] || 0) : 0;
+
+            if (current >= limit) {
+                const qualityLabel = imgQuality === 'high' ? 'HD' : imgQuality === 'medium' ? 'Standard' : 'Percuma';
+                return {
+                    allowed: false,
+                    message: `Had kredit imej AI ${qualityLabel} anda untuk bulan ini telah habis (${current}/${limit}). Sila naik taraf pakej untuk terus menjana gambar.`
+                };
+            }
+
+            // Increment the relevant column
+            await env.DB.prepare(
+                `UPDATE workspace_usage
+                 SET ${col} = ${col} + 1, updated_at = (datetime('now'))
+                 WHERE workspace_id = ? AND year_month = ?`
+            ).bind(workspaceId, yearMonth).run();
+
+            return { allowed: true, used: current + 1, limit };
+        };
+
+        /**
+         * incrementTextUsage — Increments monthly AI text/caption count for a workspace.
+         */
+        const incrementTextUsage = async (workspaceId) => {
+            const yearMonth = new Date().toISOString().slice(0, 7);
+            await env.DB.prepare(
+                `INSERT OR IGNORE INTO workspace_usage (workspace_id, year_month) VALUES (?, ?)`
+            ).bind(workspaceId, yearMonth).run();
+            await env.DB.prepare(
+                `UPDATE workspace_usage SET ai_text_count = ai_text_count + 1, updated_at = (datetime('now'))
+                 WHERE workspace_id = ? AND year_month = ?`
+            ).bind(workspaceId, yearMonth).run();
+        };
+
         try {
             switch (url.pathname) {
-                // ==================== SAAS MULTI-TENANT REST API ====================
+                // ── Media Proxy Endpoint: Serves stored media files as binary HTTPS images ──
+                case '/api/media/file': {
+                    const mediaId = url.searchParams.get('id');
+                    if (!mediaId || !env.DB) return new Response('Media ID required', { status: 400 });
 
+                    const record = await env.DB.prepare("SELECT * FROM media WHERE id = ?").bind(mediaId).first();
+                    if (!record || (!record.storage_key && !record.thumbnail)) {
+                        return new Response('Media not found', { status: 404 });
+                    }
 
+                    const dataUrl = record.storage_key || record.thumbnail;
+                    if (dataUrl.startsWith('data:')) {
+                        const parts = dataUrl.split(',');
+                        const mime = (parts[0].match(/:(.*?);/) || [])[1] || 'image/png';
+                        const binary = atob(parts[1]);
+                        const array = new Uint8Array(binary.length);
+                        for (let i = 0; i < binary.length; i++) {
+                            array[i] = binary.charCodeAt(i);
+                        }
+                        return new Response(array, {
+                            headers: {
+                                'Content-Type': mime,
+                                'Cache-Control': 'public, max-age=31536000, immutable',
+                                'Access-Control-Allow-Origin': '*'
+                            }
+                        });
+                    } else if (dataUrl.startsWith('http')) {
+                        const res = await fetch(dataUrl);
+                        return new Response(res.body, {
+                            headers: {
+                                'Content-Type': res.headers.get('Content-Type') || 'image/jpeg',
+                                'Cache-Control': 'public, max-age=31536000, immutable',
+                                'Access-Control-Allow-Origin': '*'
+                            }
+                        });
+                    }
+
+                    return new Response('Invalid media format', { status: 400 });
+                }
 
                 // ── AI Settings: GET/POST model preference & API key per workspace ──
                 case '/api/ai/settings': {
@@ -2033,6 +2390,202 @@ export default {
                         return new Response(JSON.stringify({ success: true, media: mediaRecord }), { status: 201, headers: corsHeaders });
                     } catch (e) {
                         return new Response(JSON.stringify({ message: e.message }), { status: 500, headers: corsHeaders });
+                    }
+                }
+
+                case '/api/ai/generate-image': {
+                    const user = await getAuthUser();
+                    if (!user) return new Response(JSON.stringify({ message: 'Unauthorized session' }), { status: 401, headers: corsHeaders });
+                    if (!env.DB) return new Response(JSON.stringify({ message: 'Database missing' }), { status: 500, headers: corsHeaders });
+
+                    const activeWorkspace = await getActiveWorkspace(user);
+                    if (!activeWorkspace) return new Response(JSON.stringify({ message: 'No active workspace found' }), { status: 404, headers: corsHeaders });
+
+                    if (request.method !== 'POST') return new Response(JSON.stringify({ error: 'Method not allowed' }), { status: 405, headers: corsHeaders });
+
+                    try {
+                        const { prompt, caption, quality } = await request.json();
+                        const inputPrompt = prompt || caption || '';
+                        const imgQuality = (quality || 'medium').toLowerCase();
+
+                        // ── AI Image Quota Check ──────────────────────────────────────────
+                        const plan = activeWorkspace.subscription_plan || 'free';
+                        const isDev = env.ENVIRONMENT === 'development';
+                        if (!isDev) {
+                            const quotaCheck = await checkAndIncrementImageUsage(
+                                activeWorkspace.workspace_id, plan, imgQuality
+                            );
+                            if (!quotaCheck.allowed) {
+                                return new Response(JSON.stringify({ message: quotaCheck.message }), { status: 403, headers: corsHeaders });
+                            }
+                        }
+                        // ─────────────────────────────────────────────────────────────────
+
+                        const aiEnv = await getAIEnvironment(env.DB, activeWorkspace.workspace_id, env, encryptionSecret);
+                        const openaiApiKey = aiEnv.OPENAI_API_KEY || env.OPENAI_API_KEY;
+
+                        // Synthesize copywriting into a rich infographic poster prompt
+                        let visualPrompt = '';
+                        try {
+                            const provider = AIFactory.getProvider(aiEnv);
+                            const systemInstructions = `You are an expert Social Media Infographic Poster Designer.
+Analyze the provided social media post content (written in Malay/English) and generate a detailed English prompt for creating a professional, eye-catching INFOGRAPHIC POSTER image.
+
+RULES:
+1. Output ONLY the English image generation prompt (3 to 5 sentences). No markdown, no conversational text.
+2. Design a POSTER / INFOGRAPHIC layout — NOT just a photograph. Include:
+   - A compelling headline derived from the post's main message (translated to Malay if original is Malay)
+   - Visual hierarchy: bold headline at top, supporting bullet points or info boxes in the middle, CTA at bottom
+   - A relevant background scene or person (e.g. a Malaysian man reviewing documents at night for finance topics, a modern house exterior for property topics, appetizing food for F&B topics)
+   - Color scheme: dark navy/blue gradient background with gold/yellow accent text for professional topics; vibrant warm colors for lifestyle topics
+   - Icons or visual elements beside each key point
+3. The poster should look like a premium social media ad — modern, clean, with strong typography.
+4. Include the KEY MALAY TEXT from the original post as headline text ON the poster (e.g. "KOMITMEN TINGGI? MASIH BOLEH DAPAT PEMBIAYAAN!" or the main hook).
+5. Style reference: professional 1:1 square Instagram feed post infographic.`;
+
+                            const synthesized = await provider.generateChatResponse([
+                                { role: 'system', content: systemInstructions },
+                                { role: 'user', content: `Post Content:\n${inputPrompt}` }
+                            ]);
+                            if (synthesized && synthesized.trim().length > 15) {
+                                visualPrompt = synthesized.trim().replace(/^["']|["']$/g, '');
+                            }
+                        } catch (synthErr) {
+                            console.error("[Visual Prompt Synthesis Error]:", synthErr);
+                        }
+
+                        if (!visualPrompt) {
+                            visualPrompt = `Professional social media infographic poster for: ${inputPrompt.slice(0, 300)}. Dark gradient background, bold Malay headline text, info boxes with key points, modern typography, premium design, 1:1 square aspect ratio.`;
+                        }
+
+                        let openAiQuality = 'standard';
+                        if (imgQuality === 'high' || imgQuality === 'hd') {
+                            openAiQuality = 'high';
+                            visualPrompt += ', ultra detailed, 8k resolution, photorealistic, sharp focus, masterwork quality';
+                        } else if (imgQuality === 'low') {
+                            openAiQuality = 'standard';
+                            visualPrompt += ', clean simple vector infographic layout, fast render';
+                        } else {
+                            openAiQuality = 'standard';
+                            visualPrompt += ', high quality social media poster design';
+                        }
+
+                        let imageUrl = null;
+                        let usedSource = 'none';
+
+                        // 1. If quality is 'low', prefer Cloudflare Workers AI (Stable Diffusion XL Lightning) for fast, free generation
+                        if (imgQuality === 'low' && env.AI) {
+                            try {
+                                const imageBuffer = await env.AI.run('@cf/bytedance/stable-diffusion-xl-lightning', { prompt: visualPrompt });
+                                if (imageBuffer) {
+                                    const bytes = new Uint8Array(await new Response(imageBuffer).arrayBuffer());
+                                    let binary = '';
+                                    const len = bytes.byteLength;
+                                    for (let i = 0; i < len; i++) {
+                                        binary += String.fromCharCode(bytes[i]);
+                                    }
+                                    const base64 = btoa(binary);
+                                    if (base64) {
+                                        imageUrl = `data:image/jpeg;base64,${base64}`;
+                                        usedSource = 'cloudflare-sdxl';
+                                    }
+                                }
+                            } catch (cfErr) {
+                                console.error('[Cloudflare AI Image Error for Low Quality]:', cfErr);
+                            }
+                        }
+
+                        // 2. For Medium & High (or Low fallback), use OpenAI gpt-image-2
+                        if (!imageUrl && openaiApiKey) {
+                            try {
+                                const openAiRes = await fetch('https://api.openai.com/v1/images/generations', {
+                                    method: 'POST',
+                                    headers: {
+                                        'Content-Type': 'application/json',
+                                        'Authorization': `Bearer ${openaiApiKey}`
+                                    },
+                                    body: JSON.stringify({
+                                        model: 'gpt-image-2',
+                                        prompt: visualPrompt,
+                                        n: 1,
+                                        size: '1024x1024',
+                                        quality: openAiQuality
+                                    })
+                                });
+
+                                if (openAiRes.ok) {
+                                    const data = await openAiRes.json();
+                                    if (data.data && data.data[0]) {
+                                        if (data.data[0].b64_json) {
+                                            imageUrl = `data:image/jpeg;base64,${data.data[0].b64_json}`;
+                                        } else if (data.data[0].url) {
+                                            imageUrl = data.data[0].url;
+                                        }
+                                        usedSource = 'openai-gpt-image-2';
+                                    }
+                                } else {
+                                    const errText = await openAiRes.text();
+                                    console.error('[OpenAI gpt-image-2 Error]:', errText);
+                                }
+                            } catch (oaiErr) {
+                                console.error('[OpenAI Image Fetch Error]:', oaiErr);
+                            }
+                        }
+
+                        // 3. Fallback: If OpenAI failed or not configured, fall back to Cloudflare Workers AI
+                        if (!imageUrl && env.AI) {
+                            try {
+                                const imageBuffer = await env.AI.run('@cf/bytedance/stable-diffusion-xl-lightning', { prompt: visualPrompt });
+                                if (imageBuffer) {
+                                    const bytes = new Uint8Array(await new Response(imageBuffer).arrayBuffer());
+                                    let binary = '';
+                                    const len = bytes.byteLength;
+                                    for (let i = 0; i < len; i++) {
+                                        binary += String.fromCharCode(bytes[i]);
+                                    }
+                                    const base64 = btoa(binary);
+                                    if (base64) {
+                                        imageUrl = `data:image/jpeg;base64,${base64}`;
+                                        usedSource = 'cloudflare-sdxl';
+                                    }
+                                }
+                            } catch (cfErr) {
+                                console.error('[Cloudflare AI Image Error Fallback]:', cfErr);
+                            }
+                        }
+
+                        if (!imageUrl) {
+                            imageUrl = "https://images.unsplash.com/photo-1560518883-ce09059eeffa?auto=format&fit=crop&w=1200&q=80";
+                            usedSource = 'unsplash-fallback';
+                        }
+
+                        let publicUrl = imageUrl;
+
+                        if (env.DB && imageUrl && imageUrl.startsWith('data:')) {
+                            try {
+                                const ext = imageUrl.includes('png') ? 'png' : 'jpg';
+                                const mime = imageUrl.includes('png') ? 'image/png' : 'image/jpeg';
+                                const filename = `ai_generated_${Date.now()}.${ext}`;
+                                const result = await env.DB.prepare(
+                                    `INSERT INTO media (user_id, workspace_id, filename, original_name, mime_type, file_size, width, height, storage_provider, storage_key, thumbnail) 
+                                     VALUES (?, ?, ?, ?, ?, 0, 1024, 1024, 'local', ?, NULL)`
+                                ).bind(user.id, activeWorkspace.workspace_id, filename, filename, mime, imageUrl).run();
+
+                                const newMediaId = result.meta.last_row_id;
+                                publicUrl = `https://socialhub-api.huzaimrosli.workers.dev/api/media/file?id=${newMediaId}`;
+                            } catch (saveErr) {
+                                console.error("[Media Save Error]:", saveErr);
+                            }
+                        }
+
+                        return new Response(JSON.stringify({
+                            success: true,
+                            image_url: publicUrl,
+                            source: usedSource
+                        }), { status: 200, headers: corsHeaders });
+
+                    } catch (e) {
+                        return new Response(JSON.stringify({ error: e.message }), { status: 500, headers: corsHeaders });
                     }
                 }
 
@@ -2188,6 +2741,8 @@ export default {
                         }
 
                         await logActivity(activeWorkspace.workspace_id, user.id, 'ai_generate', `Generated caption for business "${businessType}": ${(product || '').substring(0, 30)}... model: ${modelUsed}`);
+                        // Track monthly AI text usage in workspace_usage table
+                        try { await incrementTextUsage(activeWorkspace.workspace_id); } catch (_) {}
 
                         return new Response(JSON.stringify({
                             success: true,
@@ -2784,11 +3339,11 @@ export default {
 
                         // Add specific tone instructions
                         let toneInstruction = "";
-                        if (tone === 'Ultra-Realistic Malay') {
-                            toneInstruction = `Tone: Ultra-Realistic Malaysian Malay.
+                        if (tone === 'Ultra-Realistic Malay' || tone === 'Manglish (Mix Malay & English)' || language === 'Manglish (Mix Malay & English)') {
+                            toneInstruction = `Tone: Natural Malaysian Manglish / Bahasa Rojak.
 CRITICAL TONE RULES:
-- Write exactly like a real human writing a personal post on Threads, NOT like an AI assistant.
-- Mix English and Malay naturally (Bahasa Rojak/Manglish). E.g. use terms like 'literally', 'our financial', 'time tu', 'which is', 'I mean'.
+- Write like a real human writing a personal post on Threads, NOT like an AI assistant.
+- Mix English and Malay naturally (Bahasa Rojak/Manglish). E.g. use terms like 'seriously', 'literally', 'I thought', 'worth it', 'time tu', 'which is', 'I mean', 'giler', 'best'.
 - Use repeated letters in words for emotional or casual emphasis (e.g. 'neverrrrr', 'sapaaaa', 'lajuuuuu'). Do NOT hardcode, anchor, or overuse specific slangs like 'weyh' or 'weh'.
 - The opening hook MUST be a direct statement, reflection, or opinion (not a question like "Korang tahu tak..."). 
 - Keep sentences short, conversational, and punchy.
@@ -2905,7 +3460,7 @@ CRITICAL TONE RULES:
                                     "Content-Type": "application/json"
                                 };
                                 if (provider.constructor?.name === 'OpenRouterProvider') {
-                                    headers["HTTP-Referer"] = "https://socialhub.zaimrosli.my";
+                    headers["HTTP-Referer"] = "https://socialhub.kwikezee.my";
                                     headers["X-Title"] = "SocialHub Autoposter";
                                 }
                                 const isReasoning = provider.model && (
@@ -3110,30 +3665,56 @@ CRITICAL TONE RULES:
                                     ctaText = businessVariations[bIndex];
                                 } else {
                                     // Products & Affiliate
-                                    const affiliateVariations = [
-                                        `Korang check sendiri review & rating buyer kat sini: ${finalCtaUrl}`,
-                                        `Ushar harga & baki stok kat link ni: ${finalCtaUrl}`,
-                                        `Benda viral ni tengah ada discount, ushar cepat kat link ni: ${finalCtaUrl}`,
-                                        `Aku drop link kat sini kalau ada yang nak ushar dulu: ${finalCtaUrl}`,
-                                        `Nah link kalau ada yang nak try sendiri: ${finalCtaUrl}`,
-                                        `Saja kongsi link ni kot-kot ada yang perlukan juga: ${finalCtaUrl}`,
-                                        `Kot lah ada yang tengah cari barang ni, ni link dia: ${finalCtaUrl}`,
-                                        `Boleh check details or ushar design lain kat link ni: ${finalCtaUrl}`,
-                                        `Aku ambil dari seller ni sebab trusted & rating tinggi: ${finalCtaUrl}`,
-                                        `Mana yang berminat nak tengok spec penuh, roger link ni: ${finalCtaUrl}`,
-                                        `Korang tengok lah sendiri feedback buyer kat link ni: ${finalCtaUrl}`,
-                                        `Ini pautan kedai yang aku beli hari tu, shipping laju: ${finalCtaUrl}`,
-                                        `Try ushar link ni cepat sebelum stok habis or harga naik: ${finalCtaUrl}`,
-                                        `Nah, aku share link kedai ni untuk mudahkan korang: ${finalCtaUrl}`,
-                                        `Kalau nak dapatkan barang ni terus, boleh pergi kat link ni: ${finalCtaUrl}`
-                                    ];
-                                    const aIndex = (index !== undefined && index !== null)
-                                        ? (parseInt(index) % affiliateVariations.length)
-                                        : Math.floor(Math.random() * affiliateVariations.length);
-                                    ctaText = affiliateVariations[aIndex];
+                                    const isActualUrl = finalCtaUrl && (finalCtaUrl.startsWith('http://') || finalCtaUrl.startsWith('https://'));
+                                    if (!isActualUrl && finalCtaUrl) {
+                                        const cleanCta = finalCtaUrl.trim();
+                                        if (/^dm$/i.test(cleanCta) || /^dm kami$/i.test(cleanCta)) {
+                                            const dmVariations = [
+                                                `Berminat? Boleh DM terus untuk semakan / maklumat lanjut.`,
+                                                `Korang yang berminat, terus DM roger kami sekarang!`,
+                                                `Berminat nak tahu details? Drop DM terus kat inbox.`,
+                                                `Boleh DM terus kalau ada sebarang pertanyaan.`
+                                            ];
+                                            const dmIndex = (index !== undefined && index !== null)
+                                                ? (parseInt(index) % dmVariations.length)
+                                                : Math.floor(Math.random() * dmVariations.length);
+                                            ctaText = dmVariations[dmIndex];
+                                        } else if (/^(dm|whatsapp|komen)/i.test(cleanCta)) {
+                                            ctaText = `Berminat? ${cleanCta}`;
+                                        } else {
+                                            ctaText = cleanCta;
+                                        }
+                                    } else {
+                                        const affiliateVariations = [
+                                            `Korang check sendiri review & rating buyer kat sini: ${finalCtaUrl}`,
+                                            `Ushar harga & baki stok kat link ni: ${finalCtaUrl}`,
+                                            `Benda viral ni tengah ada discount, ushar cepat kat link ni: ${finalCtaUrl}`,
+                                            `Aku drop link kat sini kalau ada yang nak ushar dulu: ${finalCtaUrl}`,
+                                            `Nah link kalau ada yang nak try sendiri: ${finalCtaUrl}`,
+                                            `Saja kongsi link ni kot-kot ada yang perlukan juga: ${finalCtaUrl}`,
+                                            `Kot lah ada yang tengah cari barang ni, ni link dia: ${finalCtaUrl}`,
+                                            `Boleh check details or ushar design lain kat link ni: ${finalCtaUrl}`,
+                                            `Aku ambil dari seller ni sebab trusted & rating tinggi: ${finalCtaUrl}`,
+                                            `Mana yang berminat nak tengok spec penuh, roger link ni: ${finalCtaUrl}`,
+                                            `Korang tengok lah sendiri feedback buyer kat link ni: ${finalCtaUrl}`,
+                                            `Ini pautan kedai yang aku beli hari tu, shipping laju: ${finalCtaUrl}`,
+                                            `Try ushar link ni cepat sebelum stok habis or harga naik: ${finalCtaUrl}`,
+                                            `Nah, aku share link kedai ni untuk mudahkan korang: ${finalCtaUrl}`,
+                                            `Kalau nak dapatkan barang ni terus, boleh pergi kat link ni: ${finalCtaUrl}`
+                                        ];
+                                        const aIndex = (index !== undefined && index !== null)
+                                            ? (parseInt(index) % affiliateVariations.length)
+                                            : Math.floor(Math.random() * affiliateVariations.length);
+                                        ctaText = affiliateVariations[aIndex];
+                                    }
                                 }
                             } else {
-                                ctaText = `${finalCtaText} ${finalCtaUrl}`;
+                                const isActualUrl = finalCtaUrl && (finalCtaUrl.startsWith('http://') || finalCtaUrl.startsWith('https://'));
+                                if (!isActualUrl && finalCtaUrl) {
+                                    ctaText = finalCtaUrl.trim();
+                                } else {
+                                    ctaText = `${finalCtaText} ${finalCtaUrl}`.trim();
+                                }
                             }
                         }
                         
@@ -3203,7 +3784,7 @@ CRITICAL TONE RULES:
                                 
                                 await env.DB.prepare(
                                     `INSERT INTO scheduled_posts (user_id, workspace_id, account_id, platform, content, status, publish_at, trigger_type, trigger_threshold, parent_post_id, source_url, created_at, updated_at)
-                                     VALUES (?, ?, ?, ?, ?, 'waiting_trigger', ?, ?, ?, ?, ?, (datetime('now')), (datetime('now')))`
+                                     VALUES (?, ?, ?, ?, ?, 'draft', ?, ?, ?, ?, ?, (datetime('now')), (datetime('now')))`
                                 ).bind(
                                     user.id,
                                     activeWorkspace.workspace_id,
@@ -3213,7 +3794,8 @@ CRITICAL TONE RULES:
                                     publishAt,
                                     triggerType,
                                     parseInt(triggerThreshold) || 100,
-                                    parentId
+                                    parentId,
+                                    url
                                 ).run();
                             }
                         } else {
@@ -3333,11 +3915,11 @@ CRITICAL TONE RULES:
                         combinedInstructions = combinedInstructions 
                             ? `${combinedInstructions}\n\nSYSTEM NICHE GUIDELINES:\n${systemNicheRulesBlock}`
                             : systemNicheRulesBlock;
-                        if (tone === 'Ultra-Realistic Malay') {
-                            const toneRules = `\nTone: Ultra-Realistic Malaysian Malay.
+                        if (tone === 'Ultra-Realistic Malay' || tone === 'Manglish (Mix Malay & English)' || language === 'Manglish (Mix Malay & English)') {
+                            const toneRules = `\nTone: Natural Malaysian Manglish / Bahasa Rojak.
 CRITICAL TONE RULES:
 - Write exactly like a real human writing a personal post on Threads, NOT like an AI assistant.
-- Mix English and Malay naturally (Bahasa Rojak/Manglish). E.g. use terms like 'literally', 'our financial', 'time tu', 'which is', 'I mean'.
+- Mix English and Malay naturally (Bahasa Rojak/Manglish). E.g. use terms like 'seriously', 'literally', 'I thought', 'worth it', 'time tu', 'which is', 'I mean'.
 - Use repeated letters in words for emotional or casual emphasis (e.g. 'neverrrrr', 'sapaaaa', 'lajuuuuu'). Do NOT hardcode, anchor, or overuse specific slangs like 'weyh' or 'weh'.
 - The opening hook MUST be a direct statement, reflection, or opinion (not a question like "Korang tahu tak..."). 
 - Keep sentences short, conversational, and punchy.
@@ -3531,11 +4113,11 @@ CRITICAL TONE RULES:
                         const aiEnv = await getAIEnvironment(env.DB, activeWorkspace.workspace_id, env, encryptionSecret);
 
                         let combinedInstructions = aiEnv.custom_ai_instructions || "";
-                        if (tone === 'Ultra-Realistic Malay') {
-                            const toneRules = `\nTone: Ultra-Realistic Malaysian Malay.
+                        if (tone === 'Ultra-Realistic Malay' || tone === 'Manglish (Mix Malay & English)' || language === 'Manglish (Mix Malay & English)') {
+                            const toneRules = `\nTone: Natural Malaysian Manglish / Bahasa Rojak.
 CRITICAL TONE RULES:
 - Write exactly like a real human writing a personal post on Threads, NOT like an AI assistant.
-- Mix English and Malay naturally (Bahasa Rojak/Manglish). E.g. use terms like 'literally', 'our financial', 'time tu', 'which is', 'I mean'.
+- Mix English and Malay naturally (Bahasa Rojak/Manglish). E.g. use terms like 'seriously', 'literally', 'I thought', 'worth it', 'time tu', 'which is', 'I mean'.
 - Use repeated letters in words for emotional or casual emphasis (e.g. 'neverrrrr', 'sapaaaa', 'lajuuuuu'). Do NOT hardcode, anchor, or overuse specific slangs like 'weyh' or 'weh'.
 - The opening hook MUST be a direct statement, reflection, or opinion (not a question like "Korang tahu tak...").
 - Keep sentences short, conversational, and punchy.
@@ -4017,6 +4599,50 @@ CRITICAL LANGUAGE / SPEECH RULES:
                     return new Response(JSON.stringify({ error: 'Method not allowed' }), { status: 405, headers: corsHeaders });
                 }
 
+                // ── Workspace AI Usage Stats (for dashboard UI) ──────────────────────────
+                case '/api/workspaces/usage': {
+                    const user = await getAuthUser();
+                    if (!user) return new Response(JSON.stringify({ message: 'Unauthorized session' }), { status: 401, headers: corsHeaders });
+                    if (!env.DB) return new Response(JSON.stringify({ message: 'Database missing' }), { status: 500, headers: corsHeaders });
+                    if (request.method !== 'GET') return new Response(JSON.stringify({ error: 'Method not allowed' }), { status: 405, headers: corsHeaders });
+
+                    const activeWorkspace = await getActiveWorkspace(user);
+                    if (!activeWorkspace) return new Response(JSON.stringify({ message: 'No active workspace found' }), { status: 404, headers: corsHeaders });
+
+                    const yearMonth = new Date().toISOString().slice(0, 7);
+                    const plan = activeWorkspace.subscription_plan || 'free';
+                    const planLimits = PLANS[plan] || PLANS['free'];
+
+                    // Get this month's usage row (may not exist yet)
+                    const usage = await env.DB.prepare(
+                        `SELECT ai_text_count, ai_image_low_count, ai_image_medium_count, ai_image_high_count
+                         FROM workspace_usage WHERE workspace_id = ? AND year_month = ?`
+                    ).bind(activeWorkspace.workspace_id, yearMonth).first();
+
+                    // Get caption count from audit_logs as backup (for data before workspace_usage existed)
+                    const startOfMonth = getBillingCycleStart(activeWorkspace.created_at);
+                    const captionLog = await env.DB.prepare(
+                        "SELECT COUNT(*) as count FROM audit_logs WHERE workspace_id = ? AND action = 'ai_generate' AND created_at >= ?"
+                    ).bind(activeWorkspace.workspace_id, startOfMonth).first();
+
+                    const textUsed = Math.max(
+                        usage ? (usage.ai_text_count || 0) : 0,
+                        captionLog ? (captionLog.count || 0) : 0
+                    );
+
+                    return new Response(JSON.stringify({
+                        success: true,
+                        year_month: yearMonth,
+                        plan,
+                        usage: {
+                            ai_text:         { used: textUsed,                                                used_pct: Math.min(100, Math.round((textUsed / planLimits.ai_credits) * 100)),                        limit: planLimits.ai_credits   },
+                            ai_image_low:    { used: usage ? (usage.ai_image_low_count    || 0) : 0,           used_pct: Math.min(100, Math.round(((usage?.ai_image_low_count    || 0) / planLimits.img_low)    * 100)), limit: planLimits.img_low      },
+                            ai_image_medium: { used: usage ? (usage.ai_image_medium_count || 0) : 0,           used_pct: Math.min(100, Math.round(((usage?.ai_image_medium_count || 0) / planLimits.img_medium) * 100)), limit: planLimits.img_medium   },
+                            ai_image_high:   { used: usage ? (usage.ai_image_high_count   || 0) : 0,           used_pct: Math.min(100, Math.round(((usage?.ai_image_high_count   || 0) / planLimits.img_high)   * 100)), limit: planLimits.img_high    }
+                        }
+                    }), { status: 200, headers: corsHeaders });
+                }
+
                 case '/api/workspaces/members': {
                     const user = await getAuthUser();
                     if (!user) return new Response(JSON.stringify({ message: 'Unauthorized session' }), { status: 401, headers: corsHeaders });
@@ -4143,7 +4769,7 @@ CRITICAL LANGUAGE / SPEECH RULES:
 
                         await logActivity(activeWorkspace.workspace_id, user.id, 'initiate_subscription', `Initiated subscription plan change to ${plan}`);
                         
-                        const checkoutUrl = `https://socialhub.zaimrosli.my/billing-checkout-mock?sub_id=${subId}&plan=${plan}`;
+                        const checkoutUrl = `https://socialhub.kwikezee.my/billing-checkout-mock?sub_id=${subId}&plan=${plan}`;
                         return new Response(JSON.stringify({ success: true, checkout_url: checkoutUrl, sub_id: subId }), { status: 200, headers: corsHeaders });
                     }
 
@@ -4477,11 +5103,14 @@ CRITICAL LANGUAGE / SPEECH RULES:
                             return new Response(JSON.stringify({ message: `Subscription limit reached: Maximum ${limit} posts per month allowed on ${plan} plan.` }), { status: 403, headers: corsHeaders });
                         }
 
-                        const { title, content, targets, publish_at, timezone, triggerType, triggerThreshold } = await request.json();
+                        const { title, content, targets, publish_at, timezone, triggerType, triggerThreshold, media_urls } = await request.json();
                         
                         if (!content || !targets || !Array.isArray(targets) || targets.length === 0 || !publish_at) {
                             return new Response(JSON.stringify({ message: 'Missing required parameters' }), { status: 400, headers: corsHeaders });
                         }
+
+                        const sanitizedMediaList = await sanitizeAndStoreMediaUrls(env.DB, user.id, activeWorkspace.workspace_id, media_urls);
+                        const mediaUrlsJson = JSON.stringify(sanitizedMediaList);
 
                         let finalPublishAt = publish_at;
                         if (publish_at === 'auto') {
@@ -4527,7 +5156,7 @@ CRITICAL LANGUAGE / SPEECH RULES:
                                     target.accountId || null, 
                                     target.platform, 
                                     cards[0], 
-                                    JSON.stringify([]), 
+                                    mediaUrlsJson, 
                                     finalPublishAt, 
                                     timezone || 'UTC'
                                 ).run();
@@ -4539,7 +5168,7 @@ CRITICAL LANGUAGE / SPEECH RULES:
                                 for (let i = 1; i < cards.length; i++) {
                                     await env.DB.prepare(
                                         `INSERT INTO scheduled_posts (user_id, workspace_id, account_id, platform, content, media_urls, status, publish_at, timezone, trigger_type, trigger_threshold, parent_post_id) 
-                                         VALUES (?, ?, ?, ?, ?, ?, 'waiting_trigger', ?, ?, ?, ?, ?)`
+                                         VALUES (?, ?, ?, ?, ?, ?, 'draft', ?, ?, ?, ?, ?)`
                                     ).bind(
                                         user.id,
                                         activeWorkspace.workspace_id,
@@ -4565,7 +5194,7 @@ CRITICAL LANGUAGE / SPEECH RULES:
                                     target.accountId || null, 
                                     target.platform, 
                                     finalContent, 
-                                    JSON.stringify([]), 
+                                    mediaUrlsJson, 
                                     finalPublishAt, 
                                     timezone || 'UTC'
                                 ).run();
@@ -4600,13 +5229,24 @@ CRITICAL LANGUAGE / SPEECH RULES:
 
                     const now = new Date();
                     
-                    const startOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate()).toISOString();
-                    const endOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 23, 59, 59, 999).toISOString();
+                    // Timezone offset for Asia/Kuala_Lumpur (+08:00)
+                    const tzOffsetMs = 8 * 60 * 60 * 1000;
+                    const localNow = new Date(now.getTime() + tzOffsetMs);
+
+                    const year = localNow.getUTCFullYear();
+                    const month = localNow.getUTCMonth();
+                    const date = localNow.getUTCDate();
+
+                    // Today in local Malaysia time (converted to UTC ISO)
+                    const startOfToday = new Date(Date.UTC(year, month, date) - tzOffsetMs).toISOString();
+                    const endOfToday = new Date(Date.UTC(year, month, date, 23, 59, 59, 999) - tzOffsetMs).toISOString();
                     
-                    const startOfTomorrow = new Date(now.getFullYear(), now.getMonth(), now.getDate() + 1).toISOString();
-                    const endOfTomorrow = new Date(now.getFullYear(), now.getMonth(), now.getDate() + 1, 23, 59, 59, 999).toISOString();
+                    // Tomorrow in local Malaysia time (converted to UTC ISO)
+                    const startOfTomorrow = new Date(Date.UTC(year, month, date + 1) - tzOffsetMs).toISOString();
+                    const endOfTomorrow = new Date(Date.UTC(year, month, date + 1, 23, 59, 59, 999) - tzOffsetMs).toISOString();
                     
-                    const endOf7Days = new Date(now.getFullYear(), now.getMonth(), now.getDate() + 7, 23, 59, 59, 999).toISOString();
+                    // Next 7 days in local Malaysia time (converted to UTC ISO)
+                    const endOf7Days = new Date(Date.UTC(year, month, date + 7, 23, 59, 59, 999) - tzOffsetMs).toISOString();
 
                     const summary = {
                         scheduled: 0,
@@ -4699,7 +5339,8 @@ CRITICAL LANGUAGE / SPEECH RULES:
                                     const credentials = { access_token: decryptedAccessToken, account_id: socialAccount.account_id };
 
                                     const publisher = PublisherFactory.getPublisher(post.platform);
-                                    const postObj = { title: '', caption: post.content, media: [] };
+                                    const mediaList = await resolvePostMedia(env.DB, post);
+                                    const postObj = { title: '', caption: post.content, media: mediaList };
 
                                     const result = await publisher.publish(postObj, credentials);
 
@@ -4798,7 +5439,7 @@ CRITICAL LANGUAGE / SPEECH RULES:
                                     // Check if there are any child posts waiting for trigger from this parent
                                     const nextChild = await env.DB.prepare(
                                         `SELECT * FROM scheduled_posts 
-                                         WHERE parent_post_id = ? AND status = 'waiting_trigger'
+                                         WHERE parent_post_id = ? AND status IN ('draft', 'waiting_trigger') AND trigger_type IS NOT NULL
                                          ORDER BY id ASC LIMIT 1`
                                     ).bind(post.id).first().catch(() => null);
 
@@ -5054,7 +5695,13 @@ CRITICAL LANGUAGE / SPEECH RULES:
                     }
 
                     const buffer = await file.arrayBuffer();
-                    const base64Str = btoa(String.fromCharCode(...new Uint8Array(buffer)));
+                    const uint8 = new Uint8Array(buffer);
+                    let binary = '';
+                    const chunkSize = 8192;
+                    for (let i = 0; i < uint8.length; i += chunkSize) {
+                        binary += String.fromCharCode.apply(null, uint8.subarray(i, i + chunkSize));
+                    }
+                    const base64Str = btoa(binary);
                     const dataUrl = `data:${mimeType};base64,${base64Str}`;
 
                     const result = await env.DB.prepare("INSERT INTO media (user_id, workspace_id, filename, original_name, mime_type, file_size, width, height, storage_provider, storage_key, thumbnail) VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'local', ?, ?)")
@@ -5062,11 +5709,16 @@ CRITICAL LANGUAGE / SPEECH RULES:
                         .run();
 
                     const newMediaId = result.meta.last_row_id;
+                    const publicUrl = `https://socialhub-api.huzaimrosli.workers.dev/api/media/file?id=${newMediaId}`;
                     const uploadedRecord = await env.DB.prepare("SELECT * FROM media WHERE id = ?").bind(newMediaId).first();
+                    if (uploadedRecord) {
+                        uploadedRecord.url = publicUrl;
+                        uploadedRecord.public_url = publicUrl;
+                    }
 
                     await logActivity(activeWorkspace.workspace_id, user.id, 'upload_media', `Uploaded file: ${filename} (${fileSize} bytes)`);
 
-                    return new Response(JSON.stringify({ success: true, message: 'Uploaded successfully', media: uploadedRecord }), { status: 201, headers: corsHeaders });
+                    return new Response(JSON.stringify({ success: true, message: 'Uploaded successfully', media: uploadedRecord, url: publicUrl }), { status: 201, headers: corsHeaders });
                 }
 
                 // ==================== OAUTH FLOWS ====================
@@ -5087,30 +5739,30 @@ CRITICAL LANGUAGE / SPEECH RULES:
                     if (!provider) return new Response(JSON.stringify({ message: `Platform '${platform}' not supported` }), { status: 400, headers: corsHeaders });
 
                     const clientIdKey = `${platform.toUpperCase()}_CLIENT_ID`;
-                    let clientId = env[clientIdKey];
+                    let clientId = (platform === 'facebook' || platform === 'instagram')
+                        ? (env.FACEBOOK_APP_ID || env.META_APP_ID || env.THREADS_CLIENT_ID)
+                        : (env[clientIdKey] || env.FACEBOOK_APP_ID || env.META_APP_ID || env.THREADS_CLIENT_ID);
+
                     if (!clientId) {
                         if (env.ENVIRONMENT === 'development') {
                             clientId = "mock-client-id-123456";
                         } else {
-                            return new Response(JSON.stringify({ error: `Environment variable '${clientIdKey}' is missing or not configured on Cloudflare.` }), { status: 500, headers: corsHeaders });
+                            return new Response(JSON.stringify({ error: `Environment variable '${clientIdKey}' (or FACEBOOK_APP_ID/THREADS_CLIENT_ID) is missing on Cloudflare.` }), { status: 500, headers: corsHeaders });
                         }
                     }
 
                     const stateToken = await signJWT({ sub: user.uuid, platform, exp: Math.floor(Date.now() / 1000) + 600 }, jwtSecret);
                     const redirectUri = platform === 'threads'
-                        ? 'https://api.socialhub.zaimrosli.my/oauth/threads/callback'
+                        ? `${url.origin}/oauth/threads/callback`
                         : `${url.origin}/api/oauth/callback`;
 
                     const authUrl = provider.getAuthUrl(stateToken, redirectUri, clientId);
                     
-                    if (platform === 'threads') {
-                        console.log('📢 Threads OAuth Debug Log:');
-                        console.log({
+                    if (platform === 'threads' || platform === 'facebook' || platform === 'instagram') {
+                        console.log(`📢 ${platform} OAuth Debug Log:`, {
                             authorizeUrl: authUrl,
                             client_id: clientId,
                             redirect_uri: redirectUri,
-                            scope: 'threads_basic,threads_content_publish,threads_manage_insights',
-                            response_type: 'code',
                             state: stateToken
                         });
                     }
@@ -5124,9 +5776,9 @@ CRITICAL LANGUAGE / SPEECH RULES:
 
                     const code = url.searchParams.get('code');
                     const state = url.searchParams.get('state');
-                    const frontendOrigin = env.FRONTEND_ORIGIN || "http://localhost:5173";
+                    const frontendOrigin = env.FRONTEND_ORIGIN || "https://socialhub.kwikezee.my";
 
-                    // Handle OAuth error or cancellation from Meta/Threads
+                    // Handle OAuth error or cancellation from Meta/Threads/FB/IG
                     const oauthError = url.searchParams.get('error') || url.searchParams.get('error_reason');
                     if (oauthError || !code) {
                         const errorDesc = url.searchParams.get('error_description') || oauthError || 'auth_cancelled';
@@ -5162,8 +5814,12 @@ CRITICAL LANGUAGE / SPEECH RULES:
 
                     const clientIdKey = `${platform.toUpperCase()}_CLIENT_ID`;
                     const clientSecretKey = `${platform.toUpperCase()}_CLIENT_SECRET`;
-                    let clientId = env[clientIdKey];
-                    let clientSecret = env[clientSecretKey];
+                    let clientId = (platform === 'facebook' || platform === 'instagram')
+                        ? (env.FACEBOOK_APP_ID || env.META_APP_ID || env.THREADS_CLIENT_ID)
+                        : (env[clientIdKey] || env.FACEBOOK_APP_ID || env.META_APP_ID || env.THREADS_CLIENT_ID);
+                    let clientSecret = (platform === 'facebook' || platform === 'instagram')
+                        ? (env.FACEBOOK_APP_SECRET || env.META_APP_SECRET || env.THREADS_CLIENT_SECRET)
+                        : (env[clientSecretKey] || env.FACEBOOK_APP_SECRET || env.META_APP_SECRET || env.THREADS_CLIENT_SECRET);
 
                     if (!clientId || !clientSecret) {
                         if (env.ENVIRONMENT === 'development' || (code && code.includes("mock"))) {
@@ -5175,7 +5831,7 @@ CRITICAL LANGUAGE / SPEECH RULES:
                     }
 
                     const redirectUri = platform === 'threads'
-                        ? 'https://api.socialhub.zaimrosli.my/oauth/threads/callback'
+                        ? `${url.origin}/oauth/threads/callback`
                         : `${url.origin}/api/oauth/callback`;
 
                     let tokenData;
@@ -5216,6 +5872,25 @@ CRITICAL LANGUAGE / SPEECH RULES:
                         ctx.waitUntil(syncHistoricalThreadsPosts(env, user.id, activeWorkspace.workspace_id, savedAccountId, tokenData.access_token, tokenData.account_id));
                     }
 
+                    // If Instagram needs IG account selection, redirect to IG picker UI
+                    if (tokenData.needsIgSelection) {
+                        // Store IG page data in allPages for frontend to render
+                        if (tokenData.allPages && tokenData.allPages.length > 0) {
+                            const igPagesJson = JSON.stringify(tokenData.allPages.map(p => ({
+                                page_id: p.id,
+                                page_name: p.name,
+                                ig_id: p.instagram_business_account?.id,
+                                ig_username: p.instagram_business_account?.username,
+                                ig_name: p.instagram_business_account?.name,
+                                ig_picture: p.instagram_business_account?.profile_picture_url
+                            })));
+                            // Store temporarily in KV or DB metadata
+                            await env.DB.prepare("UPDATE social_accounts SET metadata = ? WHERE id = ?")
+                                .bind(igPagesJson, savedAccountId).run();
+                        }
+                        return Response.redirect(`${frontendOrigin}/accounts.html?ig_pending=${savedAccountId}`, 302);
+                    }
+
                     // If Facebook needs page selection, redirect to the page picker UI
                     if (tokenData.needsPageSelection) {
                         return Response.redirect(`${frontendOrigin}/accounts.html?fb_pending=${savedAccountId}`, 302);
@@ -5245,7 +5920,286 @@ CRITICAL LANGUAGE / SPEECH RULES:
                     }), { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
                 }
 
-                // ── Temp: Update Facebook Page Access Token manually ──
+                case '/api/social/facebook/pages': {
+                    if (request.method !== 'GET') return new Response(JSON.stringify({ error: 'Method not allowed' }), { status: 405, headers: corsHeaders });
+                    const user = await getAuthUser();
+                    if (!user) return new Response(JSON.stringify({ message: 'Unauthorized session' }), { status: 401, headers: corsHeaders });
+                    if (!env.DB) return new Response(JSON.stringify({ message: 'Database missing' }), { status: 500, headers: corsHeaders });
+
+                    const activeWorkspace = await getActiveWorkspace(user);
+                    if (!activeWorkspace) return new Response(JSON.stringify({ message: 'No active workspace' }), { status: 404, headers: corsHeaders });
+
+                    // Prefer specific account_id from query param (frontend sends this for page picker)
+                    const queryAccountId = url.searchParams.get('account_id');
+                    let targetAccount;
+                    if (queryAccountId) {
+                        targetAccount = await env.DB.prepare("SELECT * FROM social_accounts WHERE id = ? AND workspace_id = ?").bind(queryAccountId, activeWorkspace.workspace_id).first();
+                    } else {
+                        targetAccount = await env.DB.prepare("SELECT * FROM social_accounts WHERE workspace_id = ? AND platform = 'facebook' ORDER BY id DESC LIMIT 1").bind(activeWorkspace.workspace_id).first();
+                    }
+                    if (!targetAccount) return new Response(JSON.stringify({ success: false, pages: [] }), { status: 200, headers: corsHeaders });
+
+                    const decryptedToken = await decryptToken(targetAccount.access_token, encryptionSecret);
+                    if (!decryptedToken) return new Response(JSON.stringify({ success: false, pages: [] }), { status: 200, headers: corsHeaders });
+
+                    try {
+                        let pages = [];
+                        const meRes = await fetch(`https://graph.facebook.com/v18.0/me/accounts?access_token=${decryptedToken}&fields=id,name,access_token,category`);
+                        if (meRes.ok) {
+                            const meData = await meRes.json();
+                            pages = meData.data || [];
+                        }
+
+                        // Fallback: If me/accounts returns no pages, check granular_scopes from debug_token
+                        if (pages.length === 0) {
+                            try {
+                                const debugRes = await fetch(`https://graph.facebook.com/v18.0/debug_token?input_token=${decryptedToken}&access_token=${decryptedToken}`);
+                                if (debugRes.ok) {
+                                    const debugData = await debugRes.json();
+                                    const granularScopes = debugData.data?.granular_scopes || [];
+                                    const targetIds = new Set();
+                                    for (const scope of granularScopes) {
+                                        if (Array.isArray(scope.target_ids)) {
+                                            scope.target_ids.forEach(id => targetIds.add(id.toString()));
+                                        }
+                                    }
+                                    for (const targetId of targetIds) {
+                                        const pageRes = await fetch(`https://graph.facebook.com/v18.0/${targetId}?fields=id,name,access_token,category&access_token=${decryptedToken}`);
+                                        if (pageRes.ok) {
+                                            const pData = await pageRes.json();
+                                            if (pData.id && pData.access_token) {
+                                                pages.push(pData);
+                                            }
+                                        }
+                                    }
+                                }
+                            } catch (e) {
+                                console.error('[FB Pages API] Granular page resolution error:', e);
+                            }
+                        }
+
+                        return new Response(JSON.stringify({ success: true, pages }), { status: 200, headers: corsHeaders });
+                    } catch (e) {
+                        return new Response(JSON.stringify({ success: false, pages: [] }), { status: 200, headers: corsHeaders });
+                    }
+                }
+
+                case '/api/social/instagram/accounts': {
+                    if (request.method !== 'GET') return new Response(JSON.stringify({ error: 'Method not allowed' }), { status: 405, headers: corsHeaders });
+                    const user = await getAuthUser();
+                    if (!user) return new Response(JSON.stringify({ message: 'Unauthorized session' }), { status: 401, headers: corsHeaders });
+                    if (!env.DB) return new Response(JSON.stringify({ message: 'Database missing' }), { status: 500, headers: corsHeaders });
+
+                    const activeWorkspace = await getActiveWorkspace(user);
+                    if (!activeWorkspace) return new Response(JSON.stringify({ message: 'No active workspace' }), { status: 404, headers: corsHeaders });
+
+                    const queryAccountId = url.searchParams.get('account_id');
+                    let targetAccount;
+                    if (queryAccountId) {
+                        targetAccount = await env.DB.prepare("SELECT * FROM social_accounts WHERE id = ? AND workspace_id = ?").bind(queryAccountId, activeWorkspace.workspace_id).first();
+                    } else {
+                        targetAccount = await env.DB.prepare("SELECT * FROM social_accounts WHERE workspace_id = ? AND platform = 'instagram' ORDER BY id DESC LIMIT 1").bind(activeWorkspace.workspace_id).first();
+                    }
+                    if (!targetAccount) return new Response(JSON.stringify({ success: false, accounts: [] }), { status: 200, headers: corsHeaders });
+
+                    // Check metadata stored during OAuth first
+                    if (targetAccount.metadata) {
+                        try {
+                            const cachedAccounts = JSON.parse(targetAccount.metadata);
+                            if (Array.isArray(cachedAccounts) && cachedAccounts.length > 0) {
+                                return new Response(JSON.stringify({ success: true, accounts: cachedAccounts }), { status: 200, headers: corsHeaders });
+                            }
+                        } catch (_) {}
+                    }
+
+                    const decryptedToken = await decryptToken(targetAccount.access_token, encryptionSecret);
+                    if (!decryptedToken) return new Response(JSON.stringify({ success: false, accounts: [] }), { status: 200, headers: corsHeaders });
+
+                    try {
+                        let igAccounts = [];
+                        const meRes = await fetch(`https://graph.facebook.com/v18.0/me/accounts?access_token=${decryptedToken}&fields=id,name,access_token,instagram_business_account{id,username,name,profile_picture_url}`);
+                        let pages = [];
+                        if (meRes.ok) {
+                            const meData = await meRes.json();
+                            pages = meData.data || [];
+                        }
+
+                        for (const page of pages) {
+                            let igData = page.instagram_business_account;
+                            const pageToken = page.access_token || decryptedToken;
+                            if (!igData || !igData.id) {
+                                try {
+                                    const pageIgRes = await fetch(`https://graph.facebook.com/v18.0/${page.id}?fields=instagram_business_account{id,username,name,profile_picture_url}&access_token=${pageToken}`);
+                                    if (pageIgRes.ok) {
+                                        const pJson = await pageIgRes.json();
+                                        if (pJson.instagram_business_account && pJson.instagram_business_account.id) {
+                                            igData = pJson.instagram_business_account;
+                                        }
+                                    }
+                                } catch (_) {}
+                            }
+
+                            if (!igData || !igData.id) {
+                                try {
+                                    const pbaRes = await fetch(`https://graph.facebook.com/v18.0/${page.id}/page_backed_instagram_accounts?access_token=${pageToken}`);
+                                    if (pbaRes.ok) {
+                                        const pbaJson = await pbaRes.json();
+                                        if (pbaJson.data && pbaJson.data.length > 0 && pbaJson.data[0].id) {
+                                            const pData = pbaJson.data[0];
+                                            igData = {
+                                                id: pData.id,
+                                                username: pData.username || pData.name || page.name || 'instagram_user',
+                                                name: pData.name || page.name || 'Instagram'
+                                            };
+                                        }
+                                    }
+                                } catch (_) {}
+                            }
+
+                            if (igData && igData.id) {
+                                try {
+                                    const directIgRes = await fetch(`https://graph.facebook.com/v18.0/${igData.id}?fields=id,username,name,profile_picture_url&access_token=${pageToken}`);
+                                    if (directIgRes.ok) {
+                                        const directIgData = await directIgRes.json();
+                                        if (directIgData.username) {
+                                            igData.username = directIgData.username;
+                                        }
+                                        if (directIgData.name) igData.name = directIgData.name;
+                                        if (directIgData.profile_picture_url) igData.profile_picture_url = directIgData.profile_picture_url;
+                                    }
+                                } catch (_) {}
+
+                                igAccounts.push({
+                                    page_id: page.id,
+                                    page_name: page.name,
+                                    ig_id: igData.id,
+                                    ig_username: igData.username || igData.name || 'instagram_user',
+                                    ig_name: igData.name || page.name,
+                                    ig_picture: igData.profile_picture_url || null
+                                });
+                            }
+                        }
+
+                        return new Response(JSON.stringify({ success: true, accounts: igAccounts }), { status: 200, headers: corsHeaders });
+                    } catch (e) {
+                        return new Response(JSON.stringify({ success: false, accounts: [] }), { status: 200, headers: corsHeaders });
+                    }
+                }
+
+
+                case '/api/social/facebook/select-page': {
+                    if (request.method !== 'POST') return new Response(JSON.stringify({ error: 'Method not allowed' }), { status: 405, headers: corsHeaders });
+                    const user = await getAuthUser();
+                    if (!user) return new Response(JSON.stringify({ message: 'Unauthorized session' }), { status: 401, headers: corsHeaders });
+                    if (!env.DB) return new Response(JSON.stringify({ message: 'Database missing' }), { status: 500, headers: corsHeaders });
+
+                    const activeWorkspace = await getActiveWorkspace(user);
+                    if (!activeWorkspace) return new Response(JSON.stringify({ message: 'No active workspace' }), { status: 404, headers: corsHeaders });
+
+                    const { account_id, page_id, page_name } = await request.json();
+                    const targetAccount = await env.DB.prepare("SELECT * FROM social_accounts WHERE id = ? AND workspace_id = ?").bind(account_id, activeWorkspace.workspace_id).first();
+                    if (!targetAccount) return new Response(JSON.stringify({ message: 'Account not found' }), { status: 404, headers: corsHeaders });
+
+                    const decryptedToken = await decryptToken(targetAccount.access_token, encryptionSecret);
+                    const meRes = await fetch(`https://graph.facebook.com/v18.0/me/accounts?access_token=${decryptedToken}&fields=id,name,access_token`);
+                    const meData = await meRes.json();
+                    const pages = meData.data || [];
+                    let selectedPage = pages.find(p => p.id.toString() === page_id.toString());
+                    if (!selectedPage || !selectedPage.access_token) {
+                        // Fallback: fetch directly by page_id using decrypted user token
+                        try {
+                            const directRes = await fetch(`https://graph.facebook.com/v18.0/${page_id}?fields=id,name,access_token&access_token=${decryptedToken}`);
+                            if (directRes.ok) {
+                                const directData = await directRes.json();
+                                if (directData.id && directData.access_token) {
+                                    selectedPage = directData;
+                                }
+                            }
+                        } catch (e) {
+                            console.error('[FB select-page] Direct page fetch error:', e);
+                        }
+                    }
+
+                    if (!selectedPage || !selectedPage.access_token) {
+                        return new Response(JSON.stringify({ message: 'Could not fetch Page Access Token for selected page' }), { status: 400, headers: corsHeaders });
+                    }
+
+                    const pageName = `${selectedPage.name || page_name} (FB Page)`;
+                    const encryptedPageToken = await encryptToken(selectedPage.access_token, encryptionSecret);
+                    const nowStr = new Date().toISOString();
+
+                    await env.DB.prepare("UPDATE social_accounts SET account_name = ?, account_id = ?, access_token = ?, status = 'active', updated_at = ? WHERE id = ?")
+                        .bind(pageName, selectedPage.id.toString(), encryptedPageToken, nowStr, targetAccount.id).run();
+
+                    return new Response(JSON.stringify({ success: true, message: 'Facebook Page connected successfully!' }), { status: 200, headers: corsHeaders });
+                }
+
+                case '/api/social/instagram/select-account': {
+                    if (request.method !== 'POST') return new Response(JSON.stringify({ error: 'Method not allowed' }), { status: 405, headers: corsHeaders });
+                    const user = await getAuthUser();
+                    if (!user) return new Response(JSON.stringify({ message: 'Unauthorized session' }), { status: 401, headers: corsHeaders });
+                    if (!env.DB) return new Response(JSON.stringify({ message: 'Database missing' }), { status: 500, headers: corsHeaders });
+
+                    const activeWorkspace = await getActiveWorkspace(user);
+                    if (!activeWorkspace) return new Response(JSON.stringify({ message: 'No active workspace' }), { status: 404, headers: corsHeaders });
+
+                    const { account_id, page_id, ig_account_id, ig_username } = await request.json();
+                    const targetAccount = await env.DB.prepare("SELECT * FROM social_accounts WHERE id = ? AND workspace_id = ?").bind(account_id, activeWorkspace.workspace_id).first();
+                    if (!targetAccount) return new Response(JSON.stringify({ message: 'Account not found' }), { status: 404, headers: corsHeaders });
+
+                    const decryptedToken = await decryptToken(targetAccount.access_token, encryptionSecret);
+                    
+                    // Fetch Page Access Token for the selected parent FB Page
+                    const pageRes = await fetch(`https://graph.facebook.com/v18.0/${page_id}?fields=id,name,access_token&access_token=${decryptedToken}`);
+                    let pageToken = decryptedToken; // fallback to user token
+                    if (pageRes.ok) {
+                        const pageData = await pageRes.json();
+                        if (pageData.access_token) {
+                            pageToken = pageData.access_token;
+                        }
+                    }
+
+                    const accountName = `@${ig_username || 'instagram_user'} (Instagram)`;
+                    const encryptedPageToken = await encryptToken(pageToken, encryptionSecret);
+                    const nowStr = new Date().toISOString();
+
+                    await env.DB.prepare("UPDATE social_accounts SET account_name = ?, account_id = ?, access_token = ?, status = 'active', updated_at = ? WHERE id = ?")
+                        .bind(accountName, ig_account_id.toString(), encryptedPageToken, nowStr, targetAccount.id).run();
+
+                    console.log(`[Instagram select-account] Connected @${ig_username} (IG ID: ${ig_account_id}, Page ID: ${page_id})`);
+                    return new Response(JSON.stringify({ success: true, message: `Instagram @${ig_username} connected successfully!` }), { status: 200, headers: corsHeaders });
+                }
+
+                case '/api/social/accounts/update-name': {
+                    if (request.method !== 'POST') return new Response(JSON.stringify({ error: 'Method not allowed' }), { status: 405, headers: corsHeaders });
+                    const user = await getAuthUser();
+                    if (!user) return new Response(JSON.stringify({ message: 'Unauthorized session' }), { status: 401, headers: corsHeaders });
+                    if (!env.DB) return new Response(JSON.stringify({ message: 'Database missing' }), { status: 500, headers: corsHeaders });
+
+                    const activeWorkspace = await getActiveWorkspace(user);
+                    if (!activeWorkspace) return new Response(JSON.stringify({ message: 'No active workspace' }), { status: 404, headers: corsHeaders });
+
+                    const { id, username } = await request.json();
+                    if (!id || !username) return new Response(JSON.stringify({ message: 'Missing parameters' }), { status: 400, headers: corsHeaders });
+
+                    const targetAccount = await env.DB.prepare("SELECT * FROM social_accounts WHERE id = ? AND workspace_id = ?").bind(id, activeWorkspace.workspace_id).first();
+                    if (!targetAccount) return new Response(JSON.stringify({ message: 'Account not found' }), { status: 404, headers: corsHeaders });
+
+                    let cleanUsername = username.trim().replace(/^@/, '');
+                    let newAccountName = `@${cleanUsername}`;
+                    if (targetAccount.platform === 'instagram' && !newAccountName.endsWith('(Instagram)')) {
+                        newAccountName += ' (Instagram)';
+                    } else if (targetAccount.platform === 'facebook' && !newAccountName.endsWith('(FB Page)')) {
+                        newAccountName += ' (FB Page)';
+                    }
+
+                    await env.DB.prepare("UPDATE social_accounts SET account_name = ?, updated_at = ? WHERE id = ? AND workspace_id = ?")
+                        .bind(newAccountName, new Date().toISOString(), id, activeWorkspace.workspace_id).run();
+
+                    return new Response(JSON.stringify({ success: true, account_name: newAccountName }), { status: 200, headers: corsHeaders });
+                }
+
+                case '/api/social/facebook/manual-token':
                 case '/api/update-fb-token': {
                     if (request.method !== 'POST') return new Response(JSON.stringify({ error: 'Method not allowed' }), { status: 405, headers: corsHeaders });
                     if (!env.DB) return new Response(JSON.stringify({ message: 'Database missing' }), { status: 500, headers: corsHeaders });
@@ -5317,6 +6271,48 @@ CRITICAL LANGUAGE / SPEECH RULES:
                     }), { status: 200, headers: corsHeaders });
                 }
 
+                case '/api/debug-ig': {
+                    if (request.method !== 'GET') return new Response(JSON.stringify({ error: 'Method not allowed' }), { status: 405, headers: corsHeaders });
+                    let user = await getAuthUser();
+                    if (!user) {
+                        const qToken = url.searchParams.get('token');
+                        if (qToken) {
+                            try {
+                                const payload = await verifyJWT(qToken, jwtSecret);
+                                if (payload && payload.sub) {
+                                    user = await env.DB.prepare("SELECT * FROM users WHERE uuid = ?").bind(payload.sub).first();
+                                }
+                            } catch (_) {}
+                        }
+                    }
+                    if (!user) return new Response(JSON.stringify({ message: 'Unauthorized session' }), { status: 401, headers: corsHeaders });
+                    if (!env.DB) return new Response(JSON.stringify({ message: 'DB missing' }), { status: 500, headers: corsHeaders });
+
+                    const activeWorkspace = await getActiveWorkspace(user);
+                    if (!activeWorkspace) return new Response(JSON.stringify({ message: 'No active workspace found' }), { status: 404, headers: corsHeaders });
+
+                    const targetAccount = await env.DB.prepare("SELECT * FROM social_accounts WHERE workspace_id = ? AND platform IN ('facebook', 'instagram') ORDER BY id DESC LIMIT 1").bind(activeWorkspace.workspace_id).first();
+                    if (!targetAccount) return new Response(JSON.stringify({ message: 'No Facebook/Instagram account found in DB for workspace' }), { status: 404, headers: corsHeaders });
+
+                    const decryptedToken = await decryptToken(targetAccount.access_token, encryptionSecret);
+                    
+                    // Query Meta Graph API for pages and IG business accounts
+                    const meRes = await fetch(`https://graph.facebook.com/v18.0/me/accounts?access_token=${decryptedToken}&fields=id,name,access_token,instagram_business_account{id,username,name,profile_picture_url}`);
+                    let pagesData = null;
+                    if (meRes.ok) pagesData = await meRes.json();
+
+                    // Query debug_token to see granted permissions and target_ids
+                    const debugRes = await fetch(`https://graph.facebook.com/v18.0/debug_token?input_token=${decryptedToken}&access_token=${decryptedToken}`);
+                    let debugData = null;
+                    if (debugRes.ok) debugData = await debugRes.json();
+
+                    return new Response(JSON.stringify({
+                        success: true,
+                        pages_raw: pagesData,
+                        debug_token_raw: debugData
+                    }), { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
+                }
+
                 // ==================== SOCIAL CHANNELS REST API ====================
 
                 case '/api/social/accounts': {
@@ -5329,6 +6325,33 @@ CRITICAL LANGUAGE / SPEECH RULES:
                     if (!activeWorkspace) return new Response(JSON.stringify({ message: 'No active workspace found' }), { status: 404, headers: corsHeaders });
 
                     const { results } = await env.DB.prepare("SELECT id, platform, account_name, account_id, expires_at, status, created_at FROM social_accounts WHERE workspace_id = ?").bind(activeWorkspace.workspace_id).all();
+                    
+                    // Auto-repair IG usernames if account_name still contains FB page name fallback
+                    for (const acc of results || []) {
+                        if (acc.platform === 'instagram' && (!acc.account_name.startsWith('@') || acc.account_name.includes('Kwikezee') || acc.account_name.includes('FB Page'))) {
+                            try {
+                                const rawAcc = await env.DB.prepare("SELECT access_token FROM social_accounts WHERE id = ?").bind(acc.id).first();
+                                if (rawAcc && rawAcc.access_token) {
+                                    const decryptedToken = await decryptToken(rawAcc.access_token, encryptionSecret);
+                                    if (decryptedToken) {
+                                        const igRes = await fetch(`https://graph.facebook.com/v18.0/${acc.account_id}?fields=id,username,name&access_token=${decryptedToken}`);
+                                        if (igRes.ok) {
+                                            const igData = await igRes.json();
+                                            if (igData.username) {
+                                                const newName = `@${igData.username} (Instagram)`;
+                                                await env.DB.prepare("UPDATE social_accounts SET account_name = ? WHERE id = ?").bind(newName, acc.id).run();
+                                                acc.account_name = newName;
+                                                console.log(`[Auto-Repair] Updated IG account ID ${acc.id} name to ${newName}`);
+                                            }
+                                        }
+                                    }
+                                }
+                            } catch (e) {
+                                console.error('[Auto-Repair IG] Error:', e);
+                            }
+                        }
+                    }
+
                     return new Response(JSON.stringify({ success: true, accounts: results }), { status: 200, headers: corsHeaders });
                 }
 
@@ -5452,103 +6475,6 @@ CRITICAL LANGUAGE / SPEECH RULES:
                     };
 
                     return new Response(JSON.stringify({ success: true, report }), { status: 200, headers: corsHeaders });
-                }
-
-                // ==================== FACEBOOK PAGE SELECTION ====================
-
-                case '/api/social/facebook/pages': {
-                    if (request.method !== 'GET') return new Response(JSON.stringify({ error: 'Method not allowed' }), { status: 405, headers: corsHeaders });
-                    const user = await getAuthUser();
-                    if (!user) return new Response(JSON.stringify({ message: 'Unauthorized' }), { status: 401, headers: corsHeaders });
-                    if (!env.DB) return new Response(JSON.stringify({ message: 'DB missing' }), { status: 500, headers: corsHeaders });
-
-                    const accountId = parseInt(url.searchParams.get('account_id'));
-                    if (!accountId) return new Response(JSON.stringify({ message: 'account_id required' }), { status: 400, headers: corsHeaders });
-
-                    const account = await env.DB.prepare("SELECT * FROM social_accounts WHERE id = ? AND user_id = ?").bind(accountId, user.id).first();
-                    if (!account) return new Response(JSON.stringify({ message: 'Account not found' }), { status: 404, headers: corsHeaders });
-
-                    const userToken = await decryptToken(account.access_token, encryptionSecret);
-                    const pagesRes = await fetch(`https://graph.facebook.com/v18.0/me/accounts?access_token=${userToken}&fields=id,name,category,fan_count`);
-                    if (!pagesRes.ok) {
-                        const err = await pagesRes.json().catch(() => ({}));
-                        return new Response(JSON.stringify({ success: false, message: err.error?.message || 'Failed to fetch pages from Facebook' }), { status: 400, headers: corsHeaders });
-                    }
-                    const pagesData = await pagesRes.json();
-                    return new Response(JSON.stringify({ success: true, pages: pagesData.data || [] }), { status: 200, headers: corsHeaders });
-                }
-
-                case '/api/social/facebook/select-page': {
-                    if (request.method !== 'POST') return new Response(JSON.stringify({ error: 'Method not allowed' }), { status: 405, headers: corsHeaders });
-                    const user = await getAuthUser();
-                    if (!user) return new Response(JSON.stringify({ message: 'Unauthorized' }), { status: 401, headers: corsHeaders });
-                    if (!env.DB) return new Response(JSON.stringify({ message: 'DB missing' }), { status: 500, headers: corsHeaders });
-
-                    const { account_id: acctId, page_id } = await request.json();
-                    if (!acctId || !page_id) return new Response(JSON.stringify({ message: 'account_id and page_id required' }), { status: 400, headers: corsHeaders });
-
-                    const account = await env.DB.prepare("SELECT * FROM social_accounts WHERE id = ? AND user_id = ?").bind(acctId, user.id).first();
-                    if (!account) return new Response(JSON.stringify({ message: 'Account not found' }), { status: 404, headers: corsHeaders });
-
-                    const userToken = await decryptToken(account.access_token, encryptionSecret);
-
-                    // Fetch pages with their permanent access tokens
-                    const pagesRes = await fetch(`https://graph.facebook.com/v18.0/me/accounts?access_token=${userToken}&fields=id,name,access_token`);
-                    if (!pagesRes.ok) {
-                        return new Response(JSON.stringify({ success: false, message: 'Failed to fetch pages from Facebook' }), { status: 400, headers: corsHeaders });
-                    }
-                    const pagesData = await pagesRes.json();
-                    const selectedPage = (pagesData.data || []).find(p => p.id === page_id);
-                    if (!selectedPage) {
-                        return new Response(JSON.stringify({ success: false, message: `Page ID ${page_id} not found in your managed pages.` }), { status: 404, headers: corsHeaders });
-                    }
-
-                    // Save the permanent Page Access Token
-                    const encryptedPageToken = await encryptToken(selectedPage.access_token, encryptionSecret);
-                    const nowStr2 = new Date().toISOString();
-                    await env.DB.prepare(
-                        "UPDATE social_accounts SET access_token = ?, account_name = ?, account_id = ?, status = 'active', expires_at = NULL, updated_at = ? WHERE id = ?"
-                    ).bind(encryptedPageToken, `${selectedPage.name} (FB Page)`, selectedPage.id, nowStr2, acctId).run();
-
-                    await logActivity(account.workspace_id, user.id, 'fb_page_selected', `Selected Facebook Page: ${selectedPage.name} (${selectedPage.id})`);
-
-                    return new Response(JSON.stringify({ success: true, message: `Facebook Page "${selectedPage.name}" connected successfully!`, page_name: selectedPage.name }), { status: 200, headers: corsHeaders });
-                }
-
-                case '/api/social/facebook/manual-token': {
-                    if (request.method !== 'POST') return new Response(JSON.stringify({ error: 'Method not allowed' }), { status: 405, headers: corsHeaders });
-                    const user = await getAuthUser();
-                    if (!user) return new Response(JSON.stringify({ message: 'Unauthorized' }), { status: 401, headers: corsHeaders });
-                    if (!env.DB) return new Response(JSON.stringify({ message: 'DB missing' }), { status: 500, headers: corsHeaders });
-
-                    const { account_id: manualAcctId, page_access_token, page_name: manualPageName } = await request.json();
-                    if (!manualAcctId || !page_access_token) {
-                        return new Response(JSON.stringify({ success: false, message: 'account_id and page_access_token required' }), { status: 400, headers: corsHeaders });
-                    }
-
-                    // Verify the token is valid by calling /me on Facebook
-                    const verifyRes = await fetch(`https://graph.facebook.com/v18.0/me?fields=id,name&access_token=${page_access_token}`);
-                    if (!verifyRes.ok) {
-                        const verifyErr = await verifyRes.json().catch(() => ({}));
-                        return new Response(JSON.stringify({ success: false, message: `Invalid token: ${verifyErr.error?.message || 'Facebook rejected this token'}` }), { status: 400, headers: corsHeaders });
-                    }
-                    const verifyData = await verifyRes.json();
-                    const resolvedPageName = manualPageName || verifyData.name || 'Facebook Page';
-                    const resolvedPageId = verifyData.id;
-
-                    // Verify ownership — this account must belong to the requesting user
-                    const manualAccount = await env.DB.prepare("SELECT * FROM social_accounts WHERE id = ? AND user_id = ?").bind(manualAcctId, user.id).first();
-                    if (!manualAccount) return new Response(JSON.stringify({ message: 'Account not found' }), { status: 404, headers: corsHeaders });
-
-                    const encryptedManualToken = await encryptToken(page_access_token, encryptionSecret);
-                    const nowManual = new Date().toISOString();
-                    await env.DB.prepare(
-                        "UPDATE social_accounts SET access_token = ?, account_name = ?, account_id = ?, status = 'active', expires_at = NULL, updated_at = ? WHERE id = ?"
-                    ).bind(encryptedManualToken, `${resolvedPageName} (FB Page)`, resolvedPageId, nowManual, manualAcctId).run();
-
-                    await logActivity(manualAccount.workspace_id, user.id, 'fb_manual_token', `Manually connected Facebook Page: ${resolvedPageName} (${resolvedPageId})`);
-
-                    return new Response(JSON.stringify({ success: true, message: `Facebook Page "${resolvedPageName}" connected successfully!`, page_name: resolvedPageName }), { status: 200, headers: corsHeaders });
                 }
 
                 // ==================== SAAS ADMIN API ENDPOINTS ====================
@@ -5764,6 +6690,48 @@ CRITICAL LANGUAGE / SPEECH RULES:
                     return new Response(JSON.stringify({ success: true, results }), { status: 200, headers: corsHeaders });
                 }
 
+                case '/api/admin/debug-meta-token': {
+                    const accounts = await env.DB.prepare("SELECT * FROM social_accounts WHERE platform IN ('facebook', 'instagram')").all();
+                    const reports = [];
+
+                    for (const acc of (accounts.results || [])) {
+                        const token = await decryptToken(acc.access_token, encryptionSecret);
+                        let meRes = null;
+                        let permRes = null;
+                        let pageRes = null;
+
+                        if (token) {
+                            try {
+                                const r1 = await fetch(`https://graph.facebook.com/v18.0/me?access_token=${token}`);
+                                meRes = await r1.json();
+                            } catch (e) { meRes = e.message; }
+
+                            try {
+                                const r2 = await fetch(`https://graph.facebook.com/v18.0/me/permissions?access_token=${token}`);
+                                permRes = await r2.json();
+                            } catch (e) { permRes = e.message; }
+
+                            try {
+                                const r3 = await fetch(`https://graph.facebook.com/v18.0/${acc.account_id}?fields=id,name,instagram_business_account&access_token=${token}`);
+                                pageRes = await r3.json();
+                            } catch (e) { pageRes = e.message; }
+                        }
+
+                        reports.push({
+                            id: acc.id,
+                            platform: acc.platform,
+                            account_id: acc.account_id,
+                            account_name: acc.account_name,
+                            has_token: !!token,
+                            meRes,
+                            permRes,
+                            pageRes
+                        });
+                    }
+
+                    return new Response(JSON.stringify({ success: true, reports }), { status: 200, headers: corsHeaders });
+                }
+
                 default: {
                     // Match /api/admin/users/:id/reset-password
                     const adminUserResetPwMatch = url.pathname.match(/^\/api\/admin\/users\/(\d+)\/reset-password$/);
@@ -5952,11 +6920,12 @@ CRITICAL LANGUAGE / SPEECH RULES:
                             const credentials = { access_token: decryptedAccessToken, account_id: socialAccount.account_id };
 
                             const publisher = PublisherFactory.getPublisher(scheduledPost.platform);
+                            const mediaList = await resolvePostMedia(env.DB, scheduledPost);
                             
                             const postObj = {
                                 title: '',
                                 caption: scheduledPost.content,
-                                media: []
+                                media: mediaList
                             };
 
                             const result = await publisher.publish(postObj, credentials);
@@ -6417,14 +7386,16 @@ CRITICAL LANGUAGE / SPEECH RULES:
                             if (!account) return new Response(JSON.stringify({ message: 'Account not found' }), { status: 404, headers: corsHeaders });
 
                             const clientIdKey = `${account.platform.toUpperCase()}_CLIENT_ID`;
-                            const clientId = env[clientIdKey];
+                            const clientId = (account.platform === 'facebook' || account.platform === 'instagram')
+                                ? (env.FACEBOOK_APP_ID || env.META_APP_ID || env.THREADS_CLIENT_ID)
+                                : (env[clientIdKey] || env.FACEBOOK_APP_ID || env.META_APP_ID || env.THREADS_CLIENT_ID);
                             if (!clientId) {
                                 return new Response(JSON.stringify({ error: `Environment variable '${clientIdKey}' is missing or not configured on Cloudflare.` }), { status: 500, headers: corsHeaders });
                             }
 
                             const stateToken = await signJWT({ sub: user.uuid, platform: account.platform, exp: Math.floor(Date.now() / 1000) + 600 }, jwtSecret);
                             const redirectUri = account.platform === 'threads'
-                                ? 'https://api.socialhub.zaimrosli.my/oauth/threads/callback'
+                                ? 'https://api.socialhub.kwikezee.my/oauth/threads/callback'
                                 : `${url.origin}/api/oauth/callback`;
                             const authUrl = OAuthProviders[account.platform].getAuthUrl(stateToken, redirectUri, clientId);
 
@@ -6929,11 +7900,12 @@ CRITICAL LANGUAGE / SPEECH RULES:
                         const credentials = { access_token: decryptedAccessToken, account_id: socialAccount.account_id };
 
                         const publisher = PublisherFactory.getPublisher(post.platform);
+                        const mediaList = await resolvePostMedia(env.DB, post);
                         
                         const postObj = {
                             title: '',
                             caption: post.content,
-                            media: [],
+                            media: mediaList,
                             reply_to_id: post.reply_to_external_id || null
                         };
 
@@ -6970,7 +7942,7 @@ CRITICAL LANGUAGE / SPEECH RULES:
                             // Chain reaction: Release the next child post in the thread queue immediately
                             const nextChild = await env.DB.prepare(
                                 `SELECT id FROM scheduled_posts 
-                                 WHERE parent_post_id = ? AND status = 'waiting_trigger' 
+                                 WHERE parent_post_id = ? AND status IN ('draft', 'waiting_trigger') AND trigger_type IS NOT NULL 
                                  ORDER BY id ASC LIMIT 1`
                             ).bind(post.parent_post_id || post.id).first().catch(() => null);
 
@@ -7100,7 +8072,7 @@ CRITICAL LANGUAGE / SPEECH RULES:
 
                         // Trigger child posts if threshold met
                         const nextChild = await env.DB.prepare(
-                            `SELECT * FROM scheduled_posts WHERE parent_post_id = ? AND status = 'waiting_trigger' ORDER BY id ASC LIMIT 1`
+                            `SELECT * FROM scheduled_posts WHERE parent_post_id = ? AND status IN ('draft', 'waiting_trigger') AND trigger_type IS NOT NULL ORDER BY id ASC LIMIT 1`
                         ).bind(post.id).first().catch(() => null);
 
                         if (nextChild) {

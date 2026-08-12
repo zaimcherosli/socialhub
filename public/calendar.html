@@ -668,7 +668,7 @@
                     <div class="calendar-nav-bar" style="margin-bottom: 1rem;">
                         <div class="calendar-nav-controls">
                             <button class="btn btn-secondary" style="padding: 0.45rem 0.75rem;" id="btnPrevMonth">◀</button>
-                            <span class="calendar-nav-title" id="calendarTitle">June 2026</span>
+                            <span class="calendar-nav-title" id="calendarTitle">Memuatkan...</span>
                             <button class="btn btn-secondary" style="padding: 0.45rem 0.75rem;" id="btnNextMonth">▶</button>
                             <button class="btn btn-secondary" style="padding: 0.45rem 0.75rem; margin-left: 0.5rem;" id="btnToday">Today</button>
                         </div>
@@ -705,9 +705,13 @@
 
                 <!-- Tab 2: Queue Table View Content -->
                 <div id="queueViewContainer" style="display: none;">
-                    <div class="card" style="padding: 0;">
-                        <div class="table-responsive">
-                            <table style="width: 100%; min-width: 900px; border-collapse: collapse; text-align: left; font-size: 0.875rem;">
+                    <div class="card" style="padding: 0; overflow: hidden;">
+                        <!-- Top Horizontal Scrollbar for Desktop Convenience -->
+                        <div class="top-scrollbar-container" id="queueTopScrollbar" style="overflow-x: auto; overflow-y: hidden; height: 14px; background: var(--color-bg-accent); border-bottom: 1px solid var(--color-border); display: block;" title="Scroll skrin ke kiri/kanan">
+                            <div class="top-scrollbar-inner" style="height: 1px; width: 950px;"></div>
+                        </div>
+                        <div class="table-responsive" id="queueTableResponsive" style="cursor: grab;">
+                            <table id="queueTable" style="width: 100%; min-width: 950px; border-collapse: collapse; text-align: left; font-size: 0.875rem;">
                                 <thead>
                                     <tr style="border-bottom: 2px solid var(--color-border); color: var(--color-text-tertiary); font-weight: 600; background: var(--color-bg-accent);">
                                         <th style="padding: 1rem;"><input type="checkbox" id="chkSelectAllQueue" /></th>
@@ -839,12 +843,54 @@
         ];
 
         async function init() {
+            // Parse URL parameters for view and date routing
+            const urlParams = new URLSearchParams(window.location.search);
+            const initialView = urlParams.get('view');
+            const targetDateParam = urlParams.get('date');
+
+            if (initialView === 'queue') {
+                activeTab = 'queue';
+                const tabBtnQueue = document.getElementById('tabBtnQueue');
+                const tabBtnCalendar = document.getElementById('tabBtnCalendar');
+                const calendarViewContainer = document.getElementById('calendarViewContainer');
+                const queueViewContainer = document.getElementById('queueViewContainer');
+                if (tabBtnQueue && tabBtnCalendar) {
+                    tabBtnQueue.classList.add('active');
+                    tabBtnCalendar.classList.remove('active');
+                }
+                if (calendarViewContainer && queueViewContainer) {
+                    calendarViewContainer.style.display = 'none';
+                    queueViewContainer.style.display = 'block';
+                }
+            } else if (['month', 'week', 'day'].includes(initialView)) {
+                calendarView = initialView;
+                const btnMonth = document.getElementById('btnViewMonth');
+                const btnWeek = document.getElementById('btnViewWeek');
+                const btnDay = document.getElementById('btnViewDay');
+                if (btnMonth) btnMonth.classList.toggle('active', calendarView === 'month');
+                if (btnWeek) btnWeek.classList.toggle('active', calendarView === 'week');
+                if (btnDay) btnDay.classList.toggle('active', calendarView === 'day');
+            }
+
+            if (targetDateParam) {
+                const parsedDate = new Date(targetDateParam);
+                if (!isNaN(parsedDate.getTime())) {
+                    currentDayDate = parsedDate;
+                    currentYear = parsedDate.getFullYear();
+                    currentMonth = parsedDate.getMonth();
+                }
+            }
+
             bindTabEvents();
             bindFilterEvents();
             bindCalendarNav();
             bindBulkActions();
             await loadAccountsDropdown();
             await fetchSchedules();
+
+            if (urlParams.get('highlight') === 'new') {
+                notificationService.success('Senarai post terbaharu sedia disemak!');
+            }
 
             // Auto-refresh calendar data in the background silently every 30 seconds
             setInterval(async () => {
@@ -1306,13 +1352,31 @@
                                 statusText = item.status.toUpperCase();
                         }
                             
+                        const platformIconMap = {
+                            threads: './assets/icons/threads.png',
+                            facebook: './assets/icons/facebook.png',
+                            instagram: './assets/icons/instagram.png'
+                        };
+                        const getPlatformIconHtml = (pStr) => {
+                            const pKey = (pStr || '').toLowerCase();
+                            const imgSrc = platformIconMap[pKey];
+                            if (imgSrc) {
+                                return `<img src="${imgSrc}" alt="${pStr}" style="width: 16px; height: 16px; object-fit: contain; vertical-align: middle; display: inline-block;" />`;
+                            }
+                            const fallbackEmojis = { tiktok: '🎵', twitter: '🐦', x: '🐦', linkedin: '💼', telegram: '✈️' };
+                            return fallbackEmojis[pKey] || '📅';
+                        };
+
+                        const pIcon = getPlatformIconHtml(item.platform);
+                        const pName = item.platform ? (item.platform.charAt(0).toUpperCase() + item.platform.slice(1)) : 'Social';
+
                         const timeLabel = new Date(item.publish_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: true });
                         card.innerHTML = `
-                            <div style="display:flex; align-items:center; gap:0.5rem; flex-wrap:wrap;">
-                                <span>${statusText}</span>
-                                <span style="font-size:0.7rem; opacity:0.75; font-weight:500;">(${timeLabel})</span>
+                            <div style="display:flex; align-items:center; gap:0.4rem; flex-wrap:wrap;">
+                                <span style="font-weight:700; font-size:0.75rem; color:var(--color-primary); display:inline-flex; align-items:center; gap:0.35rem;">${pIcon} ${pName}</span>
+                                <span style="font-size:0.7rem; opacity:0.75; font-weight:500; margin-left:auto;">${timeLabel}</span>
                             </div>
-                            <div class="timeline-card-preview-text" style="font-weight: 500; font-size: 0.75rem; text-align: right; max-width: 60%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; opacity: 0.95;">
+                            <div class="timeline-card-preview-text" style="font-weight: 500; font-size: 0.75rem; text-align: left; max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; opacity: 0.95; margin-top: 0.2rem;">
                                 ${item.content || '(No caption)'}
                             </div>
                         `;
@@ -1352,6 +1416,72 @@
             grid.appendChild(containerCard);
         }
 
+        // ==================== DUAL SCROLLBAR & DRAG TO SCROLL SYSTEM ====================
+
+        function initDualScrollbar() {
+            const responsiveContainer = document.getElementById('queueTableResponsive');
+            const topScrollbar = document.getElementById('queueTopScrollbar');
+            const queueTable = document.getElementById('queueTable');
+
+            if (!responsiveContainer || !topScrollbar || !queueTable) return;
+
+            const innerDiv = topScrollbar.querySelector('.top-scrollbar-inner');
+            if (innerDiv) {
+                innerDiv.style.width = Math.max(queueTable.scrollWidth, 950) + 'px';
+            }
+
+            let isSyncingTop = false;
+            let isSyncingBottom = false;
+
+            topScrollbar.onscroll = () => {
+                if (!isSyncingTop) {
+                    isSyncingBottom = true;
+                    responsiveContainer.scrollLeft = topScrollbar.scrollLeft;
+                }
+                isSyncingTop = false;
+            };
+
+            responsiveContainer.onscroll = () => {
+                if (!isSyncingBottom) {
+                    isSyncingTop = true;
+                    topScrollbar.scrollLeft = responsiveContainer.scrollLeft;
+                }
+                isSyncingBottom = false;
+            };
+
+            // Drag-to-scroll panning on desktop
+            let isDown = false;
+            let startX;
+            let scrollLeft;
+
+            responsiveContainer.onmousedown = (e) => {
+                if (e.target.tagName === 'BUTTON' || e.target.tagName === 'INPUT' || e.target.tagName === 'A' || e.target.closest('button, a, input, select')) return;
+                isDown = true;
+                responsiveContainer.style.cursor = 'grabbing';
+                startX = e.pageX - responsiveContainer.offsetLeft;
+                scrollLeft = responsiveContainer.scrollLeft;
+            };
+
+            responsiveContainer.onmouseleave = () => {
+                isDown = false;
+                responsiveContainer.style.cursor = 'grab';
+            };
+
+            responsiveContainer.onmouseup = () => {
+                isDown = false;
+                responsiveContainer.style.cursor = 'grab';
+            };
+
+            responsiveContainer.onmousemove = (e) => {
+                if (!isDown) return;
+                e.preventDefault();
+                const x = e.pageX - responsiveContainer.offsetLeft;
+                const walk = (x - startX) * 1.5;
+                responsiveContainer.scrollLeft = scrollLeft - walk;
+                topScrollbar.scrollLeft = responsiveContainer.scrollLeft;
+            };
+        }
+
         // ==================== QUEUE TABLE RENDERING WORKFLOW ====================
 
         function buildQueueListView() {
@@ -1384,13 +1514,13 @@
                 tr.innerHTML = `
                     <td data-label="Select" style="padding: 0.75rem 1rem;"><input type="checkbox" class="chk-queue-select" data-id="${item.id}" ${isChecked} /></td>
                     <td data-label="Platform" style="padding: 0.75rem 1rem; font-weight: 500; white-space: nowrap;">
-                        <span style="text-transform: capitalize;">${item.platform}</span>
+                        <span style="display: inline-flex; align-items: center; gap: 0.35rem; text-transform: capitalize;">${getPlatformIconHtml(item.platform)} ${item.platform}</span>
                     </td>
                     <td data-label="Account" style="padding: 0.75rem 1rem; color: var(--color-text-secondary); font-size: 0.8125rem; white-space: nowrap; max-width: 160px; overflow: hidden; text-overflow: ellipsis;">
                         ${item.account_name || '@connected'}
                     </td>
                     <td data-label="Caption" style="padding: 0.75rem 1rem;">
-                        <span class="cell-truncate-text" style="display: inline-block; max-width: 55vw; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; text-align: right; vertical-align: middle;">${captionText}</span>
+                        <span class="cell-truncate-text" style="display: inline-block; max-width: 320px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; vertical-align: middle;">${captionText}</span>
                     </td>
                     <td data-label="Publish Time" style="padding: 0.75rem 1rem; white-space: nowrap;">
                         <span style="display: block; font-size: 0.8125rem; font-weight: 600; color: var(--color-text-primary);">${dateStr}</span>
@@ -1426,6 +1556,8 @@
 
                 tbody.appendChild(tr);
             });
+
+            setTimeout(initDualScrollbar, 50);
         }
 
         // ==================== WORKSPACE DETAILS MODAL ====================
@@ -1666,6 +1798,7 @@
                 calendarViewContainer.style.display = 'none';
                 queueViewContainer.style.display = 'block';
                 applyFiltersAndRender();
+                setTimeout(initDualScrollbar, 50);
             });
 
             document.getElementById('btnCloseModal').addEventListener('click', () => {

@@ -6,8 +6,10 @@ compatibility_date = "2026-06-29"
 # Variables/Bindings
 [vars]
 ENVIRONMENT = "production"
-THREADS_CLIENT_ID = "952901221088471"
-FRONTEND_ORIGIN = "https://socialhub.zaimrosli.my"
+THREADS_CLIENT_ID = "1775553577131102"
+FACEBOOK_APP_ID = "1775553577131102"
+INSTAGRAM_CLIENT_ID = "2829348337448437"
+FRONTEND_ORIGIN = "https://socialhub.kwikezee.my"
 OPENROUTER_MODEL = "@cf/meta/llama-3.2-3b-instruct"
 
 # D1 Database Binding

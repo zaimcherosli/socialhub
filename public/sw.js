@@ -1,4 +1,4 @@
-const CACHE_NAME = 'socialhub-cache-v65';
+const CACHE_NAME = 'socialhub-cache-v80';
 const ASSETS_TO_CACHE = [
   '/',
   '/dashboard.html',
@@ -79,8 +79,7 @@ self.addEventListener('install', (event) => {
       );
     })
   );
-  // Call skipWaiting directly to activate the new version immediately on next page reload
-  self.skipWaiting();
+  // Do NOT call skipWaiting() directly during install so new version waits until user taps Update button
 });
 
 self.addEventListener('activate', (event) => {
@@ -105,10 +104,14 @@ self.addEventListener('fetch', (event) => {
     return;
   }
 
+  const url = new URL(event.request.url);
   const isHtmlRequest = event.request.headers && event.request.headers.get('accept') && event.request.headers.get('accept').includes('text/html');
+  const isJsOrCss = url.pathname.endsWith('.js') || url.pathname.endsWith('.css');
+  const isImage = url.pathname.match(/\.(png|jpg|jpeg|gif|svg|webp|ico)$/i);
 
-  if (isHtmlRequest) {
-    // Network-first strategy for navigation
+  if (isHtmlRequest || isJsOrCss) {
+    // Network-First strategy for HTML + JS + CSS
+    // Always fetch fresh from network; only use cache as offline fallback
     event.respondWith(
       fetch(event.request)
         .then((response) => {
@@ -119,24 +122,23 @@ self.addEventListener('fetch', (event) => {
           return response;
         })
         .catch(() => {
-          // If network failed, look for cache matches
           return caches.match(event.request).then((cachedResponse) => {
             if (cachedResponse) return cachedResponse;
-            // If even cache is missing, return fallback page
-            return new Response(OFFLINE_PAGE_HTML, {
-              status: 200,
-              headers: { 'Content-Type': 'text/html' }
-            });
+            if (isHtmlRequest) {
+              return new Response(OFFLINE_PAGE_HTML, {
+                status: 200,
+                headers: { 'Content-Type': 'text/html' }
+              });
+            }
+            return new Response('Asset unavailable offline', { status: 404, statusText: 'Offline' });
           });
         })
     );
-  } else {
-    // Cache-first strategy for static assets
+  } else if (isImage) {
+    // Cache-First strategy for images (rarely change, safe to cache)
     event.respondWith(
       caches.match(event.request).then((cachedResponse) => {
-        if (cachedResponse) {
-          return cachedResponse;
-        }
+        if (cachedResponse) return cachedResponse;
         return fetch(event.request).then((response) => {
           if (response && response.status === 200) {
             const responseClone = response.clone();
@@ -144,13 +146,14 @@ self.addEventListener('fetch', (event) => {
           }
           return response;
         }).catch(() => {
-          // Return default failure response without causing ERR_FAILED
-          return new Response('Asset unavailable offline', { status: 404, statusText: 'Offline' });
+          return new Response('Image unavailable offline', { status: 404, statusText: 'Offline' });
         });
       })
     );
   }
+  // All other requests (API calls, fonts, etc.) — pass through without SW interception
 });
+
 
 // Receive SKIP_WAITING command from the app when user approves the update
 self.addEventListener('message', (event) => {

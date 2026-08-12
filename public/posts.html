@@ -637,6 +637,11 @@
         postsComposer.addEventListener('publish-now', async (e) => {
             const { title, content, targets } = e.detail;
             try {
+                if (typeof postsComposer.setLoading === 'function') {
+                    postsComposer.setLoading(true, `Publishing to ${targets.length} channels...`);
+                }
+                notificationService.info(`⏳ Publishing post to ${targets.length} channels... Please wait.`);
+
                 const nowUtc = new Date().toISOString();
                 const res = await schedulerService.createScheduledPost({
                     title,
@@ -647,17 +652,57 @@
                 });
 
                 if (res.success && res.ids) {
+                    const successPlatforms = [];
+                    const failedPlatforms = [];
+
                     for (const id of res.ids) {
-                        await publishService.publishImmediately(id);
+                        try {
+                            const pubRes = await publishService.publishImmediately(id);
+                            if (pubRes && pubRes.result && pubRes.result.provider) {
+                                successPlatforms.push(pubRes.result.provider.toUpperCase());
+                            } else {
+                                successPlatforms.push('Channel');
+                            }
+                        } catch (pubErr) {
+                            let cleanErrMsg = pubErr.message || 'Unknown error';
+                            if (cleanErrMsg.includes('(#10) Application does not have permission')) {
+                                cleanErrMsg = 'Instagram (Meta App permission required)';
+                            }
+                            failedPlatforms.push(cleanErrMsg);
+                        }
                     }
-                    notificationService.success('Published successfully to channels!');
-                    postsComposer.querySelector('#composerContent').value = '';
-                    postsComposer.querySelector('#composerTitle').value = '';
-                    composerDrawer.style.display = 'none';
-                    scheduledPostsTable.loadData();
+
+                    if (successPlatforms.length > 0) {
+                        const succStr = [...new Set(successPlatforms)].join(', ');
+                        if (failedPlatforms.length === 0) {
+                            notificationService.success(`🚀 Successfully published to ${succStr}!`);
+                        } else {
+                            notificationService.warning(`🚀 Published to ${succStr}! (Note: ${failedPlatforms.join('; ')})`);
+                        }
+                        
+                        // Reset composer form
+                        const contentField = postsComposer.querySelector('#composerContent');
+                        const titleField = postsComposer.querySelector('#composerTitle');
+                        const mediaField = postsComposer.querySelector('#composerMediaUrl');
+                        if (contentField) contentField.value = '';
+                        if (titleField) titleField.value = '';
+                        if (mediaField) mediaField.value = '';
+                        
+                        const composerDrawer = document.getElementById('composerDrawer');
+                        if (composerDrawer) composerDrawer.style.display = 'none';
+                        if (scheduledPostsTable && typeof scheduledPostsTable.loadData === 'function') {
+                            scheduledPostsTable.loadData();
+                        }
+                    } else if (failedPlatforms.length > 0) {
+                        notificationService.error(`❌ Publishing failed: ${failedPlatforms.join('; ')}`);
+                    }
                 }
             } catch (err) {
-                notificationService.error(`Publishing failed: ${err.message}`);
+                notificationService.error(`Publishing process failed: ${err.message}`);
+            } finally {
+                if (typeof postsComposer.setLoading === 'function') {
+                    postsComposer.setLoading(false);
+                }
             }
         });
 

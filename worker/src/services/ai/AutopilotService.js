@@ -25,7 +25,20 @@ export class AutopilotService {
 
         let ctaInstructions = "A casual, non-pushy redirect phrase.";
         if (ctaLink && ctaLink.trim() !== '') {
-            ctaInstructions = `A very casual, laid-back, and non-pushy Malaysian conversational redirect phrase pointing to the link: ${ctaLink}. Example: 'Nah link kalau ada yang nak ushar: ${ctaLink}', 'Korang ushar sendiri kat sini: ${ctaLink}', or 'Kot lah ada yang nak tengok: ${ctaLink}'. Do NOT write salesy or pushy calls-to-action like 'Dapatkan sekarang!' or 'Beli hari ini!'.`;
+            const cleanCta = ctaLink.trim();
+            const isUrl = cleanCta.startsWith('http://') || cleanCta.startsWith('https://') || cleanCta.includes('wa.me/');
+            if (isUrl) {
+                ctaInstructions = `A very casual, laid-back, and non-pushy Malaysian conversational redirect phrase pointing to the link: ${cleanCta}. Example: 'Nah link kalau ada yang nak ushar: ${cleanCta}', 'Korang ushar sendiri kat sini: ${cleanCta}', or 'Kot lah ada yang nak tengok: ${cleanCta}'. Do NOT write salesy or pushy calls-to-action like 'Dapatkan sekarang!' or 'Beli hari ini!'.`;
+            } else {
+                ctaInstructions = `The user specified a direct CTA instruction: "${cleanCta}". Generate a very natural, conversational Malaysian CTA line using this instruction. For example, if "${cleanCta}" is "DM" or "DM kami", write "Berminat? Boleh DM terus untuk semakan / maklumat lanjut." or "Korang yang berminat, roger melalui DM sekarang!" or "Drop DM kalau nak tahu details.". Do NOT mention any website links, URLs, or phrases like "Nah link..." or "Kat link ni:".`;
+            }
+        } else {
+            ctaInstructions = `A casual, friendly, non-pushy Malaysian engagement or action question (e.g. 'Korang rasa macam mana? Komen kat bawah.', 'Berminat? Boleh DM kami terus untuk info lanjut.'). CRITICAL STRICT MANDATE: You are STRICTLY FORBIDDEN from using the word 'link', 'link ni', 'pautan', 'url', or mentioning any website links because NO URL link is provided by the user. Do NOT write fake link phrases like 'ushar link ni' or 'tengok link kat sini'!`;
+        }
+
+        let langStyle = `written in ${language} language, tailored for local Malaysian audience if Malay, avoiding Indonesian vocabulary.`;
+        if (language && language.toLowerCase().includes('manglish')) {
+            langStyle = `written in natural Malaysian Manglish (a casual, trendy mix of Bahasa Melayu and English commonly used by modern Malaysians on Threads & social media, e.g. 'Seriously weh, I tak expect pun benda ni best giler', 'I thought benda ni biasa je, tapi bila try solid gak').`;
         }
 
         // Custom prompt requesting a JSON array of posts
@@ -52,11 +65,11 @@ Example valid format:
 ]
 
 Each object in the JSON array must contain exactly these keys:
-- caption: The caption text for the post (written in ${language} language, tailored for local Malaysian audience if Malay, avoiding Indonesian vocabulary. ${formatInstructions}).
+- caption: The caption text for the post (${langStyle} ${formatInstructions}).
 - cta: ${ctaInstructions}
 - hashtags: An array of 3 relevant hashtags.
 
-CRITICAL HOOK DIVERSITY RULES (VERY IMPORTANT TO AVOID REPETITION):
+CRITICAL HOOK & CONTENT DIVERSITY RULES (VERY IMPORTANT TO AVOID REPETITION):
 1. Vary the opening hook (first sentence) of every post. Do NOT reuse the same structure or opening style across different posts.
 2. NO REPETITIVE STARTING WORDS: NO TWO posts in the list may start with the same word (e.g., do NOT start multiple posts with "Benda...", "Bila...", "Aku...", "Dulu..."). Each post must start with a completely unique word and grammatical structure.
 3. STICK TO STRICT HOOK LIMITATIONS: A maximum of ONE post in the list may start with a question hook like "Pernah tak...?" or "Korang tahu tak...?".
@@ -65,10 +78,10 @@ CRITICAL HOOK DIVERSITY RULES (VERY IMPORTANT TO AVOID REPETITION):
    - Direct observations/opinions (e.g., "Tengah layan phone tiba-tiba...", "Dulu aku pun jenis yang...", "Baru-baru ni aku perasan...")
    - Straightforward sharing/tips (e.g., "Ini cara paling mudah untuk...", "Sebenarnya tak susah pun nak...", "Khas untuk yang nak...")
    - Experiential stories (e.g., "Minggu lepas aku cuba...", "Lama juga aku cari solution untuk...")
-5. Make each post sound completely fresh, unique, and written at different times by a real person on Threads. Do NOT let them look templated or AI-generated.
-6. CURIOSITY & MYSTERY RULE (No exact product/brand names): NEVER mention the exact product name, brand name, model name, or specific residential project name directly in the caption text. Instead, refer to it using generic, curiosity-inducing terms (e.g. 'benda ni', 'gadget ni', 'kipas ni', 'apartment ni', 'unit ni', 'benda viral ni') to create mystery and drive clicks to the destination link.
-
-Ensure that the posts are diverse (e.g. one educational/value post, one promotional/sales post, one engaging/question post).`;
+5. Make each post sound completely fresh, unique, and written at different times by a real person. Do NOT let them look templated or AI-generated.
+6. CURIOSITY & MYSTERY RULE (No exact product/brand names): NEVER mention the exact product name, brand name, model name, or specific residential project name directly in the caption text. Instead, refer to it using generic, curiosity-inducing terms (e.g. 'benda ni', 'gadget ni', 'kipas ni', 'apartment ni', 'unit ni', 'benda viral ni') to create mystery and engagement.
+7. PLATFORM-NEUTRAL RULE: Do NOT hardcode specific platform names like 'kat Threads', 'kat IG', or 'kat FB' inside the caption text, so that posts are suitable for cross-posting across Threads, Instagram, and Facebook naturally.
+8. ABSOLUTELY NO FAKE LINK PHRASES: If no URL link was provided, do NOT write phrases like 'ushar link ni', 'tengok link ni', or 'kat link ni'. Use direct engagement or DM calls to action instead.`;
 
         // Call the AI provider based on its type
         let responseText = "";
@@ -238,7 +251,19 @@ Ensure that the posts are diverse (e.g. one educational/value post, one promotio
 
             // Build full content — skip empty sections gracefully
             const parts = [caption, cta, hashtagsText].filter(p => p && p.trim() !== '');
-            const fullContent = parts.join('\n\n').trim();
+            let fullContent = parts.join('\n\n').trim();
+
+            if (!/https?:\/\//i.test(fullContent)) {
+                // Sanitize any stray fake link phrases when no HTTP/HTTPS URL exists
+                fullContent = fullContent
+                    .replace(/ushar (?:dulu )?link ni/gi, 'DM kami terus')
+                    .replace(/kat link ni/gi, 'secara DM')
+                    .replace(/tengok link ni/gi, 'DM kami')
+                    .replace(/klik link ni/gi, 'DM kami')
+                    .replace(/pautan ni/gi, 'DM kami');
+            }
+            // Clean up hardcoded "posting Threads" for cross-platform neutrality
+            fullContent = fullContent.replace(/ posting Threads /gi, ' posting ');
 
             return {
                 content: fullContent || `Post ${idx + 1}`,

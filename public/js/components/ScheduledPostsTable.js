@@ -11,14 +11,18 @@ class ScheduledPostsTable extends HTMLElement {
 
     renderContainer() {
         this.innerHTML = `
-            <div class="card" style="width: 100%;">
-                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.25rem;">
+            <div class="card" style="width: 100%; padding: 0; overflow: hidden;">
+                <div style="display: flex; justify-content: space-between; align-items: center; padding: 1.25rem 1.25rem 0.75rem 1.25rem;">
                     <h3 class="card-title" style="margin: 0; font-size: 1rem; font-weight: 600;">Scheduled Publications</h3>
                 </div>
-                <div class="table-responsive" style="overflow-x: auto; width: 100%;">
-                    <table style="width: 100%; border-collapse: collapse; text-align: left; font-size: 0.875rem;">
+                <!-- Top Horizontal Scrollbar -->
+                <div class="top-scrollbar-container" class="spt-top-scrollbar" style="overflow-x: auto; overflow-y: hidden; height: 14px; background: var(--color-bg-accent); border-bottom: 1px solid var(--color-border);" title="Scroll skrin ke kiri/kanan">
+                    <div class="spt-top-inner" style="height: 1px; width: 850px;"></div>
+                </div>
+                <div class="table-responsive spt-table-responsive" style="overflow-x: auto; width: 100%; cursor: grab;">
+                    <table class="spt-table" style="width: 100%; min-width: 850px; border-collapse: collapse; text-align: left; font-size: 0.875rem;">
                         <thead>
-                            <tr style="border-bottom: 2px solid var(--color-border); color: var(--color-text-tertiary); font-weight: 600;">
+                            <tr style="border-bottom: 2px solid var(--color-border); color: var(--color-text-tertiary); font-weight: 600; background: var(--color-bg-accent);">
                                 <th style="width: 10%; padding: 0.75rem 1.25rem; white-space: nowrap;">Platform</th>
                                 <th style="width: 45%; padding: 0.75rem 1.25rem;">Content</th>
                                 <th style="width: 20%; padding: 0.75rem 1.25rem; white-space: nowrap;">Publish At</th>

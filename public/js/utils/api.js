@@ -27,10 +27,12 @@ export const apiClient = {
         try {
             const response = await fetch(url, config);
             
-            // Handle HTTP error codes
+            // Handle HTTP error codes — attach status so callers can distinguish 401 vs 5xx/network
             if (!response.ok) {
                 const errorData = await response.json().catch(() => ({}));
-                throw new Error(errorData.message || `HTTP error! Status: ${response.status}`);
+                const err = new Error(errorData.message || `HTTP error! Status: ${response.status}`);
+                err.status = response.status;
+                throw err;
             }
 
             // Return JSON if present, otherwise empty body

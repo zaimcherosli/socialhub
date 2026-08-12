@@ -1,11 +1,12 @@
 {
   "name": "socialhub",
-  "version": "1.4.33",
+  "version": "1.4.85",
   "description": "SocialHub SaaS Foundation",
   "main": "index.js",
   "scripts": {
     "dev": "vite public",
-    "build": "vite build public && node -e \"require('fs').copyFileSync('public/_headers', 'public/dist/_headers'); require('fs').copyFileSync('public/gltd2qpcwmyoozmg5sacsmspqd53de.html', 'public/dist/gltd2qpcwmyoozmg5sacsmspqd53de.html'); require('fs').copyFileSync('public/socialhub_pwa_icon.png', 'public/dist/socialhub_pwa_icon.png'); require('fs').copyFileSync('public/manifest.json', 'public/dist/manifest.json')\""
+    "build": "vite build public && node scripts/copy-pages.js",
+    "deploy:pages": "npm run build && wrangler pages deploy public/dist --project-name=socialhub-kwikezee"
   },
   "devDependencies": {
     "vite": "^5.2.0",

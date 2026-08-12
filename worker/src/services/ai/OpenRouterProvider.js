@@ -15,7 +15,7 @@ export class OpenRouterProvider extends AIProvider {
             headers: {
                 "Authorization": `Bearer ${this.apiKey}`,
                 "Content-Type": "application/json",
-                "HTTP-Referer": "https://socialhub.zaimrosli.my",
+                "HTTP-Referer": "https://socialhub.kwikezee.my",
                 "X-Title": "SocialHub"
             },
             body: JSON.stringify({
@@ -104,7 +104,7 @@ Provide the output in a strict JSON format with the following keys. Return ONLY 
             headers: {
                 "Authorization": `Bearer ${this.apiKey}`,
                 "Content-Type": "application/json",
-                "HTTP-Referer": "https://socialhub.zaimrosli.my",
+                "HTTP-Referer": "https://socialhub.kwikezee.my",
                 "X-Title": "SocialHub"
             },
             body: JSON.stringify({

@@ -427,6 +427,14 @@
                         </button>
                         
                         <div style="display: flex; gap: 0.25rem;">
+                            <!-- Zoom -->
+                            <button class="control-btn-icon btnZoomMedia" data-url="${url}" title="Zoom / Besarkan">
+                                🔍
+                            </button>
+                            <!-- Download -->
+                            <button class="control-btn-icon btnDownloadMedia" data-url="${url}" data-name="${item.filename}" title="Muat Turun">
+                                ⬇️
+                            </button>
                             <!-- Copy URL -->
                             <button class="control-btn-icon btnCopyUrl" data-url="${url}" title="Copy URL">
                                 🔗
@@ -466,6 +474,21 @@
                     // In production this copies the CDN link
                     navigator.clipboard.writeText(url);
                     showToast('📋 CDN storage key copied to clipboard!');
+                });
+            });
+
+            document.querySelectorAll('.btnZoomMedia').forEach(btn => {
+                btn.addEventListener('click', (e) => {
+                    const url = e.currentTarget.getAttribute('data-url');
+                    openImageLightbox(url);
+                });
+            });
+
+            document.querySelectorAll('.btnDownloadMedia').forEach(btn => {
+                btn.addEventListener('click', (e) => {
+                    const url = e.currentTarget.getAttribute('data-url');
+                    const name = e.currentTarget.getAttribute('data-name') || 'socialhub-media.jpg';
+                    triggerImageDownload(url, name);
                 });
             });
 
@@ -587,9 +610,85 @@
             }, 3000);
         }
 
-        // Run
+        // Global Helper: Download Image
+        async function triggerImageDownload(url, filename = 'socialhub-media.jpg') {
+            if (!url) return;
+            try {
+                if (url.startsWith('data:image/')) {
+                    const a = document.createElement('a');
+                    a.href = url;
+                    a.download = filename;
+                    document.body.appendChild(a);
+                    a.click();
+                    document.body.removeChild(a);
+                    showToast('✅ Gambar berjaya dimuat turun!');
+                    return;
+                }
+                const res = await fetch(url);
+                const blob = await res.blob();
+                const blobUrl = URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = blobUrl;
+                a.download = filename;
+                document.body.appendChild(a);
+                a.click();
+                document.body.removeChild(a);
+                URL.revokeObjectURL(blobUrl);
+                showToast('✅ Gambar berjaya dimuat turun!');
+            } catch (e) {
+                window.open(url, '_blank');
+                showToast('Membuka gambar di tetingkap baharu.');
+            }
+        }
+
+        // Lightbox Modal Controls
+        const imageLightboxModal = document.getElementById('imageLightboxModal');
+        const lightboxImg = document.getElementById('lightboxImg');
+        const btnLightboxClose = document.getElementById('btnLightboxClose');
+        const btnLightboxDownload = document.getElementById('btnLightboxDownload');
+
+        function openImageLightbox(url) {
+            if (!url || !imageLightboxModal || !lightboxImg) return;
+            lightboxImg.src = url;
+            imageLightboxModal.style.display = 'flex';
+        }
+
+        function closeImageLightbox() {
+            if (imageLightboxModal) imageLightboxModal.style.display = 'none';
+        }
+
+        if (btnLightboxClose) btnLightboxClose.addEventListener('click', closeImageLightbox);
+        if (imageLightboxModal) {
+            imageLightboxModal.addEventListener('click', (e) => {
+                if (e.target === imageLightboxModal) closeImageLightbox();
+            });
+        }
+
+        if (btnLightboxDownload) {
+            btnLightboxDownload.addEventListener('click', () => {
+                const currentUrl = lightboxImg ? lightboxImg.src : null;
+                if (currentUrl) triggerImageDownload(currentUrl, `socialhub-media-${Date.now()}.jpg`);
+            });
+        }
+
+        // Initialize Page
         fetchGallery();
     </script>
+
+    <!-- Lightbox Modal Element -->
+    <div id="imageLightboxModal" style="display:none; position:fixed; top:0; left:0; width:100vw; height:100vh; background:rgba(0,0,0,0.9); z-index:999999; backdrop-filter:blur(8px); flex-direction:column; align-items:center; justify-content:center; padding:1.5rem;">
+        <div style="position:absolute; top:1.25rem; right:1.5rem; display:flex; gap:0.75rem; align-items:center; z-index:1000000;">
+            <button id="btnLightboxDownload" class="btn btn-primary" style="font-size:0.85rem; padding:0.45rem 1rem; gap:0.4rem; display:inline-flex; align-items:center; font-weight:600; background:#22c55e; border-color:#22c55e;">
+                ⬇️ Muat Turun (Download)
+            </button>
+            <button id="btnLightboxClose" style="background:rgba(255,255,255,0.2); border:1px solid rgba(255,255,255,0.4); color:#fff; font-size:1.25rem; width:38px; height:38px; border-radius:50%; cursor:pointer; display:flex; align-items:center; justify-content:center;" title="Tutup">
+                ✕
+            </button>
+        </div>
+        <div style="max-width:92vw; max-height:85vh; display:flex; align-items:center; justify-content:center;">
+            <img id="lightboxImg" src="" alt="Enlarged Media Preview" style="max-width:100%; max-height:85vh; object-fit:contain; border-radius:8px; box-shadow:0 25px 60px rgba(0,0,0,0.6);" />
+        </div>
+    </div>
     <style>
         @keyframes spin {
             to { transform: rotate(360deg); }

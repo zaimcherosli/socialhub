@@ -8,7 +8,7 @@ node_modules/
 # Production bundles
 dist/
 
-# Logs and OS files
-*.log
-.DS_Store
-Thumbs.db
+# Environment & Secrets
+.env
+.env.*
+

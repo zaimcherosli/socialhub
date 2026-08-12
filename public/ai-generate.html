@@ -141,6 +141,35 @@
             color: var(--color-primary);
             font-weight: 600;
         }
+
+        /* Mobile Responsiveness Improvements */
+        @media (max-width: 600px) {
+            .card {
+                padding: 1rem 0.85rem !important;
+            }
+            .form-input, select, textarea {
+                width: 100% !important;
+                max-width: 100% !important;
+                box-sizing: border-box !important;
+            }
+            .media-header-container {
+                flex-direction: column !important;
+                align-items: flex-start !important;
+                gap: 0.5rem !important;
+            }
+            .media-header-container > div {
+                width: 100% !important;
+                justify-content: space-between !important;
+            }
+            #previewAiImageQuality {
+                max-width: 40% !important;
+            }
+            #btnPreviewGenerateAiImage {
+                flex: 1 !important;
+                font-size: 0.72rem !important;
+                padding: 0.35rem 0.4rem !important;
+            }
+        }
     </style>
 </head>
 <body>
@@ -159,6 +188,71 @@
                     <p class="page-subtitle">Generate viral captions and hashtags tailored to your brand in seconds.</p>
                 </div>
             </div>
+
+            <!-- ═══ AI Usage Quota Widget ═══════════════════════════════════════════ -->
+            <div id="aiUsageBanner" style="
+                background: linear-gradient(135deg, rgba(139,92,246,0.12) 0%, rgba(59,130,246,0.10) 100%);
+                border: 1px solid rgba(139,92,246,0.25);
+                border-radius: 16px;
+                padding: 1rem 1.5rem;
+                margin-bottom: 1.25rem;
+                display: flex;
+                align-items: center;
+                gap: 1.5rem;
+                flex-wrap: wrap;
+            ">
+                <!-- Caption Usage -->
+                <div style="flex: 1; min-width: 180px;">
+                    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:0.35rem;">
+                        <span style="font-size:0.78rem; font-weight:600; color:var(--text-secondary, #9ca3af);">✍️ Kapsyen AI</span>
+                        <span id="usageTextLabel" style="font-size:0.78rem; font-weight:700; color:var(--accent-primary,#8b5cf6);">— / —</span>
+                    </div>
+                    <div style="background:rgba(255,255,255,0.08); border-radius:99px; height:6px; overflow:hidden;">
+                        <div id="usageTextBar" style="height:100%; width:0%; border-radius:99px; background:linear-gradient(90deg,#8b5cf6,#6366f1); transition:width 0.8s cubic-bezier(.4,0,.2,1);"></div>
+                    </div>
+                </div>
+                <!-- Low Image Usage -->
+                <div style="flex: 1; min-width: 180px;">
+                    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:0.35rem;">
+                        <span style="font-size:0.78rem; font-weight:600; color:var(--text-secondary, #9ca3af);">🖼️ Gambar Percuma</span>
+                        <span id="usageLowLabel" style="font-size:0.78rem; font-weight:700; color:#22c55e;">— / —</span>
+                    </div>
+                    <div style="background:rgba(255,255,255,0.08); border-radius:99px; height:6px; overflow:hidden;">
+                        <div id="usageLowBar" style="height:100%; width:0%; border-radius:99px; background:linear-gradient(90deg,#22c55e,#16a34a); transition:width 0.8s cubic-bezier(.4,0,.2,1);"></div>
+                    </div>
+                </div>
+                <!-- Medium Image Usage -->
+                <div style="flex: 1; min-width: 180px;">
+                    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:0.35rem;">
+                        <span style="font-size:0.78rem; font-weight:600; color:var(--text-secondary, #9ca3af);">🎨 Gambar Standard</span>
+                        <span id="usageMedLabel" style="font-size:0.78rem; font-weight:700; color:#f59e0b;">— / —</span>
+                    </div>
+                    <div style="background:rgba(255,255,255,0.08); border-radius:99px; height:6px; overflow:hidden;">
+                        <div id="usageMedBar" style="height:100%; width:0%; border-radius:99px; background:linear-gradient(90deg,#f59e0b,#d97706); transition:width 0.8s cubic-bezier(.4,0,.2,1);"></div>
+                    </div>
+                </div>
+                <!-- High Image Usage -->
+                <div style="flex: 1; min-width: 180px;">
+                    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:0.35rem;">
+                        <span style="font-size:0.78rem; font-weight:600; color:var(--text-secondary, #9ca3af);">🌟 Gambar HD</span>
+                        <span id="usageHdLabel" style="font-size:0.78rem; font-weight:700; color:#ef4444;">— / —</span>
+                    </div>
+                    <div style="background:rgba(255,255,255,0.08); border-radius:99px; height:6px; overflow:hidden;">
+                        <div id="usageHdBar" style="height:100%; width:0%; border-radius:99px; background:linear-gradient(90deg,#ef4444,#dc2626); transition:width 0.8s cubic-bezier(.4,0,.2,1);"></div>
+                    </div>
+                </div>
+                <!-- Plan Label -->
+                <div style="display:flex; flex-direction:column; align-items:flex-end; gap:0.25rem; min-width:100px;">
+                    <span style="font-size:0.7rem; color:var(--text-secondary,#9ca3af); font-weight:500;">Pakej Aktif</span>
+                    <span id="usagePlanBadge" style="
+                        font-size:0.75rem; font-weight:700; padding:0.2rem 0.65rem;
+                        border-radius:99px; text-transform:uppercase; letter-spacing:0.05em;
+                        background:rgba(139,92,246,0.2); color:#c4b5fd; border:1px solid rgba(139,92,246,0.4);
+                    ">—</span>
+                    <span style="font-size:0.65rem; color:var(--text-secondary,#9ca3af);">Reset setiap bulan</span>
+                </div>
+            </div>
+            <!-- ════════════════════════════════════════════════════════════════════ -->
 
             <!-- Double-column grid for Form and Live Preview -->
             <div class="two-col-grid">
@@ -284,7 +378,8 @@
                         <div class="form-group" style="margin-bottom: 1rem;">
                             <label class="form-label" for="tone">Tone of Voice / Copywriting Mode</label>
                             <select id="tone" class="form-select" style="width: 100%;">
-                                <option value="Ultra-Realistic Malay" selected>🔥 Ultra-Realistic Malay (Gaya Threads Manusia)</option>
+                                <option value="Manglish (Mix Malay & English)" selected>🇲🇾 Manglish (Campuran Malay & English)</option>
+                                <option value="Ultra-Realistic Malay">🔥 Ultra-Realistic Malay (Gaya Threads Manusia)</option>
                                 <option value="Storyteller (Pengalaman Sebenar)">📖 Storyteller (Pengalaman Sebenar)</option>
                                 <option value="Hot Take (Pecah Mitos / Contrarian)">💥 Hot Take (Pecah Mitos / Contrarian)</option>
                                 <option value="Sembang Santai (Slang Melayu Asli)">🗣️ Sembang Santai (Slang Melayu Asli)</option>
@@ -300,8 +395,9 @@
                         <div class="form-group" style="margin-bottom: 1.5rem;">
                             <label class="form-label" for="language">Output Language</label>
                             <select id="language" class="form-select" style="width: 100%;">
+                                <option value="Manglish (Mix Malay & English)" selected>Manglish (Mix Malay & English)</option>
+                                <option value="Malay">Malay (Bahasa Melayu)</option>
                                 <option value="English">English</option>
-                                <option value="Malay" selected>Malay</option>
                                 <option value="Indonesian">Indonesian</option>
                                 <option value="Chinese">Chinese</option>
                                 <option value="Tamil">Tamil</option>
@@ -327,8 +423,8 @@
                         </div>
 
                         <div class="form-group" style="margin-bottom: 1rem;">
-                            <label class="form-label" for="autoCta">CTA Link / WhatsApp (Optional)</label>
-                            <input type="text" id="autoCta" class="form-input" placeholder="e.g. https://shopee.com.my/yourproduct or https://wa.me/..." style="width: 100%;" />
+                            <label class="form-label" for="autoCta">CTA / Arahan Tindakan (DM, WhatsApp, atau Pautan)</label>
+                            <input type="text" id="autoCta" class="form-input" placeholder="e.g. DM kami, WhatsApp 0123456789, atau https://wa.me/..." style="width: 100%;" />
                         </div>
 
                         <div class="form-group" style="margin-bottom: 1rem;">
@@ -372,8 +468,9 @@
                         <div class="form-group" style="margin-bottom: 1.5rem;">
                             <label class="form-label" for="autoLanguage">Output Language</label>
                             <select id="autoLanguage" class="form-select" style="width: 100%;">
+                                <option value="Manglish (Mix Malay & English)" selected>Manglish (Mix Malay & English)</option>
+                                <option value="Malay">Malay (Bahasa Melayu)</option>
                                 <option value="English">English</option>
-                                <option value="Malay" selected>Malay</option>
                                 <option value="Indonesian">Indonesian</option>
                                 <option value="Chinese">Chinese</option>
                                 <option value="Tamil">Tamil</option>
@@ -396,7 +493,8 @@
                         <div class="form-group" style="margin-bottom: 1rem;">
                             <label class="form-label" for="bulkTone">Tone of Voice / Copywriting Mode</label>
                             <select id="bulkTone" class="form-select" style="width: 100%;">
-                                <option value="Ultra-Realistic Malay" selected>🔥 Ultra-Realistic Malay (Gaya Threads Manusia)</option>
+                                <option value="Manglish (Mix Malay & English)" selected>🇲🇾 Manglish (Campuran Malay & English)</option>
+                                <option value="Ultra-Realistic Malay">🔥 Ultra-Realistic Malay (Gaya Threads Manusia)</option>
                                 <option value="Storyteller (Pengalaman Sebenar)">📖 Storyteller (Pengalaman Sebenar)</option>
                                 <option value="Hot Take (Pecah Mitos / Contrarian)">💥 Hot Take (Pecah Mitos / Contrarian)</option>
                                 <option value="Sembang Santai (Slang Melayu Asli)">🗣️ Sembang Santai (Slang Melayu Asli)</option>
@@ -412,7 +510,8 @@
                         <div class="form-group" style="margin-bottom: 1rem;">
                             <label class="form-label" for="bulkLanguage">Output Language</label>
                             <select id="bulkLanguage" class="form-select" style="width: 100%;">
-                                <option value="Malay" selected>Malay (Bahasa Melayu)</option>
+                                <option value="Manglish (Mix Malay & English)" selected>Manglish (Mix Malay & English)</option>
+                                <option value="Malay">Malay (Bahasa Melayu)</option>
                                 <option value="English">English</option>
                                 <option value="Chinese">Chinese</option>
                             </select>
@@ -495,12 +594,53 @@
 
                         <div class="form-group">
                             <label class="form-label" for="previewCTA">Call to Action (CTA)</label>
-                            <input type="text" id="previewCTA" class="form-input" style="width: 100%;" />
+                            <input type="text" id="previewCTA" class="form-input" style="width: 100%; max-width: 100%; box-sizing: border-box;" />
                         </div>
 
                         <div class="form-group">
                             <label class="form-label" for="previewHashtags">Hashtags</label>
-                            <input type="text" id="previewHashtags" class="form-input" placeholder="e.g. #socialhub #saas" style="width: 100%;" />
+                            <input type="text" id="previewHashtags" class="form-input" placeholder="e.g. #socialhub #saas" style="width: 100%; max-width: 100%; box-sizing: border-box;" />
+                        </div>
+
+                        <div class="form-group">
+                            <div class="media-header-container" style="display: flex; align-items: center; justify-content: space-between; gap: 0.5rem; flex-wrap: wrap; width: 100%; box-sizing: border-box; margin-bottom: 0.35rem;">
+                                <label class="form-label" for="previewMediaUrl" style="margin: 0; white-space: nowrap;">Media / Image Link</label>
+                                <div style="display: flex; align-items: center; gap: 0.35rem; flex-wrap: wrap; max-width: 100%;">
+                                    <select id="previewAiImageQuality" style="font-size: 0.72rem; padding: 0.25rem 0.4rem; border-radius: var(--radius-xs); border: 1px solid var(--color-border); background: var(--color-bg-primary); color: var(--color-text-primary); font-weight: 600; cursor: pointer;" title="Pilih kualiti gambar AI">
+                                        <option value="low">⚡ Low</option>
+                                        <option value="medium" selected>⚖️ Medium</option>
+                                        <option value="high">✨ HD</option>
+                                    </select>
+                                    <button type="button" class="btn btn-secondary" id="btnPreviewGenerateAiImage" style="font-size: 0.75rem; padding: 0.35rem 0.65rem; border-radius: var(--radius-xs); display: inline-flex; align-items: center; justify-content: center; gap: 0.35rem; font-weight: 600; white-space: nowrap;">
+                                        ✨ Generate AI Image
+                                    </button>
+                                </div>
+                            </div>
+                            <input type="url" id="previewMediaUrl" class="form-input" placeholder="Paste photo link or click 'Generate AI Image'" style="width: 100%; max-width: 100%; box-sizing: border-box;" />
+                            
+                            <!-- Visual Image Preview Container -->
+                            <div id="aiImagePreviewBox" style="display: none; margin-top: 0.75rem; position: relative; border-radius: var(--radius-sm); overflow: hidden; border: 1px solid var(--color-border); background: var(--color-bg-accent); text-align: center; padding: 0.65rem;">
+                                <div class="preview-box-header">
+                                    <span style="font-size: 0.75rem; font-weight: 600; color: var(--color-text-secondary); display: flex; align-items: center; gap: 0.35rem;">
+                                        🖼️ Image Visual Preview
+                                    </span>
+                                    <div class="preview-actions-group">
+                                        <button type="button" id="btnZoomAiImage" class="preview-action-btn btn-zoom" title="Lihat saiz penuh (Zoom)">
+                                            🔍 Zoom
+                                        </button>
+                                        <button type="button" id="btnDownloadAiImage" class="preview-action-btn btn-download" title="Simpan gambar ke peranti">
+                                            ⬇️ Download
+                                        </button>
+                                        <button type="button" id="btnRemoveAiImage" class="preview-action-btn btn-remove">
+                                            🗑️ Buang
+                                        </button>
+                                    </div>
+                                </div>
+                                <img id="aiImagePreviewTag" src="" alt="AI Generated Preview" style="max-width: 100%; max-height: 320px; object-fit: contain; border-radius: 6px; border: 1px solid var(--color-border); display: block; margin: 0 auto; background: #000; cursor: zoom-in;" title="Klik untuk lihat imej penuh (Zoom)" />
+                                <div id="aiImageSourceBadge" style="display: none; margin-top: 0.5rem; font-size: 0.72rem; font-weight: 600; color: #a78bfa; background: rgba(124, 58, 237, 0.12); border: 1px solid rgba(139, 92, 246, 0.25); border-radius: 20px; padding: 0.25rem 0.75rem; align-items: center; justify-content: center; gap: 0.35rem;">
+                                    ✨ Image created by OpenAI (gpt-image-2)
+                                </div>
+                            </div>
                         </div>
 
                         <!-- Target Channels Checklist -->
@@ -825,11 +965,11 @@
 
                 connectedAccounts.forEach(acc => {
                     const label = document.createElement('label');
-                    label.style = 'display: flex; align-items: center; gap: 0.5rem; font-size: 0.875rem; cursor: pointer; color: var(--color-text-secondary);';
+                    label.style = 'display: flex; align-items: center; gap: 0.4rem; font-size: 0.85rem; cursor: pointer; color: var(--color-text-secondary); width: 100%; max-width: 100%; box-sizing: border-box; overflow: hidden;';
                     label.innerHTML = `
-                        <input type="checkbox" class="ai-channel-checkbox" value="${acc.platform}" data-account-id="${acc.id}" checked />
-                        <span style="text-transform: capitalize; font-weight: 500;">${acc.platform}</span>
-                        <span style="font-size: 0.75rem; color: var(--color-text-tertiary);">(${acc.account_name})</span>
+                        <input type="checkbox" class="ai-channel-checkbox" value="${acc.platform}" data-account-id="${acc.id}" checked style="flex-shrink: 0;" />
+                        <span style="text-transform: capitalize; font-weight: 500; flex-shrink: 0;">${acc.platform}</span>
+                        <span style="font-size: 0.72rem; color: var(--color-text-tertiary); max-width: 160px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; display: inline-block; vertical-align: middle;">(${acc.account_name})</span>
                     `;
                     channelsContainer.appendChild(label);
                 });
@@ -845,6 +985,9 @@
             const title = outTitle.value.trim() || 'AI Generated Post';
             let content = "";
 
+            const mediaUrl = document.getElementById('previewMediaUrl')?.value?.trim();
+            const media_urls = mediaUrl ? [mediaUrl] : [];
+
             if (currentMode === 'threads') {
                 const textareas = Array.from(document.querySelectorAll('#threadStormCardsContainer .thread-item-textarea'));
                 const threadContents = textareas.map(ta => ta.value.trim()).filter(Boolean);
@@ -852,7 +995,7 @@
             } else {
                 content = outCaption.value.trim();
             }
-            
+
             // Format content: Caption + CTA + Hashtags
             if (outCTA.value.trim()) {
                 content += `\n\n${outCTA.value.trim()}`;
@@ -867,7 +1010,7 @@
                 accountId: cb.dataset.accountId
             }));
 
-            return { title, content, targets };
+            return { title, content, targets, media_urls };
         }
 
         function validatePayload(payload) {
@@ -936,21 +1079,43 @@
                     title: payload.title,
                     content: payload.content,
                     targets: payload.targets,
+                    media_urls: payload.media_urls,
                     publish_at: nowUtc,
                     timezone: 'UTC'
                 });
 
                 if (res.success && res.ids) {
-                    updateProgress('Publishing immediately to Threads...', 60, '📤');
+                    updateProgress('Publishing immediately to selected channels...', 60, '📤');
+                    const successIds = [];
+                    const errorMsgs = [];
+
                     for (const id of res.ids) {
-                        await publishService.publishImmediately(id);
+                        try {
+                            await publishService.publishImmediately(id);
+                            successIds.push(id);
+                        } catch (pubErr) {
+                            console.error(`[Publish Error for post ${id}]:`, pubErr);
+                            errorMsgs.push(pubErr.message);
+                        }
                     }
-                    updateProgress('Successfully published!', 100, '✅');
-                    setTimeout(() => {
-                        hideProgress();
-                        notificationService.success('Published successfully to channels!');
-                        window.location.href = 'monitor.html';
-                    }, 800);
+
+                    if (errorMsgs.length === 0) {
+                        updateProgress('Successfully published to all channels!', 100, '✅');
+                        setTimeout(() => {
+                            hideProgress();
+                            notificationService.success('Published successfully to all selected channels!');
+                            window.location.href = 'monitor.html';
+                        }, 800);
+                    } else if (successIds.length > 0) {
+                        updateProgress('Partial publication completed', 100, '⚠️');
+                        setTimeout(() => {
+                            hideProgress();
+                            notificationService.warning(`Post published to ${successIds.length} channel(s). Issue on remaining: ${errorMsgs.join(' | ')}`);
+                            window.location.href = 'monitor.html';
+                        }, 2000);
+                    } else {
+                        throw new Error(errorMsgs.join(' | ') || 'Publishing failed on all channels');
+                    }
                 } else {
                     throw new Error(res.message || 'Publishing failed');
                 }
@@ -964,9 +1129,16 @@
 
         // 3. Schedule Post
         document.getElementById('btnAIPlanSchedule').addEventListener('click', async () => {
+            const btn = document.getElementById('btnAIPlanSchedule');
+            if (btn.disabled) return;
+            btn.disabled = true;
+
             try {
                 const payload = getPayloadData();
-                if (!validatePayload(payload)) return;
+                if (!validatePayload(payload)) {
+                    btn.disabled = false;
+                    return;
+                }
 
                 showProgress('Scheduling Post', 'Saving schedule to database...', 40, '📅');
 
@@ -974,6 +1146,7 @@
                     title: payload.title,
                     content: payload.content,
                     targets: payload.targets,
+                    media_urls: payload.media_urls,
                     publish_at: 'auto',
                     timezone: Intl.DateTimeFormat().resolvedOptions().timeZone || 'Asia/Kuala_Lumpur',
                     triggerType: 'none',
@@ -985,16 +1158,104 @@
                     setTimeout(() => {
                         hideProgress();
                         notificationService.success('Post scheduled successfully!');
-                        window.location.href = 'calendar.html';
+                        window.location.href = 'calendar.html?view=queue&highlight=new';
                     }, 800);
                 } else {
                     throw new Error(res.message || 'Scheduling failed');
                 }
             } catch (err) {
+                btn.disabled = false;
                 hideProgress();
                 notificationService.error(`Scheduling failed: ${err.message}`);
             }
         });
+
+        // AI Image Generator in Preview panel
+        const btnPrevGenAiImg = document.getElementById('btnPreviewGenerateAiImage');
+        const previewMediaInput = document.getElementById('previewMediaUrl');
+        const aiImagePreviewBox = document.getElementById('aiImagePreviewBox');
+        const aiImagePreviewTag = document.getElementById('aiImagePreviewTag');
+        const btnRemoveAiImage = document.getElementById('btnRemoveAiImage');
+
+        function updateImagePreviewDisplay() {
+            const url = previewMediaInput ? previewMediaInput.value.trim() : '';
+            if (url) {
+                aiImagePreviewTag.src = url;
+                aiImagePreviewBox.style.display = 'block';
+            } else {
+                aiImagePreviewTag.src = '';
+                aiImagePreviewBox.style.display = 'none';
+            }
+        }
+
+        if (previewMediaInput) {
+            previewMediaInput.addEventListener('input', updateImagePreviewDisplay);
+            previewMediaInput.addEventListener('change', updateImagePreviewDisplay);
+        }
+
+        if (btnRemoveAiImage) {
+            btnRemoveAiImage.addEventListener('click', () => {
+                if (previewMediaInput) previewMediaInput.value = '';
+                updateImagePreviewDisplay();
+            });
+        }
+
+        if (btnPrevGenAiImg) {
+            btnPrevGenAiImg.addEventListener('click', async (e) => {
+                e.preventDefault();
+                const captionText = outCaption.value.trim() || outTitle.value.trim();
+                if (!captionText) {
+                    notificationService.error('Sila isi atau jana kapsyen terlebih dahulu sebelum menjana gambar AI.');
+                    return;
+                }
+
+                btnPrevGenAiImg.disabled = true;
+                const origText = btnPrevGenAiImg.innerHTML;
+                btnPrevGenAiImg.innerHTML = `⏳ Generating AI Image...`;
+
+                try {
+                    const selectedQuality = document.getElementById('previewAiImageQuality')?.value || 'medium';
+                    const response = await apiClient.post('/ai/generate-image', { caption: captionText, quality: selectedQuality });
+                    if (response && (response.image_url || response.success)) {
+                        const imgUrl = response.image_url || response.media?.thumbnail;
+                        if (imgUrl) {
+                            previewMediaInput.value = imgUrl;
+                            updateImagePreviewDisplay();
+                            
+                            let sourceMsg = '✨ Gambar AI berjaya dijana!';
+                            let badgeText = '✨ Image created by OpenAI (gpt-image-2)';
+                            if (response.source === 'openai-gpt-image-2') {
+                                sourceMsg = '✨ Gambar AI (OpenAI gpt-image-2) berjaya dijana!';
+                                badgeText = '✨ Image created by OpenAI (gpt-image-2)';
+                            } else if (response.source === 'cloudflare-sdxl') {
+                                sourceMsg = '⚠️ OpenAI tergendala / tiada kredit. Gambar AI dijana menggunakan Fallback: Cloudflare Workers AI (Stable Diffusion)';
+                                badgeText = '⚡ Image created by Cloudflare Workers AI (Stable Diffusion XL)';
+                            } else if (response.source === 'unsplash-fallback') {
+                                sourceMsg = '⚠️ Enjin AI tergendala. Gambar diambil daripada Fallback: Unsplash Stock';
+                                badgeText = '🖼️ Image from Unsplash Stock Library';
+                            }
+                            
+                            const srcBadge = document.getElementById('aiImageSourceBadge');
+                            if (srcBadge) {
+                                srcBadge.innerHTML = badgeText;
+                                srcBadge.style.display = 'inline-flex';
+                            }
+
+                            notificationService.success(sourceMsg);
+                        } else {
+                            notificationService.error('Gagal mendapatkan URL gambar AI.');
+                        }
+                    } else {
+                        notificationService.error(response?.error || response?.message || 'Gagal menjana gambar AI.');
+                    }
+                } catch (err) {
+                    notificationService.error(`Ralat penjanaan gambar AI: ${err.message}`);
+                } finally {
+                    btnPrevGenAiImg.disabled = false;
+                    btnPrevGenAiImg.innerHTML = origText;
+                }
+            });
+        }
 
         // Tab switching logic (updated to support 3 tabs)
         const tabSingle = document.getElementById('tabSingle');
@@ -1266,7 +1527,7 @@
                 let modelInfo = lastModelUsed ? ` menggunakan ${lastModelUsed}` : '';
                 notificationService.success(`Berjaya menjadualkan ${successCount} post${modelInfo}!${failCount > 0 ? ` (${failCount} gagal)` : ''}`);
                 setTimeout(() => {
-                    window.location.href = 'calendar.html';
+                    window.location.href = 'calendar.html?view=queue&highlight=new';
                 }, 1500);
             } else {
                 const errDetail = lastErrorMessage ? ` (${lastErrorMessage})` : '';
@@ -1313,7 +1574,7 @@
 
                 if (response.success) {
                     notificationService.success(`Tahniah! ${response.scheduled_count} post autopilot telah berjaya dijana & dijadualkan (${response.status})!`);
-                    setTimeout(() => window.location.href = "calendar.html", 1500);
+                    setTimeout(() => window.location.href = "calendar.html?view=queue&highlight=new", 1500);
                 } else {
                     notificationService.error(response.message || "Gagal menjana autopilot post.");
                 }
@@ -1328,6 +1589,145 @@
 
         // Init
         loadChannels();
+
+        // Global Helper: Download Image
+        async function triggerImageDownload(url, filename = 'socialhub-generated-image.jpg') {
+            if (!url) return;
+            try {
+                if (url.startsWith('data:image/')) {
+                    const a = document.createElement('a');
+                    a.href = url;
+                    a.download = filename;
+                    document.body.appendChild(a);
+                    a.click();
+                    document.body.removeChild(a);
+                    if (window.notificationService) notificationService.success('✅ Gambar berjaya dimuat turun!');
+                    return;
+                }
+                const res = await fetch(url);
+                const blob = await res.blob();
+                const blobUrl = URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = blobUrl;
+                a.download = filename;
+                document.body.appendChild(a);
+                a.click();
+                document.body.removeChild(a);
+                URL.revokeObjectURL(blobUrl);
+                if (window.notificationService) notificationService.success('✅ Gambar berjaya dimuat turun!');
+            } catch (e) {
+                window.open(url, '_blank');
+                if (window.notificationService) notificationService.info('Membuka gambar di tetingkap baharu untuk muat turun.');
+            }
+        }
+
+        // Lightbox Modal Controls
+        const imageLightboxModal = document.getElementById('imageLightboxModal');
+        const lightboxImg = document.getElementById('lightboxImg');
+        const btnLightboxClose = document.getElementById('btnLightboxClose');
+        const btnLightboxDownload = document.getElementById('btnLightboxDownload');
+
+        function openImageLightbox(url) {
+            if (!url || !imageLightboxModal || !lightboxImg) return;
+            lightboxImg.src = url;
+            imageLightboxModal.style.display = 'flex';
+        }
+
+        function closeImageLightbox() {
+            if (imageLightboxModal) imageLightboxModal.style.display = 'none';
+        }
+
+        if (btnLightboxClose) btnLightboxClose.addEventListener('click', closeImageLightbox);
+        if (imageLightboxModal) {
+            imageLightboxModal.addEventListener('click', (e) => {
+                if (e.target === imageLightboxModal) closeImageLightbox();
+            });
+        }
+
+        if (btnLightboxDownload) {
+            btnLightboxDownload.addEventListener('click', () => {
+                const currentUrl = lightboxImg ? lightboxImg.src : null;
+                if (currentUrl) triggerImageDownload(currentUrl, `socialhub-ai-${Date.now()}.jpg`);
+            });
+        }
+
+        // Attach listeners for preview image Box buttons
+        const btnZoomAiImage = document.getElementById('btnZoomAiImage');
+        const btnDownloadAiImage = document.getElementById('btnDownloadAiImage');
+
+        if (btnZoomAiImage) {
+            btnZoomAiImage.addEventListener('click', () => {
+                const url = previewMediaInput ? previewMediaInput.value : (aiImagePreviewTag ? aiImagePreviewTag.src : null);
+                openImageLightbox(url);
+            });
+        }
+
+        if (aiImagePreviewTag) {
+            aiImagePreviewTag.addEventListener('click', () => {
+                if (aiImagePreviewTag.src) openImageLightbox(aiImagePreviewTag.src);
+            });
+        }
+
+        if (btnDownloadAiImage) {
+            btnDownloadAiImage.addEventListener('click', () => {
+                const url = previewMediaInput ? previewMediaInput.value : (aiImagePreviewTag ? aiImagePreviewTag.src : null);
+                triggerImageDownload(url, `socialhub-image-${Date.now()}.jpg`);
+            });
+        }
+        // ─── AI Usage Stats Widget ──────────────────────────────────────────────
+        async function fetchUsageStats() {
+            try {
+                const res = await apiClient.get('/api/workspaces/usage');
+                if (!res || !res.success) return;
+
+                const u = res.usage;
+                const planName = { free:'Free', starter:'Starter', pro:'Pro', agency:'Agency', enterprise:'Enterprise' }[res.plan] || res.plan;
+
+                // Plan badge
+                const badge = document.getElementById('usagePlanBadge');
+                if (badge) badge.textContent = planName;
+
+                // Helper to update a bar
+                const setBar = (labelId, barId, used, limit, color) => {
+                    const lbl = document.getElementById(labelId);
+                    const bar = document.getElementById(barId);
+                    if (lbl) lbl.textContent = `${used} / ${limit}`;
+                    if (bar) {
+                        const pct = limit > 0 ? Math.min(100, Math.round((used / limit) * 100)) : 0;
+                        bar.style.width = pct + '%';
+                        // Colour shifts red when > 80%
+                        if (pct >= 90) bar.style.background = 'linear-gradient(90deg,#ef4444,#b91c1c)';
+                        else if (pct >= 70) bar.style.background = 'linear-gradient(90deg,#f59e0b,#d97706)';
+                        else bar.style.background = color;
+                    }
+                };
+
+                setBar('usageTextLabel', 'usageTextBar', u.ai_text.used, u.ai_text.limit, 'linear-gradient(90deg,#8b5cf6,#6366f1)');
+                setBar('usageLowLabel',  'usageLowBar',  u.ai_image_low.used,    u.ai_image_low.limit,    'linear-gradient(90deg,#22c55e,#16a34a)');
+                setBar('usageMedLabel',  'usageMedBar',  u.ai_image_medium.used, u.ai_image_medium.limit, 'linear-gradient(90deg,#f59e0b,#d97706)');
+                setBar('usageHdLabel',   'usageHdBar',   u.ai_image_high.used,   u.ai_image_high.limit,   'linear-gradient(90deg,#a855f7,#7c3aed)');
+            } catch (e) {
+                console.warn('[UsageWidget] Could not load usage stats:', e);
+            }
+        }
+        // Load on page ready
+        fetchUsageStats();
+        // ──────────────────────────────────────────────────────────────────────
     </script>
+
+    <!-- Lightbox Modal Element -->
+    <div id="imageLightboxModal" style="display:none; position:fixed; top:0; left:0; width:100vw; height:100vh; background:rgba(0,0,0,0.9); z-index:999999; backdrop-filter:blur(8px); flex-direction:column; align-items:center; justify-content:center; padding:1.5rem;">
+        <div style="position:absolute; top:1.25rem; right:1.5rem; display:flex; gap:0.75rem; align-items:center; z-index:1000000;">
+            <button id="btnLightboxDownload" class="btn btn-primary" style="font-size:0.85rem; padding:0.45rem 1rem; gap:0.4rem; display:inline-flex; align-items:center; font-weight:600; background:#22c55e; border-color:#22c55e;">
+                ⬇️ Muat Turun (Download)
+            </button>
+            <button id="btnLightboxClose" style="background:rgba(255,255,255,0.2); border:1px solid rgba(255,255,255,0.4); color:#fff; font-size:1.25rem; width:38px; height:38px; border-radius:50%; cursor:pointer; display:flex; align-items:center; justify-content:center;" title="Tutup">
+                ✕
+            </button>
+        </div>
+        <div style="max-width:92vw; max-height:85vh; display:flex; align-items:center; justify-content:center;">
+            <img id="lightboxImg" src="" alt="Enlarged Media Preview" style="max-width:100%; max-height:85vh; object-fit:contain; border-radius:8px; box-shadow:0 25px 60px rgba(0,0,0,0.6);" />
+        </div>
+    </div>
 </body>
 </html>

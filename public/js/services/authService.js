@@ -77,8 +77,12 @@ export const authService = {
     },
 
     /**
-     * Query currently active profile session context
-     * @returns {Promise<object|null>} Active user metadata
+     * Query currently active profile session context.
+     * NOTE: Only clears the stored token on a genuine 401 Unauthorized response.
+     * Transient network errors, cold-start failures, and 5xx errors do NOT log
+     * the user out — the local token remains valid and the page continues loading.
+     * This fixes the "double login required" bug caused by Cloudflare Worker cold starts.
+     * @returns {Promise<object|null>} Active user metadata, or null on failure
      */
     async getSession() {
         if (!sessionService.isAuthenticated()) return null;
@@ -86,8 +90,13 @@ export const authService = {
             const data = await apiClient.get('/users/me');
             return data.user;
         } catch (error) {
-            console.error('[AuthService] Active session validation check failed:', error.message);
-            sessionService.clearToken();
+            console.warn('[AuthService] Could not fetch session from server:', error.message);
+            // Only clear the token if the server explicitly says the token is invalid/expired (401).
+            // For network errors, cold starts, or 5xx errors, keep the local token intact.
+            if (error.status === 401) {
+                console.warn('[AuthService] Token rejected by server (401). Clearing session.');
+                sessionService.clearToken();
+            }
             return null;
         }
     },

@@ -553,7 +553,7 @@
                 }
                 
                 connectedAccounts.forEach(acc => {
-                    if (acc.status !== 'active' || acc.platform !== 'threads') return;
+                    if (acc.status !== 'active') return;
                     
                     const label = document.createElement('label');
                     label.style.display = 'flex';
@@ -1106,11 +1106,12 @@
 
             try {
                 const response = await apiClient.post('/ai/image', { prompt: prompt });
-                if (response.success && response.media) {
-                    attachedMedia.push(response.media);
+                const imgUrl = response.image_url || (response.media && response.media.url);
+                if (response.success && imgUrl) {
+                    attachedMedia.push({ type: 'image', url: imgUrl });
                     isDirty = true;
                     renderAttachedMedia();
-                    notificationService.success("Gambar AI berjaya dijana dan dilampirkan!");
+                    notificationService.success("Gambar AI (OpenAI GPT Image-2) berjaya dijana dan dilampirkan!");
                 } else {
                     notificationService.error(response.message || "Gagal menjana gambar AI.");
                 }

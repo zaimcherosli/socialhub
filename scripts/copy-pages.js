@@ -47,7 +47,7 @@ function copyDirRecursive(srcDir, destDir) {
         } else {
             if (entry.name === 'Sidebar.js') {
                 let jsContent = fs.readFileSync(srcPath, 'utf8');
-                jsContent = jsContent.replace(/v1\.4\.\d+/g, `v${VERSION}`);
+                jsContent = jsContent.replace(/v1\.4\.\d+/g, `v${VERSION}`).replace(/VERSION\s*\|\|\s*['"].*?['"]/g, `VERSION || '${VERSION}'`);
                 fs.writeFileSync(destPath, jsContent, 'utf8');
             } else {
                 fs.copyFileSync(srcPath, destPath);

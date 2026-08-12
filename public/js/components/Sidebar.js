@@ -207,7 +207,7 @@ class Sidebar extends HTMLElement {
                         <div class="user-info" style="flex: 1; min-width: 0; display: flex; flex-direction: column;">
                             <span class="user-name" id="sidebarUserName">Loading...</span>
                             <span class="user-plan">User</span>
-                            <span class="user-version" id="versionBadge" style="font-size: 0.65rem; color: var(--color-text-tertiary); font-weight: 500; margin-top: 0.1rem; cursor: pointer;" title="Tekan untuk info sistem diagnostik">v${(window.SYS_CONFIG?.VERSION || '1.4.88')}</span>
+                            <span class="user-version" id="versionBadge" style="font-size: 0.65rem; color: var(--color-text-tertiary); font-weight: 500; margin-top: 0.1rem; cursor: pointer;" title="Tekan untuk info sistem diagnostik">v${(window.SYS_CONFIG?.VERSION || '1.4.94')}</span>
                         </div>
                         <button class="header-action-btn" id="btnSidebarLogout" title="Logout" style="padding: 0.35rem; color: var(--color-danger); background: none; border: none; cursor: pointer; display: flex; align-items: center; justify-content: center;">
                             <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">

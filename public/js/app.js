@@ -1,6 +1,7 @@
 /* SocialHub Global App Controller
    Aggregates layouts, initializes common services, manages universal UI behaviors and dynamic user profile rendering. */
 
+import './config.js';
 import './components/Sidebar.js';
 import './components/Header.js';
 import './components/PublishStatusBadge.js';
@@ -44,12 +45,16 @@ class App {
             const nameEl = document.getElementById('sidebarUserName');
             const sidebarInitialsEl = document.getElementById('sidebarInitials');
             const headerInitialsEl = document.getElementById('headerInitials');
+            const versionBadgeEl = document.getElementById('versionBadge');
             
             const initials = getInitials(user.name);
             
             if (nameEl) nameEl.textContent = user.name;
             if (sidebarInitialsEl) sidebarInitialsEl.textContent = initials;
             if (headerInitialsEl) headerInitialsEl.textContent = initials;
+            if (versionBadgeEl && window.SYS_CONFIG?.VERSION) {
+                versionBadgeEl.textContent = `v${window.SYS_CONFIG.VERSION}`;
+            }
 
             // Dynamically inject Admin Console navigation link if user is admin
             if (user.role === 'admin') {

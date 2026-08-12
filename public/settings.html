@@ -225,6 +225,124 @@
             .api-key-buttons { flex-direction: column; }
         }
 
+        /* Responsive Subscription Section Improvements */
+        .sub-plan-banner-wrap {
+            background: linear-gradient(135deg, rgba(139,92,246,0.15) 0%, rgba(59,130,246,0.10) 100%);
+            border: 1px solid rgba(139,92,246,0.3);
+            border-radius: 16px;
+            padding: 1.25rem 1.5rem;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 1.25rem;
+            margin-bottom: 1.5rem;
+            transition: all 0.3s ease;
+        }
+
+        .sub-plan-info {
+            display: flex;
+            align-items: center;
+            gap: 1rem;
+            flex: 1;
+            min-width: 0;
+        }
+
+        .sub-usage-grid {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 1rem;
+        }
+
+        .usage-stat-card {
+            background: var(--color-bg-accent, rgba(255,255,255,0.03));
+            border: 1px solid var(--color-border);
+            border-radius: 12px;
+            padding: 1rem 1.15rem;
+            display: flex;
+            flex-direction: column;
+            gap: 0.5rem;
+            transition: transform var(--transition-fast), border-color var(--transition-fast);
+        }
+
+        .usage-stat-card:hover {
+            border-color: rgba(139,92,246,0.4);
+            transform: translateY(-1px);
+        }
+
+        .usage-stat-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        .usage-stat-title {
+            font-size: 0.82rem;
+            font-weight: 700;
+            color: var(--color-text-primary);
+            display: flex;
+            align-items: center;
+            gap: 0.35rem;
+        }
+
+        .usage-stat-badge {
+            font-size: 0.75rem;
+            font-weight: 700;
+            padding: 0.15rem 0.6rem;
+            border-radius: 99px;
+            background: rgba(139,92,246,0.12);
+            color: var(--color-primary);
+            white-space: nowrap;
+            border: 1px solid rgba(139,92,246,0.2);
+        }
+
+        .usage-bar-track {
+            background: var(--color-border, rgba(255,255,255,0.1));
+            border-radius: 99px;
+            height: 7px;
+            overflow: hidden;
+            width: 100%;
+        }
+
+        .usage-bar-fill {
+            height: 100%;
+            width: 0%;
+            border-radius: 99px;
+            transition: width 0.8s cubic-bezier(.4,0,.2,1);
+        }
+
+        .usage-stat-subtext {
+            font-size: 0.68rem;
+            color: var(--color-text-tertiary, #9ca3af);
+            line-height: 1.35;
+        }
+
+        @media (max-width: 640px) {
+            #subscriptionCard {
+                padding: 1rem 0.85rem !important;
+            }
+            .sub-plan-banner-wrap {
+                flex-direction: column !important;
+                align-items: stretch !important;
+                padding: 1.1rem 1rem !important;
+                gap: 1rem !important;
+            }
+            .sub-plan-info {
+                gap: 0.85rem !important;
+            }
+            .sub-plan-btn {
+                width: 100% !important;
+                justify-content: center !important;
+                padding: 0.65rem 1rem !important;
+                font-size: 0.85rem !important;
+                font-weight: 700 !important;
+            }
+            .sub-usage-grid {
+                grid-template-columns: 1fr !important;
+                gap: 0.75rem !important;
+            }
+        }
+
         @keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
     </style>
 </head>
@@ -712,90 +830,81 @@
                     </div>
 
                     <!-- Active Plan Banner -->
-                    <div id="subPlanBanner" style="
-                        background: linear-gradient(135deg, rgba(139,92,246,0.15) 0%, rgba(59,130,246,0.12) 100%);
-                        border: 1px solid rgba(139,92,246,0.3);
-                        border-radius: 14px;
-                        padding: 1.25rem 1.5rem;
-                        display: flex;
-                        align-items: center;
-                        justify-content: space-between;
-                        gap: 1rem;
-                        flex-wrap: wrap;
-                        margin-bottom: 1.5rem;
-                    ">
-                        <div style="display:flex; align-items:center; gap: 1rem;">
+                    <div id="subPlanBanner" class="sub-plan-banner-wrap">
+                        <div class="sub-plan-info">
                             <div id="subPlanIcon" style="
-                                width: 48px; height: 48px; border-radius: 12px;
+                                width: 44px; height: 44px; border-radius: 12px;
                                 background: rgba(139,92,246,0.2);
                                 display: flex; align-items: center; justify-content: center;
-                                font-size: 1.5rem;
+                                font-size: 1.4rem; flex-shrink: 0;
                             ">🚀</div>
-                            <div>
-                                <div style="font-size: 0.75rem; color: var(--color-text-secondary); font-weight: 500; margin-bottom: 0.2rem;">Pakej Aktif</div>
-                                <div id="subPlanName" style="font-size: 1.2rem; font-weight: 800; color: #c4b5fd;">—</div>
-                                <div id="subPlanMonth" style="font-size: 0.72rem; color: var(--color-text-secondary);">Penggunaan dikira semula setiap bulan</div>
+                            <div style="min-width: 0; flex: 1;">
+                                <div style="font-size: 0.72rem; color: var(--color-text-secondary); font-weight: 600; text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 0.15rem;">Pakej Aktif Semasa</div>
+                                <div id="subPlanName" style="font-size: 1.25rem; font-weight: 800; color: var(--color-text-primary); line-height: 1.2;">—</div>
+                                <div id="subPlanMonth" style="font-size: 0.72rem; color: var(--color-text-tertiary); margin-top: 0.15rem;">Penggunaan dikira semula setiap bulan</div>
                             </div>
                         </div>
-                        <a href="https://socialhub.my/pricing" target="_blank" class="btn btn-primary" style="
+                        <a href="https://socialhub.my/pricing" target="_blank" class="btn btn-primary sub-plan-btn" style="
                             background: linear-gradient(135deg,#8b5cf6,#6366f1);
                             border-color: transparent;
                             font-size: 0.8rem;
-                            padding: 0.5rem 1.2rem;
+                            padding: 0.55rem 1.2rem;
                             white-space: nowrap;
+                            box-shadow: 0 4px 14px rgba(139,92,246,0.3);
                         ">
-                            ⬆️ Naik Taraf Pakej
+                            ⚡ Naik Taraf Pakej
                         </a>
                     </div>
 
-                    <!-- Usage Progress Rows -->
-                    <div style="display: flex; flex-direction: column; gap: 1.1rem;">
+                    <!-- Usage Progress Grid -->
+                    <div class="sub-usage-grid">
 
                         <!-- AI Captions -->
-                        <div>
-                            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:0.4rem;">
-                                <span style="font-size:0.82rem; font-weight:600;">✍️ Kapsyen AI (Caption)</span>
-                                <span id="subTextStat" style="font-size:0.82rem; font-weight:700; color:#8b5cf6;">— / —</span>
+                        <div class="usage-stat-card">
+                            <div class="usage-stat-header">
+                                <span class="usage-stat-title">✍️ Kapsyen AI (Caption)</span>
+                                <span id="subTextStat" class="usage-stat-badge">— / —</span>
                             </div>
-                            <div style="background:var(--color-border,rgba(255,255,255,0.1)); border-radius:99px; height:8px; overflow:hidden;">
-                                <div id="subTextBar" style="height:100%; width:0%; border-radius:99px; background:linear-gradient(90deg,#8b5cf6,#6366f1); transition:width 0.9s cubic-bezier(.4,0,.2,1);"></div>
+                            <div class="usage-bar-track">
+                                <div id="subTextBar" class="usage-bar-fill" style="background:linear-gradient(90deg,#8b5cf6,#6366f1);"></div>
                             </div>
+                            <span class="usage-stat-subtext">Penjanaan kapsyen & hashtag automatik</span>
                         </div>
 
                         <!-- Low Quality Images -->
-                        <div>
-                            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:0.4rem;">
-                                <span style="font-size:0.82rem; font-weight:600;">🖼️ Gambar Asas (Fast AI)</span>
-                                <span id="subLowStat" style="font-size:0.82rem; font-weight:700; color:#22c55e;">— / —</span>
+                        <div class="usage-stat-card">
+                            <div class="usage-stat-header">
+                                <span class="usage-stat-title">🖼️ Gambar Asas (Fast AI)</span>
+                                <span id="subLowStat" class="usage-stat-badge" style="color:#10b981; background:rgba(16,185,129,0.12); border-color:rgba(16,185,129,0.2);">— / —</span>
                             </div>
-                            <div style="background:var(--color-border,rgba(255,255,255,0.1)); border-radius:99px; height:8px; overflow:hidden;">
-                                <div id="subLowBar" style="height:100%; width:0%; border-radius:99px; background:linear-gradient(90deg,#22c55e,#16a34a); transition:width 0.9s cubic-bezier(.4,0,.2,1);"></div>
+                            <div class="usage-bar-track">
+                                <div id="subLowBar" class="usage-bar-fill" style="background:linear-gradient(90deg,#10b981,#059669);"></div>
                             </div>
-                            <div style="font-size:0.68rem; color:var(--color-text-secondary); margin-top:0.25rem;">Percuma — Penjanaan Draf Infografik Pantas</div>
+                            <span class="usage-stat-subtext">Percuma — Penjanaan Draf Infografik Pantas</span>
                         </div>
 
                         <!-- Medium Quality Images -->
-                        <div>
-                            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:0.4rem;">
-                                <span style="font-size:0.82rem; font-weight:600;">🎨 Gambar Standard (High Quality)</span>
-                                <span id="subMedStat" style="font-size:0.82rem; font-weight:700; color:#f59e0b;">— / —</span>
+                        <div class="usage-stat-card">
+                            <div class="usage-stat-header">
+                                <span class="usage-stat-title">🎨 Gambar Standard</span>
+                                <span id="subMedStat" class="usage-stat-badge" style="color:#f59e0b; background:rgba(245,158,11,0.12); border-color:rgba(245,158,11,0.2);">— / —</span>
                             </div>
-                            <div style="background:var(--color-border,rgba(255,255,255,0.1)); border-radius:99px; height:8px; overflow:hidden;">
-                                <div id="subMedBar" style="height:100%; width:0%; border-radius:99px; background:linear-gradient(90deg,#f59e0b,#d97706); transition:width 0.9s cubic-bezier(.4,0,.2,1);"></div>
+                            <div class="usage-bar-track">
+                                <div id="subMedBar" class="usage-bar-fill" style="background:linear-gradient(90deg,#f59e0b,#d97706);"></div>
                             </div>
-                            <div style="font-size:0.68rem; color:var(--color-text-secondary); margin-top:0.25rem;">Imej Poster Poster Premium 1024x1024</div>
+                            <span class="usage-stat-subtext">Imej Poster Premium 1024x1024</span>
                         </div>
 
                         <!-- High Quality Images -->
-                        <div>
-                            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:0.4rem;">
-                                <span style="font-size:0.82rem; font-weight:600;">🌟 Gambar HD (Ultra Realistic)</span>
-                                <span id="subHdStat" style="font-size:0.82rem; font-weight:700; color:#ef4444;">— / —</span>
+                        <div class="usage-stat-card">
+                            <div class="usage-stat-header">
+                                <span class="usage-stat-title">🌟 Gambar HD (Ultra Realistic)</span>
+                                <span id="subHdStat" class="usage-stat-badge" style="color:#ef4444; background:rgba(239,68,68,0.12); border-color:rgba(239,68,68,0.2);">— / —</span>
                             </div>
-                            <div style="background:var(--color-border,rgba(255,255,255,0.1)); border-radius:99px; height:8px; overflow:hidden;">
-                                <div id="subHdBar" style="height:100%; width:0%; border-radius:99px; background:linear-gradient(90deg,#a855f7,#7c3aed); transition:width 0.9s cubic-bezier(.4,0,.2,1);"></div>
+                            <div class="usage-bar-track">
+                                <div id="subHdBar" class="usage-bar-fill" style="background:linear-gradient(90deg,#a855f7,#7c3aed);"></div>
                             </div>
-                            <div style="font-size:0.68rem; color:var(--color-text-secondary); margin-top:0.25rem;">Hasil Fotorealistik &amp; Typography Super Tajam</div>
+                            <span class="usage-stat-subtext">Hasil Fotorealistik & Typography Super Tajam</span>
                         </div>
 
                     </div>

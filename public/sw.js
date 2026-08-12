@@ -79,7 +79,8 @@ self.addEventListener('install', (event) => {
       );
     })
   );
-  // Do NOT call skipWaiting() directly during install so new version waits until user taps Update button
+  // Force immediate activation of new Service Worker versions without waiting
+  self.skipWaiting();
 });
 
 self.addEventListener('activate', (event) => {

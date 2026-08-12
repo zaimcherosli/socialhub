@@ -2515,7 +2515,11 @@ RULES:
                         }
 
                         // 2. For Medium & High (or Low fallback), use OpenAI DALL-E 3
-                        if (!imageUrl && openaiApiKey) {
+                        let openAiErrDetail = null;
+                        if (!openaiApiKey) {
+                            console.warn('[GenerateImage] OPENAI_API_KEY is not configured or failed to decrypt.');
+                            openAiErrDetail = 'API key OpenAI tidak ditemui atau gagal didekripsi.';
+                        } else if (!imageUrl) {
                             try {
                                 const openAiRes = await fetch('https://api.openai.com/v1/images/generations', {
                                     method: 'POST',
@@ -2544,10 +2548,17 @@ RULES:
                                     }
                                 } else {
                                     const errText = await openAiRes.text();
-                                    console.error('[OpenAI DALL-E 3 Error]:', errText);
+                                    console.error(`[OpenAI DALL-E 3 Error HTTP ${openAiRes.status}]:`, errText);
+                                    try {
+                                        const parsedErr = JSON.parse(errText);
+                                        openAiErrDetail = parsedErr.error?.message || errText;
+                                    } catch (_) {
+                                        openAiErrDetail = errText;
+                                    }
                                 }
                             } catch (oaiErr) {
                                 console.error('[OpenAI Image Fetch Error]:', oaiErr);
+                                openAiErrDetail = oaiErr.message;
                             }
                         }
 
@@ -2600,7 +2611,8 @@ RULES:
                         return new Response(JSON.stringify({
                             success: true,
                             image_url: publicUrl,
-                            source: usedSource
+                            source: usedSource,
+                            openai_error: openAiErrDetail
                         }), { status: 200, headers: corsHeaders });
 
                     } catch (e) {

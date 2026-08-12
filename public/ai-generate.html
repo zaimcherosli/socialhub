@@ -1223,12 +1223,13 @@
                             updateImagePreviewDisplay();
                             
                             let sourceMsg = '✨ Gambar AI berjaya dijana!';
-                            let badgeText = '✨ Image created by OpenAI (gpt-image-2)';
-                            if (response.source === 'openai-gpt-image-2') {
-                                sourceMsg = '✨ Gambar AI (OpenAI gpt-image-2) berjaya dijana!';
-                                badgeText = '✨ Image created by OpenAI (gpt-image-2)';
+                            let badgeText = '✨ Image created by OpenAI (DALL-E 3)';
+                            if (response.source === 'openai-dall-e-3' || response.source === 'openai-gpt-image-2') {
+                                sourceMsg = '✨ Gambar AI (OpenAI DALL-E 3) berjaya dijana!';
+                                badgeText = '✨ Image created by OpenAI (DALL-E 3)';
                             } else if (response.source === 'cloudflare-sdxl') {
-                                sourceMsg = '⚠️ OpenAI tergendala / tiada kredit. Gambar AI dijana menggunakan Fallback: Cloudflare Workers AI (Stable Diffusion)';
+                                const errReason = response.openai_error ? ` (${response.openai_error})` : '';
+                                sourceMsg = `⚠️ OpenAI fallback${errReason}. Gambar AI dijana menggunakan Cloudflare Workers AI (Stable Diffusion)`;
                                 badgeText = '⚡ Image created by Cloudflare Workers AI (Stable Diffusion XL)';
                             } else if (response.source === 'unsplash-fallback') {
                                 sourceMsg = '⚠️ Enjin AI tergendala. Gambar diambil daripada Fallback: Unsplash Stock';

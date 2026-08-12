@@ -5909,6 +5909,19 @@ CRITICAL LANGUAGE / SPEECH RULES:
                         savedAccountId = insertResult.meta.last_row_id;
                     }
 
+                    // Sync fresh Meta token across ALL Facebook & Instagram accounts for this user in ALL workspaces
+                    if (platform === 'facebook' || platform === 'instagram') {
+                        await env.DB.prepare(`
+                            UPDATE social_accounts 
+                            SET access_token = ?, refresh_token = ?, expires_at = ?, status = 'active', updated_at = ? 
+                            WHERE user_id = ? AND platform IN ('facebook', 'instagram')
+                        `).bind(encryptedAccessToken, encryptedRefreshToken, expiresAt, nowStr, user.id).run();
+                    } else if (tokenData.account_id) {
+                        await env.DB.prepare(`UPDATE social_accounts SET access_token = ?, refresh_token = ?, expires_at = ?, status = 'active', updated_at = ? WHERE user_id = ? AND platform = ? AND account_id = ?`)
+                            .bind(encryptedAccessToken, encryptedRefreshToken, expiresAt, nowStr, user.id, platform, tokenData.account_id)
+                            .run();
+                    }
+
                     await logActivity(activeWorkspace.workspace_id, user.id, 'connect_account', `Connected ${platform} account: ${tokenData.account_name}`);
                     
                     if (platform === 'threads') {
@@ -6174,6 +6187,10 @@ CRITICAL LANGUAGE / SPEECH RULES:
                     await env.DB.prepare("UPDATE social_accounts SET account_name = ?, account_id = ?, access_token = ?, status = 'active', updated_at = ? WHERE id = ?")
                         .bind(pageName, selectedPage.id.toString(), encryptedPageToken, nowStr, targetAccount.id).run();
 
+                    // Sync Page Access Token across ALL workspaces owned by this user for this FB Page ID
+                    await env.DB.prepare("UPDATE social_accounts SET access_token = ?, status = 'active', updated_at = ? WHERE user_id = ? AND platform = 'facebook' AND account_id = ?")
+                        .bind(encryptedPageToken, nowStr, user.id, selectedPage.id.toString()).run();
+
                     return new Response(JSON.stringify({ success: true, message: 'Facebook Page connected successfully!' }), { status: 200, headers: corsHeaders });
                 }
 
@@ -6208,6 +6225,10 @@ CRITICAL LANGUAGE / SPEECH RULES:
 
                     await env.DB.prepare("UPDATE social_accounts SET account_name = ?, account_id = ?, access_token = ?, status = 'active', updated_at = ? WHERE id = ?")
                         .bind(accountName, ig_account_id.toString(), encryptedPageToken, nowStr, targetAccount.id).run();
+
+                    // Sync Page Access Token across ALL workspaces owned by this user for this IG Account ID
+                    await env.DB.prepare("UPDATE social_accounts SET access_token = ?, status = 'active', updated_at = ? WHERE user_id = ? AND platform = 'instagram' AND account_id = ?")
+                        .bind(encryptedPageToken, nowStr, user.id, ig_account_id.toString()).run();
 
                     console.log(`[Instagram select-account] Connected @${ig_username} (IG ID: ${ig_account_id}, Page ID: ${page_id})`);
                     return new Response(JSON.stringify({ success: true, message: `Instagram @${ig_username} connected successfully!` }), { status: 200, headers: corsHeaders });

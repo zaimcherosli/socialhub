@@ -142,7 +142,7 @@ export class InstagramPublisher extends PublisherInterface {
         try {
             // 1. Create Media Container
             console.log(`[InstagramPublisher] Creating media container for IG Account ${igAccountId}...`);
-            const containerUrl = `${this.baseUrl}/${igAccountId}/media?access_token=${encodeURIComponent(accessToken)}`;
+            const containerUrl = `${this.baseUrl}/${igAccountId}/media`;
             const formData = new URLSearchParams();
             formData.append('image_url', imageUrl);
             formData.append('caption', cleanedCaption);
@@ -157,15 +157,17 @@ export class InstagramPublisher extends PublisherInterface {
             let containerData = await containerRes.json().catch(() => ({}));
 
             // Fallback retry using JSON body if form-urlencoded fails
-            if (!containerRes.ok && containerData.error && containerData.error.code === 10) {
-                console.warn(`[InstagramPublisher] Error #10 on form-urlencoded attempt, retrying with JSON body...`);
+            if (!containerRes.ok && containerData.error && (containerData.error.code === 10 || containerData.error.code === 100)) {
+                console.warn(`[InstagramPublisher] Error #${containerData.error.code} on form-urlencoded attempt, retrying with Bearer Header & JSON...`);
                 const jsonRes = await fetch(containerUrl, {
                     method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${accessToken}`
+                    },
                     body: JSON.stringify({
                         image_url: imageUrl,
-                        caption: cleanedCaption,
-                        access_token: accessToken
+                        caption: cleanedCaption
                     })
                 });
                 if (jsonRes.ok) {
@@ -176,7 +178,11 @@ export class InstagramPublisher extends PublisherInterface {
 
             if (!containerRes.ok || !containerData.id) {
                 const err = containerData.error || {};
-                const errMsg = err.message || `HTTP ${containerRes.status}`;
+                let errMsg = err.message || `HTTP ${containerRes.status}`;
+                if (err.code === 10 || errMsg.toLowerCase().includes('permission')) {
+                    errMsg = `Akaun Instagram ini memerlukan pengesahan semula (Meta Token Expiry). Sila pergi ke halaman Accounts dan tekan "Reconnect" pada akaun Instagram anda.`;
+                }
+
                 console.error(`[InstagramPublisher] Container creation failed:`, containerData);
                 return {
                     success: false,
@@ -184,8 +190,8 @@ export class InstagramPublisher extends PublisherInterface {
                     provider_post_id: null,
                     published_at: null,
                     error_code: err.code?.toString() || 'CONTAINER_FAILED',
-                    error_message: `Ralat kontena Instagram: ${errMsg}`,
-                    retryable: true
+                    error_message: errMsg,
+                    retryable: false
                 };
             }
 

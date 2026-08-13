@@ -22,7 +22,9 @@ export class InstagramPublisher extends PublisherInterface {
     }
 
     async validate(post) {
-        const caption = post.caption || post.content || '';
+        const caption = (post.caption || post.content || '')
+            .replace(/[\n\r]*(?:---thread-separator---|\[THREAD_DELIMITER\])[\n\r]*/g, '\n\n')
+            .trim();
         if (!caption.trim() && (!post.media || post.media.length === 0)) {
             return { isValid: false, error: "Instagram post content or image is required." };
         }

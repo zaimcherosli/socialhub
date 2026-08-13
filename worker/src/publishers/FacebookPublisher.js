@@ -55,7 +55,9 @@ export class FacebookPublisher extends PublisherInterface {
             };
         }
 
-        const message = post.caption || post.content || '';
+        const message = (post.caption || post.content || '')
+            .replace(/[\n\r]*(?:---thread-separator---|\[THREAD_DELIMITER\])[\n\r]*/g, '\n\n')
+            .trim();
 
         try {
             return await this._postToPage(pageId, message, pageAccessToken, post);

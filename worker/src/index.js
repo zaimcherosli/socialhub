@@ -592,6 +592,7 @@ const OAuthProviders = {
             url.searchParams.set("client_id", clientId);
             url.searchParams.set("redirect_uri", redirectUri);
             url.searchParams.set("scope", "public_profile,pages_show_list,pages_read_engagement,pages_manage_posts");
+            url.searchParams.set("auth_type", "rerequest");
             url.searchParams.set("response_type", "code");
             url.searchParams.set("state", state);
             return url.toString();
@@ -729,6 +730,7 @@ const OAuthProviders = {
             url.searchParams.set("client_id", clientId);
             url.searchParams.set("redirect_uri", redirectUri);
             url.searchParams.set("scope", "public_profile,pages_show_list,pages_read_engagement,pages_manage_posts,instagram_content_publish,instagram_basic,business_management");
+            url.searchParams.set("auth_type", "rerequest");
             url.searchParams.set("response_type", "code");
             url.searchParams.set("state", state);
             return url.toString();
@@ -1309,6 +1311,9 @@ async function executeImmediatePublish(db, spId, userId, encryptionSecret) {
     
     const mediaList = await resolvePostMedia(db, scheduledPost);
     let cleanCaption = scheduledPost.content || '';
+    if (scheduledPost.platform !== 'threads') {
+        cleanCaption = cleanCaption.replace(/[\n\r]*(?:---thread-separator---|\[THREAD_DELIMITER\])[\n\r]*/g, '\n\n');
+    }
     cleanCaption = cleanCaption.replace(/📷\s*\S+/gi, '').trim();
     const postObj = {
         title: '',
@@ -8026,9 +8031,16 @@ CRITICAL LANGUAGE / SPEECH RULES:
                         const publisher = PublisherFactory.getPublisher(post.platform);
                         const mediaList = await resolvePostMedia(env.DB, post);
                         
+                        let cleanedCaption = post.content || '';
+                        if (post.platform !== 'threads') {
+                            cleanedCaption = cleanedCaption
+                                .replace(/[\n\r]*(?:---thread-separator---|\[THREAD_DELIMITER\])[\n\r]*/g, '\n\n')
+                                .trim();
+                        }
+
                         const postObj = {
                             title: '',
-                            caption: post.content,
+                            caption: cleanedCaption,
                             media: mediaList,
                             reply_to_id: post.reply_to_external_id || null
                         };

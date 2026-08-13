@@ -2980,7 +2980,7 @@ RULES:
                     }
 
                     try {
-                        const { url: rawUrlInput, mediaUrl, context, tone, language, postFormat, timezoneOffset, index, triggerType, triggerThreshold } = await request.json();
+                        const { url: rawUrlInput, mediaUrl, context, tone, language, postFormat, timezoneOffset, index, triggerType, triggerThreshold, targetPlatforms } = await request.json();
                         if (!rawUrlInput) {
                             return new Response(JSON.stringify({ message: 'URL is required.' }), { status: 400, headers: corsHeaders });
                         }
@@ -4201,8 +4201,7 @@ CRITICAL TONE RULES:
                             throw new Error("AI failed to generate Thread Storm contents.");
                         }
 
-                        const { targetPlatforms } = await request.json().catch(() => ({}));
-                        
+                        // targetPlatforms was already extracted from request.json() at the top of this handler
                         let connectedAccounts = [];
                         if (targetPlatforms && Array.isArray(targetPlatforms) && targetPlatforms.length > 0) {
                             const placeholders = targetPlatforms.map(() => '?').join(',');

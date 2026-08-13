@@ -886,6 +886,13 @@
             bindCalendarNav();
             bindBulkActions();
             await loadAccountsDropdown();
+
+            // When redirected from AI Generator after scheduling, add a settling delay
+            // to let the Cloudflare Workers edge and Service Worker finish propagating
+            if (urlParams.get('highlight') === 'new') {
+                await new Promise(r => setTimeout(r, 1500));
+            }
+
             await fetchSchedules();
 
             if (urlParams.get('highlight') === 'new') {
@@ -906,14 +913,14 @@
             }, 30000);
         }
 
-        async function fetchSchedules(retries = 2) {
+        async function fetchSchedules(retries = 3) {
             try {
                 const res = await schedulerService.getScheduledPosts();
                 allSchedules = res.results || [];
                 applyFiltersAndRender();
             } catch (err) {
                 if (retries > 0) {
-                    await new Promise(r => setTimeout(r, 800));
+                    await new Promise(r => setTimeout(r, 1500));
                     return fetchSchedules(retries - 1);
                 }
                 console.error("Failed to load schedules:", err);

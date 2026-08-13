@@ -906,12 +906,17 @@
             }, 30000);
         }
 
-        async function fetchSchedules() {
+        async function fetchSchedules(retries = 2) {
             try {
                 const res = await schedulerService.getScheduledPosts();
                 allSchedules = res.results || [];
                 applyFiltersAndRender();
             } catch (err) {
+                if (retries > 0) {
+                    await new Promise(r => setTimeout(r, 800));
+                    return fetchSchedules(retries - 1);
+                }
+                console.error("Failed to load schedules:", err);
                 notificationService.error('Connection error loading scheduled queue.');
             }
         }

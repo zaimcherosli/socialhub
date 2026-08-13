@@ -283,11 +283,15 @@
         const bulkBar = document.getElementById('bulkActionsBar');
         const bulkCountText = document.getElementById('bulkSelectionCount');
 
-        async function fetchQueue() {
+        async function fetchQueue(retries = 2) {
             try {
                 queueList = await scheduleService.getSchedules();
                 renderQueue();
             } catch (err) {
+                if (retries > 0) {
+                    await new Promise(r => setTimeout(r, 800));
+                    return fetchQueue(retries - 1);
+                }
                 console.error(err);
                 timeline.innerHTML = `
                     <div class="empty-queue-state" style="color: var(--color-danger); border-color: var(--color-danger-light);">

@@ -374,15 +374,13 @@
                         </div>
 
                         <div class="form-group" style="margin-bottom: 1rem;">
-                            <label class="form-label" for="autoPlatform">Target Platform</label>
-                            <select id="autoPlatform" class="form-select" style="width: 100%;">
-                                <option value="threads">Threads</option>
-                                <option value="facebook">Facebook</option>
-                                <option value="instagram">Instagram</option>
-                                <option value="linkedin">LinkedIn</option>
-                                <option value="tiktok">TikTok</option>
-                                <option value="twitter">Twitter</option>
-                            </select>
+                            <label class="form-label" style="display: flex; align-items: center; justify-content: space-between;">
+                                <span>Sasaran Platform / Channels</span>
+                                <span style="font-size: 0.7rem; color: var(--color-primary); font-weight: 600;">(Semua Connected)</span>
+                            </label>
+                            <div id="urlAutoChannelsContainer" style="display: flex; flex-direction: column; gap: 0.4rem; background: var(--color-bg-subtle, #f8fafc); padding: 0.75rem; border-radius: var(--radius-sm); border: 1px solid var(--color-border); max-height: 140px; overflow-y: auto;">
+                                <span style="font-size: 0.75rem; color: var(--color-text-tertiary);">Memuatkan akaun...</span>
+                            </div>
                         </div>
 
                         <div class="form-group" style="margin-bottom: 1rem;">
@@ -910,6 +908,25 @@
                     `;
                     channelsContainer.appendChild(label);
                 });
+
+                const urlAutoChannelsContainer = document.getElementById('urlAutoChannelsContainer');
+                if (urlAutoChannelsContainer) {
+                    urlAutoChannelsContainer.innerHTML = '';
+                    if (connectedAccounts.length === 0) {
+                        urlAutoChannelsContainer.innerHTML = `<p style="font-size: 0.75rem; color: var(--color-text-tertiary); font-style: italic; margin: 0;">Tiada akaun terhubung. <a href="accounts.html" style="color:var(--color-primary); font-weight:500;">Pautkan akaun di sini</a></p>`;
+                    } else {
+                        connectedAccounts.forEach(acc => {
+                            const label = document.createElement('label');
+                            label.style = 'display: flex; align-items: center; gap: 0.4rem; font-size: 0.85rem; cursor: pointer; color: var(--color-text-secondary); width: 100%; box-sizing: border-box;';
+                            label.innerHTML = `
+                                <input type="checkbox" class="url-auto-channel-checkbox" value="${acc.platform}" data-account-id="${acc.id}" checked style="flex-shrink: 0;" />
+                                <span style="text-transform: capitalize; font-weight: 500; flex-shrink: 0;">${acc.platform}</span>
+                                <span style="font-size: 0.72rem; color: var(--color-text-tertiary); max-width: 160px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">(${acc.account_name})</span>
+                            `;
+                            urlAutoChannelsContainer.appendChild(label);
+                        });
+                    }
+                }
             } catch (err) {
                 channelsContainer.innerHTML = `<p style="font-size: 0.75rem; color: var(--color-danger); margin: 0;">Failed to load accounts</p>`;
             }
@@ -1419,6 +1436,9 @@
             let lastErrorMessage = '';
             let lastModelUsed = '';
 
+            const checkedChannelCbs = Array.from(document.querySelectorAll('.url-auto-channel-checkbox:checked'));
+            const targetPlatforms = checkedChannelCbs.map(cb => cb.value);
+
             for (let i = 0; i < jobs.length; i++) {
                 const { url, mediaUrl, context } = jobs[i];
                 progressStatusText.textContent = `Memproses pautan ${i + 1} dari ${jobs.length}...`;
@@ -1431,6 +1451,7 @@
                         tone: toneVal,
                         language: langVal,
                         postFormat: formatVal,
+                        targetPlatforms,
                         timezoneOffset,
                         index: i, // used to stagger the schedule time
                         triggerType: triggerTypeVal,
@@ -1482,7 +1503,8 @@
         btnAIAutopilot.addEventListener('click', async () => {
             const niche = document.getElementById('autoNiche').value.trim();
             const targetAudience = document.getElementById('autoAudience').value.trim();
-            const platform = document.getElementById('autoPlatform').value;
+            const platformEl = document.getElementById('autoPlatform');
+            const platform = platformEl ? platformEl.value : 'threads';
             const count = parseInt(document.getElementById('autoCount').value);
             const frequency = parseInt(document.getElementById('autoFrequency').value);
             const language = document.getElementById('autoLanguage').value;

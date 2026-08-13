@@ -4201,12 +4201,24 @@ CRITICAL TONE RULES:
                             throw new Error("AI failed to generate Thread Storm contents.");
                         }
 
-                        const socialAccount = await env.DB.prepare(
-                            "SELECT id FROM social_accounts WHERE workspace_id = ? AND platform = 'threads' AND status = 'active' LIMIT 1"
-                        ).bind(activeWorkspace.workspace_id).first();
+                        const { targetPlatforms } = await request.json().catch(() => ({}));
+                        
+                        let connectedAccounts = [];
+                        if (targetPlatforms && Array.isArray(targetPlatforms) && targetPlatforms.length > 0) {
+                            const placeholders = targetPlatforms.map(() => '?').join(',');
+                            const query = `SELECT id, platform FROM social_accounts WHERE workspace_id = ? AND status = 'active' AND platform IN (${placeholders})`;
+                            const res = await env.DB.prepare(query).bind(activeWorkspace.workspace_id, ...targetPlatforms).all();
+                            connectedAccounts = res.results || [];
+                        } else {
+                            // Default: fetch ALL active connected accounts in workspace
+                            const res = await env.DB.prepare(
+                                "SELECT id, platform FROM social_accounts WHERE workspace_id = ? AND status = 'active'"
+                            ).bind(activeWorkspace.workspace_id).all();
+                            connectedAccounts = res.results || [];
+                        }
 
-                        if (!socialAccount) {
-                            return new Response(JSON.stringify({ message: 'No active Threads account connected in this workspace.' }), { status: 400, headers: corsHeaders });
+                        if (connectedAccounts.length === 0) {
+                            return new Response(JSON.stringify({ message: 'No active connected social accounts found in this workspace. Please connect Facebook, Instagram, or Threads in Accounts.' }), { status: 400, headers: corsHeaders });
                         }
 
                         let publishAt = new Date(Date.now() + 10 * 60 * 1000); // 10 minutes from now
@@ -4231,18 +4243,29 @@ CRITICAL TONE RULES:
                         }
 
                         const publishTimeStr = publishAt.toISOString();
-                        await env.DB.prepare(
-                            `INSERT INTO scheduled_posts 
-                             (user_id, account_id, platform, content, media_urls, status, publish_at, timezone, retry_count, workspace_id, created_at, updated_at) 
-                             VALUES (?, ?, 'threads', ?, '[]', 'scheduled', ?, 'UTC', 0, ?, datetime('now'), datetime('now'))`
-                        ).bind(user.id, socialAccount.id, fullContent, publishTimeStr, activeWorkspace.workspace_id).run();
+                        const mediaUrlsJson = JSON.stringify(scrapedImages && scrapedImages.length > 0 ? scrapedImages : (mediaUrl ? [mediaUrl] : []));
 
-                        await logActivity(activeWorkspace.workspace_id, user.id, 'quick_schedule', `Quick scheduled post from URL: ${url.substring(0, 30)}...`);
+                        // Schedule a post for EACH connected social account
+                        for (const acc of connectedAccounts) {
+                            let platformContent = fullContent;
+                            if (acc.platform !== 'threads') {
+                                platformContent = platformContent.replace(/[\n\r]*(?:---thread-separator---|\[THREAD_DELIMITER\])[\n\r]*/g, '\n\n').trim();
+                            }
+
+                            await env.DB.prepare(
+                                `INSERT INTO scheduled_posts 
+                                 (user_id, account_id, platform, content, media_urls, status, publish_at, timezone, retry_count, workspace_id, created_at, updated_at) 
+                                 VALUES (?, ?, ?, ?, ?, 'scheduled', ?, 'UTC', 0, ?, datetime('now'), datetime('now'))`
+                            ).bind(user.id, acc.id, acc.platform, platformContent, mediaUrlsJson, publishTimeStr, activeWorkspace.workspace_id).run();
+                        }
+
+                        await logActivity(activeWorkspace.workspace_id, user.id, 'quick_schedule', `Quick scheduled post to ${connectedAccounts.length} platforms from URL: ${url.substring(0, 30)}...`);
 
                         return new Response(JSON.stringify({
                             success: true,
-                            message: 'Post successfully generated and scheduled!',
-                            publish_at: publishTimeStr
+                            message: `Post successfully generated and scheduled across ${connectedAccounts.length} connected platforms!`,
+                            publish_at: publishTimeStr,
+                            platforms_count: connectedAccounts.length
                         }), { status: 200, headers: corsHeaders });
 
                     } catch (e) {

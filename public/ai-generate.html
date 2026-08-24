@@ -297,7 +297,9 @@
                                 <label class="form-label" for="postFormat">Post Format (Format Kiriman)</label>
                                 <select id="postFormat" class="form-select" style="width: 100%;">
                                     <option value="single" selected>Single Post (Satu Post Kapsyen)</option>
+                                    <option value="short_thread">Short Thread (2-3 posts)</option>
                                     <option value="thread">Thread / Berangkai (4-5 posts)</option>
+                                    <option value="mega_thread">Mega Story Thread (7-10 posts)</option>
                                 </select>
                             </div>
 
@@ -315,8 +317,13 @@
                         <div class="form-group" style="margin-bottom: 1rem;">
                             <label class="form-label" for="tone">Tone of Voice / Copywriting Mode</label>
                             <select id="tone" class="form-select" style="width: 100%;">
-                                <option value="Manglish (Mix Malay & English)" selected>🇲🇾 Manglish (Campuran Malay & English)</option>
+                                <option value="Auto-Smart Viral Angle" selected>🎲 Auto-Smart Viral Angle (Pintar Mengikut Produk)</option>
+                                <option value="Skeptikal / Ingat Scam Tapi Padu">🎭 Formula A: Skeptikal / Ingat Scam Tapi Padu</option>
+                                <option value="Confession / Masalah Malu & Tabu">😱 Formula B: Confession / Masalah Malu & Tabu</option>
+                                <option value="Kalaulah Tahu Dari Dulu / Jimat Duit">💸 Formula C: Kalaulah Tahu Dari Dulu / Jimat Duit</option>
+                                <option value="Bait Debat / Tanya Pendapat">🥊 Formula D: Bait Debat / Tanya Pendapat (Komen Ramai)</option>
                                 <option value="Ultra-Realistic Malay">🔥 Ultra-Realistic Malay (Gaya Threads Manusia)</option>
+                                <option value="Manglish (Mix Malay & English)">🇲🇾 Manglish (Campuran Malay & English)</option>
                                 <option value="Storyteller (Pengalaman Sebenar)">📖 Storyteller (Pengalaman Sebenar)</option>
                                 <option value="Hot Take (Pecah Mitos / Contrarian)">💥 Hot Take (Pecah Mitos / Contrarian)</option>
                                 <option value="Sembang Santai (Slang Melayu Asli)">🗣️ Sembang Santai (Slang Melayu Asli)</option>
@@ -370,6 +377,7 @@
                                 <option value="single" selected>Single Post (Short)</option>
                                 <option value="short_thread">Short Thread (2-3 posts per thread)</option>
                                 <option value="deep_thread">Deep-Dive Thread (3-5 posts per thread)</option>
+                                <option value="mega_thread">Mega Thread (7-10 posts per thread)</option>
                             </select>
                         </div>
 
@@ -422,14 +430,46 @@
                     <form id="aiUrlForm" style="display: none;" onsubmit="event.preventDefault();">
                         <div class="form-group" style="margin-bottom: 1rem;">
                             <label class="form-label" for="bulkUrlInput">Pautkan Pautan Shopee / TikTok (Bulk URL Input)</label>
-                            <textarea id="bulkUrlInput" class="form-input" rows="6" placeholder="Masukkan 1 link setiap baris. Contoh:&#10;https://s.shopee.com.my/80AmIyuohG&#10;Check out CANON PG-47 BLACK... https://s.shopee.com.my/80AmIyuohG" style="width: 100%; resize: vertical;" required></textarea>
+                            <textarea id="bulkUrlInput" class="form-input" rows="5" placeholder="Masukkan 1 link setiap baris. Contoh:&#10;https://s.shopee.com.my/904OyUgzCc&#10;https://vt.tiktok.com/ZSjR3y8yV/" style="width: 100%; resize: vertical;" required></textarea>
+                            
+                            <!-- Dynamic Live Product Extraction Preview Card -->
+                            <div id="urlProductPreviewBox" style="display: none; margin-top: 0.75rem; border: 1px solid var(--color-border); border-radius: var(--radius-sm, 8px); padding: 0.85rem 1rem; background: var(--color-bg-accent, #f8fafc); transition: all 0.2s ease;">
+                                <div id="urlProductLoading" style="display: flex; align-items: center; gap: 0.6rem; font-size: 0.8125rem; color: var(--color-text-secondary);">
+                                    <span style="display: inline-block; width: 14px; height: 14px; border: 2px solid var(--color-primary); border-top-color: transparent; border-radius: 50%; animation: spin 0.8s linear infinite;"></span>
+                                    <span>Sedang mengekstrak maklumat produk dari link...</span>
+                                </div>
+                                <div id="urlProductCard" style="display: none; flex-direction: column; gap: 0.65rem;">
+                                    <div style="display: flex; align-items: center; gap: 0.85rem;">
+                                        <img id="urlProductThumb" src="" alt="Thumbnail" style="width: 58px; height: 58px; border-radius: 8px; object-fit: cover; border: 1px solid var(--color-border); flex-shrink: 0; background: #fff;" />
+                                        <div style="flex: 1; min-width: 0;">
+                                            <div style="display: flex; align-items: center; gap: 0.4rem; margin-bottom: 0.25rem; flex-wrap: wrap;">
+                                                <span id="urlProductBadge" style="font-size: 0.65rem; font-weight: 700; padding: 2px 7px; border-radius: 4px; background: #ea580c; color: #fff; text-transform: uppercase;">SHOPEE</span>
+                                                <span id="urlProductRatingBadge" style="display: none; font-size: 0.65rem; font-weight: 700; padding: 2px 7px; border-radius: 4px; background: #f59e0b; color: #fff;">⭐ 4.9</span>
+                                                <span id="urlProductSoldBadge" style="display: none; font-size: 0.65rem; font-weight: 700; padding: 2px 7px; border-radius: 4px; background: #10b981; color: #fff;">📦 1.2k Terjual</span>
+                                                <span id="urlProductPriceBadge" style="display: none; font-size: 0.65rem; font-weight: 700; padding: 2px 7px; border-radius: 4px; background: #6366f1; color: #fff;">🏷️ RM 29.90</span>
+                                                <span id="urlProductPhotoBadge" style="display: none; font-size: 0.65rem; font-weight: 700; padding: 2px 7px; border-radius: 4px; background: #0284c7; color: #fff;">📸 1 Gambar</span>
+                                                <span id="urlProductStatus" style="font-size: 0.72rem; color: #16a34a; font-weight: 600;">✅ Maklumat Berjaya Dikesan</span>
+                                            </div>
+                                            <div id="urlProductTitle" style="font-size: 0.85rem; font-weight: 600; color: var(--color-text-primary); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; line-height: 1.3;">-</div>
+                                            <div id="urlProductExtra" style="font-size: 0.7rem; color: var(--color-text-tertiary); margin-top: 3px;"></div>
+                                        </div>
+                                    </div>
+                                    <!-- Multi-image Thumbnail Strip for Property Albums -->
+                                    <div id="urlProductGalleryStrip" style="display: none; gap: 0.4rem; overflow-x: auto; padding-top: 0.25rem; border-top: 1px dashed var(--color-border);"></div>
+                                </div>
+                            </div>
                         </div>
 
                         <div class="form-group" style="margin-bottom: 1rem;">
                             <label class="form-label" for="bulkTone">Tone of Voice / Copywriting Mode</label>
                             <select id="bulkTone" class="form-select" style="width: 100%;">
-                                <option value="Manglish (Mix Malay & English)" selected>🇲🇾 Manglish (Campuran Malay & English)</option>
+                                <option value="Auto-Smart Viral Angle" selected>🎲 Auto-Smart Viral Angle (Cycle Formula Mengikut Produk)</option>
+                                <option value="Skeptikal / Ingat Scam Tapi Padu">🎭 Formula A: Skeptikal / Ingat Scam Tapi Padu</option>
+                                <option value="Confession / Masalah Malu & Tabu">😱 Formula B: Confession / Masalah Malu & Tabu</option>
+                                <option value="Kalaulah Tahu Dari Dulu / Jimat Duit">💸 Formula C: Kalaulah Tahu Dari Dulu / Jimat Duit</option>
+                                <option value="Bait Debat / Tanya Pendapat">🥊 Formula D: Bait Debat / Tanya Pendapat (Komen Ramai)</option>
                                 <option value="Ultra-Realistic Malay">🔥 Ultra-Realistic Malay (Gaya Threads Manusia)</option>
+                                <option value="Manglish (Mix Malay & English)">🇲🇾 Manglish (Campuran Malay & English)</option>
                                 <option value="Storyteller (Pengalaman Sebenar)">📖 Storyteller (Pengalaman Sebenar)</option>
                                 <option value="Hot Take (Pecah Mitos / Contrarian)">💥 Hot Take (Pecah Mitos / Contrarian)</option>
                                 <option value="Sembang Santai (Slang Melayu Asli)">🗣️ Sembang Santai (Slang Melayu Asli)</option>
@@ -458,6 +498,7 @@
                                 <option value="single">Single Post (Short)</option>
                                 <option value="short_thread">Short Thread (2-3 posts per thread)</option>
                                 <option value="deep_thread" selected>Deep-Dive Thread (3-5 posts per thread)</option>
+                                <option value="mega_thread">Mega Thread (7-10 posts per thread)</option>
                             </select>
                         </div>
 
@@ -851,7 +892,7 @@
                         /\r?\n---\r?\n/.test(data.caption) ||
                         /\r?\n---\s*\r?\n/.test(data.caption)
                     );
-                    const isThread = (activePreset === 'default' && selectPostFormat.value === 'thread') || hasSeparator;
+                    const isThread = (activePreset === 'default' && (selectPostFormat.value === 'thread' || selectPostFormat.value === 'short_thread' || selectPostFormat.value === 'mega_thread')) || hasSeparator;
                     
                     if (isThread) {
                         currentMode = 'threads';
@@ -1339,6 +1380,166 @@
         const btnBulkSchedule = document.getElementById('btnBulkSchedule');
         const spinnerBulk = document.getElementById('spinnerBulk');
 
+        // ── Smart Live Product Extraction Preview ──
+        const urlProductPreviewBox = document.getElementById('urlProductPreviewBox');
+        const urlProductLoading = document.getElementById('urlProductLoading');
+        const urlProductCard = document.getElementById('urlProductCard');
+        const urlProductThumb = document.getElementById('urlProductThumb');
+        const urlProductBadge = document.getElementById('urlProductBadge');
+        const urlProductRatingBadge = document.getElementById('urlProductRatingBadge');
+        const urlProductSoldBadge = document.getElementById('urlProductSoldBadge');
+        const urlProductPriceBadge = document.getElementById('urlProductPriceBadge');
+        const urlProductPhotoBadge = document.getElementById('urlProductPhotoBadge');
+        const urlProductTitle = document.getElementById('urlProductTitle');
+        const urlProductExtra = document.getElementById('urlProductExtra');
+        const urlProductGalleryStrip = document.getElementById('urlProductGalleryStrip');
+
+        let extractDebounceTimer = null;
+        let lastExtractedUrl = '';
+
+        if (bulkUrlInput) {
+            bulkUrlInput.addEventListener('input', () => {
+                clearTimeout(extractDebounceTimer);
+                const val = bulkUrlInput.value.trim();
+                if (!val) {
+                    if (urlProductPreviewBox) urlProductPreviewBox.style.display = 'none';
+                    lastExtractedUrl = '';
+                    return;
+                }
+
+                const urlMatches = [...val.matchAll(/(https?:\/\/[^\s,]+)/g)];
+                if (urlMatches.length === 0) {
+                    if (urlProductPreviewBox) urlProductPreviewBox.style.display = 'none';
+                    lastExtractedUrl = '';
+                    return;
+                }
+
+                const firstUrl = urlMatches[0][1];
+                if (firstUrl === lastExtractedUrl) return;
+
+                extractDebounceTimer = setTimeout(async () => {
+                    lastExtractedUrl = firstUrl;
+                    if (urlProductPreviewBox) {
+                        urlProductPreviewBox.style.display = 'block';
+                        urlProductLoading.style.display = 'flex';
+                        urlProductCard.style.display = 'none';
+                    }
+
+                    try {
+                        const res = await apiClient.post('/ai/extract-product', { url: firstUrl });
+                        if (res && res.success && (res.title || res.image || (res.images && res.images.length > 0))) {
+                            if (urlProductLoading) urlProductLoading.style.display = 'none';
+                            if (urlProductCard) urlProductCard.style.display = 'flex';
+
+                            if (urlProductTitle) urlProductTitle.textContent = res.title || 'Produk Dikesan';
+                            
+                            const allImages = (res.images && Array.isArray(res.images) && res.images.length > 0) 
+                                ? res.images 
+                                : (res.image ? [res.image] : []);
+                            
+                            if (urlProductThumb) {
+                                if (allImages.length > 0) {
+                                    urlProductThumb.src = allImages[0];
+                                    urlProductThumb.style.display = 'block';
+                                } else {
+                                    urlProductThumb.style.display = 'none';
+                                }
+                            }
+
+                            // Dynamic badge style
+                            const plat = (res.platform || 'general').toLowerCase();
+                            if (urlProductBadge) {
+                                urlProductBadge.textContent = plat.toUpperCase();
+                                if (plat === 'shopee') {
+                                    urlProductBadge.style.background = '#ea580c';
+                                    urlProductBadge.style.color = '#fff';
+                                } else if (plat === 'tiktok') {
+                                    urlProductBadge.style.background = '#0f172a';
+                                    urlProductBadge.style.color = '#fff';
+                                } else if (plat === 'lazada') {
+                                    urlProductBadge.style.background = '#0f3460';
+                                    urlProductBadge.style.color = '#fff';
+                                } else if (plat === 'telegram') {
+                                    urlProductBadge.style.background = '#0284c7';
+                                    urlProductBadge.style.color = '#fff';
+                                } else {
+                                    urlProductBadge.style.background = '#475569';
+                                    urlProductBadge.style.color = '#fff';
+                                }
+                            }
+
+                            // Rating badge
+                            if (urlProductRatingBadge) {
+                                if (res.rating) {
+                                    urlProductRatingBadge.textContent = `⭐ ${res.rating}${res.reviewCount ? ` (${res.reviewCount})` : ''}`;
+                                    urlProductRatingBadge.style.display = 'inline-block';
+                                } else {
+                                    urlProductRatingBadge.style.display = 'none';
+                                }
+                            }
+
+                            // Sold count badge
+                            if (urlProductSoldBadge) {
+                                if (res.soldCount) {
+                                    urlProductSoldBadge.textContent = `📦 ${res.soldCount} Terjual`;
+                                    urlProductSoldBadge.style.display = 'inline-block';
+                                } else {
+                                    urlProductSoldBadge.style.display = 'none';
+                                }
+                            }
+
+                            // Price badge
+                            if (urlProductPriceBadge) {
+                                if (res.price) {
+                                    urlProductPriceBadge.textContent = `🏷️ ${res.price}`;
+                                    urlProductPriceBadge.style.display = 'inline-block';
+                                } else {
+                                    urlProductPriceBadge.style.display = 'none';
+                                }
+                            }
+
+                            // Photo count badge
+                            if (urlProductPhotoBadge) {
+                                if (allImages.length > 1) {
+                                    urlProductPhotoBadge.textContent = `📸 ${allImages.length} Gambar Dikesan`;
+                                    urlProductPhotoBadge.style.display = 'inline-block';
+                                } else if (allImages.length === 1) {
+                                    urlProductPhotoBadge.textContent = `📸 1 Gambar`;
+                                    urlProductPhotoBadge.style.display = 'inline-block';
+                                } else {
+                                    urlProductPhotoBadge.style.display = 'none';
+                                }
+                            }
+
+                            // Multi-image Thumbnail Strip
+                            if (urlProductGalleryStrip) {
+                                if (allImages.length > 1) {
+                                    urlProductGalleryStrip.innerHTML = allImages.slice(0, 10).map((img, idx) => `
+                                        <img src="${img}" alt="Photo ${idx + 1}" style="width: 44px; height: 44px; border-radius: 6px; object-fit: cover; border: 1px solid var(--color-border); flex-shrink: 0; background: #fff;" title="Gambar #${idx + 1}" />
+                                    `).join('');
+                                    urlProductGalleryStrip.style.display = 'flex';
+                                } else {
+                                    urlProductGalleryStrip.style.display = 'none';
+                                }
+                            }
+
+                            if (urlProductExtra) {
+                                if (urlMatches.length > 1) {
+                                    urlProductExtra.textContent = `+ ${urlMatches.length - 1} lagi pautan produk dalam senarai baris`;
+                                } else {
+                                    urlProductExtra.textContent = `Pautan bersedia untuk penjanaan automatik`;
+                                }
+                            }
+                        } else {
+                            if (urlProductPreviewBox) urlProductPreviewBox.style.display = 'none';
+                        }
+                    } catch (err) {
+                        if (urlProductPreviewBox) urlProductPreviewBox.style.display = 'none';
+                    }
+                }, 500);
+            });
+        }
+
         const progressModal = document.getElementById('aiProgressOverlay');
         const progressStatusText = document.getElementById('aiProgressStatus');
         const progressBarFill = document.getElementById('aiProgressBar');
@@ -1390,36 +1591,53 @@
             progressModal.style.display = 'flex';
             progressBarFill.style.width = '0%';
             progressPercentText.textContent = '0% Complete';
-            // --- Forward-Accumulation URL Parsing ---
-            // Scan line-by-line. Accumulate all non-URL lines as pending context.
-            // When a URL line is found, attach all accumulated context (from start or previous URL) to that URL.
-            // This ensures multi-paragraph listings with the URL at the bottom are fully captured.
-            const allLines = rawText.split('\n').map(l => l.trim());
+            // --- Smart Forward-Accumulation URL Parsing ---
+            // 1. Auto-split concatenated URLs (e.g. "...vthttps://...")
+            const normalizedText = rawText.replace(/([^\s\n])(https?:\/\/)/g, '$1\n$2').trim();
+            const allLines = normalizedText.split('\n').map(l => l.trim());
             const jobs = [];
             let pendingContext = [];
 
-             for (const line of allLines) {
-                 const urlMatches = [...line.matchAll(/(https?:\/\/[^\s,]+)/g)];
-                 if (urlMatches.length > 0) {
-                     // All URLs on the same line = ONE job.
-                     // First URL = listing URL, second URL (if any) = mediaUrl (photo link).
-                     // Never split same-line URLs into separate posts.
-                     const url = urlMatches[0][1];
-                     const mediaUrl = urlMatches.length > 1 ? urlMatches[1][1] : null;
+            const isDirectMediaUrl = (u) => {
+                return /\.(jpe?g|png|webp|gif|bmp)(\?.*)?$/i.test(u) ||
+                       /telesco\.pe\/file\//i.test(u) ||
+                       /fbcdn\.net\//i.test(u) ||
+                       /cdninstagram\.com\//i.test(u);
+            };
 
-                     let sameLineCtx = line;
-                     urlMatches.forEach(m => {
-                         sameLineCtx = sameLineCtx.replace(m[1], '');
-                     });
-                     sameLineCtx = sameLineCtx.replace(/,/g, '').replace(/\s+/g, ' ').trim();
+            for (const line of allLines) {
+                const urlMatches = [...line.matchAll(/(https?:\/\/[^\s,]+)/g)].map(m => m[1]);
+                if (urlMatches.length > 0) {
+                    const mediaUrls = urlMatches.filter(isDirectMediaUrl);
+                    const nonMediaUrls = urlMatches.filter(u => !isDirectMediaUrl(u));
 
-                     const fullContext = [...pendingContext, sameLineCtx].filter(Boolean).join(' ').replace(/\s+/g, ' ').trim();
-                     jobs.push({ url, mediaUrl, context: fullContext });
-                     pendingContext = []; // reset after each job block
-                 } else if (line !== '') {
-                     pendingContext.push(line);
-                 }
-             }
+                    if (nonMediaUrls.length <= 1) {
+                        const url = nonMediaUrls[0] || urlMatches[0];
+                        const mediaUrl = mediaUrls[0] || (urlMatches.length > 1 && urlMatches[1] !== url ? urlMatches[1] : null);
+                        let sameLineCtx = line;
+                        urlMatches.forEach(u => { sameLineCtx = sameLineCtx.replace(u, ''); });
+                        sameLineCtx = sameLineCtx.replace(/,/g, '').replace(/\s+/g, ' ').trim();
+                        const fullContext = [...pendingContext, sameLineCtx].filter(Boolean).join(' ').replace(/\s+/g, ' ').trim();
+                        jobs.push({ url, mediaUrl: (mediaUrl !== url) ? mediaUrl : null, context: fullContext });
+                        pendingContext = [];
+                    } else {
+                        // Multiple product URLs on the same line — split into distinct jobs
+                        let sameLineCtx = line;
+                        urlMatches.forEach(u => { sameLineCtx = sameLineCtx.replace(u, ''); });
+                        sameLineCtx = sameLineCtx.replace(/,/g, '').replace(/\s+/g, ' ').trim();
+                        const sharedContext = [...pendingContext, sameLineCtx].filter(Boolean).join(' ').replace(/\s+/g, ' ').trim();
+
+                        for (let i = 0; i < nonMediaUrls.length; i++) {
+                            const url = nonMediaUrls[i];
+                            const mediaUrl = mediaUrls[i] || null;
+                            jobs.push({ url, mediaUrl, context: sharedContext });
+                        }
+                        pendingContext = [];
+                    }
+                } else if (line !== '') {
+                    pendingContext.push(line);
+                }
+            }
 
             if (jobs.length === 0) {
                 notificationService.error('Sila masukkan sekurang-kurangnya satu pautan yang sah!');

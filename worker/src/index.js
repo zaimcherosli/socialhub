@@ -114,17 +114,22 @@ async function getPerformanceFeedback(db, workspaceId, nicheKey) {
         
         // If current post is NOT a property listing, exclude past posts containing property indicators
         if (nicheKey !== 'hartanah') {
-            sqlFilter += ` AND (content NOT LIKE '%sewa%' AND content NOT LIKE '%rumah%' AND content NOT LIKE '%teres%' AND content NOT LIKE '%kondo%' AND content NOT LIKE '%apartment%' AND content NOT LIKE '%hartanah%' AND content NOT LIKE '%viewing%' AND content NOT LIKE '%rm%')`;
+            sqlFilter += ` AND (content NOT LIKE '%sewa%' AND content NOT LIKE '%rumah%' AND content NOT LIKE '%teres%' AND content NOT LIKE '%kondo%' AND content NOT LIKE '%apartment%' AND content NOT LIKE '%hartanah%' AND content NOT LIKE '%viewing%')`;
         }
         
         // If current post is NOT automotif, exclude past posts containing automotive indicators
         if (nicheKey !== 'automotif') {
-            sqlFilter += ` AND (content NOT LIKE '%kereta%' AND content NOT LIKE '%loan%' AND content NOT LIKE '%perodua%' AND content NOT LIKE '%proton%' AND content NOT LIKE '%honda%' AND content NOT LIKE '%toyota%')`;
+            sqlFilter += ` AND (content NOT LIKE '%kereta%' AND content NOT LIKE '%perodua%' AND content NOT LIKE '%proton%' AND content NOT LIKE '%honda%' AND content NOT LIKE '%toyota%')`;
         }
 
         // If current post is NOT affiliate, exclude past posts containing affiliate indicators (like shopee, lazada, tiktok, bag kuning)
         if (nicheKey !== 'affiliate') {
             sqlFilter += ` AND (content NOT LIKE '%shopee%' AND content NOT LIKE '%shope.ee%' AND content NOT LIKE '%lazada%' AND content NOT LIKE '%tiktok shop%' AND content NOT LIKE '%beg kuning%' AND content NOT LIKE '%bag kuning%' AND content NOT LIKE '%racun shopee%' AND content NOT LIKE '%racun tiktok%')`;
+        }
+
+        // If current post is NOT pembiayaan, exclude past posts containing loan/financing indicators
+        if (nicheKey !== 'pembiayaan') {
+            sqlFilter += ` AND (content NOT LIKE '%pembiayaan%' AND content NOT LIKE '%pinjaman%' AND content NOT LIKE '%koperasi%' AND content NOT LIKE '%overlap%' AND content NOT LIKE '%penyatuan hutang%' AND content NOT LIKE '%ccris%' AND content NOT LIKE '%ctos%')`;
         }
 
         const topPosts = await db.prepare(
@@ -505,17 +510,18 @@ function sanitizeFilename(name) {
     return name.replace(/[^a-zA-Z0-9.\-_]/g, '_').replace(/\.\.+/g, '.');
 }
 
-// Modular OAuth Platforms Registry
 const OAuthProviders = {
     threads: {
         getAuthUrl(state, redirectUri, clientId) {
+            const cid = clientId || "952901221088471";
             const url = new URL("https://threads.net/oauth/authorize");
-            url.searchParams.set("client_id", clientId);
+            url.searchParams.set("client_id", cid);
+            url.searchParams.set("app_id", cid);
             url.searchParams.set("redirect_uri", redirectUri);
             url.searchParams.set("scope", "threads_basic,threads_content_publish,threads_manage_replies,threads_manage_insights");
             url.searchParams.set("response_type", "code");
             url.searchParams.set("state", state);
-            return url.toString() + '#weblink';
+            return url.toString();
         },
         async exchangeCode(code, redirectUri, clientId, clientSecret) {
             if ((clientId && clientId.includes("mock")) || (code && code.includes("mock")) || (redirectUri && (redirectUri.includes("localhost") || redirectUri.includes("127.0.0.1")))) {
@@ -692,7 +698,7 @@ const OAuthProviders = {
                 // Only one page — auto-connect it directly (no picker needed)
                 return {
                     access_token: pages[0].access_token,
-                    refresh_token: "facebook-no-refresh-token",
+                    refresh_token: longLivedUserToken,
                     expires_in: 5184000,
                     account_name: `${pages[0].name} (FB Page)`,
                     account_id: pages[0].id.toString(),
@@ -703,7 +709,7 @@ const OAuthProviders = {
                 console.log(`[Facebook] Found ${pages.length} pages — triggering page selection UI`);
                 return {
                     access_token: longLivedUserToken,
-                    refresh_token: "facebook-user-token",
+                    refresh_token: longLivedUserToken,
                     expires_in: 5184000,
                     account_name: `${fbUserName} (Pilih Page)`,
                     account_id: fbUserId.toString(),
@@ -716,7 +722,7 @@ const OAuthProviders = {
             console.warn(`[Facebook] No pages returned for user ${fbUserId} — storing user token for page selection UI`);
             return {
                 access_token: longLivedUserToken,
-                refresh_token: "facebook-user-token",
+                refresh_token: longLivedUserToken,
                 expires_in: 5184000,
                 account_name: `${fbUserName} (Select Page)`,
                 account_id: fbUserId.toString(),
@@ -873,7 +879,7 @@ const OAuthProviders = {
                 console.log(`[Instagram OAuth] Auto-connected single IG Business Account: @${igAcc.username || igAcc.name} (ID: ${igAcc.id})`);
                 return {
                     access_token: pageWithIg.access_token || longLivedUserToken,
-                    refresh_token: "instagram-no-refresh-token",
+                    refresh_token: longLivedUserToken,
                     expires_in: 5184000,
                     account_name: `@${igAcc.username || igAcc.name} (Instagram)`,
                     account_id: igAcc.id.toString(),
@@ -895,7 +901,7 @@ const OAuthProviders = {
 
                 return {
                     access_token: longLivedUserToken,
-                    refresh_token: "instagram-user-token",
+                    refresh_token: longLivedUserToken,
                     expires_in: 5184000,
                     account_name: `${igUserName} (Pilih Akaun IG)`,
                     account_id: igUserId.toString(),
@@ -917,7 +923,7 @@ const OAuthProviders = {
 
             return {
                 access_token: longLivedUserToken,
-                refresh_token: "instagram-user-token",
+                refresh_token: longLivedUserToken,
                 expires_in: 5184000,
                 account_name: `@${igUserName} (Sila Sambung Ke FB Page)`,
                 account_id: igUserId.toString()
@@ -930,6 +936,11 @@ const OAuthProviders = {
 const cleanScrapedTitle = (title) => {
     if (!title) return "";
     let clean = title.trim();
+
+    // Reject error pages or boilerplate placeholder titles
+    if (/mkt single page application|page not found|error page|404 not found|cannot be found/i.test(clean)) {
+        return "";
+    }
 
     // 1. Remove agent credentials like PEA 1234, REN 12345, REA 1234, E(3)1234, etc.
     clean = clean.replace(/\b(PEA|REN|REA|E|REN|PEA)\s?\d{3,6}\b/gi, '').trim();
@@ -1235,15 +1246,29 @@ async function resolvePostMedia(db, post) {
         } catch (_) {}
     }
 
-    if (mediaList.length === 0 && post) {
+    if (post) {
         const text = post.content || post.caption || '';
-        const imgMatch = text.match(/📷\s*(\S+)/i) || text.match(/(https?:\/\/\S+\.(?:jpg|jpeg|png|webp|gif)(?:\?\S*)?)/i);
-        if (imgMatch && imgMatch[1]) {
-            mediaList.push({ url: imgMatch[1].trim() });
+        const imgMatches = [...text.matchAll(/📷\s*(\S+)/gi)];
+        if (imgMatches && imgMatches.length > 0) {
+            for (const m of imgMatches) {
+                if (m[1]) mediaList.push({ url: m[1].trim() });
+            }
+        } else if (mediaList.length === 0) {
+            const urlMatches = [...text.matchAll(/(https?:\/\/\S+\.(?:jpg|jpeg|png|webp|gif)(?:\?\S*)?)/gi)];
+            for (const m of urlMatches) {
+                if (m[1]) mediaList.push({ url: m[1].trim() });
+            }
         }
     }
     
-    return mediaList;
+    // Deduplicate media by url
+    const seen = new Set();
+    return mediaList.filter(item => {
+        const u = item.url || item.storage_key || item.thumbnail;
+        if (!u || seen.has(u)) return false;
+        seen.add(u);
+        return true;
+    });
 }
 
 // ── Helper: Automatically store base64 media strings into DB as public HTTP media URLs ──
@@ -1284,6 +1309,47 @@ async function sanitizeAndStoreMediaUrls(db, userId, workspaceId, rawMediaUrls) 
     return sanitized;
 }
 
+// ── Shared Helper: Resolve Social Credentials with Master User Token Fallback ──
+async function resolveSocialCredentials(db, socialAccount, encryptionSecret) {
+    if (!socialAccount) return null;
+    
+    let decryptedAccessToken = await decryptToken(socialAccount.access_token, encryptionSecret);
+    let decryptedRefreshToken = null;
+    if (socialAccount.refresh_token) {
+        decryptedRefreshToken = await decryptToken(socialAccount.refresh_token, encryptionSecret);
+    }
+
+    let userToken = (decryptedRefreshToken && decryptedRefreshToken.length > 40 && !decryptedRefreshToken.includes('no-refresh-token') && !decryptedRefreshToken.includes('mock')) ? decryptedRefreshToken : null;
+
+    if (!userToken && (socialAccount.platform === 'facebook' || socialAccount.platform === 'instagram')) {
+        try {
+            const allUserAccounts = await db.prepare(
+                "SELECT access_token, refresh_token FROM social_accounts WHERE user_id = ? AND platform IN ('facebook', 'instagram')"
+            ).bind(socialAccount.user_id).all();
+            
+            for (const row of allUserAccounts.results || []) {
+                const decRefresh = await decryptToken(row.refresh_token, encryptionSecret);
+                if (decRefresh && decRefresh.length > 50 && !decRefresh.includes('no-refresh-token') && !decRefresh.includes('mock')) {
+                    userToken = decRefresh;
+                    break;
+                }
+                const decAccess = await decryptToken(row.access_token, encryptionSecret);
+                if (decAccess && decAccess.length > 50 && !decAccess.includes('no-refresh-token') && !decAccess.includes('mock')) {
+                    userToken = decAccess;
+                    break;
+                }
+            }
+        } catch (_) {}
+    }
+
+    return {
+        access_token: decryptedAccessToken,
+        refresh_token: userToken || decryptedRefreshToken,
+        user_token: userToken || decryptedRefreshToken,
+        account_id: socialAccount.account_id
+    };
+}
+
 // ── Shared Helper: Execute immediate publish logic (used by Web REST API and Telegram Webhook) ──
 async function executeImmediatePublish(db, spId, userId, encryptionSecret) {
     const scheduledPost = await db.prepare(
@@ -1304,8 +1370,7 @@ async function executeImmediatePublish(db, spId, userId, encryptionSecret) {
         throw new Error('Connected social account not found.');
     }
 
-    const decryptedAccessToken = await decryptToken(socialAccount.access_token, encryptionSecret);
-    const credentials = { access_token: decryptedAccessToken, account_id: socialAccount.account_id };
+    const credentials = await resolveSocialCredentials(db, socialAccount, encryptionSecret);
 
     const publisher = PublisherFactory.getPublisher(scheduledPost.platform);
     
@@ -1323,6 +1388,13 @@ async function executeImmediatePublish(db, spId, userId, encryptionSecret) {
 
     const result = await publisher.publish(postObj, credentials);
 
+    if (result.new_access_token || result.new_page_token) {
+        const freshToken = result.new_access_token || result.new_page_token;
+        const encryptedFresh = await encryptToken(freshToken, encryptionSecret);
+        await db.prepare("UPDATE social_accounts SET access_token = ?, status = 'active', updated_at = (datetime('now')) WHERE id = ?")
+            .bind(encryptedFresh, socialAccount.id).run().catch(() => {});
+    }
+
     if (result.success) {
         const nowStr = new Date().toISOString();
         await db.prepare(
@@ -1333,8 +1405,8 @@ async function executeImmediatePublish(db, spId, userId, encryptionSecret) {
 
          await db.prepare(
              `INSERT INTO publish_logs (schedule_id, social_account_id, status, error_message, external_post_id, response_payload, published_at) 
-              VALUES (NULL, ?, 'success', NULL, ?, ?, ?)`
-         ).bind(socialAccount.id, result.provider_post_id, JSON.stringify(result), nowStr).run();
+              VALUES (?, ?, 'success', NULL, ?, ?, ?)`
+         ).bind(spId, socialAccount.id, result.provider_post_id, JSON.stringify(result), nowStr).run();
 
          await createNotification(
              db, 
@@ -1356,8 +1428,8 @@ async function executeImmediatePublish(db, spId, userId, encryptionSecret) {
 
          await db.prepare(
              `INSERT INTO publish_logs (schedule_id, social_account_id, status, error_message, response_payload, published_at) 
-              VALUES (NULL, ?, 'failed', ?, ?, (datetime('now')))`
-         ).bind(socialAccount.id, result.error_message, JSON.stringify(result)).run();
+              VALUES (?, ?, 'failed', ?, ?, (datetime('now')))`
+         ).bind(spId, socialAccount.id, result.error_message, JSON.stringify(result)).run();
 
          await createNotification(
              db, 
@@ -1883,16 +1955,31 @@ export default {
                 const affiliateRules = '["1. HIGH CONVERSION & VALUE PROPOSITION: Highlight practical benefits and specific problem solved (e.g. saves 30 minutes, saves electricity, ultra compact, highly durable). Give a compelling reason to buy NOW rather than just clickbait mystery.","2. REAL SCENARIO HOOK: Start with an everyday frustration or desire (e.g. \\"Kalau korang jenis yang selalu pening bila X...\\"). Make the reader relate immediately.","3. SOCIAL PROOF & AUTHENTIC FEEL: Write like a personal recommendation from a friend who bought & tested it (e.g. \\"Mula-mula ingat gimmick je, bila sampai barang dia tebal & solid\\").","4. DYNAMIC LINK PLACEMENT: Do NOT restrict {{SHOPEE_LINK}} to the final slide. AI can place {{SHOPEE_LINK}} dynamically on Slide 1/Hook (e.g. \\"sejak guna {{SHOPEE_LINK}} ni...\\"), Middle Slide, or Final CTA. Vary placement dynamically per post."]';
                 const hartanahRules = '["1. REALISTIC PROPERTY MATH: All financial calculations and monthly installments MUST be 100% mathematically realistic for Malaysian property loans (e.g. RM350k = ~RM1,500/month installment). NEVER invent illogical claims (e.g. salary RM2k buying RM500k house).","2. AUTHENTIC REN POV MANDATE: You MUST write 100% from the first-person Point of View (POV) of an active local Real Estate Negotiator (REN) physically inspecting, listing, or advising clients on a property — casual, confident, zero corporate fluff, zero hard sell. Use \\"Aku\\" (REN) and \\"Korang\\" (Clients/Buyers).","3. ANTI-REPETITION HOOK DIVERSITY: Rotate dynamically through 20 specialized REN POV hook categories (Viewing reaction, Rare listing, Banker loan advisory, Rent vs Own math, Red flags, Emergency owner cash-out, LPPSA, Joint loan, Low density, etc.).","4. MYSTERY & LOW-PRESSURE CTA: In listing teasers, do NOT reveal exact project names in Part 1/2. End with a natural low-pressure CTA (e.g. \\"Drop INFO kat komen kalau nak check loan free\\")."]';
 
+                const pembiayaanRules = '["1. STRICT FINANCIAL CONSULTANT/ADVISOR POV: Write 100% from the first-person Point of View (POV) of an experienced, trustworthy, and empathetic Malaysian Loan Consultant / Financial Advisor (\\"Aku\\" / \\"Saya\\" as Advisor, \\"Korang\\" as Clients). You are NOT selling an e-commerce item — NEVER use terms like \\"benda ni\\" or \\"gajet ni\\". Refer to financial solutions as \\"skim pembiayaan ni\\", \\"pelan penyatuan hutang ni\\", \\"fasiliti koperasi ni\\", or \\"servis semakan kelayakan\\".","2. EMPATHETIC REAL-LIFE MALAYSIAN DEBT PAIN POINTS: Hook the reader by addressing real financial struggles (e.g. gaji RM4,000 tapi lepas bayar 3 kad kredit & personal loan tinggal RM400 cashflow, potongan payslip dah cecah 60% bagi staf kerajaan, nama sangkut CCRIS/CTOS sebab jadi penjamin, komitmen luar slip gaji terlalu tinggi).","3. REALISTIC FINANCIAL MATH & DEBT CONSOLIDATION: Demonstrate realistic debt consolidation (Penyatuan Hutang) or Overlap calculations (e.g. \\"Daripada bayar RM2,300 sebulan untuk 4 akaun pinjaman berbeza, satukan bawah 1 skim koperasi/bank dengan rate rendah — komitmen bulanan turun jadi RM1,100, jimat RM1,200 cashflow bersih setiap bulan\\").","4. SEGMENT SPECIFIC ADVISORY (GOV vs SWASTA): Understand the distinction between Kakitangan Kerajaan/Badan Berkanun/GLC (kelayakan melalui potongan ANGKASA/Payslip, fasiliti koperasi khas, payout tinggi) dan Sektor Swasta (kelayakan DSR bank, rekod CCRIS/CTOS, penyatuan kad kredit).","5. ETHICAL & TRUST-BUILDING (NO SCAM VIBE): Strictly avoid fake promises or shady claims (NEVER write \\"100% lulus tanpa dokumen\\", \\"wang segera 1 jam\\", or sound like illegal moneylenders/ah long). Emphasize privacy, 100% legal bank/cooperative channels, and genuine eligibility review.","6. HOOK DIVERSITY & CONVERSATION: Rotate through realistic angles (Kisah kes sebenar klien overlap, Tips cantikkan CCRIS, Cara kira DSR slip gaji, Rahsia jimat interest, Penyatuan hutang vs bayar minimum kad kredit).","7. LOW-PRESSURE CONSULTATION CTA: End with a professional, non-pushy invitation to check eligibility (e.g. \\"Nak kami tolong semak kelayakan & kira DSR payslip secara percuma? Drop DM atau klik pautan WhatsApp di bawah.\\")."]';
+
+                const pembiayaanOverrides = `{"single":{"rules":["Focus on 1 specific financial advice topic, calculation breakdown, or client case study.","Use a warm, authoritative, and relatable tone like a financial advisor friend sharing on Threads/IG.","Never invent fake interest rates that violate Bank Negara Malaysia guidelines."],"example_output":"Ramai yang ingat bila gaji RM5,000 sebulan, hidup automatik selesa.\\n\\nTapi realiti bila aku semak payslip ramai klien, lepas tolak komitmen 3 kad kredit, 2 personal loan & kereta... baki tunai bersih tinggal RM600 je untuk belanja sebulan.\\n---thread-separator---\\nBila komitmen dah berterabur macam ni, bayar 'minimum payment' setiap bulan sebenarnya ibarat bakar duit pada interest semata-mata.\\n---thread-separator---\\nSolusi paling bijak yang kami selalu bantu adalah Penyatuan Hutang (Debt Consolidation). Kita gabungkan semua hutang kad kredit & loan lama yang interest tinggi tu ke dalam 1 skim pembiayaan bank/koperasi dengan rate serendah 3%.\\n---thread-separator---\\nHasilnya? Daripada bayar RM2,400 sebulan, komitmen turun jadi RM1,150. Jimat lebih RM1,200 cashflow tunai setiap bulan dalam tangan.\\n---thread-separator---\\nKalau korang atau kawan-kawan ada masalah komitmen tinggi atau nak overlap loan lama, boleh DM terus slip gaji untuk kami tolong kira kelayakan & DSR secara PERCUMA."},"autopilot":{"rules":["Generate a diverse mix: 60% educational debt management, DSR math, CCRIS tips & case studies, and 40% direct eligibility check CTA for Gov/GLC/Swasta.","Ensure every post has a completely unique opening hook and angle.","Keep CTA conversational and low-pressure."]},"url_post":{"rules":["Extract key financial packages or campaign details from the URL if applicable.","Present the benefit to the borrower (cashflow savings, low monthly payment, fast legal processing)."]}}`;
+
+                const pembiayaanKeywords = 'pembiayaan,pinjaman,personal loan,koperasi,loan peribadi,konsultan kewangan,advisor pembiayaan,overlap,penyatuan hutang,debt consolidation,ccris,ctos,dsr,slip gaji,potongan gaji,angkasa,kakitangan awam,penjawat awam,kakitangan kerajaan,swasta,payout,interest rate,pembiayaan bank,koperasi bank,mbsb,yayasan,rce,uksb';
+
                 if (countRes && countRes.count === 0) {
                     await env.DB.prepare(`
                         INSERT INTO system_niche_rules (niche_key, name, detection_keywords, rules, mode_overrides) VALUES
                         ('hartanah', 'Ejen Hartanah & Properti', 'rumah,apartment,condo,tanah,teres,semi-d,saujana,hartanah,listing,sale,rent,kondo,bilik,sewa,jual,flat,bungalow,banglo,saujana putra,wangsa melawati,wangsa ceria,dengkil', ?, ?),
                         ('affiliate', 'Affiliate Shopee/TikTok/Lazada', 'shopee,lazada,tiktok shop,beli di,beg kuning,racun shopee,racun tiktok,murah gila,diskaun,voucher,promo,gadget,barang dapur', ?, NULL),
-                        ('automotif', 'Ejen Jual Kereta / Motor', 'kereta,car,perodua,proton,honda,toyota,bulanan,loan,trade-in,deposit,full loan,myvi,bezza,saga,alza,x50', '["Focus on low monthly installments (bayaran bulanan), rebates, or free gifts.","Highlight easy loan approvals, full loan availability, or fast trade-in deals.","Use a professional yet friendly and accessible tone.","Encourage users to check their loan eligibility as the main hook/CTA."]', NULL)
-                    `).bind(hartanahRules, hartanahOverrides, affiliateRules).run();
+                        ('automotif', 'Ejen Jual Kereta / Motor', 'kereta,car,perodua,proton,honda,toyota,bulanan,loan,trade-in,deposit,full loan,myvi,bezza,saga,alza,x50', '["Focus on low monthly installments (bayaran bulanan), rebates, or free gifts.","Highlight easy loan approvals, full loan availability, or fast trade-in deals.","Use a professional yet friendly and accessible tone.","Encourage users to check their loan eligibility as the main hook/CTA."]', NULL),
+                        ('pembiayaan', 'Konsultan Pembiayaan Peribadi Bank & Koperasi', ?, ?, ?)
+                    `).bind(hartanahRules, hartanahOverrides, affiliateRules, pembiayaanKeywords, pembiayaanRules, pembiayaanOverrides).run();
                 } else {
                     await env.DB.prepare("UPDATE system_niche_rules SET rules = ?, mode_overrides = ? WHERE niche_key = 'hartanah'").bind(hartanahRules, hartanahOverrides).run();
                     await env.DB.prepare("UPDATE system_niche_rules SET rules = ? WHERE niche_key = 'affiliate'").bind(affiliateRules).run();
+                    
+                    const existingPembiayaan = await env.DB.prepare("SELECT id FROM system_niche_rules WHERE niche_key = 'pembiayaan'").first();
+                    if (!existingPembiayaan) {
+                        await env.DB.prepare(`
+                            INSERT INTO system_niche_rules (niche_key, name, detection_keywords, rules, mode_overrides, example_output) VALUES
+                            ('pembiayaan', 'Konsultan Pembiayaan Peribadi Bank & Koperasi', ?, ?, ?, ?)
+                        `).bind(pembiayaanKeywords, pembiayaanRules, pembiayaanOverrides, "Ramai yang ingat bila gaji RM5,000 sebulan, hidup automatik selesa.\n\nTapi realiti bila aku semak payslip ramai klien, lepas tolak komitmen 3 kad kredit, 2 personal loan & kereta... baki tunai bersih tinggal RM600 je untuk belanja sebulan.\n---thread-separator---\nBila komitmen dah berterabur macam ni, bayar 'minimum payment' setiap bulan sebenarnya ibarat bakar duit pada interest semata-mata.\n---thread-separator---\nSolusi paling bijak yang kami selalu bantu adalah Penyatuan Hutang (Debt Consolidation). Kita gabungkan semua hutang kad kredit & loan lama yang interest tinggi tu ke dalam 1 skim pembiayaan bank/koperasi dengan rate serendah 3%.\n---thread-separator---\nHasilnya? Daripada bayar RM2,400 sebulan, komitmen turun jadi RM1,150. Jimat lebih RM1,200 cashflow tunai setiap bulan dalam tangan.\n---thread-separator---\nKalau korang atau kawan-kawan ada masalah komitmen tinggi atau nak overlap loan lama, boleh DM terus slip gaji untuk kami tolong kira kelayakan & DSR secara PERCUMA.").run();
+                    }
                 }
             } catch (_) {}
 
@@ -2099,12 +2186,517 @@ export default {
             return { title, description, image };
         };
 
+        // Smart E-Commerce & Short-Link Product Scraper (Shopee, TikTok, Lazada, etc.)
+        const resolveAndScrapeProduct = async (rawUrl) => {
+            if (!rawUrl) return null;
+            const cleanUrl = rawUrl.replace(/[\u0000-\u001F\u007F-\u009F\u200B-\u200D\uFEFF]/g, '').trim();
+
+            let finalUrl = cleanUrl;
+            let title = '';
+            let description = '';
+            let image = '';
+            let platform = 'general';
+
+            const decodeHtmlEntities = (str) => {
+                if (!str) return "";
+                return str.replace(/&#(\d+);/g, (_, dec) => String.fromCharCode(dec))
+                          .replace(/&quot;/g, '"')
+                          .replace(/&amp;/g, '&')
+                          .replace(/&lt;/g, '<')
+                          .replace(/&gt;/g, '>')
+                          .replace(/&nbsp;/g, ' ');
+            };
+
+            try {
+                // 1. Follow short link redirects & fetch HTML
+                const isTikTok = /tiktok\.com|vt\.tiktok/i.test(cleanUrl);
+                const headers = {
+                    'User-Agent': isTikTok 
+                        ? 'facebookexternalhit/1.1 (+http://www.facebook.com/externalhit_uatext.php)'
+                        : 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36',
+                    'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,*/*;q=0.8',
+                    'Accept-Language': 'ms-MY,ms;q=0.9,en-US;q=0.8,en;q=0.7'
+                };
+
+                const initialRes = await fetch(cleanUrl, {
+                    headers,
+                    redirect: 'follow'
+                });
+
+                finalUrl = initialRes.url || cleanUrl;
+                let html = await initialRes.text().catch(() => '');
+
+                // Extract OpenGraph tags
+                const ogTitle = html.match(/property=["']og:title["'][^>]*content=["']([^"']+)["']/i)?.[1] ||
+                                html.match(/content=["']([^"']+)["'][^>]*property=["']og:title["']/i)?.[1] || '';
+                const ogDesc = html.match(/property=["']og:description["'][^>]*content=["']([^"']+)["']/i)?.[1] ||
+                               html.match(/content=["']([^"']+)["'][^>]*property=["']og:description["']/i)?.[1] || '';
+                const ogImg = html.match(/property=["']og:image["'][^>]*content=["']([^"']+)["']/i)?.[1] ||
+                              html.match(/content=["']([^"']+)["'][^>]*property=["']og:image["']/i)?.[1] || '';
+
+                if (ogTitle) title = decodeHtmlEntities(ogTitle);
+                if (ogDesc) description = decodeHtmlEntities(ogDesc);
+                if (ogImg) image = ogImg;
+
+                // Extract <title> if ogTitle was empty
+                if (!title) {
+                    const tMatch = html.match(/<title[^>]*>([\s\S]*?)<\/title>/i);
+                    if (tMatch && tMatch[1]) {
+                        title = decodeHtmlEntities(tMatch[1].trim());
+                    }
+                }
+
+                // Detect Shopee / e-commerce dead link or error landing page
+                const isShopeeError = finalUrl.includes('error_page') || 
+                                      finalUrl.includes('shope.ee/error') || 
+                                      /mkt single page application/i.test(title) || 
+                                      /The page you are looking for cannot be found/i.test(html) ||
+                                      /page not found/i.test(title);
+
+                if (isShopeeError) {
+                    return {
+                        success: false,
+                        isError: true,
+                        platform: 'shopee',
+                        title: '',
+                        description: '',
+                        image: '',
+                        images: [],
+                        message: 'Pautan Shopee ini telah tamat tempoh, rosak, atau produk telah dipadam dari Shopee (Shopee 404 Error Page).'
+                    };
+                }
+
+                // Detect Platform
+                let images = [];
+                const isTelegram = /t\.me\/([^\/]+)\/(\d+)/i.test(finalUrl) || /t\.me\/([^\/]+)\/(\d+)/i.test(cleanUrl);
+                if (isTelegram) {
+                    platform = 'telegram';
+                    const tgMatch = finalUrl.match(/t\.me\/([^\/]+)\/(\d+)/i) || cleanUrl.match(/t\.me\/([^\/]+)\/(\d+)/i);
+                    if (tgMatch) {
+                        const channel = tgMatch[1];
+                        const msgId = parseInt(tgMatch[2], 10);
+                        // Telegram channels often post captions at msgId and attach album media in subsequent grouped messages (msgId+1..msgId+8)
+                        const idsToTry = [msgId];
+                        for (let offset = 1; offset <= 8; offset++) {
+                            idsToTry.push(msgId + offset);
+                        }
+                        for (let offset = 1; offset <= 3; offset++) {
+                            idsToTry.push(msgId - offset);
+                        }
+                        let tgPhotos = [];
+                        let tgText = "";
+                        for (const id of idsToTry) {
+                            try {
+                                const embedUrl = `https://t.me/${channel}/${id}?embed=1`;
+                                const tgRes = await fetch(embedUrl, {
+                                    headers: { 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36' }
+                                });
+                                if (tgRes.ok) {
+                                    const tgHtml = await tgRes.text();
+                                    const photoMatches = [...tgHtml.matchAll(/tgme_widget_message_photo_wrap[^>]+style=["'][^"']*background-image\s*:\s*url\(\s*['"]?([^'")\s]+)['"]?\s*\)/gi)];
+                                    const validPhotos = photoMatches.map(m => m[1].trim()).filter(p => p.startsWith('http://') || p.startsWith('https://'));
+                                    if (validPhotos.length > 0) {
+                                        tgPhotos.push(...validPhotos);
+                                    }
+                                    const textMatch = tgHtml.match(/class="tgme_widget_message_text[^"]*"[^>]*>([\s\S]*?)<\/div>/i);
+                                    if (textMatch && textMatch[1] && !tgText) {
+                                        tgText = textMatch[1].replace(/<br\s*\/?>/gi, '\n').replace(/<[^>]+>/g, '').trim();
+                                    }
+                                }
+                            } catch (_) {}
+                        }
+                        if (tgText) {
+                            description = tgText;
+                            const firstLine = tgText.split('\n').map(l => l.trim()).filter(Boolean)[0] || '';
+                            title = firstLine.substring(0, 100);
+                        }
+                        const uniquePhotos = [...new Set(tgPhotos)];
+                        if (uniquePhotos.length > 0) {
+                            image = uniquePhotos[0];
+                            images = uniquePhotos;
+                        }
+                    }
+                } else if (/shopee\.(?:com\.my|sg|co\.id|com|ph|vn|th)|shope\.ee|s\.shopee/i.test(finalUrl) || /shopee\./i.test(cleanUrl)) {
+                    platform = 'shopee';
+                } else if (/tiktok\.com|vt\.tiktok/i.test(finalUrl) || /tiktok\./i.test(cleanUrl)) {
+                    platform = 'tiktok';
+                } else if (/lazada\.(?:com\.my|sg|co\.id|com|ph|vn|th)/i.test(finalUrl) || /lazada\./i.test(cleanUrl)) {
+                    platform = 'lazada';
+                }
+
+                // Special Shopee Handling (Fetch Direct Product Page via Shop ID & Item ID)
+                if (platform === 'shopee') {
+                    let shopId = '';
+                    let itemId = '';
+
+                    const idMatch = finalUrl.match(/[?&]itemid=(\d+).*?[?&]shopid=(\d+)/i) ||
+                                    finalUrl.match(/opaanlp\/(\d+)\/(\d+)/i) ||
+                                    finalUrl.match(/product\/(\d+)\/(\d+)/i) ||
+                                    finalUrl.match(/-i\.(\d+)\.(\d+)/i);
+
+                    if (idMatch) {
+                        if (finalUrl.includes('opaanlp/') || finalUrl.includes('product/') || finalUrl.includes('-i.')) {
+                            shopId = idMatch[1];
+                            itemId = idMatch[2];
+                        } else {
+                            itemId = idMatch[1];
+                            shopId = idMatch[2];
+                        }
+                    }
+
+                    // 1. Direct PDP Fetch (Most reliable for Shopee products)
+                    if (shopId && itemId) {
+                        try {
+                            const pdpUrl = `https://shopee.com.my/product/${shopId}/${itemId}`;
+                            const pdpRes = await fetch(pdpUrl, {
+                                headers: {
+                                    'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36',
+                                    'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
+                                    'Accept-Language': 'ms-MY,ms;q=0.9,en-US;q=0.8,en;q=0.7'
+                                }
+                            });
+                            if (pdpRes.ok) {
+                                const pdpHtml = await pdpRes.text();
+                                const pOgTitle = pdpHtml.match(/property=["']og:title["'][^>]*content=["']([^"']+)["']/i)?.[1] ||
+                                                 pdpHtml.match(/content=["']([^"']+)["'][^>]*property=["']og:title["']/i)?.[1] ||
+                                                 pdpHtml.match(/<title[^>]*>([\s\S]*?)<\/title>/i)?.[1] || '';
+                                const pOgDesc = pdpHtml.match(/property=["']og:description["'][^>]*content=["']([^"']+)["']/i)?.[1] ||
+                                                pdpHtml.match(/content=["']([^"']+)["'][^>]*property=["']og:description["']/i)?.[1] ||
+                                                pdpHtml.match(/name=["']description["'][^>]*content=["']([^"']+)["']/i)?.[1] || '';
+                                const pOgImg = pdpHtml.match(/property=["']og:image["'][^>]*content=["']([^"']+)["']/i)?.[1] ||
+                                               pdpHtml.match(/content=["']([^"']+)["'][^>]*property=["']og:image["']/i)?.[1] || '';
+
+                                if (pOgTitle) title = decodeHtmlEntities(pOgTitle);
+                                if (pOgDesc) description = decodeHtmlEntities(pOgDesc);
+                                if (pOgImg) image = pOgImg;
+                            }
+                        } catch (_) {}
+                    }
+
+                    // 2. Check if final URL pathname already has full product slug
+                    if (!title || title.length < 5) {
+                        const slugMatch = finalUrl.match(/shopee\.[a-z.]+\/([^\/?#]+)-i\.\d+\.\d+/i);
+                        if (slugMatch && slugMatch[1] && !slugMatch[1].startsWith('opaanlp')) {
+                            const decodedSlug = decodeURIComponent(slugMatch[1]).replace(/[-_]+/g, ' ').trim();
+                            if (decodedSlug.length > 5) {
+                                title = decodedSlug;
+                            }
+                        }
+                    }
+
+                    // 3. Precision DuckDuckGo Search if title is missing
+                    if ((!title || title.length < 5 || title.toLowerCase().includes('shopee malaysia') || title.toLowerCase().includes('javascript')) && shopId && itemId) {
+                        try {
+                            const ddgQuery = `site:shopee.com.my ${shopId} ${itemId}`;
+                            const ddgRes = await fetch(`https://html.duckduckgo.com/html/?q=${encodeURIComponent(ddgQuery)}`, {
+                                headers: {
+                                    'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36'
+                                }
+                            });
+                            if (ddgRes.ok) {
+                                const ddgHtml = await ddgRes.text();
+                                const uddgMatch = ddgHtml.match(/uddg=https%3A%2F%2Fshopee\.com\.my%2F([^\s&]+)-i\.\d+\.\d+/i);
+                                if (uddgMatch && uddgMatch[1]) {
+                                    const extractedSlug = decodeURIComponent(decodeURIComponent(uddgMatch[1])).replace(/[-_]+/g, ' ').trim();
+                                    if (extractedSlug.length > 5) {
+                                        title = extractedSlug;
+                                    }
+                                }
+                                if (!title) {
+                                    const snippetMatch = ddgHtml.match(/<a class="result__snippet"[^>]*>([\s\S]*?)<\/a>/i);
+                                    if (snippetMatch && snippetMatch[1]) {
+                                        title = snippetMatch[1].replace(/<[^>]+>/g, '').trim();
+                                    }
+                                }
+                            }
+                        } catch (_) {}
+                    }
+
+                    // 4. High-res Image Lookup via DuckDuckGo Image API if image is still missing
+                    if (!image && title) {
+                        try {
+                            const q = `${title} shopee`;
+                            const r1 = await fetch(`https://duckduckgo.com/?q=${encodeURIComponent(q)}`, {
+                                headers: { 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36' }
+                            });
+                            const html1 = await r1.text();
+                            const vqdMatch = html1.match(/vqd=["']?([^"'\s&]+)/i) || html1.match(/vqd=([\d-]+)/);
+                            const vqd = vqdMatch ? vqdMatch[1] : '';
+                            if (vqd) {
+                                const r2 = await fetch(`https://duckduckgo.com/i.js?l=wt-wt&o=json&q=${encodeURIComponent(q)}&vqd=${vqd}`, {
+                                    headers: {
+                                        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
+                                        'Referer': 'https://duckduckgo.com/'
+                                    }
+                                });
+                                if (r2.ok) {
+                                    const imgData = await r2.json().catch(() => ({}));
+                                    if (imgData && imgData.results && imgData.results.length > 0) {
+                                        const shopeeImg = imgData.results.find(x => (x.image || '').includes('susercontent.com') || (x.image || '').includes('shopee'));
+                                        image = shopeeImg ? shopeeImg.image : imgData.results[0].image;
+                                    }
+                                }
+                            }
+                        } catch (_) {}
+                    }
+                }
+
+                // Special TikTok Handling (Extract og_info query param & oEmbed API)
+                if (platform === 'tiktok') {
+                    // 1. Check og_info in URL searchParams (TikTok Shop product share links)
+                    try {
+                        const u = new URL(finalUrl);
+                        const ogInfoParam = u.searchParams.get('og_info');
+                        if (ogInfoParam) {
+                            const parsedOg = JSON.parse(decodeURIComponent(ogInfoParam));
+                            if (parsedOg.title) title = decodeURIComponent(parsedOg.title.replace(/\+/g, ' '));
+                            if (parsedOg.image) image = decodeURIComponent(parsedOg.image);
+                        }
+                    } catch (_) {}
+
+                    // 2. Check if TikTok video URL and fetch official oEmbed
+                    if (!title) {
+                        const videoMatch = finalUrl.match(/video\/(\d+)/);
+                        if (videoMatch) {
+                            try {
+                                const videoId = videoMatch[1];
+                                const oembedUrl = `https://www.tiktok.com/oembed?url=https://www.tiktok.com/@tiktok/video/${videoId}`;
+                                const oeRes = await fetch(oembedUrl);
+                                if (oeRes.ok) {
+                                    const oeJson = await oeRes.json();
+                                    if (oeJson.title) title = oeJson.title;
+                                    if (oeJson.thumbnail_url) image = oeJson.thumbnail_url;
+                                }
+                            } catch (_) {}
+                        }
+                    }
+                }
+
+                // Clean marketing noise from titles
+                if (title) {
+                    title = title
+                        .replace(/^Check out /i, '')
+                        .replace(/\s+for RM[\d,.]+\.?\s+Get it on Shopee now!?/i, '')
+                        .replace(/\s+on Shopee (?:Malaysia|SG|ID)!?/i, '')
+                        .replace(/\s+di Shopee sekarang!?/i, '')
+                        .replace(/\s*\|\s*Shopee\s*(?:Malaysia|SG|ID)?/gi, '')
+                        .replace(/\|\s*TikTok/i, '')
+                        .replace(/\|\s*Lazada/i, '')
+                        .replace(/\s+/g, ' ')
+                        .trim();
+                }
+
+                // If title still empty, extract slug from URL pathname (excluding query params)
+                if (!title || title.length < 5) {
+                    try {
+                        const u = new URL(finalUrl);
+                        const cleanPath = u.pathname
+                            .replace(/[-_/]/g, ' ')
+                            .replace(/\.htm.*$/i, '')
+                            .replace(/\d{5,}/g, '')
+                            .replace(/[^a-zA-Z0-9 ]/g, ' ')
+                            .replace(/\s+/g, ' ')
+                            .trim();
+                        const stopWords = ['www','com','my','html','for','sale','buy','the','and','with','share','listing','item','product','page','opaanlp'];
+                        const words = cleanPath.split(' ').filter(w => w.length > 2 && !stopWords.includes(w.toLowerCase()));
+                        if (words.length > 0) {
+                            title = words.map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(' ');
+                        }
+                    } catch (_) {}
+                }
+
+                // ── Enhanced Marketplace Data Extraction: Rating, Reviews, Sold Count, Price & Brand ──
+                let rating = '';
+                let reviewCount = '';
+                let soldCount = '';
+                let price = '';
+                let brand = '';
+
+                const formatCount = (num) => {
+                    if (!num && num !== 0) return '';
+                    const n = typeof num === 'string' ? parseFloat(num.replace(/,/g, '')) : Number(num);
+                    if (isNaN(n)) return String(num);
+                    if (n >= 1000000) return (n / 1000000).toFixed(1).replace(/\.0$/, '') + 'M';
+                    if (n >= 1000) return (n / 1000).toFixed(1).replace(/\.0$/, '') + 'k';
+                    return String(n);
+                };
+
+                // 1. JSON-LD Schema.org parser
+                if (html) {
+                    try {
+                        const jsonLdMatches = [...html.matchAll(/<script[^>]*type=["']application\/ld\+json["'][^>]*>([\s\S]*?)<\/script>/gi)];
+                        for (const match of jsonLdMatches) {
+                            try {
+                                const parsed = JSON.parse(match[1].trim());
+                                const items = Array.isArray(parsed) ? parsed : (parsed['@graph'] || [parsed]);
+                                for (const item of items) {
+                                    if (item && (item['@type'] === 'Product' || (typeof item['@type'] === 'string' && item['@type'].includes('Product')))) {
+                                        if (item.name && (!title || title.length < 5)) title = decodeHtmlEntities(item.name);
+                                        if (item.description && !description) description = decodeHtmlEntities(item.description);
+                                        if (item.image && !image) image = Array.isArray(item.image) ? item.image[0] : item.image;
+                                        if (item.brand?.name && !brand) brand = item.brand.name;
+                                        if (item.aggregateRating) {
+                                            if (item.aggregateRating.ratingValue && !rating) {
+                                                const rNum = parseFloat(item.aggregateRating.ratingValue);
+                                                if (rNum >= 1 && rNum <= 5) rating = rNum.toFixed(1);
+                                            }
+                                            if (item.aggregateRating.reviewCount && !reviewCount) {
+                                                reviewCount = formatCount(item.aggregateRating.reviewCount);
+                                            } else if (item.aggregateRating.ratingCount && !reviewCount) {
+                                                reviewCount = formatCount(item.aggregateRating.ratingCount);
+                                            }
+                                        }
+                                        if (item.offers) {
+                                            const offer = Array.isArray(item.offers) ? item.offers[0] : item.offers;
+                                            if (offer.price && !price) {
+                                                price = `RM ${parseFloat(offer.price).toFixed(2)}`;
+                                            } else if (offer.lowPrice && !price) {
+                                                price = `RM ${parseFloat(offer.lowPrice).toFixed(2)}`;
+                                            }
+                                        }
+                                    }
+                                }
+                            } catch (_) {}
+                        }
+                    } catch (_) {}
+                }
+
+                // 2. Shopee Public Item API Probe
+                if (platform === 'shopee') {
+                    let shopId = '';
+                    let itemId = '';
+                    const idMatch = finalUrl.match(/[?&]itemid=(\d+).*?[?&]shopid=(\d+)/i) ||
+                                    finalUrl.match(/opaanlp\/(\d+)\/(\d+)/i) ||
+                                    finalUrl.match(/product\/(\d+)\/(\d+)/i) ||
+                                    finalUrl.match(/-i\.(\d+)\.(\d+)/i);
+                    if (idMatch) {
+                        if (finalUrl.includes('opaanlp/') || finalUrl.includes('product/') || finalUrl.includes('-i.')) {
+                            shopId = idMatch[1];
+                            itemId = idMatch[2];
+                        } else {
+                            itemId = idMatch[1];
+                            shopId = idMatch[2];
+                        }
+                    }
+                    if (shopId && itemId) {
+                        try {
+                            const apiRes = await fetch(`https://shopee.com.my/api/v4/item/get?itemid=${itemId}&shopid=${shopId}`, {
+                                headers: {
+                                    'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36',
+                                    'Accept': 'application/json',
+                                    'Referer': `https://shopee.com.my/product/${shopId}/${itemId}`
+                                }
+                            });
+                            if (apiRes.ok) {
+                                const apiJson = await apiRes.json();
+                                const itm = apiJson?.data?.item || apiJson?.item;
+                                if (itm) {
+                                    if (itm.name && (!title || title.length < 5)) title = decodeHtmlEntities(itm.name);
+                                    if (itm.description && !description) description = decodeHtmlEntities(itm.description);
+                                    if (itm.item_rating) {
+                                        if (itm.item_rating.rating_star && !rating) {
+                                            rating = parseFloat(itm.item_rating.rating_star).toFixed(1);
+                                        }
+                                        if (Array.isArray(itm.item_rating.rating_count)) {
+                                            const totalReviews = itm.item_rating.rating_count.reduce((a, b) => a + b, 0);
+                                            if (totalReviews > 0 && !reviewCount) {
+                                                reviewCount = formatCount(totalReviews);
+                                            }
+                                        }
+                                    }
+                                    if (itm.historical_sold && !soldCount) {
+                                        soldCount = formatCount(itm.historical_sold);
+                                    } else if (itm.sold && !soldCount) {
+                                        soldCount = formatCount(itm.sold);
+                                    }
+                                    if (itm.price && !price) {
+                                        price = `RM ${(itm.price / 100000).toFixed(2)}`;
+                                    }
+                                    if (itm.brand && itm.brand !== 'NoBrand' && !brand) {
+                                        brand = itm.brand;
+                                    }
+                                    if (Array.isArray(itm.images) && itm.images.length > 0 && (!images || images.length === 0)) {
+                                        images = itm.images.map(hash => `https://down-my.img.susercontent.com/file/${hash}`);
+                                        if (!image && images.length > 0) image = images[0];
+                                    }
+                                }
+                            }
+                        } catch (_) {}
+                    }
+                }
+
+                // 3. Fallback Regex Parsing on HTML text and Snippets
+                if (html) {
+                    if (!soldCount) {
+                        const soldMatch = html.match(/([\d,.]+[kKmM]?\+?)\s*(?:terjual|sold|unit terjual|sales)/i) ||
+                                          html.match(/(?:terjual|sold|historical_sold)["':\s]+([\d,.]+[kKmM]?)/i);
+                        if (soldMatch && soldMatch[1] && soldMatch[1].length < 10) {
+                            soldCount = soldMatch[1].replace(/,/g, '');
+                        }
+                    }
+                    if (!rating) {
+                        const ratingMatch = html.match(/(?:rating_star|ratingValue|rating)["':\s]+(\d(?:\.\d)?)/i) ||
+                                            html.match(/(\d(?:\.\d)?)\s*(?:\/5|bintang|stars?|★|⭐)/i);
+                        if (ratingMatch && ratingMatch[1]) {
+                            const rVal = parseFloat(ratingMatch[1]);
+                            if (rVal >= 1 && rVal <= 5) rating = rVal.toFixed(1);
+                        }
+                    }
+                    if (!reviewCount) {
+                        const revMatch = html.match(/([\d,.]+[kKmM]?)\s*(?:ulasan|reviews|penilaian)/i) ||
+                                         html.match(/(?:rating_total|reviewCount|reviews)["':\s]+([\d,.]+[kKmM]?)/i);
+                        if (revMatch && revMatch[1] && revMatch[1].length < 10) {
+                            reviewCount = revMatch[1].replace(/,/g, '');
+                        }
+                    }
+                    if (!price) {
+                        const priceMatch = html.match(/(?:RM|harga|price)\s*([\d,.]+)/i);
+                        if (priceMatch && priceMatch[1] && parseFloat(priceMatch[1]) > 0) {
+                            price = `RM ${parseFloat(priceMatch[1]).toFixed(2)}`;
+                        }
+                    }
+                }
+
+                return {
+                    success: !!(title || image),
+                    url: cleanUrl,
+                    resolvedUrl: finalUrl,
+                    title: title || '',
+                    description: description || title || '',
+                    image: image || '',
+                    images: (images && images.length > 0) ? images : (image ? [image] : []),
+                    platform: platform,
+                    rating: rating || '',
+                    reviewCount: reviewCount || '',
+                    soldCount: soldCount || '',
+                    price: price || '',
+                    brand: brand || ''
+                };
+            } catch (err) {
+                return {
+                    success: false,
+                    url: cleanUrl,
+                    resolvedUrl: finalUrl,
+                    title: '',
+                    description: '',
+                    image: '',
+                    platform: platform,
+                    rating: '',
+                    reviewCount: '',
+                    soldCount: '',
+                    price: '',
+                    brand: '',
+                    error: err.message
+                };
+            }
+        };
+
         const PLANS = {
             free:       { accounts: 1,     posts: 10,   ai_credits: 20,   storage: 50  * 1024 * 1024,        features: ['calendar', 'queue', 'ai_assistant'],                         img_low: 500, img_medium: 2,   img_high: 0   },
             starter:    { accounts: 1,     posts: 10,   ai_credits: 20,   storage: 50  * 1024 * 1024,        features: ['calendar', 'queue', 'ai_assistant'],                         img_low: 500, img_medium: 2,   img_high: 0   }, // unused legacy
             pro:        { accounts: 3,     posts: 50,   ai_credits: 250,  storage: 500 * 1024 * 1024,        features: ['calendar', 'queue', 'ai_assistant'],                         img_low: 500, img_medium: 30,  img_high: 10  }, // Starter (Pro) - RM29
             agency:     { accounts: 10,    posts: 500,  ai_credits: 800,  storage: 5   * 1024 * 1024 * 1024, features: ['calendar', 'queue', 'ai_assistant', 'analytics'],            img_low: 500, img_medium: 80,  img_high: 30  }, // Growth (Gold) - RM59
-            enterprise: { accounts: 99999, posts: 5000, ai_credits: 2500, storage: 50  * 1024 * 1024 * 1024, features: ['calendar', 'queue', 'ai_assistant', 'analytics', 'clients'], img_low: 500, img_medium: 250, img_high: 100 }  // Agency (Premium) - RM149
+            enterprise: { accounts: 25,    posts: 5000, ai_credits: 2500, storage: 50  * 1024 * 1024 * 1024, features: ['calendar', 'queue', 'ai_assistant', 'analytics', 'clients'], img_low: 500, img_medium: 250, img_high: 100 }  // Agency (Premium) - RM149
         };
 
         const getActiveWorkspace = async (user) => {
@@ -2803,6 +3395,43 @@ RULES:
                     }
                 }
 
+                case '/api/ai/extract-product': {
+                    const user = await getAuthUser();
+                    if (!user) return new Response(JSON.stringify({ message: 'Unauthorized session' }), { status: 401, headers: corsHeaders });
+                    if (request.method !== 'POST') return new Response(JSON.stringify({ error: 'Method not allowed' }), { status: 405, headers: corsHeaders });
+
+                    try {
+                        const { url } = await request.json();
+                        if (!url) {
+                            return new Response(JSON.stringify({ message: 'URL is required.' }), { status: 400, headers: corsHeaders });
+                        }
+
+                        console.log(`[ProductExtractor] Extracting product details for: ${url}`);
+                        const product = await resolveAndScrapeProduct(url);
+
+                        if (product && product.isError) {
+                            return new Response(JSON.stringify({
+                                success: false,
+                                message: product.message
+                            }), { status: 200, headers: corsHeaders });
+                        }
+
+                        if (!product || (!product.title && !product.image)) {
+                            return new Response(JSON.stringify({
+                                success: false,
+                                message: 'Gagal mengekstrak maklumat produk dari pautan yang diberikan. Sila semak pautan atau masukkan secara manual.'
+                            }), { status: 200, headers: corsHeaders });
+                        }
+
+                        return new Response(JSON.stringify(product), { status: 200, headers: corsHeaders });
+                    } catch (err) {
+                        return new Response(JSON.stringify({
+                            success: false,
+                            message: `Ralat ekstrak produk: ${err.message}`
+                        }), { status: 200, headers: corsHeaders });
+                    }
+                }
+
                 case '/api/ai/scrape-url': {
                     const user = await getAuthUser();
                     if (!user) return new Response(JSON.stringify({ message: 'Unauthorized session' }), { status: 401, headers: corsHeaders });
@@ -2815,148 +3444,24 @@ RULES:
                         }
 
                         console.log(`[Scraper] Scraping URL: ${url}`);
+                        const scraped = await resolveAndScrapeProduct(url);
 
-                        // Helper: extract keywords from URL slug as fallback
-                        const extractSlugKeywords = (rawUrl) => {
-                            try {
-                                const u = new URL(rawUrl);
-                                // Combine pathname + search for richer context
-                                const slug = (u.pathname + ' ' + u.search)
-                                    .replace(/[-_/]/g, ' ')
-                                    .replace(/\.htm.*$/i, '')
-                                    .replace(/\d{5,}/g, '') // remove long IDs
-                                    .replace(/[^a-zA-Z ]/g, ' ')
-                                    .replace(/\s+/g, ' ')
-                                    .trim();
-                                // Clean up common noise words and capitalise
-                                const words = slug.split(' ').filter(w => w.length > 2 && !['www','com','my','html','for','sale','buy','the','and','with'].includes(w.toLowerCase()));
-                                return words.map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(' ');
-                            } catch (_) { return ''; }
-                        };
-
-                        // Helper: decode HTML entities
-                        const decodeHtmlEntities = (str) => {
-                            if (!str) return "";
-                            return str.replace(/&#(\d+);/g, (match, dec) => String.fromCharCode(dec))
-                                      .replace(/&quot;/g, '"')
-                                      .replace(/&amp;/g, '&')
-                                      .replace(/&lt;/g, '<')
-                                      .replace(/&gt;/g, '>')
-                                      .replace(/&nbsp;/g, ' ');
-                        };
-
-                        let finalUrl = url;
-                        let pageText = "";
-                        let title = "";
-                        let description = "";
-                        let image = "";
-
-                        try {
-                            const response = await fetch(url, {
-                                headers: {
-                                    'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36',
-                                    'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,*/*;q=0.8',
-                                    'Accept-Language': 'ms-MY,ms;q=0.9,en-MY;q=0.8,en;q=0.7',
-                                    'Accept-Encoding': 'gzip, deflate, br',
-                                    'Cache-Control': 'no-cache',
-                                    'Referer': new URL(url).origin + '/',
-                                    'Sec-Fetch-Mode': 'navigate',
-                                    'Sec-Fetch-Site': 'none',
-                                    'Sec-Fetch-Dest': 'document',
-                                    'Upgrade-Insecure-Requests': '1'
-                                },
-                                redirect: 'follow'
-                            });
-
-                            finalUrl = response.url || url;
-
-                            if (response.ok) {
-                                const html = await response.text();
-
-                                 // Extract <title>
-                                 const titleMatch = html.match(/<title[^>]*>([\s\S]*?)<\/title>/i);
-                                 if (titleMatch) title = titleMatch[1].trim();
-
-                                 const metas = extractMetaTags(html);
-                                 if (metas.title) title = metas.title;
-                                 if (metas.description) description = metas.description;
-                                 if (metas.image) image = metas.image;
-
-                                // JSON-LD extraction for richer structured data (Product / ItemPage / RealEstateListing)
-                                if (!description || description.length < 50) {
-                                    const jsonLdMatches = [...html.matchAll(/<script[^>]+type=["']application\/ld\+json["'][^>]*>([\s\S]*?)<\/script>/gi)];
-                                    for (const match of jsonLdMatches) {
-                                        try {
-                                            const ld = JSON.parse(match[1]);
-                                            const objs = Array.isArray(ld) ? ld : [ld];
-                                            for (const obj of objs) {
-                                                if (!title && obj.name) title = obj.name;
-                                                if (!description && obj.description) description = obj.description.substring(0, 500);
-                                                // Also pull address, offers info for property/real-estate
-                                                if (obj.address) {
-                                                    const addr = typeof obj.address === 'string' ? obj.address : [obj.address.streetAddress, obj.address.addressLocality, obj.address.addressRegion].filter(Boolean).join(', ');
-                                                    if (addr) description = (description || '') + ' Location: ' + addr;
-                                                }
-                                                if (description) break;
-                                            }
-                                        } catch (_) {}
-                                        if (description) break;
-                                    }
-                                }
-
-                                // Body text fallback
-                                if (!description || !title) {
-                                    let bodyText = html
-                                        .replace(/<script[^>]*>[\s\S]*?<\/script>/gi, '')
-                                        .replace(/<style[^>]*>[\s\S]*?<\/style>/gi, '')
-                                        .replace(/<[^>]+>/g, ' ')
-                                        .replace(/\s+/g, ' ')
-                                        .trim();
-                                    pageText = bodyText.substring(0, 3000);
-                                }
-                            }
-                        } catch (_) {
-                            // Network/fetch error - will fall through to URL slug fallback
-                        }
-
-                        let decodedTitle = cleanScrapedTitle(decodeHtmlEntities(title));
-                        let decodedDesc = decodeHtmlEntities(description || pageText.substring(0, 500));
-
-                        // URL slug fallback: if scrape returned nothing useful, parse keywords from the URL itself
-                        if (!decodedTitle || decodedTitle.length < 5) {
-                            decodedTitle = extractSlugKeywords(url);
-                        }
-
-                        if (isTelegramPostUrl(url) || /Telegram|View\s*@|Listing\s*|Hartanah/i.test(decodedTitle)) {
-                            decodedTitle = extractTelegramTitle(decodedTitle, decodedDesc);
-                        }
-
-                        const lowerText = (decodedTitle + ' ' + decodedDesc).toLowerCase();
-                        const isBlocked = lowerText.includes('enable javascript') ||
-                                          lowerText.includes('javascript is disabled') ||
-                                          lowerText.includes('cloudflare') ||
-                                          lowerText.includes('captcha') ||
-                                          lowerText.includes('security check') ||
-                                          lowerText.includes('access denied') ||
-                                          lowerText.includes('robot') ||
-                                          lowerText.includes('unsupported browser') ||
-                                          (decodedTitle.includes('Shopee') && decodedDesc.includes('JavaScript'));
-
-                        // Only report blocked if we truly have nothing from URL slug either
-                        if (isBlocked && !decodedTitle) {
+                        if (scraped && (scraped.title || scraped.image)) {
                             return new Response(JSON.stringify({
-                                success: false,
-                                is_blocked: true,
-                                message: 'Situs web menyekat bot automatik (bot protection). Sila isi nama & info produk secara manual.'
+                                success: true,
+                                url: scraped.resolvedUrl || url,
+                                title: scraped.title,
+                                description: scraped.description,
+                                image: scraped.image,
+                                images: scraped.images || (scraped.image ? [scraped.image] : []),
+                                images_count: (scraped.images && scraped.images.length) || (scraped.image ? 1 : 0),
+                                platform: scraped.platform
                             }), { status: 200, headers: corsHeaders });
                         }
 
                         return new Response(JSON.stringify({
-                            success: true,
-                            url: finalUrl,
-                            title: decodedTitle,
-                            description: decodedDesc,
-                            image: image
+                            success: false,
+                            message: 'Situs web menyekat bot automatik (bot protection). Sila isi nama & info produk secara manual.'
                         }), { status: 200, headers: corsHeaders });
                     } catch (err) {
                         return new Response(JSON.stringify({
@@ -2997,107 +3502,43 @@ RULES:
                         // Extract context from frontend or scrape URL for product details
                         let productContext = context || "";
                         
-                        // Always try to scrape URL for richer product details
+                        // Helper to validate real HTTP/HTTPS image URLs (reject base64/SVG placeholders)
+                        const isValidImageUrl = (img) => {
+                            if (!img || typeof img !== 'string') return false;
+                            const trimmed = img.trim();
+                            if (trimmed.startsWith('data:') || trimmed.includes('image/svg') || trimmed.endsWith('.svg')) return false;
+                            return trimmed.startsWith('http://') || trimmed.startsWith('https://');
+                        };
+
+                        // Always try to scrape URL for richer product details using smart engine
                         let scrapedTitle = "";
                         let scrapedDescription = "";
                         let scrapedImage = "";
                         let scrapedImages = [];
+                        let scrapedProduct = null;
                         try {
-                            const scrapeRes = await fetch(url, {
-                                headers: {
-                                    'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36',
-                                    'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,*/*;q=0.8',
-                                    'Accept-Language': 'ms-MY,ms;q=0.9,en-MY;q=0.8,en;q=0.7',
-                                    'Accept-Encoding': 'gzip, deflate, br',
-                                    'Cache-Control': 'no-cache',
-                                    'Referer': new URL(url).origin + '/',
-                                    'Sec-Fetch-Mode': 'navigate',
-                                    'Sec-Fetch-Site': 'none',
-                                    'Sec-Fetch-Dest': 'document',
-                                    'Upgrade-Insecure-Requests': '1'
-                                },
-                                redirect: 'follow'
-                            });
-
-                            if (scrapeRes.ok) {
-                                const html = await scrapeRes.text();
-
-                                 const metas = extractMetaTags(html);
-                                 if (metas.title) scrapedTitle = metas.title;
-                                 if (metas.description) scrapedDescription = metas.description;
-                                 if (metas.image) {
-                                     scrapedImage = metas.image;
-                                     scrapedImages.push(metas.image);
-                                 }
-
-                                 // Extract Telegram post gallery photos
-                                 if (isTelegramPostUrl(url)) {
-                                     const photoMatches = [...html.matchAll(/tgme_widget_message_photo_wrap[^>]+style=["'][^"']*background-image\s*:\s*url\(\s*['"]?([^'")\s]+)['"]?\s*\)/gi)];
-                                     const extracted = photoMatches.map(m => m[1].trim()).filter(Boolean);
-                                     if (extracted.length > 0) {
-                                         scrapedImages = extracted;
-                                         scrapedImage = extracted[0];
-                                     }
-                                 }
-
-                                  // If it is a Telegram post, check if the image is just the channel's profile picture
-                                  if (scrapedImage && isTelegramPostUrl(url)) {
-                                      try {
-                                          const u = new URL(url);
-                                          const parts = u.pathname.split('/').filter(Boolean);
-                                          if (parts.length > 1) {
-                                              const channelUrl = `${u.origin}/${parts[0]}`;
-                                              const channelRes = await fetch(channelUrl, {
-                                                  headers: {
-                                                      'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36'
-                                                  },
-                                                  redirect: 'follow'
-                                              });
-                                              if (channelRes.ok) {
-                                                  const channelHtml = await channelRes.text();
-                                                  const channelMetas = extractMetaTags(channelHtml);
-                                                  if (channelMetas.image && scrapedImage === channelMetas.image) {
-                                                      scrapedImage = ""; // Ignore default channel profile picture
-                                                  }
-                                              }
-                                          }
-                                      } catch (_) {}
-                                  }
-
-                                // JSON-LD extraction
-                                if (!scrapedDescription || scrapedDescription.length < 50) {
-                                    const jsonLdMatches = [...html.matchAll(/<script[^>]+type=["']application\/ld\+json["'][^>]*>([\s\S]*?)<\/script>/gi)];
-                                    for (const m of jsonLdMatches) {
-                                        try {
-                                            const ld = JSON.parse(m[1]);
-                                            const objs = Array.isArray(ld) ? ld : [ld];
-                                            for (const obj of objs) {
-                                                if (!scrapedTitle && obj.name) scrapedTitle = obj.name;
-                                                if (!scrapedDescription && obj.description) scrapedDescription = obj.description.substring(0, 1000);
-                                                if (obj.address) {
-                                                    const addr = typeof obj.address === 'string' ? obj.address : [obj.address.streetAddress, obj.address.addressLocality, obj.address.addressRegion].filter(Boolean).join(', ');
-                                                    if (addr) scrapedDescription = (scrapedDescription || '') + ' Location: ' + addr;
-                                                }
-                                                if (scrapedDescription) break;
-                                            }
-                                        } catch (_) {}
-                                        if (scrapedDescription) break;
+                            scrapedProduct = await resolveAndScrapeProduct(url);
+                            if (scrapedProduct && scrapedProduct.isError) {
+                                throw new Error(scrapedProduct.message || 'Pautan produk telah tamat tempoh atau dipadam.');
+                            }
+                            if (scrapedProduct && (scrapedProduct.title || scrapedProduct.image || (scrapedProduct.images && scrapedProduct.images.length > 0))) {
+                                if (scrapedProduct.title) scrapedTitle = scrapedProduct.title;
+                                if (scrapedProduct.description) scrapedDescription = scrapedProduct.description;
+                                if (scrapedProduct.images && Array.isArray(scrapedProduct.images) && scrapedProduct.images.length > 0) {
+                                    scrapedImages = scrapedProduct.images.filter(isValidImageUrl);
+                                    if (scrapedImages.length > 0) {
+                                        scrapedImage = scrapedImages[0];
                                     }
-                                }
-
-                                // Body text fallback
-                                if (!scrapedDescription) {
-                                    let bodyText = html
-                                        .replace(/<script[^>]*>[\s\S]*?<\/script>/gi, '')
-                                        .replace(/<style[^>]*>[\s\S]*?<\/style>/gi, '')
-                                        .replace(/<[^>]+>/g, ' ')
-                                        .replace(/\s+/g, ' ')
-                                        .trim();
-                                    scrapedDescription = bodyText.substring(0, 1500);
+                                } else if (isValidImageUrl(scrapedProduct.image)) {
+                                    scrapedImage = scrapedProduct.image;
+                                    scrapedImages.push(scrapedProduct.image);
                                 }
                             }
-                        } catch (_) {
-                            // Scrape failed
+                        } catch (scrapeErr) {
+                            if (scrapeErr.message && scrapeErr.message.includes('Shopee')) {
+                                throw scrapeErr;
+                            }
+                            // Scrape fallback
                         }
 
                         // If secondary mediaUrl is provided, fetch it to scrape and override the image
@@ -3112,13 +3553,13 @@ RULES:
                                 if (mediaRes.ok) {
                                     const mediaHtml = await mediaRes.text();
                                     const mediaMetas = extractMetaTags(mediaHtml);
-                                    if (mediaMetas.image) {
+                                    if (isValidImageUrl(mediaMetas.image)) {
                                         scrapedImage = mediaMetas.image;
                                         scrapedImages = [mediaMetas.image];
                                     }
                                     if (isTelegramPostUrl(mediaUrl.trim())) {
                                         const photoMatches = [...mediaHtml.matchAll(/tgme_widget_message_photo_wrap[^>]+style=["'][^"']*background-image\s*:\s*url\(\s*['"]?([^'")\s]+)['"]?\s*\)/gi)];
-                                        const extracted = photoMatches.map(m => m[1].trim()).filter(Boolean);
+                                        const extracted = photoMatches.map(m => m[1].trim()).filter(isValidImageUrl);
                                         if (extracted.length > 0) {
                                             scrapedImages = extracted;
                                             scrapedImage = extracted[0];
@@ -3152,6 +3593,17 @@ RULES:
                             productContext = productContext
                                 ? `${productContext}\n\nScraped from URL:\n${scrapedTitle ? scrapedTitle + '\n' : ''}${scrapedDescription}`
                                 : `${scrapedTitle ? scrapedTitle + '\n' : ''}${scrapedDescription}`;
+                        }
+
+                        // Inject verified marketplace social proof & stats into productContext
+                        if (scrapedProduct && (scrapedProduct.rating || scrapedProduct.soldCount || scrapedProduct.reviewCount)) {
+                            const stats = [];
+                            if (scrapedProduct.rating) stats.push(`Rating Pembeli: ${scrapedProduct.rating}/5.0 ⭐`);
+                            if (scrapedProduct.reviewCount) stats.push(`Jumlah Ulasan: ${scrapedProduct.reviewCount} ulasan`);
+                            if (scrapedProduct.soldCount) stats.push(`Jumlah Terjual: ${scrapedProduct.soldCount} unit terjual`);
+                            if (stats.length > 0) {
+                                productContext += `\n\n[PROVEN SOCIAL PROOF & STATS: ${stats.join(' | ')}. AI boleh gunakan fakta kejayaan jualan / rating tinggi ini secara santai untuk kuatkan keyakinan pembaca!]`;
+                            }
                         }
 
                         // Sanitize productContext — remove agent-specific contact details so AI doesn't reproduce them
@@ -3230,13 +3682,23 @@ RULES:
                         const publishAtDate = new Date(baseTime.getTime() + staggerMinutes * 60 * 1000);
                         const publishAt = publishAtDate.toISOString();
 
-                        // Resolve social account
-                        const socialAccount = await env.DB.prepare(
-                            "SELECT id FROM social_accounts WHERE workspace_id = ? AND platform = 'threads' AND status = 'active' LIMIT 1"
-                        ).bind(activeWorkspace.workspace_id).first().catch(() => null);
+                        // Resolve social accounts based on targetPlatforms from frontend
+                        let connectedAccounts = [];
+                        if (targetPlatforms && Array.isArray(targetPlatforms) && targetPlatforms.length > 0) {
+                            const placeholders = targetPlatforms.map(() => '?').join(',');
+                            const query = `SELECT id, platform FROM social_accounts WHERE workspace_id = ? AND status = 'active' AND platform IN (${placeholders})`;
+                            const res = await env.DB.prepare(query).bind(activeWorkspace.workspace_id, ...targetPlatforms).all();
+                            connectedAccounts = res.results || [];
+                        } else {
+                            // Default: fetch ONLY threads if not specified (legacy fallback)
+                            const res = await env.DB.prepare(
+                                "SELECT id, platform FROM social_accounts WHERE workspace_id = ? AND status = 'active' AND platform = 'threads'"
+                            ).bind(activeWorkspace.workspace_id).all();
+                            connectedAccounts = res.results || [];
+                        }
 
-                        const accountId = socialAccount ? socialAccount.id : null;
-                        const finalStatus = accountId ? 'scheduled' : 'draft';
+                        const finalStatus = connectedAccounts.length > 0 ? 'scheduled' : 'draft';
+
 
                         // Domain routing & WhatsApp link auto-generation
                         const isEcommerceOrMarketplace = (rawUrl) => {
@@ -3381,13 +3843,36 @@ RULES:
                             formatInstructions = `MUST be a Thread Storm (berangkai) consisting of exactly 2 to 3 posts/slides. Split different slides using the exact separator string '---thread-separator---'. For example: 'Slide 1 content\\n---thread-separator---\\nSlide 2 content\\n---thread-separator---\\nSlide 3 content'. Each individual slide must be under 300 characters.`;
                         } else if (postFormat === 'deep_thread') {
                             formatInstructions = `MUST be a deep-dive Thread Storm (berangkai) consisting of exactly 3 to 5 posts/slides. Split different slides using the exact separator string '---thread-separator---'. For example: 'Slide 1 content\\n---thread-separator---\\nSlide 2 content\\n---thread-separator---\\nSlide 3 content\\n---thread-separator---\\nSlide 4 content'. Each individual slide must be under 300 characters.`;
+                        } else if (postFormat === 'mega_thread') {
+                            formatInstructions = `MUST be a mega-story Thread Storm (berangkai) consisting of exactly 7 to 10 posts/slides. Split different slides using the exact separator string '---thread-separator---'. For example: 'Slide 1 content\\n---thread-separator---\\nSlide 2 content\\n...\\n---thread-separator---\\nSlide 8 content'. Each individual slide must be under 280 characters and carry a suspenseful or engaging storytelling progression.`;
                         } else {
                             formatInstructions = `must be a standard single post, under 350 characters.`;
                         }
 
+                        // Smart Tone / Viral Angle Resolver
+                        let resolvedTone = tone || 'Auto-Smart Viral Angle';
+                        if (resolvedTone === 'Auto-Smart Viral Angle' || resolvedTone === 'Auto-Cycle') {
+                            const pText = (productContext + " " + scrapedTitle + " " + scrapedDescription).toLowerCase();
+                            if (pText.includes('lipas') || pText.includes('bau') || pText.includes('hapak') || pText.includes('daki') || pText.includes('jerawat') || pText.includes('kotor') || pText.includes('cuci') || pText.includes('tandas') || pText.includes('karat') || pText.includes('kulit')) {
+                                resolvedTone = 'Confession / Masalah Malu & Tabu';
+                            } else if (pText.includes('jimat') || pText.includes('duit') || pText.includes('mahal') || pText.includes('bengkel') || pText.includes('alat') || pText.includes('repair') || pText.includes('rosak') || pText.includes('diy') || pText.includes('tool')) {
+                                resolvedTone = 'Kalaulah Tahu Dari Dulu / Jimat Duit';
+                            } else if (pText.includes('viral') || pText.includes('tiktok') || pText.includes('shopee') || pText.includes('trending') || pText.includes('gajet') || pText.includes('headphone') || pText.includes('lampu') || pText.includes('fon')) {
+                                resolvedTone = 'Skeptikal / Ingat Scam Tapi Padu';
+                            } else {
+                                const viralPool = [
+                                    'Skeptikal / Ingat Scam Tapi Padu',
+                                    'Confession / Masalah Malu & Tabu',
+                                    'Kalaulah Tahu Dari Dulu / Jimat Duit',
+                                    'Bait Debat / Tanya Pendapat'
+                                ];
+                                resolvedTone = viralPool[Math.floor(Math.random() * viralPool.length)];
+                            }
+                        }
+
                         // Add specific tone instructions
-                        let toneInstruction = "";
-                        if (tone === 'Ultra-Realistic Malay' || tone === 'Manglish (Mix Malay & English)' || language === 'Manglish (Mix Malay & English)') {
+                        let toneInstruction = `- Tone: ${resolvedTone}`;
+                        if (resolvedTone === 'Ultra-Realistic Malay' || resolvedTone === 'Manglish (Mix Malay & English)' || language === 'Manglish (Mix Malay & English)') {
                             toneInstruction = `Tone: Natural Malaysian Manglish / Bahasa Rojak.
 CRITICAL TONE RULES:
 - Write like a real human writing a personal post on Threads, NOT like an AI assistant.
@@ -3396,8 +3881,6 @@ CRITICAL TONE RULES:
 - The opening hook MUST be a direct statement, reflection, or opinion (not a question like "Korang tahu tak..."). 
 - Keep sentences short, conversational, and punchy.
 - DO NOT use any emojis in the main hook caption. Avoid emoji spam entirely.`;
-                        } else {
-                            toneInstruction = `- Tone: ${tone || 'Friendly & Casual'}`;
                         }
 
                         // Add workspace-specific copywriting guidelines and system niche rules
@@ -3454,7 +3937,7 @@ CRITICAL TONE RULES:
                             goal: 'Engagement & Lead Generation',
                             tone: tone || 'Friendly & Casual',
                             language: language || 'Malay',
-                            postFormat: postFormat === 'deep_thread' ? 'deep_thread' : (postFormat === 'short_thread' ? 'short_thread' : 'single'),
+                            postFormat: (postFormat === 'mega_thread' || postFormat === 'deep_thread' || postFormat === 'short_thread') ? postFormat : 'single',
                             funnelStage: 'none',
                             customInstructions: customGuidelinesBlock,
                             nicheRules: nicheData ? nicheData.rules : null,
@@ -3780,123 +4263,177 @@ CRITICAL TONE RULES:
                             ctaText = "";
                         }
 
-                        const cards = (postFormat === 'short_thread' || postFormat === 'deep_thread')
+                        const cards = (postFormat === 'short_thread' || postFormat === 'deep_thread' || postFormat === 'mega_thread')
                             ? processedCaption.split(/[\n\r]*---thread-separator---[\n\r]*/).map(c => c.trim()).filter(Boolean)
                             : [];
 
-                        if (hasTrigger && cards.length > 1) {
-                            // 1. Insert Slide 1 (Parent)
-                            const parentImageSuffix = (!isProperty && scrapedImages && scrapedImages[0]) ? `\n\n📷 ${scrapedImages[0]}` : "";
-                            const parentContent = `${cards[0]}${parentImageSuffix}`.trim();
+                        // Prepare flattened full content
+                        let flatContent = processedCaption.replace(/[\n\r]*(?:---thread-separator---|\[THREAD_DELIMITER\])[\n\r]*/g, '\n\n').trim();
+                        
+                        // Attach image to Facebook content if available (posts as photo to FB Page)
+                        const fbImageSuffix = (scrapedImage && isValidImageUrl(scrapedImage)) ? `\n\n📷 ${scrapedImage}` : "";
+                        const fbContent = `${flatContent}\n\n${ctaText}\n\n${hashtagsText}${fbImageSuffix}`.trim();
+                        
+                        // Instagram requires an image attachment to publish successfully
+                        const igImageSuffix = (scrapedImage && isValidImageUrl(scrapedImage)) ? `\n\n📷 ${scrapedImage}` : "";
+                        const igContent = `${flatContent}\n\n${ctaText}\n\n${hashtagsText}${igImageSuffix}`.trim();
 
-                            const result = await env.DB.prepare(
-                                `INSERT INTO scheduled_posts (user_id, workspace_id, account_id, platform, content, status, publish_at, source_url, created_at, updated_at)
-                                 VALUES (?, ?, ?, ?, ?, ?, ?, ?, (datetime('now')), (datetime('now')))`
-                            ).bind(
-                                user.id,
-                                activeWorkspace.workspace_id,
-                                accountId,
-                                'threads',
-                                parentContent,
-                                finalStatus,
-                                publishAt,
-                                url
-                            ).run();
+                        for (const acc of connectedAccounts) {
+                            const isThreads = acc.platform === 'threads';
+                            const isInstagram = acc.platform === 'instagram';
                             
-                            const parentId = result.meta.last_row_id;
+                            if (isThreads && hasTrigger && cards.length > 1) {
+                                // 1. Insert Slide 1 (Parent) - Always 100% text-only hook for maximum organic reach & Curiosity Gap
+                                const parentContent = cards[0].trim();
 
-                            // 2. Insert subsequent slides as child posts waiting for trigger
-                            for (let i = 1; i < cards.length; i++) {
-                                let slideText = cards[i];
-                                let slideImage = null;
-                                
-                                if (i === cards.length - 1) {
-                                    // Last slide image logic:
-                                    // - Dual links (2+ images): use scrapedImages[1] (Link 2 image)
-                                    // - Single Propmall/Mudah link: use scrapedImages[0] (proper listing photo)
-                                    // - Single Telegram link: NO image (suppress owner's promo card)
-                                    const isSingleTelegramLink = !mediaUrl && scrapedImages && scrapedImages.length === 1 && (url.includes('t.me') || url.includes('telegram.me') || url.includes('telesco.pe') || url.includes('nakcuba.my'));
-                                    slideImage = (scrapedImages && scrapedImages.length > 1) ? scrapedImages[1] : (isSingleTelegramLink ? null : (scrapedImages && scrapedImages[0] ? scrapedImages[0] : null));
-                                } else if (!isProperty) {
-                                    // Non-property niche: distribute sequentially
-                                    slideImage = (scrapedImages && scrapedImages[i]) ? scrapedImages[i] : null;
-                                }
-                                
-                                const slideImageSuffix = slideImage ? `\n\n📷 ${slideImage}` : "";
-
-                                if (i === cards.length - 1) {
-                                    slideText = `${slideText}\n\n${ctaText}\n\n${hashtagsText}${slideImageSuffix}`.trim();
-                                } else if (slideImage) {
-                                    slideText = `${slideText}${slideImageSuffix}`.trim();
-                                }
-                                
-                                await env.DB.prepare(
-                                    `INSERT INTO scheduled_posts (user_id, workspace_id, account_id, platform, content, status, publish_at, trigger_type, trigger_threshold, parent_post_id, source_url, created_at, updated_at)
-                                     VALUES (?, ?, ?, ?, ?, 'draft', ?, ?, ?, ?, ?, (datetime('now')), (datetime('now')))`
+                                const result = await env.DB.prepare(
+                                    `INSERT INTO scheduled_posts (user_id, workspace_id, account_id, platform, content, status, publish_at, source_url, created_at, updated_at)
+                                     VALUES (?, ?, ?, ?, ?, 'scheduled', ?, ?, (datetime('now')), (datetime('now')))`
                                 ).bind(
                                     user.id,
                                     activeWorkspace.workspace_id,
-                                    accountId,
-                                    'threads',
-                                    slideText,
+                                    acc.id,
+                                    acc.platform,
+                                    parentContent,
                                     publishAt,
-                                    triggerType,
-                                    parseInt(triggerThreshold) || 100,
-                                    parentId,
+                                    url
+                                ).run();
+                                
+                                const parentId = result.meta.last_row_id;
+
+                                // 2. Insert subsequent slides as child posts waiting for trigger
+                                for (let i = 1; i < cards.length; i++) {
+                                    let slideText = cards[i];
+                                    let slideImage = null;
+                                    
+                                    // Attach images strictly at the final CTA slide
+                                    if (isProperty && i === cards.length - 1 && scrapedImages && scrapedImages.length > 0) {
+                                        slideImage = scrapedImages[0];
+                                    }
+                                    
+                                    const slideImageSuffix = (slideImage && isValidImageUrl(slideImage)) ? `\n\n📷 ${slideImage}` : "";
+
+                                    if (i === cards.length - 1) {
+                                        slideText = `${slideText}\n\n${ctaText}\n\n${hashtagsText}${slideImageSuffix}`.trim();
+                                    }
+                                    
+                                    await env.DB.prepare(
+                                        `INSERT INTO scheduled_posts (user_id, workspace_id, account_id, platform, content, status, publish_at, trigger_type, trigger_threshold, parent_post_id, source_url, created_at, updated_at)
+                                         VALUES (?, ?, ?, ?, ?, 'draft', ?, ?, ?, ?, ?, (datetime('now')), (datetime('now')))`
+                                    ).bind(
+                                        user.id,
+                                        activeWorkspace.workspace_id,
+                                        acc.id,
+                                        acc.platform,
+                                        slideText,
+                                        publishAt,
+                                        triggerType,
+                                        parseInt(triggerThreshold) || 100,
+                                        parentId,
+                                        url
+                                    ).run();
+                                }
+
+                                // 3. If there are extra property photos from Telegram (photo 2, 3...), append them as extra photo reply slides at the end
+                                if (isProperty && scrapedImages && scrapedImages.length > 1) {
+                                    for (let pIdx = 1; pIdx < Math.min(scrapedImages.length, 10); pIdx++) {
+                                        const extraImg = scrapedImages[pIdx];
+                                        if (isValidImageUrl(extraImg)) {
+                                            const extraSlideContent = `📸 Gambar tambahan listing:\n\n📷 ${extraImg}`;
+                                            await env.DB.prepare(
+                                                `INSERT INTO scheduled_posts (user_id, workspace_id, account_id, platform, content, status, publish_at, trigger_type, trigger_threshold, parent_post_id, source_url, created_at, updated_at)
+                                                 VALUES (?, ?, ?, ?, ?, 'draft', ?, ?, ?, ?, ?, (datetime('now')), (datetime('now')))`
+                                            ).bind(
+                                                user.id,
+                                                activeWorkspace.workspace_id,
+                                                acc.id,
+                                                acc.platform,
+                                                extraSlideContent,
+                                                publishAt,
+                                                triggerType,
+                                                parseInt(triggerThreshold) || 100,
+                                                parentId,
+                                                url
+                                            ).run();
+                                        }
+                                    }
+                                }
+                            } else if (isThreads) {
+                                // Threads single post or non-conditional thread storm insertion (text-focused)
+                                let fullContent = "";
+                                if ((postFormat === 'short_thread' || postFormat === 'deep_thread' || postFormat === 'mega_thread') && cards.length > 0) {
+                                    const tempCards = [...cards];
+                                    for (let i = 0; i < tempCards.length; i++) {
+                                        let cardImage = null;
+                                        // Place image strictly on the last slide
+                                        if (isProperty && i === tempCards.length - 1 && scrapedImages && scrapedImages.length > 0) {
+                                            cardImage = scrapedImages[0];
+                                        }
+                                        
+                                        const cardImageSuffix = (cardImage && isValidImageUrl(cardImage)) ? `\n\n📷 ${cardImage}` : "";
+
+                                        if (i === tempCards.length - 1) {
+                                            tempCards[i] = `${tempCards[i]}\n\n${ctaText}\n\n${hashtagsText}${cardImageSuffix}`.trim();
+                                        }
+                                    }
+                                    
+                                    // Append extra property photos at the very end of thread
+                                    if (isProperty && scrapedImages && scrapedImages.length > 1) {
+                                        for (let pIdx = 1; pIdx < Math.min(scrapedImages.length, 10); pIdx++) {
+                                            const extraImg = scrapedImages[pIdx];
+                                            if (isValidImageUrl(extraImg)) {
+                                                tempCards.push(`📸 Gambar tambahan listing:\n\n📷 ${extraImg}`);
+                                            }
+                                        }
+                                    }
+
+                                    fullContent = tempCards.join('\n---thread-separator---\n');
+                                } else {
+                                    const threadImageSuffix = (isProperty && scrapedImage && isValidImageUrl(scrapedImage)) ? `\n\n📷 ${scrapedImage}` : "";
+                                    fullContent = `${processedCaption}\n\n${ctaText}\n\n${hashtagsText}${threadImageSuffix}`.trim();
+                                }
+
+                                await env.DB.prepare(
+                                    `INSERT INTO scheduled_posts (user_id, workspace_id, account_id, platform, content, status, publish_at, source_url, created_at, updated_at)
+                                     VALUES (?, ?, ?, ?, ?, 'scheduled', ?, ?, (datetime('now')), (datetime('now')))`
+                                ).bind(
+                                    user.id,
+                                    activeWorkspace.workspace_id,
+                                    acc.id,
+                                    acc.platform,
+                                    fullContent,
+                                    publishAt,
+                                    url
+                                ).run();
+                            } else if (isInstagram) {
+                                // Instagram gets igContent (with media image required by Instagram API)
+                                await env.DB.prepare(
+                                    `INSERT INTO scheduled_posts (user_id, workspace_id, account_id, platform, content, status, publish_at, source_url, created_at, updated_at)
+                                     VALUES (?, ?, ?, ?, ?, 'scheduled', ?, ?, (datetime('now')), (datetime('now')))`
+                                ).bind(
+                                    user.id,
+                                    activeWorkspace.workspace_id,
+                                    acc.id,
+                                    acc.platform,
+                                    igContent,
+                                    publishAt,
+                                    url
+                                ).run();
+                            } else {
+                                // Facebook and other channels get clean text (no raw image URL)
+                                await env.DB.prepare(
+                                    `INSERT INTO scheduled_posts (user_id, workspace_id, account_id, platform, content, status, publish_at, source_url, created_at, updated_at)
+                                     VALUES (?, ?, ?, ?, ?, 'scheduled', ?, ?, (datetime('now')), (datetime('now')))`
+                                ).bind(
+                                    user.id,
+                                    activeWorkspace.workspace_id,
+                                    acc.id,
+                                    acc.platform,
+                                    fbContent,
+                                    publishAt,
                                     url
                                 ).run();
                             }
-                        } else {
-                            const imageSuffix = scrapedImage ? `\n\n📷 ${scrapedImage}` : "";
-                            // Standard single post or non-conditional thread storm insertion
-                            let fullContent = "";
-                            if (postFormat === 'short_thread' || postFormat === 'deep_thread') {
-                                if (cards.length > 0) {
-                                    // Distribute scraped images across cards
-                                    for (let i = 0; i < cards.length; i++) {
-                                        let cardImage = null;
-                                        if (i === cards.length - 1) {
-                                            // Last slide image logic:
-                                            // - Dual links (2+ images): use scrapedImages[1] (Link 2 image)
-                                            // - Single Propmall/Mudah link: use scrapedImages[0] (proper listing photo)
-                                            // - Single Telegram link: NO image (suppress owner's promo card)
-                                            const isSingleTelegramLink = !mediaUrl && scrapedImages && scrapedImages.length === 1 && (url.includes('t.me') || url.includes('telegram.me') || url.includes('telesco.pe') || url.includes('nakcuba.my'));
-                                            cardImage = (scrapedImages && scrapedImages.length > 1) ? scrapedImages[1] : (isSingleTelegramLink ? null : (scrapedImages && scrapedImages[0] ? scrapedImages[0] : null));
-                                        } else if (i === 0) {
-                                            cardImage = (!isProperty && scrapedImages && scrapedImages[0]) ? scrapedImages[0] : null;
-                                        } else if (!isProperty) {
-                                            cardImage = (scrapedImages && scrapedImages[i]) ? scrapedImages[i] : null;
-                                        }
-                                        
-                                        const cardImageSuffix = cardImage ? `\n\n📷 ${cardImage}` : "";
-
-                                        if (i === cards.length - 1) {
-                                            cards[i] = `${cards[i]}\n\n${ctaText}\n\n${hashtagsText}${cardImageSuffix}`.trim();
-                                        } else if (cardImage) {
-                                            cards[i] = `${cards[i]}${cardImageSuffix}`.trim();
-                                        }
-                                    }
-                                    fullContent = cards.join('\n---thread-separator---\n');
-                                } else {
-                                    fullContent = `${processedCaption}\n\n${ctaText}\n\n${hashtagsText}${imageSuffix}`.trim();
-                                }
-                            } else {
-                                fullContent = `${processedCaption}\n\n${ctaText}\n\n${hashtagsText}${imageSuffix}`.trim();
-                            }
-
-                            await env.DB.prepare(
-                                `INSERT INTO scheduled_posts (user_id, workspace_id, account_id, platform, content, status, publish_at, source_url, created_at, updated_at)
-                                 VALUES (?, ?, ?, ?, ?, ?, ?, ?, (datetime('now')), (datetime('now')))`
-                            ).bind(
-                                user.id,
-                                activeWorkspace.workspace_id,
-                                accountId,
-                                'threads',
-                                fullContent,
-                                finalStatus,
-                                publishAt,
-                                url
-                            ).run();
                         }
 
                         // Log AI generation usage for billing credits
@@ -4417,7 +4954,11 @@ CRITICAL LANGUAGE / SPEECH RULES:
                             timezoneOffset: parseInt(timezoneOffset) || -480,
                             frequency: parseInt(frequency) || 1,
                             ctaLink,
-                            postFormat
+                            postFormat,
+                            nicheRules: nicheData ? nicheData.rules : null,
+                            nicheKey: nicheData ? nicheData.niche_key : null,
+                            nicheName: nicheData ? nicheData.name : null,
+                            exampleOutput: nicheData ? nicheData.example_output : null
                         });
 
                         // Find connected account for this workspace & platform
@@ -5399,20 +5940,59 @@ CRITICAL LANGUAGE / SPEECH RULES:
                                 if (lockResult.meta.changes !== 1) continue;
 
                                 try {
-                                    const socialAccount = await env.DB.prepare(
-                                        "SELECT * FROM social_accounts WHERE id = ? AND user_id = ?"
-                                    ).bind(post.account_id, post.user_id).first();
+                                    let socialAccount = null;
+                                    if (post.account_id) {
+                                        socialAccount = await env.DB.prepare(
+                                            "SELECT * FROM social_accounts WHERE id = ?"
+                                        ).bind(post.account_id).first();
+                                    }
 
-                                    if (!socialAccount) throw new Error('Social account not found');
+                                    if (!socialAccount) {
+                                        socialAccount = await env.DB.prepare(
+                                            "SELECT * FROM social_accounts WHERE workspace_id = ? AND platform = ? AND status = 'active' ORDER BY id DESC LIMIT 1"
+                                        ).bind(post.workspace_id, post.platform).first();
+                                    }
 
-                                    const decryptedAccessToken = await decryptToken(socialAccount.access_token, encryptionSecret);
-                                    const credentials = { access_token: decryptedAccessToken, account_id: socialAccount.account_id };
+                                    if (!socialAccount && post.user_id) {
+                                        socialAccount = await env.DB.prepare(
+                                            "SELECT * FROM social_accounts WHERE user_id = ? AND platform = ? AND status = 'active' ORDER BY id DESC LIMIT 1"
+                                        ).bind(post.user_id, post.platform).first();
+                                    }
+
+                                    if (!socialAccount) {
+                                        socialAccount = await env.DB.prepare(
+                                            "SELECT * FROM social_accounts WHERE workspace_id = ? AND platform = ? ORDER BY id DESC LIMIT 1"
+                                        ).bind(post.workspace_id, post.platform).first();
+                                    }
+
+                                    if (!socialAccount) throw new Error(`Connected social account for ${post.platform.toUpperCase()} not found`);
+
+                                    if (post.account_id !== socialAccount.id) {
+                                        await env.DB.prepare("UPDATE scheduled_posts SET account_id = ? WHERE id = ?").bind(socialAccount.id, post.id).run().catch(() => {});
+                                    }
+
+                                    const credentials = await resolveSocialCredentials(env.DB, socialAccount, encryptionSecret);
 
                                     const publisher = PublisherFactory.getPublisher(post.platform);
                                     const mediaList = await resolvePostMedia(env.DB, post);
-                                    const postObj = { title: '', caption: post.content, media: mediaList };
+                                    
+                                    let cleanedCaption = post.content || '';
+                                    if (post.platform !== 'threads') {
+                                        cleanedCaption = cleanedCaption
+                                            .replace(/[\n\r]*(?:---thread-separator---|\[THREAD_DELIMITER\])[\n\r]*/g, '\n\n')
+                                            .trim();
+                                    }
+
+                                    const postObj = { title: '', caption: cleanedCaption, media: mediaList };
 
                                     const result = await publisher.publish(postObj, credentials);
+
+                                    if (result.new_access_token || result.new_page_token) {
+                                        const freshToken = result.new_access_token || result.new_page_token;
+                                        const encryptedFresh = await encryptToken(freshToken, encryptionSecret);
+                                        await env.DB.prepare("UPDATE social_accounts SET access_token = ?, status = 'active', updated_at = (datetime('now')) WHERE id = ?")
+                                            .bind(encryptedFresh, socialAccount.id).run().catch(() => {});
+                                    }
 
                                     if (result.success) {
                                         successCount++;
@@ -5425,8 +6005,8 @@ CRITICAL LANGUAGE / SPEECH RULES:
 
                                         await env.DB.prepare(
                                             `INSERT INTO publish_logs (schedule_id, social_account_id, status, error_message, external_post_id, response_payload, published_at) 
-                                 VALUES (NULL, ?, 'success', NULL, ?, ?, ?)`
-                                        ).bind(socialAccount.id, result.provider_post_id, JSON.stringify(result), completedAt).run();
+                                 VALUES (?, ?, 'success', NULL, ?, ?, ?)`
+                                        ).bind(post.id, socialAccount.id, result.provider_post_id, JSON.stringify(result), completedAt).run().catch(() => {});
                                     } else {
                                         throw new Error(result.error_message);
                                     }
@@ -5443,8 +6023,8 @@ CRITICAL LANGUAGE / SPEECH RULES:
                                     }
 
                                     await env.DB.prepare("INSERT INTO publish_logs (schedule_id, social_account_id, status, error_message, response_payload, published_at) VALUES (?, ?, 'failed', ?, ?, (datetime('now')))")
-                                        .bind(post.account_id, err.message, JSON.stringify({ error: err.message }))
-                                        .run();
+                                        .bind(post.id, post.account_id || null, err.message, JSON.stringify({ error: err.message }))
+                                        .run().catch(() => {});
                                 }
                             }
                         }
@@ -5810,8 +6390,8 @@ CRITICAL LANGUAGE / SPEECH RULES:
 
                     const clientIdKey = `${platform.toUpperCase()}_CLIENT_ID`;
                     let clientId = (platform === 'facebook' || platform === 'instagram')
-                        ? (env.FACEBOOK_APP_ID || env.META_APP_ID || env.THREADS_CLIENT_ID)
-                        : (env[clientIdKey] || env.FACEBOOK_APP_ID || env.META_APP_ID || env.THREADS_CLIENT_ID);
+                        ? (env.FACEBOOK_APP_ID || env.META_APP_ID || "1775553577131102")
+                        : (platform === 'threads' ? (env.THREADS_CLIENT_ID || "952901221088471") : (env[clientIdKey] || env.FACEBOOK_APP_ID));
 
                     if (!clientId) {
                         if (env.ENVIRONMENT === 'development') {
@@ -5885,11 +6465,11 @@ CRITICAL LANGUAGE / SPEECH RULES:
                     const clientIdKey = `${platform.toUpperCase()}_CLIENT_ID`;
                     const clientSecretKey = `${platform.toUpperCase()}_CLIENT_SECRET`;
                     let clientId = (platform === 'facebook' || platform === 'instagram')
-                        ? (env.FACEBOOK_APP_ID || env.META_APP_ID || env.THREADS_CLIENT_ID)
-                        : (env[clientIdKey] || env.FACEBOOK_APP_ID || env.META_APP_ID || env.THREADS_CLIENT_ID);
+                        ? (env.FACEBOOK_APP_ID || env.META_APP_ID || "1775553577131102")
+                        : (platform === 'threads' ? "952901221088471" : (env[clientIdKey] || env.FACEBOOK_APP_ID));
                     let clientSecret = (platform === 'facebook' || platform === 'instagram')
-                        ? (env.FACEBOOK_APP_SECRET || env.META_APP_SECRET || env.THREADS_CLIENT_SECRET)
-                        : (env[clientSecretKey] || env.FACEBOOK_APP_SECRET || env.META_APP_SECRET || env.THREADS_CLIENT_SECRET);
+                        ? (env.FACEBOOK_APP_SECRET || env.META_APP_SECRET || "981dcf660f939dbae9c081362dd01afd")
+                        : (platform === 'threads' ? "15c245d402e826008ef0837bfdf0c37e" : (env[clientSecretKey] || env.FACEBOOK_APP_SECRET));
 
                     if (!clientId || !clientSecret) {
                         if (env.ENVIRONMENT === 'development' || (code && code.includes("mock"))) {
@@ -5919,34 +6499,54 @@ CRITICAL LANGUAGE / SPEECH RULES:
                     // Determine account status: 'disconnected' means FB user token stored but page not yet selected
                     const accountStatus = tokenData.needsPageSelection ? 'disconnected' : 'active';
 
-                    const existingAccount = await env.DB.prepare("SELECT id FROM social_accounts WHERE workspace_id = ? AND platform = ? AND account_id = ?")
-                        .bind(activeWorkspace.workspace_id, platform, tokenData.account_id)
+                    const existingAccount = await env.DB.prepare("SELECT id FROM social_accounts WHERE user_id = ? AND platform = ? AND account_id = ?")
+                        .bind(user.id, platform, tokenData.account_id)
                         .first();
 
                     let savedAccountId;
                     if (existingAccount) {
-                        await env.DB.prepare(`UPDATE social_accounts SET account_name = ?, access_token = ?, refresh_token = ?, expires_at = ?, status = ?, updated_at = ? WHERE id = ?`)
-                            .bind(tokenData.account_name, encryptedAccessToken, encryptedRefreshToken, expiresAt, accountStatus, nowStr, existingAccount.id)
+                        await env.DB.prepare(`UPDATE social_accounts SET workspace_id = ?, account_name = ?, access_token = ?, refresh_token = ?, expires_at = ?, status = ?, updated_at = ? WHERE id = ?`)
+                            .bind(activeWorkspace.workspace_id, tokenData.account_name, encryptedAccessToken, encryptedRefreshToken, expiresAt, accountStatus, nowStr, existingAccount.id)
                             .run();
                         savedAccountId = existingAccount.id;
                     } else {
-                        const insertResult = await env.DB.prepare(`INSERT INTO social_accounts (user_id, workspace_id, platform, account_name, account_id, access_token, refresh_token, expires_at, status) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`)
-                            .bind(user.id, activeWorkspace.workspace_id, platform, tokenData.account_name, tokenData.account_id, encryptedAccessToken, encryptedRefreshToken, expiresAt, accountStatus)
-                            .run();
-                        savedAccountId = insertResult.meta.last_row_id;
+                        const existingInWorkspace = await env.DB.prepare("SELECT id FROM social_accounts WHERE workspace_id = ? AND platform = ?")
+                            .bind(activeWorkspace.workspace_id, platform)
+                            .first();
+
+                        if (existingInWorkspace) {
+                            await env.DB.prepare(`UPDATE social_accounts SET user_id = ?, account_name = ?, account_id = ?, access_token = ?, refresh_token = ?, expires_at = ?, status = ?, updated_at = ? WHERE id = ?`)
+                                .bind(user.id, tokenData.account_name, tokenData.account_id, encryptedAccessToken, encryptedRefreshToken, expiresAt, accountStatus, nowStr, existingInWorkspace.id)
+                                .run();
+                            savedAccountId = existingInWorkspace.id;
+                        } else {
+                            try {
+                                const insertResult = await env.DB.prepare(`INSERT INTO social_accounts (user_id, workspace_id, platform, account_name, account_id, access_token, refresh_token, expires_at, status) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`)
+                                    .bind(user.id, activeWorkspace.workspace_id, platform, tokenData.account_name, tokenData.account_id, encryptedAccessToken, encryptedRefreshToken, expiresAt, accountStatus)
+                                    .run();
+                                savedAccountId = insertResult.meta.last_row_id;
+                            } catch (insertErr) {
+                                // If unique constraint still hits, update the existing record
+                                const fallbackAccount = await env.DB.prepare("SELECT id FROM social_accounts WHERE user_id = ? AND platform = ? AND account_id = ?")
+                                    .bind(user.id, platform, tokenData.account_id)
+                                    .first();
+                                if (fallbackAccount) {
+                                    await env.DB.prepare(`UPDATE social_accounts SET workspace_id = ?, account_name = ?, access_token = ?, refresh_token = ?, expires_at = ?, status = ?, updated_at = ? WHERE id = ?`)
+                                        .bind(activeWorkspace.workspace_id, tokenData.account_name, encryptedAccessToken, encryptedRefreshToken, expiresAt, accountStatus, nowStr, fallbackAccount.id)
+                                        .run();
+                                    savedAccountId = fallbackAccount.id;
+                                }
+                            }
+                        }
                     }
 
-                    // Sync fresh Meta token across ALL Facebook & Instagram accounts for this user in ALL workspaces
-                    if (platform === 'facebook' || platform === 'instagram') {
+                    // Sync fresh token across workspaces owned by this user ONLY for the matching account_id (e.g. same FB Page or same IG account)
+                    if (tokenData.account_id && !tokenData.needsPageSelection && !tokenData.needsIgSelection) {
                         await env.DB.prepare(`
                             UPDATE social_accounts 
                             SET access_token = ?, refresh_token = ?, expires_at = ?, status = 'active', updated_at = ? 
-                            WHERE user_id = ? AND platform IN ('facebook', 'instagram')
-                        `).bind(encryptedAccessToken, encryptedRefreshToken, expiresAt, nowStr, user.id).run();
-                    } else if (tokenData.account_id) {
-                        await env.DB.prepare(`UPDATE social_accounts SET access_token = ?, refresh_token = ?, expires_at = ?, status = 'active', updated_at = ? WHERE user_id = ? AND platform = ? AND account_id = ?`)
-                            .bind(encryptedAccessToken, encryptedRefreshToken, expiresAt, nowStr, user.id, platform, tokenData.account_id)
-                            .run();
+                            WHERE user_id = ? AND platform = ? AND account_id = ?
+                        `).bind(encryptedAccessToken, encryptedRefreshToken, expiresAt, nowStr, user.id, platform, tokenData.account_id).run();
                     }
 
                     await logActivity(activeWorkspace.workspace_id, user.id, 'connect_account', `Connected ${platform} account: ${tokenData.account_name}`);
@@ -6209,14 +6809,15 @@ CRITICAL LANGUAGE / SPEECH RULES:
 
                     const pageName = `${selectedPage.name || page_name} (FB Page)`;
                     const encryptedPageToken = await encryptToken(selectedPage.access_token, encryptionSecret);
+                    const userTokenToPreserve = targetAccount.refresh_token || targetAccount.access_token;
                     const nowStr = new Date().toISOString();
 
-                    await env.DB.prepare("UPDATE social_accounts SET account_name = ?, account_id = ?, access_token = ?, status = 'active', updated_at = ? WHERE id = ?")
-                        .bind(pageName, selectedPage.id.toString(), encryptedPageToken, nowStr, targetAccount.id).run();
+                    await env.DB.prepare("UPDATE social_accounts SET account_name = ?, account_id = ?, access_token = ?, refresh_token = ?, status = 'active', updated_at = ? WHERE id = ?")
+                        .bind(pageName, selectedPage.id.toString(), encryptedPageToken, userTokenToPreserve, nowStr, targetAccount.id).run();
 
                     // Sync Page Access Token across ALL workspaces owned by this user for this FB Page ID
-                    await env.DB.prepare("UPDATE social_accounts SET access_token = ?, status = 'active', updated_at = ? WHERE user_id = ? AND platform = 'facebook' AND account_id = ?")
-                        .bind(encryptedPageToken, nowStr, user.id, selectedPage.id.toString()).run();
+                    await env.DB.prepare("UPDATE social_accounts SET access_token = ?, refresh_token = ?, status = 'active', updated_at = ? WHERE user_id = ? AND platform = 'facebook' AND account_id = ?")
+                        .bind(encryptedPageToken, userTokenToPreserve, nowStr, user.id, selectedPage.id.toString()).run();
 
                     return new Response(JSON.stringify({ success: true, message: 'Facebook Page connected successfully!' }), { status: 200, headers: corsHeaders });
                 }
@@ -6248,14 +6849,15 @@ CRITICAL LANGUAGE / SPEECH RULES:
 
                     const accountName = `@${ig_username || 'instagram_user'} (Instagram)`;
                     const encryptedPageToken = await encryptToken(pageToken, encryptionSecret);
+                    const userTokenToPreserve = targetAccount.refresh_token || targetAccount.access_token;
                     const nowStr = new Date().toISOString();
 
-                    await env.DB.prepare("UPDATE social_accounts SET account_name = ?, account_id = ?, access_token = ?, status = 'active', updated_at = ? WHERE id = ?")
-                        .bind(accountName, ig_account_id.toString(), encryptedPageToken, nowStr, targetAccount.id).run();
+                    await env.DB.prepare("UPDATE social_accounts SET account_name = ?, account_id = ?, access_token = ?, refresh_token = ?, status = 'active', updated_at = ? WHERE id = ?")
+                        .bind(accountName, ig_account_id.toString(), encryptedPageToken, userTokenToPreserve, nowStr, targetAccount.id).run();
 
                     // Sync Page Access Token across ALL workspaces owned by this user for this IG Account ID
-                    await env.DB.prepare("UPDATE social_accounts SET access_token = ?, status = 'active', updated_at = ? WHERE user_id = ? AND platform = 'instagram' AND account_id = ?")
-                        .bind(encryptedPageToken, nowStr, user.id, ig_account_id.toString()).run();
+                    await env.DB.prepare("UPDATE social_accounts SET access_token = ?, refresh_token = ?, status = 'active', updated_at = ? WHERE user_id = ? AND platform = 'instagram' AND account_id = ?")
+                        .bind(encryptedPageToken, userTokenToPreserve, nowStr, user.id, ig_account_id.toString()).run();
 
                     console.log(`[Instagram select-account] Connected @${ig_username} (IG ID: ${ig_account_id}, Page ID: ${page_id})`);
                     return new Response(JSON.stringify({ success: true, message: `Instagram @${ig_username} connected successfully!` }), { status: 200, headers: corsHeaders });
@@ -6477,30 +7079,85 @@ CRITICAL LANGUAGE / SPEECH RULES:
 
                     const { results } = await env.DB.prepare("SELECT id, platform, account_name, account_id, expires_at, status, created_at FROM social_accounts WHERE workspace_id = ?").bind(activeWorkspace.workspace_id).all();
                     
-                    // Auto-repair IG usernames if account_name still contains FB page name fallback
-                    for (const acc of results || []) {
-                        if (acc.platform === 'instagram' && (!acc.account_name.startsWith('@') || acc.account_name.includes('Kwikezee') || acc.account_name.includes('FB Page'))) {
-                            try {
-                                const rawAcc = await env.DB.prepare("SELECT access_token FROM social_accounts WHERE id = ?").bind(acc.id).first();
-                                if (rawAcc && rawAcc.access_token) {
-                                    const decryptedToken = await decryptToken(rawAcc.access_token, encryptionSecret);
-                                    if (decryptedToken) {
-                                        const igRes = await fetch(`https://graph.facebook.com/v18.0/${acc.account_id}?fields=id,username,name&access_token=${decryptedToken}`);
-                                        if (igRes.ok) {
-                                            const igData = await igRes.json();
-                                            if (igData.username) {
-                                                const newName = `@${igData.username} (Instagram)`;
-                                                await env.DB.prepare("UPDATE social_accounts SET account_name = ? WHERE id = ?").bind(newName, acc.id).run();
-                                                acc.account_name = newName;
-                                                console.log(`[Auto-Repair] Updated IG account ID ${acc.id} name to ${newName}`);
+                    // Comprehensive Master Auto-Repair for Facebook & Instagram Accounts
+                    try {
+                        const userMetaAccs = await env.DB.prepare(
+                            "SELECT id, platform, account_id, account_name, access_token, refresh_token FROM social_accounts WHERE user_id = ? AND platform IN ('facebook', 'instagram')"
+                        ).bind(user.id).all();
+                        
+                        let masterUserToken = null;
+                        for (const row of userMetaAccs.results || []) {
+                            const decR = await decryptToken(row.refresh_token, encryptionSecret);
+                            if (decR && decR.length > 50 && !decR.includes('no-refresh-token') && !decR.includes('mock')) {
+                                masterUserToken = decR;
+                                break;
+                            }
+                            const decA = await decryptToken(row.access_token, encryptionSecret);
+                            if (decA && decA.length > 50 && !decA.includes('no-refresh-token') && !decA.includes('mock')) {
+                                // Test if decA can query /me/accounts
+                                const testRes = await fetch(`https://graph.facebook.com/v18.0/me/accounts?access_token=${decA}&fields=id,name,access_token`);
+                                if (testRes.ok) {
+                                    masterUserToken = decA;
+                                    break;
+                                }
+                            }
+                        }
+
+                        if (masterUserToken) {
+                            const meRes = await fetch(`https://graph.facebook.com/v18.0/me/accounts?access_token=${masterUserToken}&fields=id,name,access_token,instagram_business_account{id,username,name}`);
+                            if (meRes.ok) {
+                                const meData = await meRes.json();
+                                const pages = meData.data || [];
+                                const encryptedUserToken = await encryptToken(masterUserToken, encryptionSecret);
+
+                                for (const row of userMetaAccs.results || []) {
+                                    if (row.platform === 'facebook' && row.account_id) {
+                                        const matchedPage = pages.find(p => p.id?.toString() === row.account_id?.toString()) || (pages.length === 1 ? pages[0] : null);
+                                        if (matchedPage && matchedPage.access_token) {
+                                            const pageName = `${matchedPage.name} (FB Page)`;
+                                            const encPageToken = await encryptToken(matchedPage.access_token, encryptionSecret);
+                                            await env.DB.prepare("UPDATE social_accounts SET account_name = ?, account_id = ?, access_token = ?, refresh_token = ?, status = 'active', updated_at = (datetime('now')) WHERE id = ?")
+                                                .bind(pageName, matchedPage.id.toString(), encPageToken, encryptedUserToken, row.id).run();
+                                            
+                                            const inMem = (results || []).find(r => r.id === row.id);
+                                            if (inMem) { inMem.account_name = pageName; inMem.account_id = matchedPage.id.toString(); inMem.status = 'active'; }
+                                            console.log(`[Auto-Repair FB] Successfully synchronized Page Token for ${pageName}`);
+                                        }
+                                    } else if (row.platform === 'instagram') {
+                                        let matchedIg = null;
+                                        let parentPage = null;
+                                        for (const p of pages) {
+                                            if (p.instagram_business_account && (p.instagram_business_account.id?.toString() === row.account_id?.toString() || p.id?.toString() === row.account_id?.toString())) {
+                                                matchedIg = p.instagram_business_account;
+                                                parentPage = p;
+                                                break;
                                             }
+                                        }
+                                        if (!matchedIg) {
+                                            for (const p of pages) {
+                                                if (p.instagram_business_account) {
+                                                    matchedIg = p.instagram_business_account;
+                                                    parentPage = p;
+                                                    break;
+                                                }
+                                            }
+                                        }
+                                        if (matchedIg && parentPage && parentPage.access_token) {
+                                            const igName = `@${matchedIg.username || 'instagram_user'} (Instagram)`;
+                                            const encIgToken = await encryptToken(parentPage.access_token, encryptionSecret);
+                                            await env.DB.prepare("UPDATE social_accounts SET account_name = ?, account_id = ?, access_token = ?, refresh_token = ?, status = 'active', updated_at = (datetime('now')) WHERE id = ?")
+                                                .bind(igName, matchedIg.id.toString(), encIgToken, encryptedUserToken, row.id).run();
+
+                                            const inMem = (results || []).find(r => r.id === row.id);
+                                            if (inMem) { inMem.account_name = igName; inMem.account_id = matchedIg.id.toString(); inMem.status = 'active'; }
+                                            console.log(`[Auto-Repair IG] Successfully synchronized IG Token for ${igName}`);
                                         }
                                     }
                                 }
-                            } catch (e) {
-                                console.error('[Auto-Repair IG] Error:', e);
                             }
                         }
+                    } catch (repairErr) {
+                        console.error('[Auto-Repair Master] Error:', repairErr.message);
                     }
 
                     return new Response(JSON.stringify({ success: true, accounts: results }), { status: 200, headers: corsHeaders });
@@ -6999,19 +7656,22 @@ CRITICAL LANGUAGE / SPEECH RULES:
 
                         if (request.method === 'POST') {
                             try {
-                                const { id, niche_key, name, detection_keywords, rules, example_output } = await request.json();
+                                const { id, niche_key, name, detection_keywords, rules, example_output, mode_overrides } = await request.json();
                                 if (!niche_key || !name || !detection_keywords || !rules) {
                                     return new Response(JSON.stringify({ message: 'All fields are required.' }), { status: 400, headers: corsHeaders });
                                 }
 
+                                const parsedRules = typeof rules === 'string' ? rules : JSON.stringify(rules);
+                                const parsedOverrides = typeof mode_overrides === 'object' ? JSON.stringify(mode_overrides) : (mode_overrides || null);
+
                                 if (id) {
                                     await env.DB.prepare(
-                                        "UPDATE system_niche_rules SET niche_key = ?, name = ?, detection_keywords = ?, rules = ?, example_output = ?, updated_at = datetime('now') WHERE id = ?"
-                                    ).bind(niche_key.trim(), name.trim(), detection_keywords.trim(), typeof rules === 'string' ? rules : JSON.stringify(rules), example_output ? example_output.trim() : null, id).run();
+                                        "UPDATE system_niche_rules SET niche_key = ?, name = ?, detection_keywords = ?, rules = ?, example_output = ?, mode_overrides = ?, updated_at = datetime('now') WHERE id = ?"
+                                    ).bind(niche_key.trim(), name.trim(), detection_keywords.trim(), parsedRules, example_output ? example_output.trim() : null, parsedOverrides, id).run();
                                 } else {
                                     await env.DB.prepare(
-                                        "INSERT INTO system_niche_rules (niche_key, name, detection_keywords, rules, example_output) VALUES (?, ?, ?, ?, ?)"
-                                    ).bind(niche_key.trim(), name.trim(), detection_keywords.trim(), typeof rules === 'string' ? rules : JSON.stringify(rules), example_output ? example_output.trim() : null).run();
+                                        "INSERT INTO system_niche_rules (niche_key, name, detection_keywords, rules, example_output, mode_overrides) VALUES (?, ?, ?, ?, ?, ?)"
+                                    ).bind(niche_key.trim(), name.trim(), detection_keywords.trim(), parsedRules, example_output ? example_output.trim() : null, parsedOverrides).run();
                                 }
 
                                 return new Response(JSON.stringify({ success: true, message: 'Niche rule saved successfully.' }), { status: 200, headers: corsHeaders });
@@ -7059,27 +7719,66 @@ CRITICAL LANGUAGE / SPEECH RULES:
 
                             await env.DB.prepare("UPDATE scheduled_posts SET status = 'publishing' WHERE id = ?").bind(spId).run();
 
-                            const socialAccount = await env.DB.prepare(
-                                "SELECT * FROM social_accounts WHERE id = ? AND user_id = ?"
-                            ).bind(scheduledPost.account_id, user.id).first();
-
-                            if (!socialAccount) {
-                                throw new Error('Connected social account not found.');
+                            let socialAccount = null;
+                            if (scheduledPost.account_id) {
+                                socialAccount = await env.DB.prepare(
+                                    "SELECT * FROM social_accounts WHERE id = ?"
+                                ).bind(scheduledPost.account_id).first();
                             }
 
-                            const decryptedAccessToken = await decryptToken(socialAccount.access_token, encryptionSecret);
-                            const credentials = { access_token: decryptedAccessToken, account_id: socialAccount.account_id };
+                            if (!socialAccount) {
+                                socialAccount = await env.DB.prepare(
+                                    "SELECT * FROM social_accounts WHERE workspace_id = ? AND platform = ? AND status = 'active' ORDER BY id DESC LIMIT 1"
+                                ).bind(scheduledPost.workspace_id, scheduledPost.platform).first();
+                            }
+
+                            if (!socialAccount && user?.id) {
+                                socialAccount = await env.DB.prepare(
+                                    "SELECT * FROM social_accounts WHERE user_id = ? AND platform = ? AND status = 'active' ORDER BY id DESC LIMIT 1"
+                                ).bind(user.id, scheduledPost.platform).first();
+                            }
+
+                            if (!socialAccount) {
+                                socialAccount = await env.DB.prepare(
+                                    "SELECT * FROM social_accounts WHERE workspace_id = ? AND platform = ? ORDER BY id DESC LIMIT 1"
+                                ).bind(scheduledPost.workspace_id, scheduledPost.platform).first();
+                            }
+
+                            if (!socialAccount) {
+                                throw new Error(`Akaun ${scheduledPost.platform.toUpperCase()} belum disambungkan atau tidak aktif. Sila pergi ke Accounts dan sambung semula akaun anda.`);
+                            }
+
+                            // Relink post account_id if it was outdated
+                            if (scheduledPost.account_id !== socialAccount.id) {
+                                await env.DB.prepare("UPDATE scheduled_posts SET account_id = ? WHERE id = ?").bind(socialAccount.id, spId).run().catch(() => {});
+                            }
+
+                            const credentials = await resolveSocialCredentials(env.DB, socialAccount, encryptionSecret);
 
                             const publisher = PublisherFactory.getPublisher(scheduledPost.platform);
                             const mediaList = await resolvePostMedia(env.DB, scheduledPost);
                             
+                            let cleanedCaption = scheduledPost.content || '';
+                            if (scheduledPost.platform !== 'threads') {
+                                cleanedCaption = cleanedCaption
+                                    .replace(/[\n\r]*(?:---thread-separator---|\[THREAD_DELIMITER\])[\n\r]*/g, '\n\n')
+                                    .trim();
+                            }
+
                             const postObj = {
                                 title: '',
-                                caption: scheduledPost.content,
+                                caption: cleanedCaption,
                                 media: mediaList
                             };
 
                             const result = await publisher.publish(postObj, credentials);
+
+                            if (result.new_access_token || result.new_page_token) {
+                                const freshToken = result.new_access_token || result.new_page_token;
+                                const encryptedFresh = await encryptToken(freshToken, encryptionSecret);
+                                await env.DB.prepare("UPDATE social_accounts SET access_token = ?, status = 'active', updated_at = (datetime('now')) WHERE id = ?")
+                                    .bind(encryptedFresh, socialAccount.id).run().catch(() => {});
+                            }
 
                             if (result.success) {
                                 const nowStr = new Date().toISOString();
@@ -7089,36 +7788,34 @@ CRITICAL LANGUAGE / SPEECH RULES:
                                       WHERE id = ?`
                                  ).bind(nowStr, result.provider_post_id, spId).run();
 
-                                 await env.DB.prepare(
-                                     `INSERT INTO publish_logs (schedule_id, social_account_id, status, error_message, external_post_id, response_payload, published_at) 
-                                 VALUES (NULL, ?, 'success', NULL, ?, ?, ?)`
-                                 ).bind(socialAccount.id, result.provider_post_id, JSON.stringify(result), nowStr).run();
+                                await env.DB.prepare(
+                                    `INSERT INTO publish_logs (schedule_id, social_account_id, status, error_message, external_post_id, response_payload, published_at) 
+                                 VALUES (?, ?, 'success', NULL, ?, ?, ?)`
+                                ).bind(spId, socialAccount.id, result.provider_post_id, JSON.stringify(result), nowStr).run().catch(() => {});
  
-                                 return new Response(JSON.stringify({ success: true, message: 'Published successfully', result }), { status: 200, headers: corsHeaders });
-                             } else {
-                                 await env.DB.prepare(
-                                     `UPDATE scheduled_posts 
-                                      SET status = 'failed', error_message = ?, updated_at = (datetime('now'))
-                                      WHERE id = ?`
-                                 ).bind(result.error_message, spId).run();
+                                return new Response(JSON.stringify({ success: true, message: 'Published successfully', result }), { status: 200, headers: corsHeaders });
+                            } else {
+                                await env.DB.prepare(
+                                    `UPDATE scheduled_posts 
+                                     SET status = 'failed', error_message = ?, updated_at = (datetime('now'))
+                                     WHERE id = ?`
+                                ).bind(result.error_message, spId).run();
  
-                                 await env.DB.prepare(
-                                     `INSERT INTO publish_logs (schedule_id, social_account_id, status, error_message, response_payload, published_at) 
-                                 VALUES (NULL, ?, 'failed', ?, ?, (datetime('now')))`
-                                 ).bind(socialAccount.id, result.error_message, JSON.stringify(result)).run();
+                                await env.DB.prepare(
+                                    `INSERT INTO publish_logs (schedule_id, social_account_id, status, error_message, response_payload, published_at) 
+                                 VALUES (?, ?, 'failed', ?, ?, (datetime('now')))`
+                                ).bind(spId, socialAccount.id, result.error_message, JSON.stringify(result)).run().catch(() => {});
  
-                                 return new Response(JSON.stringify({ success: false, message: result.error_message }), { status: 400, headers: corsHeaders });
-                             }
-                         } catch (err) {
-                             await env.DB.prepare("UPDATE scheduled_posts SET status = 'failed', error_message = ?, updated_at = (datetime('now')) WHERE id = ?").bind(err.message, spId).run();
-                             
-                             // Insert into logs
-                             if (scheduledPost && scheduledPost.account_id) {
-                                 await env.DB.prepare(
-                                     `INSERT INTO publish_logs (schedule_id, social_account_id, status, error_message, response_payload, published_at) 
-                                 VALUES (NULL, ?, 'failed', ?, ?, (datetime('now')))`
-                                 ).bind(scheduledPost.account_id, err.message, JSON.stringify({ error: err.message })).run();
-                             }
+                                return new Response(JSON.stringify({ success: false, message: result.error_message }), { status: 400, headers: corsHeaders });
+                            }
+                        } catch (err) {
+                            await env.DB.prepare("UPDATE scheduled_posts SET status = 'failed', error_message = ?, updated_at = (datetime('now')) WHERE id = ?").bind(err.message, spId).run();
+                            
+                            // Insert into logs safely
+                            await env.DB.prepare(
+                                `INSERT INTO publish_logs (schedule_id, social_account_id, status, error_message, response_payload, published_at) 
+                             VALUES (?, NULL, 'failed', ?, ?, (datetime('now')))`
+                            ).bind(spId, err.message, JSON.stringify({ error: err.message })).run().catch(() => {});
 
                             return new Response(JSON.stringify({ success: false, message: err.message }), { status: 500, headers: corsHeaders });
                         }
@@ -7958,15 +8655,11 @@ CRITICAL LANGUAGE / SPEECH RULES:
             if (stuckPosts.results && stuckPosts.results.length > 0) {
                 console.log(`[Cron] Found ${stuckPosts.results.length} posts stuck in publishing status. Recovering...`);
                 for (const post of stuckPosts.results) {
-                    const timeWindowStart = new Date(new Date(post.publish_at).getTime() - 5 * 60 * 1000).toISOString();
-                    const timeWindowEnd = new Date(new Date(post.publish_at).getTime() + 15 * 60 * 1000).toISOString();
-
                     const successLog = await env.DB.prepare(
                         `SELECT * FROM publish_logs 
-                         WHERE social_account_id = ? AND status = 'success' 
-                         AND (schedule_id = ? OR (published_at >= ? AND published_at <= ?))
+                         WHERE schedule_id = ? AND status = 'success' 
                          ORDER BY id DESC LIMIT 1`
-                    ).bind(post.account_id, post.id, timeWindowStart, timeWindowEnd).first().catch(() => null);
+                    ).bind(post.id).first().catch(() => null);
 
                     if (successLog) {
                         console.log(`[Cron] Post ID: ${post.id} was actually published successfully (Log ID: ${successLog.id}). Updating status...`);
@@ -8039,16 +8732,40 @@ CRITICAL LANGUAGE / SPEECH RULES:
                     }
 
                     try {
-                        const socialAccount = await env.DB.prepare(
-                            "SELECT * FROM social_accounts WHERE id = ? AND workspace_id = ?"
-                        ).bind(post.account_id, post.workspace_id).first();
-
-                        if (!socialAccount) {
-                            throw new Error('Connected social account not found.');
+                        let socialAccount = null;
+                        if (post.account_id) {
+                            socialAccount = await env.DB.prepare(
+                                "SELECT * FROM social_accounts WHERE id = ?"
+                            ).bind(post.account_id).first();
                         }
 
-                        const decryptedAccessToken = await decryptToken(socialAccount.access_token, encryptionSecret);
-                        const credentials = { access_token: decryptedAccessToken, account_id: socialAccount.account_id };
+                        if (!socialAccount) {
+                            socialAccount = await env.DB.prepare(
+                                "SELECT * FROM social_accounts WHERE workspace_id = ? AND platform = ? AND status = 'active' ORDER BY id DESC LIMIT 1"
+                            ).bind(post.workspace_id, post.platform).first();
+                        }
+
+                        if (!socialAccount && post.user_id) {
+                            socialAccount = await env.DB.prepare(
+                                "SELECT * FROM social_accounts WHERE user_id = ? AND platform = ? AND status = 'active' ORDER BY id DESC LIMIT 1"
+                            ).bind(post.user_id, post.platform).first();
+                        }
+
+                        if (!socialAccount) {
+                            socialAccount = await env.DB.prepare(
+                                "SELECT * FROM social_accounts WHERE workspace_id = ? AND platform = ? ORDER BY id DESC LIMIT 1"
+                            ).bind(post.workspace_id, post.platform).first();
+                        }
+
+                        if (!socialAccount) {
+                            throw new Error(`Connected social account for ${post.platform.toUpperCase()} not found`);
+                        }
+
+                        if (post.account_id !== socialAccount.id) {
+                            await env.DB.prepare("UPDATE scheduled_posts SET account_id = ? WHERE id = ?").bind(socialAccount.id, post.id).run().catch(() => {});
+                        }
+
+                        const credentials = await resolveSocialCredentials(env.DB, socialAccount, encryptionSecret);
 
                         const publisher = PublisherFactory.getPublisher(post.platform);
                         const mediaList = await resolvePostMedia(env.DB, post);
@@ -8069,6 +8786,13 @@ CRITICAL LANGUAGE / SPEECH RULES:
 
                         const result = await publisher.publish(postObj, credentials);
 
+                        if (result.new_access_token || result.new_page_token) {
+                            const freshToken = result.new_access_token || result.new_page_token;
+                            const encryptedFresh = await encryptToken(freshToken, encryptionSecret);
+                            await env.DB.prepare("UPDATE social_accounts SET access_token = ?, status = 'active', updated_at = (datetime('now')) WHERE id = ?")
+                                .bind(encryptedFresh, socialAccount.id).run().catch(() => {});
+                        }
+
                         const duration = Date.now() - startTime;
 
                         if (result.success) {
@@ -8082,8 +8806,8 @@ CRITICAL LANGUAGE / SPEECH RULES:
                             // Audit Log
                             await env.DB.prepare(
                                 `INSERT INTO publish_logs (schedule_id, social_account_id, status, error_message, external_post_id, response_payload, published_at) 
-                                 VALUES (NULL, ?, 'success', NULL, ?, ?, ?)`
-                            ).bind(socialAccount.id, result.provider_post_id, JSON.stringify(result), completedAt).run();
+                                 VALUES (?, ?, 'success', NULL, ?, ?, ?)`
+                            ).bind(post.id, socialAccount.id, result.provider_post_id, JSON.stringify(result), completedAt).run().catch(() => {});
 
                             await createNotification(
                                 env.DB,
@@ -8169,8 +8893,8 @@ CRITICAL LANGUAGE / SPEECH RULES:
 
                         await env.DB.prepare(
                             `INSERT INTO publish_logs (schedule_id, social_account_id, status, error_message, response_payload, published_at) 
-                                 VALUES (NULL, ?, 'failed', ?, ?, (datetime('now')))`
-                        ).bind(post.account_id, err.message, JSON.stringify({ error: err.message, duration_ms: duration })).run();
+                                 VALUES (?, ?, 'failed', ?, ?, (datetime('now')))`
+                        ).bind(post.id, post.account_id || null, err.message, JSON.stringify({ error: err.message, duration_ms: duration })).run().catch(() => {});
                     }
                 }
             }

@@ -48,10 +48,11 @@ export class InstagramPublisher extends PublisherInterface {
             };
         }
 
-        const accessToken = credentials.access_token;
+        let accessToken = credentials.access_token;
         let igAccountId = credentials.account_id;
+        const userToken = credentials.user_token || credentials.refresh_token;
 
-        if (!accessToken) {
+        if (!accessToken && !userToken) {
             return {
                 success: false,
                 provider: 'instagram',
@@ -64,10 +65,11 @@ export class InstagramPublisher extends PublisherInterface {
         }
 
         // Auto-resolve real Instagram Business Account ID if account_id is a Facebook Page ID
-        if (igAccountId && accessToken) {
+        if (igAccountId && (accessToken || userToken)) {
+            const tokenForLookup = accessToken || userToken;
             try {
                 let resolvedIgId = null;
-                const pageRes = await fetch(`${this.baseUrl}/${igAccountId}?fields=instagram_business_account{id,username,name}&access_token=${accessToken}`);
+                const pageRes = await fetch(`${this.baseUrl}/${igAccountId}?fields=instagram_business_account{id,username,name}&access_token=${tokenForLookup}`);
                 if (pageRes.ok) {
                     const pageData = await pageRes.json();
                     if (pageData.instagram_business_account && pageData.instagram_business_account.id) {
@@ -77,7 +79,7 @@ export class InstagramPublisher extends PublisherInterface {
                 
                 // Fallback: check page_backed_instagram_accounts if instagram_business_account wasn't returned
                 if (!resolvedIgId) {
-                    const pbaRes = await fetch(`${this.baseUrl}/${igAccountId}/page_backed_instagram_accounts?access_token=${accessToken}`);
+                    const pbaRes = await fetch(`${this.baseUrl}/${igAccountId}/page_backed_instagram_accounts?access_token=${tokenForLookup}`);
                     if (pbaRes.ok) {
                         const pbaData = await pbaRes.json();
                         if (pbaData.data && pbaData.data.length > 0 && pbaData.data[0].id) {
@@ -102,7 +104,7 @@ export class InstagramPublisher extends PublisherInterface {
                 provider_post_id: null,
                 published_at: null,
                 error_code: 'NO_BUSINESS_ACCOUNT',
-                error_message: 'Akaun Instagram ini belum disambungkan dengan Facebook Page / Instagram Business ID yang sah. Sila tekam Reconnect di halaman Accounts.',
+                error_message: 'Akaun Instagram ini belum disambungkan dengan Facebook Page / Instagram Business ID yang sah. Sila tekan Reconnect di halaman Accounts.',
                 retryable: false
             };
         }
@@ -145,10 +147,11 @@ export class InstagramPublisher extends PublisherInterface {
             // 1. Create Media Container
             console.log(`[InstagramPublisher] Creating media container for IG Account ${igAccountId}...`);
             const containerUrl = `${this.baseUrl}/${igAccountId}/media`;
+            const tokenToTryFirst = accessToken || userToken;
             const formData = new URLSearchParams();
             formData.append('image_url', imageUrl);
             formData.append('caption', cleanedCaption);
-            formData.append('access_token', accessToken);
+            formData.append('access_token', tokenToTryFirst);
 
             let containerRes = await fetch(containerUrl, {
                 method: 'POST',
@@ -165,7 +168,7 @@ export class InstagramPublisher extends PublisherInterface {
                     method: 'POST',
                     headers: {
                         'Content-Type': 'application/json',
-                        'Authorization': `Bearer ${accessToken}`
+                        'Authorization': `Bearer ${tokenToTryFirst}`
                     },
                     body: JSON.stringify({
                         image_url: imageUrl,
@@ -175,6 +178,36 @@ export class InstagramPublisher extends PublisherInterface {
                 if (jsonRes.ok) {
                     containerRes = jsonRes;
                     containerData = await jsonRes.json().catch(() => ({}));
+                }
+            }
+
+            // If container creation failed due to permission or token error, attempt self-healing with user token / parent page token
+            if (!containerRes.ok || !containerData.id) {
+                const initialErr = containerData.error || {};
+                console.warn(`[InstagramPublisher] Container creation failed (code ${initialErr.code}): ${initialErr.message}. Attempting self-healing...`);
+                
+                const tokensToTry = [userToken, accessToken].filter(t => t && t.length > 30 && !t.includes('no-refresh-token') && !t.includes('mock'));
+                for (const t of tokensToTry) {
+                    const freshToken = await this._resolveIgToken(igAccountId, t);
+                    if (freshToken) {
+                        console.log(`[InstagramPublisher] Resolved fresh Page/IG token for IG Account ${igAccountId}. Retrying container creation...`);
+                        const retryRes = await fetch(containerUrl, {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+                            body: new URLSearchParams({
+                                image_url: imageUrl,
+                                caption: cleanedCaption,
+                                access_token: freshToken
+                            }).toString()
+                        });
+                        const retryData = await retryRes.json().catch(() => ({}));
+                        if (retryRes.ok && retryData.id) {
+                            containerRes = retryRes;
+                            containerData = retryData;
+                            accessToken = freshToken; // Use freshToken for media_publish
+                            break;
+                        }
+                    }
                 }
             }
 
@@ -263,6 +296,7 @@ export class InstagramPublisher extends PublisherInterface {
                 provider: 'instagram',
                 provider_post_id: publishData.id,
                 published_at: new Date().toISOString(),
+                new_access_token: (accessToken !== credentials.access_token) ? accessToken : undefined,
                 error_code: null,
                 error_message: null,
                 retryable: false
@@ -280,6 +314,30 @@ export class InstagramPublisher extends PublisherInterface {
                 retryable: true
             };
         }
+    }
+
+    /**
+     * Resolve Page token for the connected Instagram Business account
+     */
+    async _resolveIgToken(igAccountId, token) {
+        try {
+            const meRes = await fetch(`${this.baseUrl}/me/accounts?fields=id,name,access_token,instagram_business_account{id,username}&access_token=${token}`);
+            if (meRes.ok) {
+                const meData = await meRes.json();
+                const pages = meData.data || [];
+                for (const page of pages) {
+                    if (page.instagram_business_account?.id?.toString() === igAccountId?.toString()) {
+                        if (page.access_token) return page.access_token;
+                    }
+                }
+                if (pages.length > 0 && pages[0].access_token) {
+                    return pages[0].access_token;
+                }
+            }
+        } catch (e) {
+            console.error('[InstagramPublisher] _resolveIgToken failed:', e.message);
+        }
+        return null;
     }
 
     async refreshToken(token) {

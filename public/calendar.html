@@ -917,7 +917,6 @@
             try {
                 const res = await schedulerService.getScheduledPosts();
                 allSchedules = res.results || [];
-                applyFiltersAndRender();
             } catch (err) {
                 if (retries > 0) {
                     await new Promise(r => setTimeout(r, 1500));
@@ -925,7 +924,29 @@
                 }
                 console.error("Failed to load schedules:", err);
                 notificationService.error('Connection error loading scheduled queue.');
+                return;
             }
+            try {
+                applyFiltersAndRender();
+            } catch (renderErr) {
+                console.error("Render error (non-critical):", renderErr);
+            }
+        }
+
+        const platformIconMap = {
+            threads: './assets/icons/threads.png',
+            facebook: './assets/icons/facebook.png',
+            instagram: './assets/icons/instagram.png'
+        };
+
+        function getPlatformIconHtml(pStr) {
+            const pKey = (pStr || '').toLowerCase();
+            const imgSrc = platformIconMap[pKey];
+            if (imgSrc) {
+                return `<img src="${imgSrc}" alt="${pStr || ''}" style="width: 16px; height: 16px; object-fit: contain; vertical-align: middle; display: inline-block;" />`;
+            }
+            const fallbackEmojis = { tiktok: '🎵', twitter: '🐦', x: '🐦', linkedin: '💼', telegram: '✈️' };
+            return fallbackEmojis[pKey] || '📅';
         }
 
         async function loadAccountsDropdown() {
@@ -1141,8 +1162,8 @@
                     badge.dataset.id = item.id;
                     
                     const timeLabel = new Date(item.publish_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: false });
-                    badge.innerHTML = `<span>💬</span> <span>${timeLabel}</span> <span>${item.content.substring(0, 8)}...</span>`;
-                    
+                    const safeContent = item.content || '(Tiada Teks)';
+                    badge.innerHTML = `<span>💬</span> <span>${timeLabel}</span> <span>${safeContent.substring(0, 8)}...</span>`;                    
                     badge.addEventListener('dragstart', (e) => {
                         draggedId = item.id;
                         e.dataTransfer.setData('text/plain', item.id);
@@ -1235,7 +1256,8 @@
                     badge.draggable = true;
                     
                     const timeLabel = new Date(item.publish_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: false });
-                    badge.innerHTML = `<span>💬</span> <span>${timeLabel}</span> <span>${item.content.substring(0, 15)}...</span>`;
+                    const safeContent = item.content || '(Tiada Teks)';
+                    badge.innerHTML = `<span>💬</span> <span>${timeLabel}</span> <span>${safeContent.substring(0, 15)}...</span>`;
                     
                     badge.addEventListener('dragstart', () => { draggedId = item.id; });
                     badge.addEventListener('click', (e) => { e.stopPropagation(); openDetailsModal(item); });
@@ -1335,7 +1357,7 @@
                 if (hourPosts.length > 0) {
                     hourPosts.forEach(item => {
                         const card = document.createElement('div');
-                        card.className = `timeline-card status-${item.status}`;
+                        card.className = `timeline-card status-${item.status || 'draft'}`;
                         
                         let statusText = '';
                         switch (item.status) {
@@ -1361,24 +1383,9 @@
                                 statusText = '🔗 WAITING TRIGGER';
                                 break;
                             default:
-                                statusText = item.status.toUpperCase();
+                                statusText = (item.status || 'unknown').toUpperCase();
                         }
                             
-                        const platformIconMap = {
-                            threads: './assets/icons/threads.png',
-                            facebook: './assets/icons/facebook.png',
-                            instagram: './assets/icons/instagram.png'
-                        };
-                        const getPlatformIconHtml = (pStr) => {
-                            const pKey = (pStr || '').toLowerCase();
-                            const imgSrc = platformIconMap[pKey];
-                            if (imgSrc) {
-                                return `<img src="${imgSrc}" alt="${pStr}" style="width: 16px; height: 16px; object-fit: contain; vertical-align: middle; display: inline-block;" />`;
-                            }
-                            const fallbackEmojis = { tiktok: '🎵', twitter: '🐦', x: '🐦', linkedin: '💼', telegram: '✈️' };
-                            return fallbackEmojis[pKey] || '📅';
-                        };
-
                         const pIcon = getPlatformIconHtml(item.platform);
                         const pName = item.platform ? (item.platform.charAt(0).toUpperCase() + item.platform.slice(1)) : 'Social';
 

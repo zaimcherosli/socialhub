@@ -112,8 +112,12 @@ export const PublishingEngine = {
             return { success: false, error_message: errStr };
         }
 
-        // Decrypt access token in memory (never exposed in returns)
+        // Decrypt access token and refresh/user token in memory (never exposed in returns)
         const decryptedToken = await decryptToken(socialAccount.access_token, encryptionSecret);
+        let decryptedRefreshToken = null;
+        if (socialAccount.refresh_token) {
+            decryptedRefreshToken = await decryptToken(socialAccount.refresh_token, encryptionSecret);
+        }
 
         // 4. Load Strategy Pattern Provider
         let publisher;
@@ -132,6 +136,8 @@ export const PublishingEngine = {
         try {
             result = await publisher.publish(queueItem, { 
                 access_token: decryptedToken,
+                refresh_token: decryptedRefreshToken,
+                user_token: decryptedRefreshToken,
                 account_id: socialAccount.account_id
             });
         } catch (e) {
@@ -144,6 +150,13 @@ export const PublishingEngine = {
                 error_message: e.message,
                 retryable: true // Retryable on uncaught network crash
             };
+        }
+
+        if (result.new_access_token || result.new_page_token) {
+            const freshToken = result.new_access_token || result.new_page_token;
+            const encryptedFresh = await encryptToken(freshToken, encryptionSecret);
+            await db.prepare("UPDATE social_accounts SET access_token = ?, status = 'active', updated_at = (datetime('now')) WHERE id = ?")
+                .bind(encryptedFresh, socialAccount.id).run().catch(() => {});
         }
 
         const endTime = Date.now();

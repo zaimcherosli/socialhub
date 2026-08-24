@@ -50,7 +50,9 @@ export class AIProvider {
     }) {
         // Format formatting instructions & JSON structure
         let formatInstructions = "";
-        if (postFormat === 'deep_thread' || postFormat === 'thread') {
+        if (postFormat === 'mega_thread') {
+            formatInstructions = `- Format: Thread / Bebenang Panjang (MEGA STORY). You MUST generate a sequence of exactly 7 to 10 connected slides/posts. The "caption" key in the JSON output MUST be a JSON array of strings containing these 7 to 10 slides in order. Each individual slide/post string in the array must be under 280 characters and carry a suspenseful or engaging storytelling progression.`;
+        } else if (postFormat === 'deep_thread' || postFormat === 'thread') {
             formatInstructions = `- Format: Thread / Bebenang Berangkai (DEEP). You MUST generate a sequence of exactly 4 to 5 connected slides/posts. The "caption" key in the JSON output MUST be a JSON array of strings containing these 4 to 5 slides in order. Each individual slide/post string in the array must be under 300 characters.`;
         } else if (postFormat === 'short_thread') {
             formatInstructions = `- Format: Thread / Bebenang Ringkas (SHORT). You MUST generate a sequence of exactly 2 to 3 connected slides/posts (no more than 3). The "caption" key in the JSON output MUST be a JSON array of strings containing these 2 to 3 slides in order. Each individual slide/post string in the array must be under 300 characters.`;
@@ -59,7 +61,22 @@ export class AIProvider {
         }
 
         let jsonStructure = "";
-        if (postFormat === 'deep_thread' || postFormat === 'thread') {
+        if (postFormat === 'mega_thread') {
+            jsonStructure = `{
+  "caption": [
+    "Slide 1 hook under 280 characters",
+    "Slide 2 content under 280 characters",
+    "Slide 3 content under 280 characters",
+    "Slide 4 content under 280 characters",
+    "Slide 5 content under 280 characters",
+    "Slide 6 content under 280 characters",
+    "Slide 7 content under 280 characters",
+    "Slide 8 content under 280 characters"
+  ],
+  "cta": "write the call-to-action here",
+  "hashtags": ["hashtag1", "hashtag2", "hashtag3"]
+}`;
+        } else if (postFormat === 'deep_thread' || postFormat === 'thread') {
             jsonStructure = `{
   "caption": [
     "Slide 1 content under 300 characters",
@@ -91,7 +108,32 @@ export class AIProvider {
 
         // Humanizer Engine & Anti-AI Tropes Rules
         let toneSpecializationRules = "";
-        if (tone === 'Storyteller (Pengalaman Sebenar)' || tone === 'Storyteller') {
+        if (tone === 'Skeptikal / Ingat Scam Tapi Padu' || tone?.includes('Skeptikal') || tone?.includes('Scam')) {
+            toneSpecializationRules = `- SKEPTICAL / VIRAL TESTER MODE (FORMULA A - HIGHEST CONVERSION):
+  * Slide 1 Hook: Open with heavy skepticism and distrust (e.g., "Mula-mula aku ingat benda ni viral kosong je / gimmick semata-mata. Mana ada barang harga macam ni boleh berkesan...", "Sejujurnya aku rasa membazir gila beli benda ni mula-mula...").
+  * Story progression: Share why you hesitated, why you finally took a gamble (desperate / cheap promo), and the shocking turning point when it actually worked better than expected.
+  * Comment Magnet: Include a casual question in Slide 1/2 like "Korang kalau beli barang viral selalu terkena scam ke atau betul-betul menjadi?".
+  * Zero Hard-Sell: Never praise the product blindly. Sound like an honest consumer who was proven wrong.`;
+        } else if (tone === 'Confession / Masalah Malu & Tabu' || tone?.includes('Malu') || tone?.includes('Tabu') || tone?.includes('Confession')) {
+            toneSpecializationRules = `- TABOO / EMBARRASSING CONFESSION MODE (FORMULA B - VIRAL REACH & HIGH REPLIES):
+  * Slide 1 Hook: Open with an awkward, embarrassing, or relatable taboo moment (e.g., "Sumpah rasa nak sorok muka semalam bila kawan tumpang kereta. Boleh pulak benda tu keluar melintas depan mata...", "Malu gila bila orang tegur pasal masalah ni...").
+  * Story progression: Relatable struggle with bad smells, messy clutter, hidden pests, embarrassing hygiene/skin issues, or dirty spots. Describe the emotional relief after finding a discreet, cheap lifesaver.
+  * Comment Magnet: Prompt readers to relate (e.g., "Korang pernah tak kena situasi paling malu macam ni depan orang lain?").`;
+        } else if (tone === 'Kalaulah Tahu Dari Dulu / Jimat Duit' || tone?.includes('Kalaulah Tahu') || tone?.includes('Jimat Duit') || tone?.includes('Lifehack')) {
+            toneSpecializationRules = `- COSTLY MISTAKES VS SMART LIFEHACK (FORMULA C - HIGH SAVE RATE & VALUE):
+  * Slide 1 Hook: Open with regret over wasted money/time (e.g., "Kalaulah dari dulu aku tahu trik ni wujud, takde lah melayang beratus ringgit setiap bulan...", "Silap besar aku bayar mahal-mahal selama ni...").
+  * Story progression: Contrast the previous expensive/tedious method (expensive workshop, salon, professional cleaning, expensive branded items) with this easy DIY alternative that costs a fraction.
+  * Comment Magnet: Ask "Berapa banyak duit korang dah habis sebelum sedar benda tu boleh buat sendiri?".`;
+        } else if (tone === 'Bait Debat / Tanya Pendapat' || tone?.includes('Bait Debat') || tone?.includes('Pendapat') || tone?.includes('Debate')) {
+            toneSpecializationRules = `- DEBATE & OPINION BAIT MODE (FORMULA D - ALGORITHM COMMENT ACCELERATOR):
+  * Slide 1 Hook: Open with a polarizing daily dilemma or habits debate (e.g., "Korang jenis yang sanggup biar [masalah harian] atau jenis yang tak boleh tidur kalau tak settle kan benda ni? Sebab aku...", "Antara dua cara ni, mana satu yang korang rasa masuk akal?").
+  * Story progression: Present two opposing perspectives or habits, explain why most people struggle with the common method, then casually share what works best.
+  * Comment Magnet: Prompt comments with "Cer korang bagi pendapat kat komen, korang team mana satu?".`;
+        } else if (tone === 'Auto-Smart Viral Angle' || tone?.includes('Auto-Smart')) {
+            toneSpecializationRules = `- AUTO-SMART VIRAL ANGLE MODE (DYNAMIC HIGH CONVERSION):
+  * Analyze the product context: If it solves a hygiene/pest/car/embarrassing problem -> use Taboo/Confession angle. If it is a gadget/tool/skincare -> use Skeptical/Scam angle or Costly Mistakes angle. If it is lifestyle/organization/fashion -> use Debate/Opinion angle.
+  * Always ensure Slide 1 contains a strong human emotional hook and Slide 1/2 contains a comment magnet question.`;
+        } else if (tone === 'Storyteller (Pengalaman Sebenar)' || tone === 'Storyteller') {
             toneSpecializationRules = `- STORYTELLER MODE: Open directly with an authentic first-person story or recent personal discovery (e.g., "Dua hari lepas masa aku...", "Dulu aku pernah silap...", "Minggu lepas ada sorang kawan bagitahu..."). Share thoughts, hesitation, and the eventual realization like talking to a close friend.`;
         } else if (tone === 'Hot Take (Pecah Mitos / Contrarian)' || tone === 'Hot Take') {
             toneSpecializationRules = `- HOT TAKE / MYTH BUSTING MODE: Open with a bold, controversial, or myth-busting statement (e.g., "Ramai orang salah faham pasal...", "Stop buat benda ni kalau tak nak...", "Mitos paling besar yang ramai orang percaya..."). Explain why common wisdom fails with sharp logic.`;
@@ -116,7 +158,12 @@ CRITICAL HUMANIZER ENGINE & STRICT ANTI-AI RULES (MANDATORY TO SOUND 100% LIKE A
    - Use micro-paragraphs (1 to 2 lines per paragraph maximum with line breaks) for smooth, addicting mobile reading.
    - Never make all sentences equal length or write long walls of text.
 
-3. TONE & COPYWRITING ANGLE SPECIALIZATION:
+3. ZERO HARD-SELLING & COMMENT MAGNET STRATEGY:
+   - NEVER praise the product in Slide 1. Slide 1 MUST be 100% about the human emotion, conflict, taboo confession, or skepticism.
+   - In Slide 1 or Slide 2, always embed a natural question or debate prompt to stimulate comments from readers (Algorithm views are powered by replies!).
+   - Keep product mention subtle until the second half (80% story/problem, 20% solution).
+
+4. TONE & COPYWRITING ANGLE SPECIALIZATION:
    ${toneSpecializationRules}
 `;
 
@@ -140,71 +187,95 @@ Provide the output in a strict JSON format with the following keys. Return ONLY 
 ${jsonStructure}`;
             return prompt;
         }
-
-        // Select hook library based on niche — hartanah uses 20 property-specific REN POV hooks
+        // Select hook library based on niche — hartanah uses 20 property-specific evergreen REN POV hooks
         const hartanahHooks = [
-            { name: 'REN Viewing & Inspection Reaction', pattern: 'Mulakan dari sudut pandang ejen REN yang baru selesai viewing — contoh: "Baru balik dari viewing satu unit kat [kawasan/area teaser]. Sumpah aku terkejut tengok condition & layout rumah ni, betul-betul tak expect deal macam ni..." Jangan sebut nama projek atau harga di Part 1.' },
-            { name: 'REN Rare Listing Find', pattern: 'Mulakan sebagai ejen REN yang teruja dapat listing eksklusif — contoh: "Aku baru je dapat 1 listing baru kat area [kawasan/area teaser] ni. Lain macam betul rumah dia, rugi sangat kalau korang tak tengok dulu..." Jangan sebut nama projek atau harga di Part 1.' },
-            { name: 'REN Banker & Loan Advisory', pattern: 'Mulakan sebagai ejen REN yang menguruskan loan client — contoh: "Semalam ada client jumpa aku pening kepala ingat loan tak lepas sebab ada PTPTN. Bila aku susun balik dokumen dengan banker partner aku, rupanya senang je lepas..." Jangan sebut nama projek di Part 1.' },
-            { name: 'Rent vs Own Reality Check', pattern: 'Mulakan sebagai ejen REN yang bagi kesedaran sewa vs beli — contoh: "Bila client aku bagitahu dia dah bayar sewa RM1,600 sebulan dekat 4 tahun, aku tunjuk kiraan mudah ni yang buat dia terus insaf nak beli rumah..." Jangan reveal harga di Part 1.' },
-            { name: 'Subsale vs Undercon Trade-off', pattern: 'Mulakan sebagai ejen REN yang memberi nasihat pemilihan hartanah — contoh: "Ramai pembeli rumah pertama minta nasihat aku: nak beli subsale ke undercon? Ini jawapan jujur yang aku selalu bagi mengikut simpanan cash korang..." Jangan reveal harga di Part 1.' },
-            { name: 'Hidden Red Flags & Inspection Warning', pattern: 'Mulakan sebagai ejen REN yang bagi amaran mesra sebelum booking — contoh: "Sebelum aku izinkan mana-mana client aku sign booking form untuk condo kat [kawasan/area teaser], ini 3 benda penting yang aku wajibkan diorang check dulu..." Jangan reveal nama projek di Part 1.' },
-            { name: 'Strategic Access & Transit Oriented', pattern: 'Mulakan sebagai ejen REN yang ketengahkan lokasi kerja — contoh: "Paling menyampah bila nak pergi kerja kena hadap jem sejam dua. Sebab tu bila aku tunjuk unit kat [kawasan/area teaser] ni yang jalan kaki je pergi MRT, client terus jatuh hati..." Jangan reveal nama projek di Part 1.' },
-            { name: 'Family Growth & Space Upgrade', pattern: 'Mulakan sebagai ejen REN yang bantu keluarga berpindah — contoh: "Anak dah 2 orang tapi still duduk apartment 2 bilik? Bila aku bawa pasangan ni tengok layout teres 4 bilik kat [kawasan/area teaser], terus rasa lapang & puas hati..." Jangan reveal harga di Part 1.' },
-            { name: 'Rental Yield & Positive Cashflow', pattern: 'Mulakan sebagai ejen REN yang kongsi potensi sewa pelabur — contoh: "Ramai tak perasan, ada satu spot kat [kawasan/area teaser] yang permintaan sewa dia sangat lebat. Aku baru dapat unit yang kadar sewa dia boleh cover installment..." Jangan reveal nama projek di Part 1.' },
-            { name: 'Fully Furnished Move-in Ready', pattern: 'Mulakan sebagai ejen REN yang kongsi rumah cuci kaki — contoh: "Daripada pening kepala fikir kos beli perabot & elektrik yang makin mahal, baik korang tengok unit kat [kawasan/area teaser] ni. Owner bagi semua sekali, tinggal bawa beg baju..." Jangan reveal harga di Part 1.' },
-            { name: 'Emergency Owner Cash Out', pattern: 'Mulakan sebagai ejen REN yang urus owner terdesak jual murah — contoh: "Owner unit kat [kawasan/area teaser] ni minta aku tolong cari buyer cepat sebab dia nak kena berpindah luar negara bulan depan. Memang terus potong harga bawah market value..." Jangan reveal nama projek di Part 1.' },
-            { name: 'Joint Applicant Loan Strategy', pattern: 'Mulakan sebagai ejen REN yang selesaikan kelayakan loan gabung — contoh: "Bila komitmen seorang tak lepas, aku selalu galakkan client gabung loan suami isteri. Macam sepasang client aku ni, terus lepas rumah teres RM450k tanpa pening..." Jangan reveal harga di Part 1.' },
-            { name: 'LPPSA & Government Package', pattern: 'Mulakan sebagai ejen REN khusus penjawat awam — contoh: "Cikgu-cikgu atau staf kerajaan yang tengah cari rumah guna LPPSA, korang wajib tengok projek kat [kawasan/area teaser] ni. Pakej dia mmg 0 deposit terus..." Jangan reveal nama projek di Part 1.' },
-            { name: 'Gated & Guarded Family Security', pattern: 'Mulakan sebagai ejen REN yang pentingkan keselamatan keluarga — contoh: "Bila ada anak kecil, safety memang nombor 1. Sebab tu aku recommend sangat unit kat [kawasan/area teaser] ni — gated guarded, guard rajin ronda..." Jangan reveal harga di Part 1.' },
-            { name: 'Low Density Exclusive Living', pattern: 'Mulakan sebagai ejen REN yang ketengahkan kualiti ketenangan — contoh: "Paling rimas kalau duduk condo tapi lif tiap-tiap pagi beratur panjang. Unit kat [kawasan/area teaser] ni low density gila, 1 floor ada 8 unit je..." Jangan reveal nama projek di Part 1.' },
-            { name: 'Dah Renovate & Extended Kitchen', pattern: 'Mulakan sebagai ejen REN yang periksa hasil reno owner — contoh: "Bila aku inspect rumah ni, dapur belakang owner dah siap extend habis & kabinet dapur dah ada. Buyer baru jimat sekurang-kurangnya RM40k kos reno..." Jangan reveal harga di Part 1.' },
-            { name: 'Shop Lot & Commercial Space', pattern: 'Mulakan sebagai ejen REN yang bantu pemilik bisnes — contoh: "Bagi yang tengah cari shop lot untuk cawangan bisnes baru kat area [kawasan/area teaser], ini antara spot ground floor paling tinggi foot traffic aku jumpa..." Jangan reveal nama projek di Part 1.' },
-            { name: 'Auction vs Subsale Truth', pattern: 'Mulakan sebagai ejen REN yang beri penerangan jujur rumah lelong — contoh: "Ramai ingat beli rumah lelong mesti untung banyak. Sebagai REN, ini realiti & kos tersembunyi yang aku selalu ingatkan client sebelum gi bida..." Jangan reveal harga di Part 1.' },
-            { name: 'Resort Style Facilities', pattern: 'Mulakan sebagai ejen REN yang ulas fasiliti gaya hidup — contoh: "Balik kerja penat-penat, dapat gym & berenang kat rooftop condo ni memang terasa hilang stress. Fasiliti dia setaraf hotel 5 bintang..." Jangan reveal nama projek di Part 1.' },
-            { name: 'Single Story & Elderly Friendly', pattern: 'Mulakan sebagai ejen REN yang bantu pembeli cari rumah setingkat — contoh: "Bila mak ayah dah tua, tangga ni memang jadi masalah besar. Unit teres setingkat kat [kawasan/area teaser] ni memang ideal gila untuk diorang duduk tenang-tenang..." Jangan reveal harga di Part 1.' }
+            { name: 'Commercial & Business Tapak Match', pattern: 'Mulakan dengan cadangan tapak bisnes/HQ — contoh: "Kalau korang tengah cari tapak bisnes, HQ atau branch baru kat [kawasan/area teaser], unit 3-tingkat corner lot ni antara spot paling berbaloi..." Jangan sebut harga di Part 1.' },
+            { name: 'Rare Listing & Specs Spotlight', pattern: 'Mulakan dengan keunikan specs unit — contoh: "Unit corner lot dengan built-up seluas ni memang jarang kosong lama kat area [kawasan/area teaser]..." Jangan reveal harga di Part 1.' },
+            { name: 'Rental Market & ROI Comparison', pattern: 'Mulakan dengan perbandingan kadar pasaran — contoh: "Kadar sewa commercial lot kat area [kawasan/area teaser] biasanya agak keras, tapi unit ni owner offer deal yang masuk akal gila..." Jangan reveal harga di Part 1.' },
+            { name: 'REN Advisory & Due Diligence', pattern: 'Mulakan sebagai ejen REN yang bagi tips tapak — contoh: "Antara benda pertama aku check bila client nak sewa commercial lot kat [kawasan/area teaser] adalah parking & visibility dari jalan utama..." Jangan reveal nama projek di Part 1.' },
+            { name: 'Debate / Option Dilemma', pattern: 'Mulakan dengan soalan pilihan strategik — contoh: "Untuk bisnes korang, lebih untung sewa ground floor sahaja ke sewa satu blok 3 tingkat terus? Cer tengok kiraan untuk unit kat [kawasan/area teaser] ni..."' },
+            { name: 'High Foot Traffic & Visibility', pattern: 'Mulakan dengan faktor lokasi & visibility — contoh: "Signboard kalau pasang kat corner lot ni memang nampak dari jauh. Spot kat [kawasan/area teaser] ni memang tumpuan flow kereta..." Jangan reveal nama projek di Part 1.' },
+            { name: 'Move-in Condition & Reno Savings', pattern: 'Mulakan dengan penjimatan kos reno — contoh: "Daripada sewa unit bare yang kena modal puluhan ribu nak setup, unit kat [kawasan/area teaser] ni dah siap kemas, terus jimat kos permulaan bisnes..."' },
+            { name: 'REN Banker & Loan Advisory', pattern: 'Mulakan sebagai ejen REN yang menguruskan kelayakan — contoh: "Ramai ingat nak beli/sewa unit commercial susah nak lepas dokumen. Bila susun elok-elok ikut profile syarikat, proses dia smooth je..."' },
+            { name: 'Rent vs Own Reality Check', pattern: 'Mulakan dengan kesedaran kewangan hartanah — contoh: "Bila kira balik komitmen bulanan berbanding keluasan square feet yang korang dapat kat [kawasan/area teaser] ni, memang terasa beza value dia..."' },
+            { name: 'Subsale vs Undercon Trade-off', pattern: 'Mulakan sebagai ejen REN yang memberi nasihat pemilihan hartanah — contoh: "Antara soalan paling kerap client tanya aku: berbaloi ke ambil unit yang dah siap berbanding tunggu projek baru? Ini fakta sebenar..."' },
+            { name: 'Strategic Access & Highway Connectivity', pattern: 'Mulakan dengan akses logistik & jalan raya — contoh: "Lokasi yang direct access ke highway utama memang jimatkan masa team & customer korang. Macam unit kat [kawasan/area teaser] ni..."' },
+            { name: 'Family Growth & Space Upgrade', pattern: 'Mulakan dengan keperluan ruang yang lebih selesa — contoh: "Bila ruang dah mula sempit, memang sampai masa kena cari unit yang ada extra space & bilik yang lapang..."' },
+            { name: 'Rental Yield & Potential Cashflow', pattern: 'Mulakan dengan potensi pelaburan — contoh: "Permintaan sewa kat kawasan [kawasan/area teaser] ni memang konsisten tinggi sebab demand dari penduduk sekitar..."' },
+            { name: 'Emergency Owner Direct Offer', pattern: 'Mulakan dengan tawaran eksklusif dari owner — contoh: "Owner unit kat [kawasan/area teaser] ni memang buka peluang sewa/jual dengan rate yang sangat berpatutan untuk kemasukan segera..."' },
+            { name: 'LPPSA & First Home Scheme', pattern: 'Mulakan dengan pakej bantuan pembelian — contoh: "Bagi yang tengah survey rumah pertama guna pakej gov atau bank, ada beberapa unit kat [kawasan/area teaser] yang syarat kelayakan dia mesra pembeli..."' },
+            { name: 'Gated & Guarded Security', pattern: 'Mulakan dengan ciri keselamatan & ketenangan — contoh: "Persekitaran yang tersusun dan ada kawalan sekuriti 24 jam memang jadi keutamaan ramai sekarang ni..."' },
+            { name: 'Low Density & Exclusive Setting', pattern: 'Mulakan dengan privasi & keselesaan — contoh: "Kalau korang jenis yang tak suka kawasan terlalu sesak dan bising, persekitaran kat [kawasan/area teaser] ni memang tenang..."' },
+            { name: 'Dah Extend & Full Spec', pattern: 'Mulakan dengan ulasan ruang tambahan — contoh: "Layout unit ni memang praktikal sebab setiap sudut dimanfaatkan sepenuhnya tanpa perlu ubah suai besar..."' },
+            { name: 'Auction vs Subsale Guide', pattern: 'Mulakan dengan panduan hartanah jujur — contoh: "Sebelum decide nak lock mana-mana hartanah, pastikan korang dah semak 3 perkara asas ni dulu..."' },
+            { name: 'Curiosity Feature Teaser', pattern: 'Mulakan dengan teaser kelebihan tersembunyi — contoh: "Ada satu kelebihan besar pada unit kat [kawasan/area teaser] ni yang ramai orang terlepas pandang bila tengok dari luar..."' }
         ];
 
-        const genericHooks = [
-            { name: 'Kongsi Kesilapan', pattern: 'Mulakan Slide 1 dengan format "Jangan buat silap macam saya/aku dulu. [Terangkan kesilapan]. Hasilnya? [Apa berlaku]..."' },
-            { name: 'Cara Luar Biasa', pattern: 'Mulakan Slide 1 dengan format "Daripada [buat cara biasa/standard], cuba [cara luar biasa/alternatif] ni untuk [manfaat]..."' },
-            { name: 'Jawab Soalan', pattern: 'Mulakan Slide 1 dengan format "Ramai tanya aku pasal [topik/soalan]. Sebenarnya senang je, kalau nak [manfaat], ini yang perlu buat..."' },
-            { name: 'Tanya Soalan Gagal', pattern: 'Mulakan Slide 1 dengan format "Pernah tak cuba [dapatkan hasil] tapi gagal? Kenapa agaknya tu berlaku?..."' },
-            { name: 'Minta Pendapat (A/B)', pattern: 'Mulakan Slide 1 dengan format "Ada yang kata [cara A lebih baik], yang lain kata [cara B lebih bagus]. Apa pandangan korang?..."' },
-            { name: 'Testimoni / Bukti', pattern: 'Mulakan Slide 1 dengan format "Kalau [kumpulan orang/siapa] pun boleh [dapat hasil luar biasa] dengan [benda ni], korang pun mesti boleh!"' },
-            { name: 'Bongkar Rahsia', pattern: 'Mulakan Slide 1 dengan format "[Manfaat] sebenarnya tak susah pun kalau tahu rahsia ni. Ini apa yang aku buat..."' },
-            { name: 'Pengakuan Peribadi', pattern: 'Mulakan Slide 1 dengan format "Aku nak buat pengakuan sikit. Dulu aku fikir normal lah kalau [masalah], rupa-rupanya..."' },
-            { name: 'Realiti Pahit', pattern: 'Mulakan Slide 1 dengan format "Satu benda yang aku baru belajar: Kalau korang masih [buat kesilapan], sampai bila-bila pun takkan..."' },
-            { name: 'Pemerhatian Santai', pattern: 'Mulakan Slide 1 dengan format "Korang perasan tak, sejak kebelakangan ni susah sangat nak [manfaat]? Rupa-rupanya..."' },
-            { name: 'Curiosity Teaser', pattern: 'Mulakan Slide 1 dengan format "Sumpah aku menyesal lambat tahu pasal benda ni. Kalau la dari awal aku start..."' },
-            { name: 'Sebelum & Selepas (Before & After)', pattern: 'Mulakan Slide 1 dengan format "Korang kena tengok beza sebelum dan selepas aku guna/buat benda ni. Perubahan dia memang buat aku terkejut gila..."' },
-            { name: 'Pelaburan Berbaloi (Smart Investment)', pattern: 'Mulakan Slide 1 dengan format "Duit habis beli benda merepek? Ini satu benda paling berbaloi yang aku beli tahun ni. Guna tiap-tiap hari tanpa jemu..."' },
-            { name: 'Penyelamat Keadaan (Lifesaver Scenario)', pattern: 'Mulakan Slide 1 dengan format "Sesiapa yang selalu hadapi masalah [masalah], korang patut tahu pasal benda ni. Sumpah penyelamat keadaan betul..."' },
-            { name: 'Perbandingan Kos (Price-to-Value)', pattern: 'Mulakan Slide 1 dengan format "Daripada korang bazir beratus ringgit sebulan untuk [alternatif mahal], ada alternatif jauh lebih murah tapi kualiti/hasil dia sebiji sama..."' },
-            { name: 'Tips Produktiviti / Jimat Masa', pattern: 'Mulakan Slide 1 dengan format "Macam mana aku jimat masa 2 jam setiap hari daripada hadap benda ni? Rahsia dia rupanya simple sangat..."' },
-            { name: 'Trending / Viral Alert', pattern: 'Mulakan Slide 1 dengan format "Mula-mula aku ingat benda ni viral kosong je kat media sosial. Tapi lepas aku try sendiri, baru aku faham kenapa ramai orang obses sangat..."' },
-            { name: 'Rekomendasi Rakan Rapat', pattern: 'Mulakan Slide 1 dengan format "Jujur aku takkan recommend benda ni kalau aku sendiri tak nampak hasil dia. Tapi selepas sebulan konsisten, ini apa yang berlaku..."' },
-            { name: 'Sebab Utama / Mengapa', pattern: 'Mulakan Slide 1 dengan format "Ini 3 sebab utama kenapa ramai orang masih gagal untuk dapatkan [manfaat], walaupun dah guna macam-macam cara..."' },
-            { name: 'Peringatan Mesra / Wake-up Call', pattern: 'Mulakan Slide 1 dengan format "Stop buat benda ni kalau korang masih nak [manfaat]. Korang sebenarnya tengah bazir tenaga & masa je kalau tak ubah cara..."' }
+        const pembiayaanHooks = [
+            { name: 'Gaji vs Komitmen Bersih (Cashflow Reality)', pattern: 'Mulakan dengan realiti komitmen slip gaji — contoh: "Gaji atas kertas nampak RM5,000, tapi bila tolak komitmen 3 kad kredit & 2 personal loan, baki tunai bersih tinggal berapa ratus je..."' },
+            { name: 'Kelegaan Penyatuan Hutang (Debt Consolidation)', pattern: 'Mulakan dengan solusi jimat bayaran bulanan — contoh: "Ramai yang tak sedar, bila gabungkan beberapa hutang interest tinggi ke dalam satu skim pembiayaan bank/koperasi, bayaran bulanan boleh jimat sampai RM1,000+ sebulan..."' },
+            { name: 'CCRIS & CTOS Recovery Checklist', pattern: 'Mulakan dengan panduan skor kredit & tunggakan — contoh: "Bila rekod CCRIS mula sangkut sebab terlambat bayar kad kredit atau loan lama, ini langkah pertama yang wajib buat sebelum apply mana-mana fasiliti baru..."' },
+            { name: 'Kakitangan Kerajaan 60% DSR Overlap', pattern: 'Mulakan dengan situasi staf gov/badan berkanun — contoh: "Bagi kakitangan kerajaan yang potongan payslip dah dekat 60%, ada fasiliti koperasi khas yang boleh bantu overlap untuk rendahkan komitmen bulanan..."' },
+            { name: 'Beban Minimum Payment Kad Kredit', pattern: 'Mulakan dengan bahaya bayar minimum kad kredit — contoh: "Bayar minimum payment kad kredit setiap bulan sebenarnya ibarat bayar interest semata-mata tanpa kurangkan hutang pokok..."' },
+            { name: 'Semakan Kelayakan & DSR Percuma', pattern: 'Mulakan dengan tips semak kelayakan sebelum apply — contoh: "Sebelum submit permohonan ke mana-mana institusi, penting untuk kira Debt Service Ratio (DSR) dulu supaya profile tak kena reject..."' }
         ];
 
-        // Dynamic Hook Selection — Shuffle & randomly pick primary & candidate hooks per generation
+        // Dynamic Hook Selection
         const isPropertyContent = nicheKey === 'hartanah' || (product && /\b(condo|kondo|rumah|apartment|teres|sewa|jual|unit|landed|shop\s*lot|built-up|sqft|hartanah|listing|viewing)\b/i.test(product));
-        const baseHooksList = isPropertyContent ? hartanahHooks : genericHooks;
-        const shuffledHooks = [...baseHooksList].sort(() => 0.5 - Math.random());
-        const primaryHook = shuffledHooks[0];
-        const secondaryHooks = shuffledHooks.slice(1, 5);
+        const isPembiayaanContent = nicheKey === 'pembiayaan' || (product && /\b(pembiayaan|pinjaman|personal\s*loan|koperasi|overlap|penyatuan\s*hutang|debt\s*consolidation|ccris|ctos|dsr|slip\s*gaji|potongan\s*gaji|angkasa|kakitangan\s*awam|penjawat\s*awam)\b/i.test(product));
+        
+        let hooksInstructions = "";
+        if (isPropertyContent) {
+            const shuffledHooks = [...hartanahHooks].sort(() => 0.5 - Math.random());
+            const primaryHook = shuffledHooks[0];
+            const secondaryHooks = shuffledHooks.slice(1, 4);
 
-        const hooksInstructions = `FOKUS GAYA HOOK UTAMA KALI INI (DYNAMIC VARIATION):
-- ${primaryHook.name}: ${primaryHook.pattern}
-
-CADANGAN GAYA ALTERNATIF (Boleh pilih jika lebih sepadan dengan konteks):
+            hooksInstructions = `FOKUS PERSPEKTIF EJEN REN (DYNAMIC ADVISORY ROTATION):
+- Sudut Utama: ${primaryHook.name} — ${primaryHook.pattern}
+- Sudut Alternatif:
 ${secondaryHooks.map(h => `- ${h.name}: ${h.pattern}`).join('\n')}
 
-PERATURAN PELBAGAIAN HOOK (ANTI-REPETITION):
-1. JANGAN GUNA AYAT PEMBUKA KLISE ATAU BERULANG. Setiap kali anda menulis, pastikan ayat pembuka Slide 1/Part 1 mempunyai kelainan penuh dari segi emosi, ekspresi, dan struktur.
-2. JANGAN mulakan dengan frasa bosan seperti "Korang tahu tak...", "Adakah anda mencari...", "Secara jujurnya...", "Tahu tak korang...".
-3. Mulakan terus dengan kejutan, ekspresi realistik (e.g. "Sumpah aku terkejut...", "Dua minggu lepas aku perasan...", "Ramai silap bab ni..."), atau situasi sebenar ejen/pengguna.`;
+PERATURAN PELBAGAIAN HOOK (ANTI-REPETITION & TIME-AGNOSTIC):
+1. DILARANG SAMA SEKALI GUNA AYAT BERUNSUR MASA SEMPIT SEPERTI "Baru balik viewing...", "Baru lepas inspect...", "Tadi petang baru tengok unit...". Gunakan pembuka yang evergreen, profesional dan santai!
+2. JANGAN GUNA AYAT PEMBUKA KLISE ATAU BERULANG. Setiap post mesti ada gaya intro berbeza (ulas analisa tapak, perbandingan sewa, kemudahan, akses).
+3. JANGAN mulakan dengan frasa bosan seperti "Korang tahu tak...", "Adakah anda mencari...", "Secara jujurnya...", "Tahu tak korang...".`;
+        } else if (isPembiayaanContent) {
+            const shuffledHooks = [...pembiayaanHooks].sort(() => 0.5 - Math.random());
+            const primaryHook = shuffledHooks[0];
+            const secondaryHooks = shuffledHooks.slice(1, 4);
+
+            hooksInstructions = `FOKUS PERSPEKTIF KONSULTAN / ADVISOR PEMBIAYAAN (DYNAMIC LOAN ROTATION):
+- Sudut Utama: ${primaryHook.name} — ${primaryHook.pattern}
+- Sudut Alternatif:
+${secondaryHooks.map(h => `- ${h.name}: ${h.pattern}`).join('\n')}
+
+PERATURAN PELBAGAIAN HOOK (ANTI-REPETITION & TIME-AGNOSTIC):
+1. TULIS SEBAGAI PENASIHAT KEWANGAN SEBENAR: Suara empati, jujur, dan beretika. JANGAN guna nada scammer ("kelulusan 100% tanpa dokumen" - DILARANG).
+2. JANGAN GUNA AYAT PEMBUKA KLISE ATAU BERULANG. Setiap post mesti membawakan sudut berbeza (analisa payslip, tips CCRIS, perbandingan interest, kelegaan overlap).
+3. JANGAN mulakan dengan frasa bosan seperti "Korang tahu tak...", "Adakah anda mencari pinjaman...", "Tahu tak korang...".`;
+        } else {
+            hooksInstructions = `CRITICAL ORGANIC & DYNAMIC HOOK ENGINE (ZERO TEMPLATES & ZERO REPETITION):
+1. IN MEDIAS RES (TERUS MASUK KE BABAK SITUASI):
+   - Mula terus pada titik konflik, masalah harian, situasi terdesak, atau reaksi spontan terhadap masalah produk.
+   - DILARANG guna ayat mukadimah atau salam formal di Slide 1.
+   - Reka ayat pembuka yang 100% UNIK dan SPESIFIK untuk produk ini sahaja (bukan templat umum).
+2. SENARAI HITAM PEMBUKA AYAT KLISE (STRICTLY BANNED OPENING PATTERNS):
+   - DILARANG mulakan dengan: "Jangan buat silap macam aku dulu..."
+   - DILARANG mulakan dengan: "Sumpah aku menyesal lambat tahu..."
+   - DILARANG mulakan dengan: "Korang tahu tak..." / "Tahukah anda..." / "Tahu tak korang..."
+   - DILARANG mulakan dengan: "Pernah tak korang..." / "Siapa kat sini yang..."
+   - DILARANG mulakan dengan: "Aku nak buat pengakuan..." / "Pengakuan jujur..."
+   - DILARANG mulakan dengan: "Ramai orang salah faham..." / "Satu benda yang aku baru belajar..."
+   - DILARANG mulakan dengan: "Ada yang kata X, ada yang kata Y..."
+3. KEPELBAGAIAN GAYA & PANJANG AYAT PEMBUKA:
+   - Pelbagaikan gaya pembuka mengikut kesesuaian produk:
+     * Gaya Fragmen Pendek (2-4 patah perkataan): Contoh: "Sakit hati betul.", "Stress gila.", "Benda paling leceh."
+     * Gaya Situasi Spesifik: Masuk terus ke senario harian (contoh: "Bila tengah kalut nak keluar pagi...", "Setiap kali balik rumah tengok sinki...").
+     * Gaya Monolog Spontan: Cerita candid peribadi (contoh: "Tiga hari aku peram kotak ni atas meja sebab...", "Dulu ingat benda macam ni gimik kedai...").
+     * Gaya Kontras & Kelegaan: Perbezaan sebelum & selepas rasa (contoh: "Lega gila bila dah tak payah hadap...").
+4. TIME-AGNOSTIC & EVERGREEN:
+   - Elakkan kata masa sempit (contoh: "Tadi petang...", "Semalam pukul 3...") supaya post relevan bila-bila masa diterbitkan.`;
+        }
 
         let prompt = "";
 
@@ -226,10 +297,10 @@ ${nicheExampleOutput.trim()}
 
 Generate thread BARU mengikut gaya penulisan, tone, dan struktur umum dari contoh di atas, tetapi menggunakan maklumat produk/hartanah di bawah.
 PENTING:
-1. HOOK SELECTION (DYNAMIC ROTATION): Sila ikuti arahan gaya hook terpilih di bawah. Anda WAJIB memulakan ayat pertama di Slide 1 mengikut gaya hook yang ditetapkan untuk memastikan kelainan dan permulaan yang segar. JANGAN mulakan dengan ayat pembuka biasa/templat generic.
+1. ORGANIC HOOK GENERATION: Sila cipta ayat pembuka Slide 1 yang segar, spontan dan unik mengikut situasi produk di bawah. JANGAN tiru ayat pembuka dari contoh secara bulat-bulat, dan JANGAN gunakan templat klise AI.
 2. JENIS HARTANAH WAJIB TEPAT: Baca maklumat di bawah dengan teliti. Kenalpasti jenis hartanah yang sebenar (contoh: shop lot, apartment, rumah teres, bungalow, SoHo, pejabat) dan gunakan istilah YANG SAMA dalam copywriting. JANGAN tukar jenis hartanah (contoh: jangan ubah "shop lot" kepada "unit" atau "apartment"). Kalau ia shop lot, tulis pasal shop lot/kedai. Kalau ia rumah, tulis pasal rumah.
 3. Sekiranya maklumat di bawah adalah topik perbincangan, perkongsian tips, atau perbandingan umum (BUKAN listing spesifik bagi unit tertentu), JANGAN reka atau hallucinate butiran unit (seperti saiz sqft, bilangan bilik, status freehold/leasehold, fasiliti, atau harga). Sebaliknya, fokus sepenuhnya untuk membincangkan topik/tips tersebut menggunakan gaya bahasa dan tone dari contoh.
-4. ${nicheKey === 'hartanah' || isPropertyContent ? 'HARTANAH MYSTERY RULE: JANGAN sebut nama projek, nama pemaju, atau alamat penuh unit di dalam teks Part 1 dan Part 2. Gunakan teaser lokasi am (contoh: "kawasan Puchong", "area Cyberjaya") untuk membina curiosity sebelum reveal di bahagian akhir.' : 'PERATURAN MISTERI & CTR (CURIOSITY RULE): JANGAN sebut nama spesifik produk, nama jenama, atau model produk di dalam teks copywriting. Sebaliknya, gunakan nama am atau kata ganti misteri (seperti "benda ni", "gadget ni", "unit ni") untuk membina rasa ingin tahu (curiosity) pembaca.'}
+4. ${isPropertyContent ? 'HARTANAH MYSTERY RULE: JANGAN sebut nama projek, nama pemaju, atau alamat penuh unit di dalam teks Part 1 dan Part 2. Gunakan teaser lokasi am (contoh: "kawasan Puchong", "area Cyberjaya") untuk membina curiosity sebelum reveal di bahagian akhir.' : isPembiayaanContent ? 'PEMBIAYAAN ADVISORY RULE: Tulis sebagai Konsultan / Penasihat Pembiayaan yang sah & beretika. Gunakan istilah "skim pembiayaan ni", "pelan penyatuan hutang ni", "fasiliti koperasi ni". JANGAN gunakan istilah "benda ni" atau "gajet ni".' : 'PERATURAN MISTERI & CTR (CURIOSITY RULE): JANGAN sebut nama spesifik produk, nama jenama, atau model produk di dalam teks copywriting. Sebaliknya, gunakan nama am atau kata ganti misteri (seperti "benda ni", "gadget ni", "unit ni") untuk membina rasa ingin tahu (curiosity) pembaca.'}
 
 ${antiAiTropesPromptBlock}
 
@@ -249,19 +320,41 @@ ${product}
 6. CTA NATURAL & LOW-PRESSURE: Gunakan CTA santai tanpa paksaan (contoh: "Nak aku tolong semak kelayakan loan percuma? Drop 'INFO' kat komen", "WhatsApp aku kalau nak tengok video walkthrough unit ni").
 7. Hashtag relevan letak di part terakhir sahaja.
 
-[Vislo Dynamic Hook Engine - Hartanah]:
+[Hook Strategy - Hartanah]:
 ${hooksInstructions}`;
                 }
+            } else if (nicheKey === 'pembiayaan' || isPembiayaanContent) {
+                extraRules = `\n\nCRITICAL PEMBIAYAAN PERIBADI & FINANCIAL ADVISOR RULES (WAJIB IKUT):
+1. MANDATORI PERSPEKTIF KONSULTAN / ADVISOR KEWANGAN: Watak "Aku" / "Saya" WAJIB 100% bertindak sebagai Penasihat / Konsultan Pembiayaan Peribadi Bank & Koperasi yang berpengalaman, empati, dan telus. Anda BUKAN menjual barang e-commerce — DILARANG guna istilah "benda ni" atau "gajet ni". Gunakan istilah "skim pembiayaan ni", "pelan penyatuan hutang ni", "fasiliti koperasi ni", atau "servis semakan kelayakan".
+2. SENTUH MASALAH SEBENAR (REAL DEBT PAIN POINTS): Buka dengan senario kehidupan sebenar (contoh: gaji RM4k-RM5k tapi lepas tolak 3 kad kredit & personal loan tinggal RM400 cashflow, potongan payslip kerajaan dah cecah 60%, nama sangkut CCRIS/CTOS sebab jadi penjamin, pening bayar interest tinggi).
+3. MATEMATIK REALISTIK & PENYATUAN HUTANG (DEBT CONSOLIDATION): Tunjukkan kiraan realistik penjimatan cashflow bila satukan hutang (contoh: "Daripada bayar RM2,300 sebulan untuk 4 akaun pinjaman, satukan bawah 1 skim koperasi/bank dengan rate rendah — komitmen bulanan turun jadi RM1,100, jimat RM1,200 cashflow tunai setiap bulan").
+4. FAHAMI SEGMEN GOV VS SWASTA:
+   - Kakitangan Kerajaan / Badan Berkanun / GLC: Kelayakan potongan ANGKASA/Payslip 60%, fasiliti koperasi khas, overlap pinjaman lama, payout tinggi.
+   - Sektor Swasta: Kelayakan DSR bank, rekod CCRIS/CTOS, penyatuan kad kredit & personal loan bank.
+5. BERETIKA & BANGKITKAN KEPERCAYAAN (NO SCAM): DILARANG keras guna janji palsu (JANGAN tulis '100% lulus tanpa dokumen', 'duit masuk 1 jam', atau ayat macam Ah Long). Tekankan semakan kelayakan percuma, privasi data terjamin, dan proses 100% sah melalui institusi bank/koperasi.
+6. CTA LOW-PRESSURE & KONSULTASI: Akhiri dengan ajakan santai untuk semak kelayakan (contoh: "Boleh DM atau WhatsApp kami slip gaji untuk kami tolong semak kelayakan & kira DSR secara PERCUMA.").
+
+[Hook Strategy - Pembiayaan / Kewangan]:
+${hooksInstructions}
+`;
             } else if (nicheKey === 'affiliate' || tone?.toLowerCase().includes('malay') || language?.toLowerCase().includes('malay')) {
                 extraRules = `\n\nCRITICAL HIGH-CONVERSION AFFILIATE & MALAYSIAN COPYWRITING RULES:
 1. HIGH CONVERSION & SALES FOCUS (Bukan sekadar views): Jangan sekadar bina cerita kosong atau clickbait tanpa isi. Wajib berikan VALUE PROPOSITION dan SEBAB KUKUH kenapa pembaca patut beli/klik sekarang.
-2. EMPATHY & REAL SCENARIO HOOK: Mulakan dengan situasi/masalah sebenar kehidupan harian pembaca (contoh: "Kalau korang jenis yang selalu pening kepala bila X...", "Siapa kat sini yang benci bila...").
+2. EMPATHY & REAL SCENARIO HOOK: Mulakan dengan situasi/masalah sebenar kehidupan harian pembaca tanpa guna templat klise.
 3. PRACTICAL VALUE & RESULT: Terangkan secara spesifik BAGAIMANA produk menyelesaikan masalah tersebut (contoh: jimat 30 minit tiap pagi, jimat elektrik 40%, wayar tak bersepah, baju terus licin).
-4. BUYING INTENT PRIMING & SOCIAL PROOF: Tulis macam rekomendasi ikhlas dari kawan yang dah beli & pakai (contoh: "Mula-mula ingat gimmick je, bila sampai barang dia tebal & solid", "Korang check sendiri review kat kedai ni, seller siap bagi voucher shipping").
+4. BUYING INTENT PRIMING & NATURAL SOCIAL PROOF INTEGRATION:
+   - Tulis macam rekomendasi ikhlas dari kawan yang dah beli & pakai.
+   - JIKA TERDAPAT DATA STATISTIK PRODUK (seperti Rating ⭐ 4.8-4.9, Jumlah Ulasan 1k+, atau Jumlah Terjual 3k-10k+ unit dalam maklumat di bawah), SELITKAN fakta ini secara santai & bersahaja dalam copywriting untuk melonjakkan keyakinan pembaca (Social Proof).
+   - CONTOH CARA SELIT YANG SANGAT NATURAL (Bukan ayat robot korporat):
+     * "Tengok review dah dekat 1.2k orang beli rating 4.9 baru aku yakin nak try..."
+     * "Patutlah terjual sampai 3.5k unit, bila barang sampai memang solid..."
+     * "Mula-mula ingat biasa je, sekali tengok feedback pembeli lain ramai puji benda ni memang function..."
+     * "Kedai ni rating 4.9⭐ dengan ulasan beribu, seller pun pos laju gila..."
+   - DILARANG tulis macam iklan korporat kaku (seperti: "Produk ini mempunyai 3500 unit terjual"). Wajib tulis sebagai reaksi kagum/puas hati seorang pembeli.
 5. DYNAMIC LINK PLACEMENT: Link {{SHOPEE_LINK}} TIDAK TERHAD di slide/post terakhir sahaja. AI digalakkan meletakkan {{SHOPEE_LINK}} secara rawak & semula jadi di mana-mana bahagian thread mengikut konteks ayat — sama ada di Hook/Slide 1 (contoh: "sejak aku beli {{SHOPEE_LINK}} ni..."), di Slide Tengah (contoh: "bila aku pasang {{SHOPEE_LINK}} ni..."), atau di Slide Akhir/CTA (contoh: "nah link promo kalau nak ushar: {{SHOPEE_LINK}}"). Pelbagaikan kedudukannya secara dinamik bagi setiap posting.
 6. STRICTLY PROHIBIT SPAMMY HARD-SELL: JANGAN guna frasa kasar seperti "Beli sekarang!", "Dapatkan segera!" atau "Klik link bio!".
 
-[Vislo Dynamic Hook Engine - General]:
+[Organic Hook Strategy - Affiliate]:
 ${hooksInstructions}
 `;
             }
@@ -311,11 +404,11 @@ Write a highly engaging social media post based on these details:
 4. VALUE-DRIVEN HOOKS (Prevents scroll-by): Hook the user with words that promise value (e.g. "Tips...", "Cara...", "Rahsia...", "Jangan skip...", "Baca sampai habis...").
 5. PERSONAL & RELATABLE STORYTELLING (Builds Trust): Write from a first-person perspective using personal/authentic words (e.g. "Aku", "Jujur aku...", "Cerita dia...", "Pengalaman aku..."). Share as a helpful friend, not a seller.
 6. CURIOSITY GAP (Do NOT satisfy curiosity too early): Avoid describing the exact physical features, specifications, or appearance of the product (e.g., do NOT mention size, color, exact button placements, or specifications). Focus entirely on the PROBLEM solved or the RESULT/TRANSFORMATION (e.g., write "sejak guna benda ni, masalah bau hapak dalam tandas terus hilang" instead of describing a deodorizer spray). Let the reader click the link to see what the item actually looks like.
-7. BUYING INTENT PRIMING (Give a strong reason to buy/click): In your copywriting, build interest to purchase by mentioning trusted seller reviews, massive price drops, flash sales, or high unit sales (e.g. "Korang check sendiri review kat kedai ni, ramai kata berkesan...", "Nasib baik aku beli time tengah offer semalam...", "Aku amik dari seller ni sebab shipping terpaling laju...").
+7. BUYING INTENT PRIMING & NATURAL SOCIAL PROOF INTEGRATION: In your copywriting, build interest to purchase by casually mentioning verified buyer stats, seller ratings (⭐ 4.8/4.9), ulasan feedback, or high unit sales (e.g. "Korang check sendiri review kat kedai ni, rating 4.9⭐ beribu orang beli...", "Patutlah sampai 5k unit terjual, memang function gila...", "Nasib baik aku ushar feedback pembeli dulu, semua kata puas hati..."). Frame it as personal validation and genuine social proof, never as stiff corporate metrics.
 8. AVOID GENERIC MARKETING & CLICKBAIT KOSONG: Do not use empty clickbait phrases like "Korang kena tahu ni" if there is no real value right after. Do not start with generic bot phrases like "Mari mulakan...".
-9. HOOK SELECTION (WAJIB PILIH SATU GAYA): Untuk ayat pembuka Slide 1, sila pilih salah satu daripada gaya hook di dalam [Vislo Hook Secrets Library] di bawah yang paling sepadan dengan topik penulisan anda. Anda WAJIB memulakan ayat pertama di Slide 1 mengikut gaya hook yang dipilih untuk memastikan permulaan yang natural dan menarik. JANGAN gunakan perkataan pembuka standard seperti "Pernah tak" atau "Tahukah anda" melainkan dinyatakan dalam hook yang dipilih:
+9. HOOK DIVERSITY:
 ${hooksInstructions}
-10. CURIOSITY & MYSTERY RULE (No Product/Brand/Project Names): NEVER mention the exact product name, brand name, model name (e.g. 'Machenike G3 V2') directly in the copywriting text. Instead, refer to it using generic, curiosity-inducing terms (e.g., 'benda ni', 'gadget ni', 'kipas ni', 'apartment ni', 'unit ni', 'benda viral ni') to create mystery and drive clicks to the destination link.
+10. CURIOSITY & MYSTERY RULE (No Product/Brand/Project Names): NEVER mention the exact product name, brand name, model name (e.g. 'Machenike G3 V2') or specific project name directly in the copywriting text. Instead, refer to it using generic, curiosity-inducing terms (e.g., 'benda ni', 'gadget ni', 'kipas ni', 'apartment ni', 'unit ni', 'skim pembiayaan ni', 'pelan ni') to create mystery and drive clicks/engagement.
 `;
             } else {
                 prompt += `GUIDELINES:

@@ -3,8 +3,8 @@ export class AutopilotService {
         this.provider = provider;
     }
 
-    async generateAutopilotCampaign({ niche, targetAudience, platform, count, language, timezoneOffset, frequency, ctaLink, postFormat }) {
-        console.log(`[AutopilotService] Starting autopilot campaign generation for niche: "${niche}", count: ${count}, frequency: ${frequency}, format: ${postFormat}, ctaLink: ${ctaLink}`);
+    async generateAutopilotCampaign({ niche, targetAudience, platform, count, language, timezoneOffset, frequency, ctaLink, postFormat, nicheRules, nicheKey, nicheName, exampleOutput }) {
+        console.log(`[AutopilotService] Starting autopilot campaign generation for niche: "${niche}", count: ${count}, frequency: ${frequency}, format: ${postFormat}, ctaLink: ${ctaLink}, nicheKey: ${nicheKey}`);
 
         let formatInstructions = "";
         if (postFormat === 'short_thread') {
@@ -41,13 +41,35 @@ export class AutopilotService {
             langStyle = `written in natural Malaysian Manglish (a casual, trendy mix of Bahasa Melayu and English commonly used by modern Malaysians on Threads & social media, e.g. 'Seriously weh, I tak expect pun benda ni best giler', 'I thought benda ni biasa je, tapi bila try solid gak').`;
         }
 
+        // Determine niche-specific curiosity phrasing guidelines
+        let curiosityGuide = "NEVER mention the exact product name, brand name, model name, or specific residential project name directly in the caption text. Instead, refer to it using generic, curiosity-inducing terms (e.g. 'benda ni', 'gadget ni', 'kipas ni', 'apartment ni', 'unit ni', 'benda viral ni') to create mystery and engagement.";
+        
+        const isFinanceNiche = nicheKey === 'pembiayaan' || /\b(pembiayaan|pinjaman|personal\s*loan|koperasi|overlap|penyatuan\s*hutang|debt\s*consolidation|ccris|ctos|dsr|kewangan|advisor)\b/i.test(niche);
+        const isPropertyNiche = nicheKey === 'hartanah' || /\b(rumah|apartment|condo|kondo|hartanah|teres|sewa|jual|property)\b/i.test(niche);
+
+        if (isFinanceNiche) {
+            curiosityGuide = "STRICT FINANCIAL CONSULTANT TERMINOLOGY: This is a professional financial advisory / loan consultancy service. You are NOT selling an e-commerce item — NEVER use terms like 'benda ni' or 'gadget ni'. Refer to financial solutions as 'skim pembiayaan ni', 'pelan penyatuan hutang ni', 'fasiliti koperasi ni', 'pakej overlap ni', or 'servis semakan kelayakan'.";
+        } else if (isPropertyNiche) {
+            curiosityGuide = "STRICT REAL ESTATE TERMINOLOGY: Refer to listings using real estate terms like 'unit ni', 'apartment ni', 'rumah teres ni', 'kawasan ni'. Do not reveal the exact project name or developer name early on.";
+        }
+
+        let nicheRulesPromptBlock = "";
+        if (nicheRules && Array.isArray(nicheRules) && nicheRules.length > 0) {
+            nicheRulesPromptBlock = `\nCRITICAL SPECIALIZED NICHE RULES (${nicheName || nicheKey || 'Specialized Niche'}):\nYou MUST strictly adhere to these niche rules to sound authentic and industry-accurate:\n${nicheRules.map((r, i) => `${i + 1}. ${r}`).join('\n')}\n`;
+        }
+
+        let exampleGuide = "";
+        if (exampleOutput && exampleOutput.trim()) {
+            exampleGuide = `\nREFERENCE STYLE & STRUCTURE EXAMPLE (Use this style & tone as inspiration, but create original posts for the topic):\n---\n${exampleOutput.trim()}\n---\n`;
+        }
+
         // Custom prompt requesting a JSON array of posts
         const prompt = `You are a professional social media marketing expert and content planner.
 Generate a content calendar consisting of exactly ${count} distinct, high-converting social media posts for the following business niche and target audience:
 - Business Niche: ${niche}
 - Target Audience: ${targetAudience}
 - Target Platform: ${platform}
-
+${nicheRulesPromptBlock}${exampleGuide}
 Return the output strictly in a JSON array format. Do not return any explanation or other text.
 IMPORTANT: The JSON array MUST contain exactly ${count} objects using curly braces '{}' for each object (do NOT use square brackets '[]' for objects!).
 Example valid format:
@@ -79,7 +101,7 @@ CRITICAL HOOK & CONTENT DIVERSITY RULES (VERY IMPORTANT TO AVOID REPETITION):
    - Straightforward sharing/tips (e.g., "Ini cara paling mudah untuk...", "Sebenarnya tak susah pun nak...", "Khas untuk yang nak...")
    - Experiential stories (e.g., "Minggu lepas aku cuba...", "Lama juga aku cari solution untuk...")
 5. Make each post sound completely fresh, unique, and written at different times by a real person. Do NOT let them look templated or AI-generated.
-6. CURIOSITY & MYSTERY RULE (No exact product/brand names): NEVER mention the exact product name, brand name, model name, or specific residential project name directly in the caption text. Instead, refer to it using generic, curiosity-inducing terms (e.g. 'benda ni', 'gadget ni', 'kipas ni', 'apartment ni', 'unit ni', 'benda viral ni') to create mystery and engagement.
+6. CURIOSITY & MYSTERY RULE: ${curiosityGuide}
 7. PLATFORM-NEUTRAL RULE: Do NOT hardcode specific platform names like 'kat Threads', 'kat IG', or 'kat FB' inside the caption text, so that posts are suitable for cross-posting across Threads, Instagram, and Facebook naturally.
 8. ABSOLUTELY NO FAKE LINK PHRASES: If no URL link was provided, do NOT write phrases like 'ushar link ni', 'tengok link ni', or 'kat link ni'. Use direct engagement or DM calls to action instead.`;
 

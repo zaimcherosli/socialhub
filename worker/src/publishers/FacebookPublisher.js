@@ -7,8 +7,8 @@ import { PublisherInterface } from './PublisherInterface.js';
  *
  * Token Strategy:
  *   The stored token is expected to be a Page Access Token.
- *   We post directly to /{page_id}/feed using the stored token.
- *   No /me/accounts fallback — Page Access Tokens cannot fetch user page lists.
+ *   If a permission error (#200, #190, pages_manage_posts) occurs,
+ *   we automatically resolve the fresh Page Access Token from Graph API and retry!
  */
 export class FacebookPublisher extends PublisherInterface {
     constructor() {
@@ -30,16 +30,17 @@ export class FacebookPublisher extends PublisherInterface {
      * Publish a post directly to a Facebook Page using the stored Page Access Token.
      */
     async publish(post, credentials) {
-        const pageAccessToken = credentials.access_token;
+        let pageAccessToken = credentials.access_token;
         const pageId = credentials.account_id;
+        const userToken = credentials.user_token || credentials.refresh_token;
 
-        if (!pageAccessToken) {
+        if (!pageAccessToken && !userToken) {
             return {
                 success: false,
                 provider: 'facebook',
                 provider_post_id: null,
                 error_code: 'NO_TOKEN',
-                error_message: 'Facebook access token is missing. Please reconnect your Facebook Page.',
+                error_message: 'Facebook access token is missing. Please reconnect your Facebook Page in Accounts.',
                 retryable: false
             };
         }
@@ -50,7 +51,7 @@ export class FacebookPublisher extends PublisherInterface {
                 provider: 'facebook',
                 provider_post_id: null,
                 error_code: 'NO_PAGE_ID',
-                error_message: 'Facebook Page ID is missing. Please reconnect your Facebook Page account.',
+                error_message: 'Facebook Page ID is missing. Please reconnect your Facebook Page account in Accounts.',
                 retryable: false
             };
         }
@@ -60,7 +61,52 @@ export class FacebookPublisher extends PublisherInterface {
             .trim();
 
         try {
-            return await this._postToPage(pageId, message, pageAccessToken, post);
+            let result = null;
+            if (pageAccessToken) {
+                result = await this._postToPage(pageId, message, pageAccessToken, post);
+            }
+
+            // Self-Healing: If Facebook rejects due to permission / page token error (#200, #190, #10), auto-resolve fresh Page Access Token
+            if (!result || !result.success) {
+                const errCode = result?.error_code || '';
+                const errMsg = result?.error_message?.toLowerCase() || '';
+                const isPermissionOrTokenError = !result || 
+                    errCode === '200' || 
+                    errCode === '190' || 
+                    errCode === '10' ||
+                    errMsg.includes('permission') ||
+                    errMsg.includes('pages_manage_posts') ||
+                    errMsg.includes('does not have permission') ||
+                    errMsg.includes('expired');
+
+                if (isPermissionOrTokenError) {
+                    console.log(`[FacebookPublisher] Encountered permission/token error on Page ${pageId}. Resolving fresh Page Access Token...`);
+                    
+                    // Try resolving using user token first, then fallback to current token
+                    const tokensToTry = [userToken, pageAccessToken].filter(t => t && t.length > 30 && !t.includes('no-refresh-token') && !t.includes('mock'));
+                    
+                    for (const t of tokensToTry) {
+                        const freshPageToken = await this._resolvePageToken(pageId, t);
+                        if (freshPageToken && freshPageToken !== pageAccessToken) {
+                            console.log(`[FacebookPublisher] Successfully resolved fresh Page Token from Meta! Retrying publish...`);
+                            const retryResult = await this._postToPage(pageId, message, freshPageToken, post);
+                            if (retryResult.success) {
+                                retryResult.new_access_token = freshPageToken;
+                                return retryResult;
+                            }
+                        }
+                    }
+                }
+            }
+
+            return result || {
+                success: false,
+                provider: 'facebook',
+                provider_post_id: null,
+                error_code: 'PUBLISH_FAILED',
+                error_message: 'Failed to publish to Facebook Page',
+                retryable: false
+            };
         } catch (err) {
             return {
                 success: false,
@@ -71,6 +117,39 @@ export class FacebookPublisher extends PublisherInterface {
                 retryable: false
             };
         }
+    }
+
+    /**
+     * Helper to resolve the correct Page Access Token using direct page query or /me/accounts
+     */
+    async _resolvePageToken(pageId, token) {
+        if (!token) return null;
+        try {
+            // 1. /me/accounts fetch (Works with User Access Token)
+            const meRes = await fetch(`${this.baseUrl}/me/accounts?fields=id,name,access_token&access_token=${token}`);
+            if (meRes.ok) {
+                const meData = await meRes.json();
+                const pages = meData.data || [];
+                const matched = pages.find(p => p.id?.toString() === pageId?.toString());
+                if (matched && matched.access_token) {
+                    console.log(`[FacebookPublisher] Found Page Token via /me/accounts for Page ${matched.name} (${matched.id})`);
+                    return matched.access_token;
+                }
+            }
+
+            // 2. Direct page fetch
+            const directRes = await fetch(`${this.baseUrl}/${pageId}?fields=id,name,access_token&access_token=${token}`);
+            if (directRes.ok) {
+                const directData = await directRes.json();
+                if (directData.access_token) {
+                    console.log(`[FacebookPublisher] Found Page Token via direct page query for Page ID ${pageId}`);
+                    return directData.access_token;
+                }
+            }
+        } catch (e) {
+            console.error('[FacebookPublisher] _resolvePageToken failed:', e.message);
+        }
+        return null;
     }
 
     /**
@@ -153,3 +232,4 @@ export class FacebookPublisher extends PublisherInterface {
 }
 
 export default FacebookPublisher;
+

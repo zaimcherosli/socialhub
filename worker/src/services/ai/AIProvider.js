@@ -51,27 +51,27 @@ export class AIProvider {
         // Format formatting instructions & JSON structure
         let formatInstructions = "";
         if (postFormat === 'mega_thread') {
-            formatInstructions = `- Format: Thread / Bebenang Panjang (MEGA STORY). You MUST generate a sequence of exactly 7 to 10 connected slides/posts. The "caption" key in the JSON output MUST be a JSON array of strings containing these 7 to 10 slides in order. Each individual slide/post string in the array must be under 280 characters and carry a suspenseful or engaging storytelling progression.`;
+            formatInstructions = `- Format: Thread / Bebenang Panjang (MEGA STORY). You MUST generate a sequence of exactly 7 to 10 connected slides/posts. The "caption" key in the JSON output MUST be a JSON array of strings containing these 7 to 10 slides in order. Each individual slide/post string in the array must be around 350 to 450 characters (providing 3 to 4 rich, detailed sentences/lines while staying safely under the 500-character Threads limit) and carry a suspenseful or engaging storytelling progression.`;
         } else if (postFormat === 'deep_thread' || postFormat === 'thread') {
-            formatInstructions = `- Format: Thread / Bebenang Berangkai (DEEP). You MUST generate a sequence of exactly 4 to 5 connected slides/posts. The "caption" key in the JSON output MUST be a JSON array of strings containing these 4 to 5 slides in order. Each individual slide/post string in the array must be under 300 characters.`;
+            formatInstructions = `- Format: Thread / Bebenang Berangkai (DEEP). You MUST generate a sequence of exactly 4 to 5 connected slides/posts. The "caption" key in the JSON output MUST be a JSON array of strings containing these 4 to 5 slides in order. Each individual slide/post string in the array must be around 350 to 450 characters (providing 3 to 4 rich, detailed sentences/lines of explanation while staying safely under the 500-character Threads limit).`;
         } else if (postFormat === 'short_thread') {
-            formatInstructions = `- Format: Thread / Bebenang Ringkas (SHORT). You MUST generate a sequence of exactly 2 to 3 connected slides/posts (no more than 3). The "caption" key in the JSON output MUST be a JSON array of strings containing these 2 to 3 slides in order. Each individual slide/post string in the array must be under 300 characters.`;
+            formatInstructions = `- Format: Thread / Bebenang Ringkas (SHORT). You MUST generate a sequence of exactly 2 to 3 connected slides/posts (no more than 3). The "caption" key in the JSON output MUST be a JSON array of strings containing these 2 to 3 slides in order. Each individual slide/post string in the array must be around 350 to 450 characters (providing 3 to 4 rich, detailed sentences/lines of explanation while staying safely under the 500-character Threads limit).`;
         } else {
-            formatInstructions = `- Format: Single standalone post. The caption must be under 350 characters.`;
+            formatInstructions = `- Format: Single standalone post. The caption must be around 400 to 600 characters with rich, high-converting storytelling paragraphs.`;
         }
 
         let jsonStructure = "";
         if (postFormat === 'mega_thread') {
             jsonStructure = `{
   "caption": [
-    "Slide 1 hook under 280 characters",
-    "Slide 2 content under 280 characters",
-    "Slide 3 content under 280 characters",
-    "Slide 4 content under 280 characters",
-    "Slide 5 content under 280 characters",
-    "Slide 6 content under 280 characters",
-    "Slide 7 content under 280 characters",
-    "Slide 8 content under 280 characters"
+    "Slide 1 hook around 350-450 characters (3-4 sentences)",
+    "Slide 2 content around 350-450 characters (3-4 sentences)",
+    "Slide 3 content around 350-450 characters (3-4 sentences)",
+    "Slide 4 content around 350-450 characters (3-4 sentences)",
+    "Slide 5 content around 350-450 characters (3-4 sentences)",
+    "Slide 6 content around 350-450 characters (3-4 sentences)",
+    "Slide 7 content around 350-450 characters (3-4 sentences)",
+    "Slide 8 content around 350-450 characters (3-4 sentences)"
   ],
   "cta": "write the call-to-action here",
   "hashtags": ["hashtag1", "hashtag2", "hashtag3"]
@@ -79,11 +79,11 @@ export class AIProvider {
         } else if (postFormat === 'deep_thread' || postFormat === 'thread') {
             jsonStructure = `{
   "caption": [
-    "Slide 1 content under 300 characters",
-    "Slide 2 content under 300 characters",
-    "Slide 3 content under 300 characters",
-    "Slide 4 content under 300 characters",
-    "Slide 5 content under 300 characters"
+    "Slide 1 content around 350-450 characters (3-4 sentences)",
+    "Slide 2 content around 350-450 characters (3-4 sentences)",
+    "Slide 3 content around 350-450 characters (3-4 sentences)",
+    "Slide 4 content around 350-450 characters (3-4 sentences)",
+    "Slide 5 content around 350-450 characters (3-4 sentences)"
   ],
   "cta": "write the call-to-action here",
   "hashtags": ["hashtag1", "hashtag2", "hashtag3"]
@@ -91,16 +91,16 @@ export class AIProvider {
         } else if (postFormat === 'short_thread') {
             jsonStructure = `{
   "caption": [
-    "Slide 1 content under 300 characters",
-    "Slide 2 content under 300 characters",
-    "Slide 3 content under 300 characters"
+    "Slide 1 content around 350-450 characters (3-4 sentences)",
+    "Slide 2 content around 350-450 characters (3-4 sentences)",
+    "Slide 3 content around 350-450 characters (3-4 sentences)"
   ],
   "cta": "write the call-to-action here",
   "hashtags": ["hashtag1", "hashtag2", "hashtag3"]
 }`;
         } else {
             jsonStructure = `{
-  "caption": "write the main post caption here",
+  "caption": "write the main post caption here (around 400-600 characters with rich paragraphs)",
   "cta": "write the call-to-action here",
   "hashtags": ["hashtag1", "hashtag2", "hashtag3"]
 }`;

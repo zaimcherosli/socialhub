@@ -7,23 +7,27 @@ class ScheduledPostsTable extends HTMLElement {
     connectedCallback() {
         this.renderContainer();
         this.loadData();
+        this.initDragToScroll();
     }
 
     renderContainer() {
         this.innerHTML = `
-            <div class="card" style="width: 100%; padding: 0; overflow: hidden;">
+            <div class="card" style="width: 100%; padding: 0; overflow: hidden; position: relative;">
                 <div style="display: flex; justify-content: space-between; align-items: center; padding: 1.25rem 1.25rem 0.75rem 1.25rem;">
-                    <h3 class="card-title" style="margin: 0; font-size: 1rem; font-weight: 600;">Scheduled Publications</h3>
+                    <div style="display: flex; align-items: center; gap: 0.5rem;">
+                        <h3 class="card-title" style="margin: 0; font-size: 1rem; font-weight: 600;">Scheduled Publications</h3>
+                        <span style="font-size: 0.7rem; color: var(--color-text-tertiary); font-weight: 500;">(Boleh klik & tarik / skrol tetikus)</span>
+                    </div>
                 </div>
-                <div class="table-responsive spt-table-responsive" style="width: 100%; overflow-x: auto;">
-                    <table class="spt-table" style="width: 100%; border-collapse: collapse; text-align: left; font-size: 0.85rem; table-layout: auto;">
+                <div class="table-responsive spt-table-responsive" style="width: 100%; overflow-x: auto; -webkit-overflow-scrolling: touch; cursor: grab; user-select: none;">
+                    <table class="spt-table" style="width: 100%; min-width: 950px; border-collapse: collapse; text-align: left; font-size: 0.85rem;">
                         <thead>
                             <tr style="border-bottom: 2px solid var(--color-border); color: var(--color-text-tertiary); font-weight: 600; background: var(--color-bg-accent);">
-                                <th style="padding: 0.75rem 1rem; width: 90px; white-space: nowrap;">Platform</th>
-                                <th style="padding: 0.75rem 1rem;">Content</th>
-                                <th style="padding: 0.75rem 1rem; width: 150px; white-space: nowrap;">Publish At</th>
-                                <th style="padding: 0.75rem 1rem; width: 105px; white-space: nowrap; text-align: center;">Status</th>
-                                <th style="padding: 0.75rem 1rem; width: 190px; text-align: right; white-space: nowrap;">Actions</th>
+                                <th style="padding: 0.75rem 1.25rem; width: 110px; white-space: nowrap;">Platform</th>
+                                <th style="padding: 0.75rem 1.25rem; min-width: 280px;">Content</th>
+                                <th style="padding: 0.75rem 1.25rem; width: 170px; white-space: nowrap;">Publish At</th>
+                                <th style="padding: 0.75rem 1.25rem; width: 115px; white-space: nowrap; text-align: center;">Status</th>
+                                <th style="padding: 0.75rem 1.25rem; width: 230px; text-align: right; white-space: nowrap;">Actions</th>
                             </tr>
                         </thead>
                         <tbody id="scheduledTableBody">
@@ -221,6 +225,51 @@ class ScheduledPostsTable extends HTMLElement {
                 </tr>
             `;
         }
+    }
+
+    initDragToScroll() {
+        const container = this.querySelector('.spt-table-responsive');
+        if (!container) return;
+
+        let isDown = false;
+        let startX = 0;
+        let scrollLeft = 0;
+
+        container.addEventListener('mousedown', (e) => {
+            // Do not start drag if user clicked an interactive control
+            if (e.target.closest('button, a, input, select, svg, path')) return;
+            isDown = true;
+            container.style.cursor = 'grabbing';
+            startX = e.pageX - container.offsetLeft;
+            scrollLeft = container.scrollLeft;
+        });
+
+        const stopDrag = () => {
+            if (!isDown) return;
+            isDown = false;
+            container.style.cursor = 'grab';
+        };
+
+        container.addEventListener('mouseleave', stopDrag);
+        container.addEventListener('mouseup', stopDrag);
+
+        container.addEventListener('mousemove', (e) => {
+            if (!isDown) return;
+            e.preventDefault();
+            const x = e.pageX - container.offsetLeft;
+            const walk = (x - startX) * 1.6;
+            container.scrollLeft = scrollLeft - walk;
+        });
+
+        // Mouse wheel horizontal scrolling
+        container.addEventListener('wheel', (e) => {
+            if (container.scrollWidth > container.clientWidth) {
+                // If user scrolls vertically over the table without Shift key
+                if (Math.abs(e.deltaY) > Math.abs(e.deltaX) && Math.abs(e.deltaY) > 5) {
+                    container.scrollLeft += (e.deltaY * 0.8);
+                }
+            }
+        }, { passive: true });
     }
 }
 

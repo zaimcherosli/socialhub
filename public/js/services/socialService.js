@@ -22,10 +22,31 @@ export const socialService = {
         console.log('[SocialService] Querying connected channels metadata');
         try {
             const data = await apiClient.get('/social/accounts');
-            return data.accounts || [];
+            const accounts = data.accounts || [];
+            accounts._meta = {
+                plan: data.plan || 'free',
+                plan_name: data.plan_name || 'FREE',
+                accounts_used: data.accounts_used !== undefined ? data.accounts_used : accounts.length,
+                accounts_limit: data.accounts_limit || 1,
+                limits: data.limits || {}
+            };
+            return accounts;
         } catch (error) {
             console.error('[SocialService] Failed to load accounts:', error.message);
-            return [];
+            const fallback = [];
+            fallback._meta = { plan: 'free', plan_name: 'FREE', accounts_used: 0, accounts_limit: 1, limits: {} };
+            return fallback;
+        }
+    },
+
+    /**
+     * Fetch complete accounts response including plan limits
+     */
+    async getAccountsData() {
+        try {
+            return await apiClient.get('/social/accounts');
+        } catch (error) {
+            return { success: false, accounts: [], plan: 'free', plan_name: 'FREE', accounts_used: 0, accounts_limit: 1, limits: {} };
         }
     },
 

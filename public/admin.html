@@ -377,9 +377,9 @@
                                 <th>Owner Email</th>
                                 <th>Subscription Plan</th>
                                 <th>AI Usage (mth)</th>
-                                <th>Status</th>
-                                <th>Created At</th>
-                                <th>Manage Plan</th>
+                                <th>Status &amp; Tempoh Luput</th>
+                                <th>Tarikh Dicipta</th>
+                                <th>Tindakan / Tempoh</th>
                             </tr>
                         </thead>
                         <tbody id="table-workspaces-body">
@@ -437,6 +437,70 @@
             </div>
 
         </main>
+    </div>
+
+    <!-- MODAL: MANAGE WORKSPACE PLAN & EXPIRY DURATION -->
+    <div class="admin-modal" id="ws-plan-modal" style="display:none; position:fixed; inset:0; background:rgba(0,0,0,0.6); z-index:2000; align-items:center; justify-content:center; padding:1rem; backdrop-filter:blur(2px);">
+        <div class="admin-modal-card" style="max-width: 520px; width:100%; border-radius:var(--radius-md); padding:1.75rem;">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.25rem;">
+                <div style="display:flex; align-items:center; gap:0.75rem;">
+                    <div style="width:38px; height:38px; border-radius:var(--radius-sm); background:var(--color-primary); color:#fff; display:flex; align-items:center; justify-content:center; font-size:1.15rem; font-weight:700;">
+                        💎
+                    </div>
+                    <div>
+                        <h3 style="margin: 0; font-size: 1.1rem; font-weight: 700;" id="ws-plan-modal-title">Urus Pelan Langganan</h3>
+                        <p id="ws-plan-modal-sub" style="font-size: 0.775rem; color: var(--color-text-secondary); margin: 0;">Tetapkan pakej dan tempoh luput langganan workspace.</p>
+                    </div>
+                </div>
+                <button class="header-action-btn" id="btn-close-ws-plan-modal" style="background: none; border: none; cursor: pointer; color: var(--color-text-tertiary); font-size:1.5rem; line-height:1;">&times;</button>
+            </div>
+            <form id="ws-plan-form" style="display: flex; flex-direction: column; gap: 1rem;">
+                <input type="hidden" id="manage-ws-id">
+                
+                <div>
+                    <label style="display: block; font-size: 0.825rem; font-weight: 600; margin-bottom: 0.4rem;">Pilih Pakej</label>
+                    <select id="manage-ws-plan-select" class="form-input" style="width: 100%; box-sizing: border-box; padding:0.55rem 0.75rem; font-size:0.875rem;">
+                        <option value="free">FREE (Percuma - 1 Akaun, 20 AI/bln)</option>
+                        <option value="pro">PRO / Starter (RM29 - 3 Akaun, 250 AI/bln)</option>
+                        <option value="agency">AGENCY / Growth (RM59 - 10 Akaun, 800 AI/bln)</option>
+                        <option value="enterprise">ENTERPRISE / Premium (RM149 - 25 Akaun, 2500 AI/bln)</option>
+                    </select>
+                </div>
+
+                <div id="manage-duration-group">
+                    <label style="display: block; font-size: 0.825rem; font-weight: 600; margin-bottom: 0.4rem;">Tempoh Tambahan / Langganan</label>
+                    <select id="manage-ws-duration-select" class="form-input" style="width: 100%; box-sizing: border-box; padding:0.55rem 0.75rem; font-size:0.875rem;">
+                        <option value="30">+30 Hari (1 Bulan)</option>
+                        <option value="90">+90 Hari (3 Bulan)</option>
+                        <option value="180">+180 Hari (6 Bulan)</option>
+                        <option value="365">+365 Hari (1 Tahun)</option>
+                        <option value="lifetime">Kekal / Lifetime (Tiada Tarikh Luput)</option>
+                        <option value="custom">Pilih Tarikh Khas (Custom Date)</option>
+                    </select>
+                </div>
+
+                <div id="manage-custom-date-group" style="display:none;">
+                    <label style="display: block; font-size: 0.825rem; font-weight: 600; margin-bottom: 0.4rem;">Pilih Tarikh Luput Khas</label>
+                    <input type="date" id="manage-ws-custom-date" class="form-input" style="width: 100%; box-sizing: border-box; padding:0.55rem 0.75rem; font-size:0.875rem;">
+                </div>
+
+                <div style="background:var(--color-bg-accent,#f8fafc); border:1px solid var(--color-border); border-radius:var(--radius-sm); padding:0.75rem 1rem; font-size:0.8125rem;">
+                    <div style="display:flex; justify-content:space-between; margin-bottom:0.35rem;">
+                        <span style="color:var(--color-text-secondary);">Tarikh Luput Semasa:</span>
+                        <strong id="manage-ws-current-exp" style="color:var(--color-text-primary);">-</strong>
+                    </div>
+                    <div style="display:flex; justify-content:space-between;">
+                        <span style="color:var(--color-text-secondary);">Tindakan Bila Luput:</span>
+                        <span style="color:var(--color-success); font-weight:600;">Auto-Downgrade ke FREE</span>
+                    </div>
+                </div>
+
+                <div style="display: flex; justify-content: flex-end; gap: 0.5rem; margin-top: 0.5rem;">
+                    <button type="button" class="btn btn-secondary" id="btn-cancel-ws-plan-modal">Batal</button>
+                    <button type="submit" class="btn btn-primary" style="padding:0.6rem 1.25rem;">Simpan Perubahan</button>
+                </div>
+            </form>
+        </div>
     </div>
 
     <!-- MODAL: RESET PASSWORD -->
@@ -756,6 +820,108 @@
             }
         }
 
+        // Modal elements for Workspace Plan Management
+        const wsPlanModal = document.getElementById('ws-plan-modal');
+        const wsPlanForm = document.getElementById('ws-plan-form');
+        const manageWsIdInput = document.getElementById('manage-ws-id');
+        const manageWsPlanSelect = document.getElementById('manage-ws-plan-select');
+        const manageWsDurationSelect = document.getElementById('manage-ws-duration-select');
+        const manageDurationGroup = document.getElementById('manage-duration-group');
+        const manageCustomDateGroup = document.getElementById('manage-custom-date-group');
+        const manageWsCustomDateInput = document.getElementById('manage-ws-custom-date');
+        const manageWsCurrentExpText = document.getElementById('manage-ws-current-exp');
+        const wsPlanModalTitle = document.getElementById('ws-plan-modal-title');
+        const wsPlanModalSub = document.getElementById('ws-plan-modal-sub');
+
+        function openWsPlanModal(ws) {
+            manageWsIdInput.value = ws.id;
+            wsPlanModalTitle.textContent = `Urus Pelan: ${ws.name}`;
+            wsPlanModalSub.textContent = `Owner: ${ws.owner_email || 'Tiada Owner'}`;
+            manageWsPlanSelect.value = ws.subscription_plan || 'free';
+            
+            if (ws.subscription_expires_at) {
+                const expDate = new Date(ws.subscription_expires_at);
+                manageWsCurrentExpText.textContent = `${expDate.toLocaleDateString()} (${Math.ceil((expDate.getTime() - Date.now()) / (1000 * 60 * 60 * 24))} hari lagi)`;
+            } else {
+                manageWsCurrentExpText.textContent = ws.subscription_plan === 'free' ? 'Tiada Had (Pelan FREE)' : 'Lifetime / Kekal (Tiada Tarikh Luput)';
+            }
+
+            // Adjust visibility
+            if (manageWsPlanSelect.value === 'free') {
+                manageDurationGroup.style.display = 'none';
+                manageCustomDateGroup.style.display = 'none';
+            } else {
+                manageDurationGroup.style.display = 'block';
+                manageWsDurationSelect.value = '30';
+                manageCustomDateGroup.style.display = 'none';
+            }
+
+            wsPlanModal.style.display = 'flex';
+        }
+
+        const closeWsPlanModal = () => {
+            wsPlanModal.style.display = 'none';
+        };
+
+        document.getElementById('btn-close-ws-plan-modal')?.addEventListener('click', closeWsPlanModal);
+        document.getElementById('btn-cancel-ws-plan-modal')?.addEventListener('click', closeWsPlanModal);
+
+        manageWsPlanSelect?.addEventListener('change', () => {
+            if (manageWsPlanSelect.value === 'free') {
+                manageDurationGroup.style.display = 'none';
+                manageCustomDateGroup.style.display = 'none';
+            } else {
+                manageDurationGroup.style.display = 'block';
+                if (manageWsDurationSelect.value === 'custom') {
+                    manageCustomDateGroup.style.display = 'block';
+                }
+            }
+        });
+
+        manageWsDurationSelect?.addEventListener('change', () => {
+            if (manageWsDurationSelect.value === 'custom') {
+                manageCustomDateGroup.style.display = 'block';
+            } else {
+                manageCustomDateGroup.style.display = 'none';
+            }
+        });
+
+        wsPlanForm?.addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const id = manageWsIdInput.value;
+            const plan = manageWsPlanSelect.value;
+            const durationVal = manageWsDurationSelect.value;
+            
+            let payload = { plan };
+            if (plan !== 'free') {
+                if (durationVal === 'lifetime') {
+                    payload.duration_type = 'lifetime';
+                } else if (durationVal === 'custom') {
+                    const customDate = manageWsCustomDateInput.value;
+                    if (!customDate) {
+                        notificationService.error('Sila pilih tarikh luput yang sah.');
+                        return;
+                    }
+                    payload.custom_expiry = customDate;
+                } else {
+                    payload.duration_days = parseInt(durationVal, 10);
+                }
+            }
+
+            try {
+                const res = await apiClient.post(`/admin/workspaces/${id}/plan`, payload);
+                if (res.success) {
+                    notificationService.success(res.message);
+                    closeWsPlanModal();
+                    loadWorkspaces();
+                } else {
+                    notificationService.error(res.message);
+                }
+            } catch (err) {
+                notificationService.error(err.message || 'Gagal mengemas kini pelan.');
+            }
+        });
+
         function renderWorkspaces(workspaces) {
             const tbody = document.getElementById('table-workspaces-body');
             tbody.innerHTML = '';
@@ -772,46 +938,97 @@
                 enterprise: 2500
             };
 
+            const now = new Date();
+
             workspaces.forEach(ws => {
                 const tr = document.createElement('tr');
                 const cleanDate = new Date(ws.created_at).toLocaleDateString();
                 const maxC = maxCreditsMap[ws.subscription_plan] || 0;
+                const isFree = ws.subscription_plan === 'free';
+                const expDate = ws.subscription_expires_at ? new Date(ws.subscription_expires_at) : null;
+
+                let statusHtml = '';
+                if (isFree) {
+                    statusHtml = `
+                        <span class="badge" style="background:rgba(100,116,139,0.12); color:#64748b; font-size:0.75rem;">FREE</span>
+                        <div style="font-size:0.725rem; color:var(--color-text-tertiary); margin-top:2px;">Tiada Had (Free)</div>
+                    `;
+                } else if (!expDate) {
+                    statusHtml = `
+                        <span class="badge" style="background:rgba(16,185,129,0.15); color:#10b981; font-size:0.75rem;">ACTIVE</span>
+                        <div style="font-size:0.725rem; color:var(--color-text-secondary); margin-top:2px;">Lifetime / Kekal</div>
+                    `;
+                } else {
+                    const diffMs = expDate.getTime() - now.getTime();
+                    const diffDays = Math.ceil(diffMs / (1000 * 60 * 60 * 24));
+                    const formattedDate = expDate.toLocaleDateString();
+
+                    if (diffDays <= 0) {
+                        statusHtml = `
+                            <span class="badge" style="background:rgba(239,68,68,0.15); color:#ef4444; font-size:0.75rem;">EXPIRED</span>
+                            <div style="font-size:0.725rem; color:var(--color-danger); margin-top:2px;">Tamat: ${formattedDate}</div>
+                        `;
+                    } else if (diffDays <= 7) {
+                        statusHtml = `
+                            <span class="badge" style="background:rgba(245,158,11,0.15); color:#f59e0b; font-size:0.75rem;">Expiring Soon</span>
+                            <div style="font-size:0.725rem; color:#d97706; margin-top:2px;">Tamat: ${formattedDate}<br><strong>(${diffDays} hari lagi)</strong></div>
+                        `;
+                    } else {
+                        statusHtml = `
+                            <span class="badge" style="background:rgba(16,185,129,0.15); color:#10b981; font-size:0.75rem;">ACTIVE</span>
+                            <div style="font-size:0.725rem; color:var(--color-text-secondary); margin-top:2px;">Tamat: ${formattedDate}<br><strong style="color:#10b981;">(${diffDays} hari lagi)</strong></div>
+                        `;
+                    }
+                }
 
                 tr.innerHTML = `
                     <td style="font-weight: 600;">${ws.name}</td>
                     <td>${ws.owner_email || '<span style="color: var(--color-text-tertiary);">No Owner</span>'}</td>
-                    <td><span class="badge ${ws.subscription_plan}">${ws.subscription_plan}</span></td>
+                    <td><span class="badge ${ws.subscription_plan}">${ws.subscription_plan.toUpperCase()}</span></td>
                     <td><strong>${ws.ai_credits_used || 0}</strong> / ${maxC}</td>
-                    <td><span class="badge" style="background-color: rgba(16,185,129,0.15); color: #10b981;">Active</span></td>
+                    <td>${statusHtml}</td>
                     <td>${cleanDate}</td>
                     <td>
-                        <select class="form-input change-ws-plan" data-id="${ws.id}" style="padding: 0.35rem 0.5rem; font-size: 0.75rem; border-radius: var(--radius-sm); cursor: pointer; width: auto; min-width: 100px;">
-                            <option value="free" ${ws.subscription_plan === 'free' ? 'selected' : ''}>Free</option>
-                            <option value="pro" ${ws.subscription_plan === 'pro' ? 'selected' : ''}>Pro</option>
-                            <option value="agency" ${ws.subscription_plan === 'agency' ? 'selected' : ''}>Agency</option>
-                            <option value="enterprise" ${ws.subscription_plan === 'enterprise' ? 'selected' : ''}>Enterprise</option>
-                        </select>
+                        <div style="display:flex; align-items:center; gap:0.4rem;">
+                            <button class="btn btn-secondary btn-manage-ws" data-id="${ws.id}" style="font-size:0.75rem; padding:0.35rem 0.65rem; white-space:nowrap; display:inline-flex; align-items:center; gap:0.3rem;">
+                                ⚙️ Urus Tempoh
+                            </button>
+                            ${!isFree ? `<button class="btn btn-secondary btn-quick-extend" data-id="${ws.id}" data-plan="${ws.subscription_plan}" title="+30 Hari Segera" style="font-size:0.75rem; padding:0.35rem 0.55rem; color:var(--color-primary); font-weight:600;">+30h</button>` : ''}
+                        </div>
                     </td>
                 `;
                 tbody.appendChild(tr);
             });
 
-            // Bind change plan selects
-            tbody.querySelectorAll('.change-ws-plan').forEach(select => {
-                select.addEventListener('change', async () => {
-                    const wsId = select.dataset.id;
-                    const nextPlan = select.value;
+            // Bind manage modal buttons
+            tbody.querySelectorAll('.btn-manage-ws').forEach(btn => {
+                btn.addEventListener('click', () => {
+                    const wsId = parseInt(btn.dataset.id, 10);
+                    const ws = workspacesData.find(w => w.id === wsId);
+                    if (ws) openWsPlanModal(ws);
+                });
+            });
 
-                    try {
-                        const res = await apiClient.post(`/admin/workspaces/${wsId}/plan`, { plan: nextPlan });
-                        if (res.success) {
-                            notificationService.success(res.message);
-                            loadWorkspaces();
-                        } else {
-                            notificationService.error(res.message);
+            // Bind quick extend (+30 days)
+            tbody.querySelectorAll('.btn-quick-extend').forEach(btn => {
+                btn.addEventListener('click', async () => {
+                    const wsId = parseInt(btn.dataset.id, 10);
+                    const plan = btn.dataset.plan;
+                    const ws = workspacesData.find(w => w.id === wsId);
+                    const wsName = ws ? ws.name : `Workspace #${wsId}`;
+                    
+                    if (confirm(`Adakah anda mahu menambah +30 Hari tempoh langganan bagi "${wsName}"?`)) {
+                        try {
+                            const res = await apiClient.post(`/admin/workspaces/${wsId}/plan`, { plan, duration_days: 30 });
+                            if (res.success) {
+                                notificationService.success(`+30 Hari berjaya ditambah untuk "${wsName}"!`);
+                                loadWorkspaces();
+                            } else {
+                                notificationService.error(res.message);
+                            }
+                        } catch (err) {
+                            notificationService.error(err.message || 'Gagal menambah tempoh.');
                         }
-                    } catch (err) {
-                        notificationService.error(err.message || 'Update failed');
                     }
                 });
             });

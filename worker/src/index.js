@@ -1914,6 +1914,8 @@ export default {
             try {
                 await env.DB.prepare("ALTER TABLE users ADD COLUMN active_workspace_id INTEGER REFERENCES workspaces(id) ON DELETE SET NULL").run();
             } catch (_) { /* column already exists */ }
+            try { await env.DB.prepare("ALTER TABLE workspaces ADD COLUMN subscription_expires_at TEXT DEFAULT NULL").run(); } catch (_) {}
+            try { await env.DB.prepare("ALTER TABLE workspaces ADD COLUMN subscription_status TEXT DEFAULT 'active'").run(); } catch (_) {}
             // Ensure new insights columns exist in scheduled_posts
             try { await env.DB.prepare("ALTER TABLE scheduled_posts ADD COLUMN quotes_count INTEGER DEFAULT 0").run(); } catch (_) {}
             try { await env.DB.prepare("ALTER TABLE scheduled_posts ADD COLUMN reach_count INTEGER DEFAULT 0").run(); } catch (_) {}
@@ -6164,6 +6166,47 @@ CRITICAL LANGUAGE / SPEECH RULES:
                         } catch (followerSyncErr) {
                             console.error('[CronSync] Follower sync block error:', followerSyncErr.message);
                         }
+                        // ==================== AUTO-DOWNGRADE EXPIRED WORKSPACES ====================
+                        try {
+                            const expiredWorkspaces = await env.DB.prepare(
+                                `SELECT id, name, subscription_plan, subscription_expires_at 
+                                 FROM workspaces 
+                                 WHERE subscription_plan != 'free' 
+                                 AND subscription_expires_at IS NOT NULL 
+                                 AND subscription_expires_at <= datetime('now')`
+                            ).all();
+
+                            if (expiredWorkspaces.results && expiredWorkspaces.results.length > 0) {
+                                for (const ws of expiredWorkspaces.results) {
+                                    await env.DB.prepare(
+                                        `UPDATE workspaces 
+                                         SET subscription_plan = 'free', subscription_status = 'expired', updated_at = (datetime('now')) 
+                                         WHERE id = ?`
+                                    ).bind(ws.id).run();
+
+                                    const owner = await env.DB.prepare(
+                                        `SELECT user_id FROM workspace_members WHERE workspace_id = ? AND role = 'owner' LIMIT 1`
+                                    ).bind(ws.id).first().catch(() => null);
+
+                                    if (owner && owner.user_id) {
+                                        await createNotification(
+                                            env.DB,
+                                            ws.id,
+                                            owner.user_id,
+                                            "⚠️ Langganan Pakej Telah Tamat",
+                                            `Langganan pakej ${ws.subscription_plan.toUpperCase()} bagi workspace "${ws.name}" telah tamat tempoh pada ${new Date(ws.subscription_expires_at).toLocaleDateString()} dan telah ditukar kepada pelan FREE. Sila hubungi admin untuk memperbaharui langganan.`,
+                                            "warning",
+                                            "/settings.html"
+                                        );
+                                    }
+
+                                    await logActivity(ws.id, null, 'subscription_auto_downgrade', `Subscription expired on ${ws.subscription_expires_at}. Auto-downgraded from ${ws.subscription_plan} to free.`);
+                                    console.log(`[CronSync] Workspace ID ${ws.id} (${ws.name}) expired and auto-downgraded to FREE.`);
+                                }
+                            }
+                        } catch (expireErr) {
+                            console.error('[CronSync] Workspace expiration check error:', expireErr.message);
+                        }
 
                         return new Response(JSON.stringify({
                             success: true,
@@ -7160,7 +7203,18 @@ CRITICAL LANGUAGE / SPEECH RULES:
                         console.error('[Auto-Repair Master] Error:', repairErr.message);
                     }
 
-                    return new Response(JSON.stringify({ success: true, accounts: results }), { status: 200, headers: corsHeaders });
+                    const currentPlan = activeWorkspace.subscription_plan || 'free';
+                    const planLimits = PLANS[currentPlan] || PLANS.free;
+
+                    return new Response(JSON.stringify({ 
+                        success: true, 
+                        accounts: results,
+                        plan: currentPlan,
+                        plan_name: currentPlan.toUpperCase(),
+                        accounts_used: results.length,
+                        accounts_limit: planLimits.accounts,
+                        limits: planLimits
+                    }), { status: 200, headers: corsHeaders });
                 }
 
                 case '/api/system/test-threads': {
@@ -7447,7 +7501,7 @@ CRITICAL LANGUAGE / SPEECH RULES:
 
                     const startOfMonth = new Date(new Date().getFullYear(), new Date().getMonth(), 1).toISOString();
                     const { results } = await env.DB.prepare(
-                        `SELECT w.id, w.name, w.subscription_plan, w.subscription_status, w.created_at, u.email as owner_email,
+                        `SELECT w.id, w.name, w.subscription_plan, w.subscription_status, w.subscription_expires_at, w.created_at, u.email as owner_email,
                                 (SELECT COUNT(*) FROM audit_logs WHERE workspace_id = w.id AND action = 'ai_generate' AND created_at >= ?) as ai_credits_used
                          FROM workspaces w
                          LEFT JOIN workspace_members wm ON w.id = wm.workspace_id AND wm.role = 'owner'
@@ -7617,22 +7671,64 @@ CRITICAL LANGUAGE / SPEECH RULES:
                         if (!env.DB) return new Response(JSON.stringify({ message: 'Database missing' }), { status: 500, headers: corsHeaders });
 
                         try {
-                            const { plan } = await request.json();
+                            const body = await request.json();
+                            const { plan, duration_days, custom_expiry, duration_type } = body;
                             if (!['free', 'pro', 'agency', 'enterprise'].includes(plan)) {
                                 return new Response(JSON.stringify({ message: 'Invalid plan value' }), { status: 400, headers: corsHeaders });
                             }
 
+                            const currentWs = await env.DB.prepare("SELECT id, name, subscription_plan, subscription_expires_at FROM workspaces WHERE id = ?").bind(wsId).first();
+                            if (!currentWs) {
+                                return new Response(JSON.stringify({ message: 'Workspace not found' }), { status: 404, headers: corsHeaders });
+                            }
+
+                            let newExpiry = null;
+                            let newStatus = 'active';
+
+                            if (plan === 'free') {
+                                newExpiry = null;
+                                newStatus = 'active';
+                            } else {
+                                if (duration_type === 'lifetime' || duration_days === 0) {
+                                    newExpiry = null;
+                                    newStatus = 'active';
+                                } else if (custom_expiry) {
+                                    newExpiry = new Date(custom_expiry).toISOString();
+                                    newStatus = 'active';
+                                } else if (duration_days && typeof duration_days === 'number') {
+                                    const existingExp = currentWs.subscription_expires_at;
+                                    const isStillValid = existingExp && new Date(existingExp).getTime() > Date.now();
+                                    const baseTime = isStillValid ? new Date(existingExp).getTime() : Date.now();
+                                    newExpiry = new Date(baseTime + duration_days * 86400 * 1000).toISOString();
+                                    newStatus = 'active';
+                                } else {
+                                    // Default: if changing to paid without duration specified
+                                    if (currentWs.subscription_expires_at && new Date(currentWs.subscription_expires_at).getTime() > Date.now()) {
+                                        newExpiry = currentWs.subscription_expires_at;
+                                    } else {
+                                        newExpiry = new Date(Date.now() + 30 * 86400 * 1000).toISOString();
+                                    }
+                                    newStatus = 'active';
+                                }
+                            }
+
                             const updateRes = await env.DB.prepare(
-                                "UPDATE workspaces SET subscription_plan = ?, updated_at = (datetime('now')) WHERE id = ?"
-                            ).bind(plan, wsId).run();
+                                "UPDATE workspaces SET subscription_plan = ?, subscription_status = ?, subscription_expires_at = ?, updated_at = (datetime('now')) WHERE id = ?"
+                            ).bind(plan, newStatus, newExpiry, wsId).run();
 
                             if (updateRes.meta.changes === 0) {
                                 return new Response(JSON.stringify({ message: 'Workspace not found' }), { status: 404, headers: corsHeaders });
                             }
 
-                            await logActivity(wsId, user.id, 'admin_change_plan', `Admin changed workspace plan to ${plan}`);
+                            await logActivity(wsId, user.id, 'admin_change_plan', `Admin changed workspace plan to ${plan} (Expiry: ${newExpiry ? new Date(newExpiry).toLocaleDateString() : 'Lifetime'})`);
 
-                            return new Response(JSON.stringify({ success: true, message: `Workspace plan updated to ${plan} successfully` }), { status: 200, headers: corsHeaders });
+                            return new Response(JSON.stringify({ 
+                                success: true, 
+                                message: `Pelan workspace ${currentWs.name} berjaya dikemas kini kepada ${plan.toUpperCase()} (${newExpiry ? 'Tamat pada ' + new Date(newExpiry).toLocaleDateString() : 'Lifetime'})`,
+                                subscription_plan: plan,
+                                subscription_status: newStatus,
+                                subscription_expires_at: newExpiry
+                            }), { status: 200, headers: corsHeaders });
                         } catch (e) {
                             return new Response(JSON.stringify({ message: e.message }), { status: 500, headers: corsHeaders });
                         }
@@ -9018,6 +9114,47 @@ CRITICAL LANGUAGE / SPEECH RULES:
             }
         } catch (followerSyncErr) {
             console.error('[CronSync] Follower sync block error:', followerSyncErr.message);
+        }
+        // ==================== AUTO-DOWNGRADE EXPIRED WORKSPACES (scheduled handler) ====================
+        try {
+            const expiredWorkspaces = await env.DB.prepare(
+                `SELECT id, name, subscription_plan, subscription_expires_at 
+                 FROM workspaces 
+                 WHERE subscription_plan != 'free' 
+                 AND subscription_expires_at IS NOT NULL 
+                 AND subscription_expires_at <= datetime('now')`
+            ).all();
+
+            if (expiredWorkspaces.results && expiredWorkspaces.results.length > 0) {
+                for (const ws of expiredWorkspaces.results) {
+                    await env.DB.prepare(
+                        `UPDATE workspaces 
+                         SET subscription_plan = 'free', subscription_status = 'expired', updated_at = (datetime('now')) 
+                         WHERE id = ?`
+                    ).bind(ws.id).run();
+
+                    const owner = await env.DB.prepare(
+                        `SELECT user_id FROM workspace_members WHERE workspace_id = ? AND role = 'owner' LIMIT 1`
+                    ).bind(ws.id).first().catch(() => null);
+
+                    if (owner && owner.user_id) {
+                        await createNotification(
+                            env.DB,
+                            ws.id,
+                            owner.user_id,
+                            "⚠️ Langganan Pakej Telah Tamat",
+                            `Langganan pakej ${ws.subscription_plan.toUpperCase()} bagi workspace "${ws.name}" telah tamat tempoh pada ${new Date(ws.subscription_expires_at).toLocaleDateString()} dan telah ditukar kepada pelan FREE. Sila hubungi admin untuk memperbaharui langganan.`,
+                            "warning",
+                            "/settings.html"
+                        );
+                    }
+
+                    await logActivity(ws.id, null, 'subscription_auto_downgrade', `Subscription expired on ${ws.subscription_expires_at}. Auto-downgraded from ${ws.subscription_plan} to free.`);
+                    console.log(`[CronSync] Workspace ID ${ws.id} (${ws.name}) expired and auto-downgraded to FREE.`);
+                }
+            }
+        } catch (expireErr) {
+            console.error('[CronSync] Workspace expiration check error:', expireErr.message);
         }
     }
 };

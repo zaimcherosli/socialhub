@@ -176,6 +176,36 @@
             <!-- Main Layout Grid -->
             <div class="accounts-container-layout">
                 
+                <!-- Section: Plan Quota Status Banner -->
+                <div id="accountQuotaBanner" style="display:none; background:var(--color-bg-card); border:1.5px solid var(--color-border); border-radius:var(--radius-md); padding:1.25rem 1.5rem; box-shadow:var(--shadow-sm);">
+                    <div style="display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:1rem;">
+                        <div>
+                            <div style="display:flex; align-items:center; gap:0.6rem; margin-bottom:0.35rem;">
+                                <span style="font-weight:700; font-size:1.05rem; color:var(--color-text-primary);">📊 Kuota Akaun Media Sosial</span>
+                                <span id="quotaPlanBadge" class="badge badge-info" style="text-transform:uppercase; font-weight:700; font-size:0.75rem; padding:0.25rem 0.6rem;">FREE</span>
+                            </div>
+                            <p id="quotaDescText" style="font-size:0.85rem; color:var(--color-text-secondary); margin:0;">
+                                Anda telah menyambung <strong id="quotaUsedText">0</strong> daripada <strong id="quotaMaxText">1</strong> had akaun untuk pelan ini.
+                            </p>
+                        </div>
+                        <div style="display:flex; align-items:center; gap:1.25rem;">
+                            <div style="min-width:140px;">
+                                <div style="display:flex; justify-content:space-between; font-size:0.75rem; font-weight:600; margin-bottom:0.3rem; color:var(--color-text-secondary);">
+                                    <span>Penggunaan</span>
+                                    <span id="quotaPercentText">0%</span>
+                                </div>
+                                <div style="width:100%; height:8px; background:rgba(0,0,0,0.06); border-radius:999px; overflow:hidden;">
+                                    <div id="quotaProgressBar" style="width:0%; height:100%; background:var(--color-primary); transition:width 0.3s ease;"></div>
+                                </div>
+                            </div>
+                            <a id="btnUpgradePlan" href="admin.html" class="btn btn-primary" style="display:none; font-size:0.775rem; padding:0.45rem 0.9rem; white-space:nowrap; text-decoration:none;">⚡ Naik Taraf Pelan</a>
+                        </div>
+                    </div>
+                    <div id="quotaWarningAlert" style="display:none; margin-top:0.85rem; padding:0.75rem 1rem; background:rgba(239, 68, 68, 0.08); border-left:4px solid var(--color-danger); border-radius:4px; font-size:0.8125rem; color:var(--color-text-primary);">
+                        ⚠️ <strong>Had Kuota Telah Dicapai:</strong> Pelan <span id="quotaWarnPlan">FREE</span> terhad kepada <span id="quotaWarnMax">1</span> akaun. Untuk menambah Facebook Page atau Instagram serentak, sila naik taraf ke <strong>Pro (3 akaun)</strong> atau <strong>Agency (10 akaun)</strong> di Admin Console.
+                    </div>
+                </div>
+
                 <!-- Section: Connected accounts -->
                 <div>
                     <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:1rem;">
@@ -290,6 +320,31 @@
         🎉 Social account linked successfully!
     </div>
 
+    <!-- Account Limit Exceeded Alert Modal -->
+    <div id="limitModal" style="display:none; position:fixed; inset:0; background:rgba(0,0,0,0.65); z-index:2500; align-items:center; justify-content:center; padding:1.25rem; backdrop-filter:blur(2px);">
+        <div style="background:var(--color-bg-card); border-radius:var(--radius-md); box-shadow:var(--shadow-xl); padding:2rem; width:100%; max-width:480px; text-align:center; position:relative;">
+            <div style="width:60px; height:60px; margin:0 auto 1.25rem auto; background:rgba(239, 68, 68, 0.12); border-radius:50%; display:flex; align-items:center; justify-content:center; font-size:1.75rem; color:var(--color-danger);">
+                ⚠️
+            </div>
+            <h3 style="font-size:1.2rem; font-weight:700; margin-bottom:0.5rem; color:var(--color-text-primary);">Had Sambungan Akaun Telah Penuh!</h3>
+            <div id="limitModalContent" style="font-size:0.875rem; color:var(--color-text-secondary); line-height:1.6; margin-bottom:1.5rem; text-align:left; background:var(--color-bg-accent,#f8fafc); padding:1rem; border-radius:var(--radius-sm); border:1px solid var(--color-border);">
+                Workspace anda kini berada pada <strong id="limitModalPlanName">Pelan FREE</strong> yang dihadkan kepada <strong id="limitModalMaxCount">1 akaun</strong> sahaja (<span id="limitModalUsedCount">1</span> akaun aktif).
+                <br><br>
+                💡 <strong>Cara Menyelesaikan:</strong>
+                <ul style="margin:0.5rem 0 0 0; padding-left:1.2rem; font-size:0.825rem;">
+                    <li><strong>Naik Taraf Pelan:</strong> Tukar pelan ke <strong>Pro (3 akaun)</strong> atau <strong>Agency (10 akaun)</strong> di Admin Console untuk menyambung Facebook Page &amp; Instagram serentak.</li>
+                    <li><strong>Atau Tukar Akaun:</strong> Putuskan (disconnect) akaun sedia ada di bawah jika anda ingin menggantikannya dengan platform lain.</li>
+                </ul>
+            </div>
+            <div style="display:flex; gap:0.75rem; justify-content:center; flex-wrap:wrap;">
+                <button id="btnCloseLimitModal" class="btn btn-secondary" style="flex:1; min-width:110px; padding:0.6rem 1rem;">Tutup</button>
+                <a href="admin.html" class="btn btn-primary" style="flex:1.5; min-width:160px; padding:0.6rem 1rem; text-decoration:none; text-align:center; display:inline-flex; align-items:center; justify-content:center; gap:0.35rem;">
+                    ⚡ Urus Pelan di Admin
+                </a>
+            </div>
+        </div>
+    </div>
+
     <!-- Facebook Page Selection Modal -->
     <div id="fbPageModal" style="display:none; position:fixed; inset:0; background:rgba(0,0,0,0.55); z-index:2000; display:none; align-items:center; justify-content:center; padding:1rem;">
         <div style="background:var(--color-bg-card); border-radius:var(--radius-md); box-shadow:var(--shadow-xl); padding:2rem; width:100%; max-width:480px; position:relative;">
@@ -339,11 +394,119 @@
         import { oauthService } from './js/services/oauthService.js';
         import { tokenService } from './js/services/tokenService.js';
 
+        // State trackers
+        let loadedAccounts = [];
+        let activePlan = 'free';
+        let accountsLimit = 1;
+        let accountsUsed = 0;
+
+        // Toast controller
+        function showToast(message, type = 'success') {
+            const toast = document.getElementById('successToast');
+            toast.textContent = message;
+            if (type === 'danger') {
+                toast.style.background = 'var(--color-danger, #ef4444)';
+            } else if (type === 'warning') {
+                toast.style.background = 'var(--color-warning, #f59e0b)';
+            } else {
+                toast.style.background = 'var(--color-success, #10b981)';
+            }
+            toast.style.display = 'block';
+            setTimeout(() => {
+                toast.style.display = 'none';
+            }, 4000);
+        }
+
+        // Limit Exceeded Modal Controller
+        function showLimitModal(plan, used, max) {
+            const modal = document.getElementById('limitModal');
+            const planEl = document.getElementById('limitModalPlanName');
+            const maxEl = document.getElementById('limitModalMaxCount');
+            const usedEl = document.getElementById('limitModalUsedCount');
+            
+            if (planEl) planEl.textContent = `Pelan ${(plan || 'free').toUpperCase()}`;
+            if (maxEl) maxEl.textContent = `${max || 1} akaun`;
+            if (usedEl) usedEl.textContent = `${used || 1}`;
+            
+            modal.style.display = 'flex';
+        }
+
+        function hideLimitModal() {
+            const modal = document.getElementById('limitModal');
+            if (modal) modal.style.display = 'none';
+        }
+
+        document.getElementById('btnCloseLimitModal')?.addEventListener('click', hideLimitModal);
+        document.getElementById('limitModal')?.addEventListener('click', (e) => {
+            if (e.target === document.getElementById('limitModal')) hideLimitModal();
+        });
+
         // Load connected accounts dynamically on DOM render
         async function loadConnectedAccounts() {
             const grid = document.getElementById('connectedAccountsGrid');
             try {
                 const accounts = await socialService.getAccounts();
+                loadedAccounts = accounts;
+                
+                // Extract metadata returned by backend
+                const meta = accounts._meta || {};
+                activePlan = meta.plan || 'free';
+                accountsLimit = meta.accounts_limit || (activePlan === 'pro' ? 3 : (activePlan === 'agency' ? 10 : (activePlan === 'enterprise' ? 25 : 1)));
+                accountsUsed = accounts.length;
+
+                // Update Quota Status Banner
+                const quotaBanner = document.getElementById('accountQuotaBanner');
+                const quotaBadge = document.getElementById('quotaPlanBadge');
+                const quotaUsedEl = document.getElementById('quotaUsedText');
+                const quotaMaxEl = document.getElementById('quotaMaxText');
+                const quotaPercentEl = document.getElementById('quotaPercentText');
+                const quotaProgressEl = document.getElementById('quotaProgressBar');
+                const quotaWarnAlert = document.getElementById('quotaWarningAlert');
+                const btnUpgrade = document.getElementById('btnUpgradePlan');
+
+                if (quotaBanner) {
+                    quotaBanner.style.display = 'block';
+                    if (quotaBadge) {
+                        quotaBadge.textContent = activePlan.toUpperCase();
+                        if (activePlan === 'free') {
+                            quotaBadge.className = 'badge badge-secondary';
+                        } else if (activePlan === 'pro') {
+                            quotaBadge.className = 'badge badge-info';
+                        } else {
+                            quotaBadge.className = 'badge badge-success';
+                        }
+                    }
+                    if (quotaUsedEl) quotaUsedEl.textContent = accountsUsed;
+                    if (quotaMaxEl) quotaMaxEl.textContent = accountsLimit;
+
+                    const percent = Math.min(100, Math.round((accountsUsed / accountsLimit) * 100));
+                    if (quotaPercentEl) quotaPercentEl.textContent = `${percent}%`;
+                    if (quotaProgressEl) {
+                        quotaProgressEl.style.width = `${percent}%`;
+                        if (percent >= 100) {
+                            quotaProgressEl.style.background = 'var(--color-danger, #ef4444)';
+                        } else if (percent >= 66) {
+                            quotaProgressEl.style.background = 'var(--color-warning, #f59e0b)';
+                        } else {
+                            quotaProgressEl.style.background = 'var(--color-primary)';
+                        }
+                    }
+
+                    if (accountsUsed >= accountsLimit) {
+                        if (quotaWarnAlert) {
+                            quotaWarnAlert.style.display = 'block';
+                            const warnPlan = document.getElementById('quotaWarnPlan');
+                            const warnMax = document.getElementById('quotaWarnMax');
+                            if (warnPlan) warnPlan.textContent = activePlan.toUpperCase();
+                            if (warnMax) warnMax.textContent = accountsLimit;
+                        }
+                        if (btnUpgrade) btnUpgrade.style.display = 'inline-block';
+                    } else {
+                        if (quotaWarnAlert) quotaWarnAlert.style.display = 'none';
+                        if (btnUpgrade) btnUpgrade.style.display = 'none';
+                    }
+                }
+
                 grid.innerHTML = ''; // Clear loading state
 
                 if (accounts.length === 0) {
@@ -523,34 +686,59 @@
             }
         }
 
-        // Bind Link Channel actions
+        // Helper to check account quota before connecting
+        function checkQuotaBeforeConnect(platform) {
+            const hasSamePlatform = loadedAccounts.some(a => a.platform === platform);
+            if (!hasSamePlatform && loadedAccounts.length >= accountsLimit) {
+                showLimitModal(activePlan, loadedAccounts.length, accountsLimit);
+                return false;
+            }
+            return true;
+        }
+
+        // Bind Link Channel actions with quota pre-check
         document.getElementById('btnConnectThreads').addEventListener('click', async () => {
-            await oauthService.initiateConnect('threads');
+            if (checkQuotaBeforeConnect('threads')) {
+                await oauthService.initiateConnect('threads');
+            }
         });
 
         document.getElementById('btnConnectFacebook').addEventListener('click', async () => {
-            await oauthService.initiateConnect('facebook');
+            if (checkQuotaBeforeConnect('facebook')) {
+                await oauthService.initiateConnect('facebook');
+            }
         });
 
         document.getElementById('btnConnectInstagram').addEventListener('click', async () => {
-            await oauthService.initiateConnect('instagram');
+            if (checkQuotaBeforeConnect('instagram')) {
+                await oauthService.initiateConnect('instagram');
+            }
         });
 
-        // Toast controller
-        function showToast(message) {
-            const toast = document.getElementById('successToast');
-            toast.textContent = message;
-            toast.style.display = 'block';
-            setTimeout(() => {
-                toast.style.display = 'none';
-            }, 3000);
-        }
-
-        // Check if redirect success parameter present in URL
+        // Check if redirect parameters present in URL
         const urlParams = new URLSearchParams(window.location.search);
+        
         if (urlParams.get('success') === 'true') {
             showToast('🎉 Social account linked successfully!');
             window.history.replaceState({}, document.title, window.location.pathname);
+        } else if (urlParams.has('error')) {
+            const err = urlParams.get('error');
+            window.history.replaceState({}, document.title, window.location.pathname);
+            
+            if (err === 'limit_exceeded') {
+                // Show dedicated limit modal
+                setTimeout(() => {
+                    showLimitModal(activePlan, accountsUsed || 1, accountsLimit || 1);
+                }, 300);
+            } else if (err === 'auth_cancelled' || err === 'access_denied') {
+                showToast('⚠️ Sambungan akaun dibatalkan oleh pengguna.', 'warning');
+            } else if (err === 'no_workspace') {
+                showToast('⚠️ Tiada workspace aktif ditemui.', 'danger');
+            } else if (err === 'forbidden') {
+                showToast('⛔ Anda tidak mempunyai kebenaran admin untuk menyambung akaun pada workspace ini.', 'danger');
+            } else {
+                showToast(`❌ Ralat semasa menyambung akaun: ${err}`, 'danger');
+            }
         }
 
         // FB Page Selection Modal

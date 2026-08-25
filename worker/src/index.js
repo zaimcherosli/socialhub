@@ -3046,20 +3046,24 @@ export default {
                         let visualPrompt = '';
                         try {
                             const provider = AIFactory.getProvider(aiEnv);
-                            const systemInstructions = `You are an expert Social Media Infographic Poster Designer.
-Analyze the provided social media post content (written in Malay/English) and generate a detailed English prompt for creating a professional, eye-catching INFOGRAPHIC POSTER image.
+                            const systemInstructions = `You are an expert Social Media Advertising & Infographic Poster Art Director.
+Analyze the provided social media post content (written in Malay/English) and generate a detailed English prompt for creating a high-converting, professional INFOGRAPHIC POSTER image suitable for DALL·E 3 / AI image generation.
 
-RULES:
-1. Output ONLY the English image generation prompt (3 to 5 sentences). No markdown, no conversational text.
-2. Design a POSTER / INFOGRAPHIC layout — NOT just a photograph. Include:
-   - A compelling headline derived from the post's main message (translated to Malay if original is Malay)
-   - Visual hierarchy: bold headline at top, supporting bullet points or info boxes in the middle, CTA at bottom
-   - A relevant background scene or person (e.g. a Malaysian man reviewing documents at night for finance topics, a modern house exterior for property topics, appetizing food for F&B topics)
-   - Color scheme: dark navy/blue gradient background with gold/yellow accent text for professional topics; vibrant warm colors for lifestyle topics
-   - Icons or visual elements beside each key point
-3. The poster should look like a premium social media ad — modern, clean, with strong typography.
-4. Include the KEY MALAY TEXT from the original post as headline text ON the poster (e.g. "KOMITMEN TINGGI? MASIH BOLEH DAPAT PEMBIAYAAN!" or the main hook).
-5. Style reference: professional 1:1 square Instagram feed post infographic.`;
+CRITICAL MALAYSIAN BUSINESS & FINANCIAL SLANG KNOWLEDGE:
+- "Nama tak cantik", "Nama sangkut", "Nama blacklist", "Nama rosak", "CCRIS", "CTOS", "Tunggakan", "DSR tinggi" = BAD CREDIT HISTORY / HIGH DEBT RATIO / BANK LOAN REJECTION / DEBT CONSOLIDATION NEEDED.
+  *STRICT WARNING*: NEVER translate "nama tak cantik" literally as "unattractive name", "ugly name", or personal grooming/beauty makeover!
+  *Visual Scene for Finance/Loan*: A modern corporate financial advisor desk, Malaysian Ringgit currency bills, approved bank loan document with a glowing green checkmark, calculator, credit assessment chart, professional Asian/Malaysian consultant in a sharp suit.
+  *Poster Headline Text*: "SOLUSI PEMBIAYAAN PERIBADI", "MASALAH CCRIS / CTOS / NAMA SANGKUT?", or "SEMAK KELAYAKAN LOAN ANDA HARI INI".
+- "Hartanah", "Rumah", "Apartment", "Kondo", "Unit", "Sewa" = Real estate property, modern house/condominium exterior or stylish interior, key handover, property financing.
+- "Dropship", "Ejen", "Jana income", "Side income" = Business recruitment, digital entrepreneurship, work from home with laptop.
+
+RULES FOR POSTER PROMPT OUTPUT:
+1. Output ONLY the final English image generation prompt (3 to 5 sentences). No introductory text, no markdown backticks.
+2. Structure the poster layout:
+   - Top: Bold, compelling headline in English or Malay (e.g. 'PERSONAL LOAN SPECIALIST: OVERCOME CCRIS & CTOS').
+   - Center: Modern graphic elements (e.g. bank approval badge, key benefits bullet points, financial growth graph, or product highlight).
+   - Theme/Background: Sleek dark navy blue or deep charcoal background with golden yellow and neon cyan accents, corporate lighting.
+   - Professional 1:1 square aspect ratio social media advertising poster.`;
 
                             const synthesized = await provider.generateChatResponse([
                                 { role: 'system', content: systemInstructions },
@@ -3073,7 +3077,7 @@ RULES:
                         }
 
                         if (!visualPrompt) {
-                            visualPrompt = `Professional social media infographic poster for: ${inputPrompt.slice(0, 300)}. Dark gradient background, bold Malay headline text, info boxes with key points, modern typography, premium design, 1:1 square aspect ratio.`;
+                            visualPrompt = `Professional social media advertising infographic poster for: ${inputPrompt.slice(0, 300)}. Dark navy gradient background, bold headline text, glowing badge, modern typography, premium corporate design, 1:1 square aspect ratio.`;
                         }
 
                         let openAiQuality = 'standard';
@@ -5004,13 +5008,24 @@ CRITICAL LANGUAGE / SPEECH RULES:
                                             let visualPrompt = '';
                                             try {
                                                 const imgProvider = AIFactory.getProvider(aiEnv);
-                                                const systemInstructions = `You are an expert Social Media Infographic Poster Designer.
-Analyze the provided social media post content (written in Malay/English) and generate a detailed English prompt for creating a professional, eye-catching INFOGRAPHIC POSTER image.
+                                                const systemInstructions = `You are an expert Social Media Advertising & Infographic Poster Art Director.
+Analyze the provided social media post content (written in Malay/English) and generate a detailed English prompt for creating a high-converting, professional INFOGRAPHIC POSTER image suitable for DALL·E 3 / AI image generation.
 
-RULES:
-1. Output ONLY the English image generation prompt (3 to 5 sentences). No markdown, no conversational text.
-2. Design a POSTER / INFOGRAPHIC layout — NOT just a photograph. Include a bold headline, visual hierarchy, relevant background person or scene, dark gradient or vibrant color scheme.
-3. The poster should look like a premium social media ad — modern, clean, 1:1 square aspect ratio.`;
+CRITICAL MALAYSIAN BUSINESS & FINANCIAL SLANG KNOWLEDGE:
+- "Nama tak cantik", "Nama sangkut", "Nama blacklist", "Nama rosak", "CCRIS", "CTOS", "Tunggakan", "DSR tinggi" = BAD CREDIT HISTORY / HIGH DEBT RATIO / BANK LOAN REJECTION / DEBT CONSOLIDATION NEEDED.
+  *STRICT WARNING*: NEVER translate "nama tak cantik" literally as "unattractive name", "ugly name", or personal grooming/beauty makeover!
+  *Visual Scene for Finance/Loan*: A modern corporate financial advisor desk, Malaysian Ringgit currency bills, approved bank loan document with a glowing green checkmark, calculator, credit assessment chart, professional Asian/Malaysian consultant in a sharp suit.
+  *Poster Headline Text*: "SOLUSI PEMBIAYAAN PERIBADI", "MASALAH CCRIS / CTOS / NAMA SANGKUT?", or "SEMAK KELAYAKAN LOAN ANDA HARI INI".
+- "Hartanah", "Rumah", "Apartment", "Kondo", "Unit", "Sewa" = Real estate property, modern house/condominium exterior or stylish interior, key handover, property financing.
+- "Dropship", "Ejen", "Jana income", "Side income" = Business recruitment, digital entrepreneurship, work from home with laptop.
+
+RULES FOR POSTER PROMPT OUTPUT:
+1. Output ONLY the final English image generation prompt (3 to 5 sentences). No introductory text, no markdown backticks.
+2. Structure the poster layout:
+   - Top: Bold, compelling headline in English or Malay (e.g. 'PERSONAL LOAN SPECIALIST: OVERCOME CCRIS & CTOS').
+   - Center: Modern graphic elements (e.g. bank approval badge, key benefits bullet points, financial growth graph, or product highlight).
+   - Theme/Background: Sleek dark navy blue or deep charcoal background with golden yellow and neon cyan accents, corporate lighting.
+   - Professional 1:1 square aspect ratio social media advertising poster.`;
 
                                                 const cleanContentForPrompt = (post.content || '')
                                                     .replace(/[\n\r]*(?:---thread-separator---|\[THREAD_DELIMITER\])[\n\r]*/g, '\n\n');
@@ -5027,7 +5042,7 @@ RULES:
                                             }
 
                                             if (!visualPrompt) {
-                                                visualPrompt = `Professional social media infographic poster for: ${(post.content || '').slice(0, 300)}. Dark gradient background, bold headline text, info boxes, modern typography, 1:1 square aspect ratio.`;
+                                                visualPrompt = `Professional social media advertising infographic poster for: ${(post.content || '').slice(0, 300)}. Dark navy gradient background, bold headline text, glowing badge, modern typography, premium corporate design, 1:1 square aspect ratio.`;
                                             }
 
                                             let imageUrl = null;

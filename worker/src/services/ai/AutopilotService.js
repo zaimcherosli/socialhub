@@ -44,11 +44,11 @@ export class AutopilotService {
         // Determine niche-specific curiosity phrasing guidelines
         let curiosityGuide = "NEVER mention the exact product name, brand name, model name, or specific residential project name directly in the caption text. Instead, refer to it using generic, curiosity-inducing terms (e.g. 'benda ni', 'gadget ni', 'kipas ni', 'apartment ni', 'unit ni', 'benda viral ni') to create mystery and engagement.";
         
-        const isFinanceNiche = nicheKey === 'pembiayaan' || /\b(pembiayaan|pinjaman|personal\s*loan|koperasi|overlap|penyatuan\s*hutang|debt\s*consolidation|ccris|ctos|dsr|kewangan|advisor)\b/i.test(niche);
+        const isFinanceNiche = nicheKey === 'pembiayaan' || /\b(pembiayaan|pinjaman|personal\s*loan|loan|koperasi|overlap|penyatuan\s*hutang|debt\s*consolidation|ccris|ctos|dsr|kewangan|advisor|nama\s*tak\s*cantik|nama\s*sangkut|blacklist|slip\s*gaji|bank)\b/i.test(niche);
         const isPropertyNiche = nicheKey === 'hartanah' || /\b(rumah|apartment|condo|kondo|hartanah|teres|sewa|jual|property)\b/i.test(niche);
 
         if (isFinanceNiche) {
-            curiosityGuide = "STRICT FINANCIAL CONSULTANT TERMINOLOGY: This is a professional financial advisory / loan consultancy service. You are NOT selling an e-commerce item — NEVER use terms like 'benda ni' or 'gadget ni'. Refer to financial solutions as 'skim pembiayaan ni', 'pelan penyatuan hutang ni', 'fasiliti koperasi ni', 'pakej overlap ni', or 'servis semakan kelayakan'.";
+            curiosityGuide = "STRICT FINANCIAL ADVISORY & LOAN CONSULTANCY RULES: This is a professional loan consultancy service helping Malaysians with personal financing, bank loans, debt consolidation, and CCRIS/CTOS issues. You are STRICTLY FORBIDDEN from using e-commerce words like 'benda ni', 'gadget ni', or 'barang ni'. Explain clearly that 'nama tak cantik' means having high commitments / CCRIS / CTOS records and provide real hope by offering loan eligibility checking or debt consolidation consultation ('skim pembiayaan khas', 'pelan penyatuan hutang', 'fasiliti koperasi', 'servis semak kelayakan percuma').";
         } else if (isPropertyNiche) {
             curiosityGuide = "STRICT REAL ESTATE TERMINOLOGY: Refer to listings using real estate terms like 'unit ni', 'apartment ni', 'rumah teres ni', 'kawasan ni'. Do not reveal the exact project name or developer name early on.";
         }

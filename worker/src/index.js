@@ -4929,86 +4929,312 @@ CRITICAL LANGUAGE / SPEECH RULES:
                     if (request.method !== 'POST') return new Response(JSON.stringify({ error: 'Method not allowed' }), { status: 405, headers: corsHeaders });
                     if (activeWorkspace.role === 'viewer') return new Response(JSON.stringify({ message: 'Forbidden: Viewers cannot create content.' }), { status: 403, headers: corsHeaders });
 
-                    const { niche, targetAudience, platform, count, language, timezoneOffset, frequency, ctaLink, postFormat } = await request.json();
-                    if (!niche) {
+                    const { 
+                        niche, 
+                        targetAudience, 
+                        platform, 
+                        targetPlatforms,
+                        targets,
+                        count, 
+                        language, 
+                        timezoneOffset, 
+                        frequency, 
+                        ctaLink, 
+                        postFormat,
+                        generate_images,
+                        image_quality,
+                        preview_only,
+                        posts: passedPosts
+                    } = await request.json();
+
+                    if (!niche && (!passedPosts || passedPosts.length === 0)) {
                         return new Response(JSON.stringify({ message: 'Business niche is required.' }), { status: 400, headers: corsHeaders });
                     }
 
-                    const wsAI = await env.DB.prepare(
-                        "SELECT ai_model, ai_api_key_enc FROM workspaces WHERE id = ?"
-                    ).bind(activeWorkspace.workspace_id).first().catch(() => null);
-
-                    // Build env-like object overriding with workspace preferences
                     const aiEnv = await getAIEnvironment(env.DB, activeWorkspace.workspace_id, env, encryptionSecret);
 
                     try {
-                        const provider = AIFactory.getProvider(aiEnv);
-                        const autopilotService = new AutopilotService(provider);
-                        const nicheData = await getNicheInstructions(env.DB, niche, 'autopilot');
-                        const performanceFeedback = await getPerformanceFeedback(env.DB, activeWorkspace.workspace_id, nicheData ? nicheData.niche_key : null);
-                        
-                        const campaign = await autopilotService.generateAutopilotCampaign({
-                            niche: niche + performanceFeedback,
-                            targetAudience: targetAudience || 'General public',
-                            platform: platform || 'threads',
-                            count: parseInt(count) || 3,
-                            language: language || 'Bahasa Melayu',
-                            timezoneOffset: parseInt(timezoneOffset) || -480,
-                            frequency: parseInt(frequency) || 1,
-                            ctaLink,
-                            postFormat,
-                            nicheRules: nicheData ? nicheData.rules : null,
-                            nicheKey: nicheData ? nicheData.niche_key : null,
-                            nicheName: nicheData ? nicheData.name : null,
-                            exampleOutput: nicheData ? nicheData.example_output : null
-                        });
+                        let campaign = [];
 
-                        // Find connected account for this workspace & platform
-                        const socialAccount = await env.DB.prepare(
-                            "SELECT id FROM social_accounts WHERE workspace_id = ? AND platform = ? AND status = 'active' LIMIT 1"
-                        ).bind(activeWorkspace.workspace_id, platform || 'threads').first();
+                        if (passedPosts && Array.isArray(passedPosts) && passedPosts.length > 0) {
+                            campaign = passedPosts;
+                        } else {
+                            const provider = AIFactory.getProvider(aiEnv);
+                            const autopilotService = new AutopilotService(provider);
+                            const nicheData = await getNicheInstructions(env.DB, niche, 'autopilot');
+                            const performanceFeedback = await getPerformanceFeedback(env.DB, activeWorkspace.workspace_id, nicheData ? nicheData.niche_key : null);
+                            
+                            campaign = await autopilotService.generateAutopilotCampaign({
+                                niche: (niche || '') + performanceFeedback,
+                                targetAudience: targetAudience || 'General public',
+                                platform: (targetPlatforms && targetPlatforms[0]) || platform || 'threads',
+                                count: parseInt(count) || 3,
+                                language: language || 'Bahasa Melayu',
+                                timezoneOffset: parseInt(timezoneOffset) || -480,
+                                frequency: parseInt(frequency) || 1,
+                                ctaLink,
+                                postFormat,
+                                nicheRules: nicheData ? nicheData.rules : null,
+                                nicheKey: nicheData ? nicheData.niche_key : null,
+                                nicheName: nicheData ? nicheData.name : null,
+                                exampleOutput: nicheData ? nicheData.example_output : null
+                            });
 
-                        const accountId = socialAccount ? socialAccount.id : null;
-                        const finalStatus = accountId ? 'scheduled' : 'draft';
+                            // Generate AI images if requested
+                            if (generate_images) {
+                                const imgQuality = (image_quality || 'medium').toLowerCase();
+                                const plan = activeWorkspace.subscription_plan || 'free';
+                                const openaiApiKey = aiEnv.OPENAI_API_KEY || env.OPENAI_API_KEY;
+
+                                for (const post of campaign) {
+                                    if (!post.media_urls || post.media_urls.length === 0) {
+                                        try {
+                                            // Quota check
+                                            if (env.ENVIRONMENT !== 'development') {
+                                                const quotaCheck = await checkAndIncrementImageUsage(
+                                                    activeWorkspace.workspace_id, plan, imgQuality
+                                                );
+                                                if (!quotaCheck.allowed) {
+                                                    console.warn("[Autopilot Image Quota Exceeded]:", quotaCheck.message);
+                                                    break; // stop generating further images if quota exceeded
+                                                }
+                                            }
+
+                                            // Synthesize visual prompt
+                                            let visualPrompt = '';
+                                            try {
+                                                const imgProvider = AIFactory.getProvider(aiEnv);
+                                                const systemInstructions = `You are an expert Social Media Infographic Poster Designer.
+Analyze the provided social media post content (written in Malay/English) and generate a detailed English prompt for creating a professional, eye-catching INFOGRAPHIC POSTER image.
+
+RULES:
+1. Output ONLY the English image generation prompt (3 to 5 sentences). No markdown, no conversational text.
+2. Design a POSTER / INFOGRAPHIC layout — NOT just a photograph. Include a bold headline, visual hierarchy, relevant background person or scene, dark gradient or vibrant color scheme.
+3. The poster should look like a premium social media ad — modern, clean, 1:1 square aspect ratio.`;
+
+                                                const synthesized = await imgProvider.generateChatResponse([
+                                                    { role: 'system', content: systemInstructions },
+                                                    { role: 'user', content: `Post Content:\n${post.content}` }
+                                                ]);
+                                                if (synthesized && synthesized.trim().length > 15) {
+                                                    visualPrompt = synthesized.trim().replace(/^["']|["']$/g, '');
+                                                }
+                                            } catch (synthErr) {
+                                                console.error("[Autopilot Synth Prompt Error]:", synthErr);
+                                            }
+
+                                            if (!visualPrompt) {
+                                                visualPrompt = `Professional social media infographic poster for: ${post.content.slice(0, 300)}. Dark gradient background, bold headline text, info boxes, modern typography, 1:1 square aspect ratio.`;
+                                            }
+
+                                            let imageUrl = null;
+
+                                            // 1. Cloudflare Workers AI for Low Quality
+                                            if (imgQuality === 'low' && env.AI) {
+                                                try {
+                                                    const imageBuffer = await env.AI.run('@cf/bytedance/stable-diffusion-xl-lightning', { prompt: visualPrompt });
+                                                    if (imageBuffer) {
+                                                        const bytes = new Uint8Array(await new Response(imageBuffer).arrayBuffer());
+                                                        let binary = '';
+                                                        for (let i = 0; i < bytes.byteLength; i++) {
+                                                            binary += String.fromCharCode(bytes[i]);
+                                                        }
+                                                        const b64 = btoa(binary);
+                                                        if (b64) imageUrl = `data:image/jpeg;base64,${b64}`;
+                                                    }
+                                                } catch (cfErr) {
+                                                    console.error('[Autopilot Cloudflare AI Error]:', cfErr);
+                                                }
+                                            }
+
+                                            // 2. OpenAI Image Generation for Medium / High
+                                            if (!imageUrl && openaiApiKey) {
+                                                const candidateModels = ['dall-e-3', 'gpt-image-2', 'dall-e-2'];
+                                                for (const modelName of candidateModels) {
+                                                    if (imageUrl) break;
+                                                    try {
+                                                        const payload = {
+                                                            model: modelName,
+                                                            prompt: visualPrompt.slice(0, 1000),
+                                                            n: 1,
+                                                            size: '1024x1024'
+                                                        };
+                                                        if (modelName === 'dall-e-3') {
+                                                            payload.quality = (imgQuality === 'high' || imgQuality === 'hd') ? 'hd' : 'standard';
+                                                        }
+
+                                                        const openAiRes = await fetch('https://api.openai.com/v1/images/generations', {
+                                                            method: 'POST',
+                                                            headers: {
+                                                                'Content-Type': 'application/json',
+                                                                'Authorization': `Bearer ${openaiApiKey}`
+                                                            },
+                                                            body: JSON.stringify(payload)
+                                                        });
+
+                                                        if (openAiRes.ok) {
+                                                            const data = await openAiRes.json();
+                                                            if (data.data && data.data[0]) {
+                                                                if (data.data[0].b64_json) {
+                                                                    imageUrl = `data:image/jpeg;base64,${data.data[0].b64_json}`;
+                                                                } else if (data.data[0].url) {
+                                                                    imageUrl = data.data[0].url;
+                                                                }
+                                                                break;
+                                                            }
+                                                        }
+                                                    } catch (oaiErr) {
+                                                        console.error(`[Autopilot OpenAI Err ${modelName}]:`, oaiErr);
+                                                    }
+                                                }
+                                            }
+
+                                            // 3. Fallback to Cloudflare AI
+                                            if (!imageUrl && env.AI) {
+                                                try {
+                                                    const imageBuffer = await env.AI.run('@cf/bytedance/stable-diffusion-xl-lightning', { prompt: visualPrompt });
+                                                    if (imageBuffer) {
+                                                        const bytes = new Uint8Array(await new Response(imageBuffer).arrayBuffer());
+                                                        let binary = '';
+                                                        for (let i = 0; i < bytes.byteLength; i++) {
+                                                            binary += String.fromCharCode(bytes[i]);
+                                                        }
+                                                        const b64 = btoa(binary);
+                                                        if (b64) imageUrl = `data:image/jpeg;base64,${b64}`;
+                                                    }
+                                                } catch (_) {}
+                                            }
+
+                                            // 4. Sanitize to D1 URL
+                                            if (imageUrl) {
+                                                const storedUrls = await sanitizeAndStoreMediaUrls(env.DB, user.id, activeWorkspace.workspace_id, [imageUrl]);
+                                                const finalUrl = storedUrls && storedUrls.length > 0 ? storedUrls[0] : imageUrl;
+                                                post.media_urls = [finalUrl];
+                                                post.media_url = finalUrl;
+                                            }
+                                        } catch (imgErr) {
+                                            console.error("[Autopilot Image Gen Error]:", imgErr);
+                                        }
+                                    }
+                                }
+                            }
+                        }
+
+                        // If user requested preview only, return the generated campaign without inserting
+                        if (preview_only) {
+                            return new Response(JSON.stringify({
+                                success: true,
+                                preview: true,
+                                posts: campaign,
+                                model_used: aiEnv.OPENROUTER_MODEL,
+                                count: campaign.length
+                            }), { status: 200, headers: corsHeaders });
+                        }
+
+                        // Resolve target accounts to publish to
+                        let resolvedAccounts = [];
+
+                        if (targets && Array.isArray(targets) && targets.length > 0) {
+                            for (const t of targets) {
+                                const acc = await env.DB.prepare(
+                                    "SELECT id, platform, account_name FROM social_accounts WHERE id = ? AND workspace_id = ? AND status = 'active'"
+                                ).bind(t.accountId, activeWorkspace.workspace_id).first();
+                                if (acc) resolvedAccounts.push(acc);
+                            }
+                        } else if (targetPlatforms && Array.isArray(targetPlatforms) && targetPlatforms.length > 0) {
+                            for (const p of targetPlatforms) {
+                                const acc = await env.DB.prepare(
+                                    "SELECT id, platform, account_name FROM social_accounts WHERE workspace_id = ? AND platform = ? AND status = 'active' ORDER BY id DESC LIMIT 1"
+                                ).bind(activeWorkspace.workspace_id, p).first();
+                                if (acc) resolvedAccounts.push(acc);
+                            }
+                        } else if (platform) {
+                            const acc = await env.DB.prepare(
+                                "SELECT id FROM social_accounts WHERE workspace_id = ? AND platform = ? AND status = 'active' LIMIT 1"
+                            ).bind(activeWorkspace.workspace_id, platform).first();
+                            if (acc) resolvedAccounts.push(acc);
+                        }
+
+                        // Fallback: If no accounts found, get all active accounts in workspace
+                        if (resolvedAccounts.length === 0) {
+                            const allAccounts = await env.DB.prepare(
+                                "SELECT id, platform, account_name FROM social_accounts WHERE workspace_id = ? AND status = 'active'"
+                            ).bind(activeWorkspace.workspace_id).all();
+                            resolvedAccounts = allAccounts.results || [];
+                        }
 
                         const dbInsert = env.DB.prepare(
-                            `INSERT INTO scheduled_posts (user_id, workspace_id, account_id, platform, content, status, publish_at, created_at, updated_at)
-                             VALUES (?, ?, ?, ?, ?, ?, ?, (datetime('now')), (datetime('now')))`
+                            `INSERT INTO scheduled_posts (user_id, workspace_id, account_id, platform, content, media_urls, status, publish_at, created_at, updated_at)
+                             VALUES (?, ?, ?, ?, ?, ?, ?, ?, (datetime('now')), (datetime('now')))`
                         );
 
                         const insertedPosts = [];
+
                         for (const post of campaign) {
-                            const result = await dbInsert.bind(
-                                user.id,
-                                activeWorkspace.workspace_id,
-                                accountId,
-                                platform || 'threads',
-                                post.content,
-                                finalStatus,
-                                post.publish_at
-                            ).run();
-                            
+                            const mediaUrlsJson = JSON.stringify(post.media_urls || (post.media_url ? [post.media_url] : []));
+
+                            if (resolvedAccounts.length > 0) {
+                                for (const acc of resolvedAccounts) {
+                                    const result = await dbInsert.bind(
+                                        user.id,
+                                        activeWorkspace.workspace_id,
+                                        acc.id,
+                                        acc.platform,
+                                        post.content,
+                                        mediaUrlsJson,
+                                        'scheduled',
+                                        post.publish_at
+                                    ).run();
+
+                                    insertedPosts.push({
+                                        id: result.meta?.last_row_id || null,
+                                        platform: acc.platform,
+                                        content: post.content,
+                                        media_urls: post.media_urls || [],
+                                        publish_at: post.publish_at,
+                                        status: 'scheduled'
+                                    });
+                                }
+                            } else {
+                                // Save as draft without account
+                                const result = await dbInsert.bind(
+                                    user.id,
+                                    activeWorkspace.workspace_id,
+                                    null,
+                                    platform || 'threads',
+                                    post.content,
+                                    mediaUrlsJson,
+                                    'draft',
+                                    post.publish_at
+                                ).run();
+
+                                insertedPosts.push({
+                                    id: result.meta?.last_row_id || null,
+                                    platform: platform || 'threads',
+                                    content: post.content,
+                                    media_urls: post.media_urls || [],
+                                    publish_at: post.publish_at,
+                                    status: 'draft'
+                                });
+                            }
+
                             // Log AI generation usage for billing credits
                             await logActivity(
                                 activeWorkspace.workspace_id,
                                 user.id,
                                 'ai_generate',
-                                `Autopilot campaign generation: platform=${platform || 'threads'}, niche=${(niche || '').substring(0, 30)}`
+                                `Autopilot campaign generation: niche=${(niche || '').substring(0, 30)}`
                             );
-                            
-                            insertedPosts.push({
-                                id: result.meta?.last_row_id || null,
-                                content: post.content,
-                                publish_at: post.publish_at,
-                                status: finalStatus
-                            });
                         }
+
+                        const platformsList = resolvedAccounts.map(a => a.platform.toUpperCase()).join(', ') || (platform || 'threads').toUpperCase();
+
                         await createNotification(
                             env.DB,
                             activeWorkspace.workspace_id,
                             user.id,
                             "Kempen Autopilot Selesai 🤖",
-                            `Sistem berjaya menjana & menjadualkan ${campaign.length} post baharu di platform ${(platform || 'threads').toUpperCase()} untuk niche "${niche.substring(0, 30)}...".`,
+                            `Sistem berjaya menjana & menjadualkan ${insertedPosts.length} post baharu di platform [${platformsList}] untuk niche "${(niche || '').substring(0, 30)}...".`,
                             "success",
                             "/schedule.html"
                         );
@@ -5017,15 +5243,15 @@ CRITICAL LANGUAGE / SPEECH RULES:
                             activeWorkspace.workspace_id,
                             user.id,
                             'ai_autopilot',
-                            `Generated autopilot campaign: ${campaign.length} posts scheduled as ${finalStatus} for niche "${niche.substring(0, 30)}..."`
+                            `Generated autopilot campaign: ${insertedPosts.length} posts scheduled across [${platformsList}] for niche "${(niche || '').substring(0, 30)}..."`
                         );
 
                         return new Response(JSON.stringify({
                             success: true,
                             posts: insertedPosts,
                             model_used: aiEnv.OPENROUTER_MODEL,
-                            scheduled_count: campaign.length,
-                            status: finalStatus
+                            scheduled_count: insertedPosts.length,
+                            status: resolvedAccounts.length > 0 ? 'scheduled' : 'draft'
                         }), { status: 200, headers: corsHeaders });
 
                     } catch (e) {

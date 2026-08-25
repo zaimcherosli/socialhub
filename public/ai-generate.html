@@ -386,8 +386,29 @@
                                 <span>Sasaran Platform / Channels</span>
                                 <span style="font-size: 0.7rem; color: var(--color-primary); font-weight: 600;">(Semua Connected)</span>
                             </label>
-                            <div id="urlAutoChannelsContainer" style="display: flex; flex-direction: column; gap: 0.4rem; background: var(--color-bg-subtle, #f8fafc); padding: 0.75rem; border-radius: var(--radius-sm); border: 1px solid var(--color-border); max-height: 140px; overflow-y: auto;">
+                            <div id="autoChannelsContainer" style="display: flex; flex-direction: column; gap: 0.4rem; background: var(--color-bg-subtle, #f8fafc); padding: 0.75rem; border-radius: var(--radius-sm); border: 1px solid var(--color-border); max-height: 140px; overflow-y: auto;">
                                 <span style="font-size: 0.75rem; color: var(--color-text-tertiary);">Memuatkan akaun...</span>
+                            </div>
+                        </div>
+
+                        <!-- AI Image Poster Options -->
+                        <div class="form-group" style="margin-bottom: 1rem; background: var(--color-bg-accent, #f8fafc); border: 1px solid var(--color-border); border-radius: var(--radius-sm); padding: 0.85rem 1rem;">
+                            <div style="display: flex; justify-content: space-between; align-items: center;">
+                                <div>
+                                    <label style="font-weight: 600; font-size: 0.85rem; color: var(--color-text-primary); cursor: pointer; display: flex; align-items: center; gap: 0.35rem;" for="chkAutoGenerateImages">
+                                        <span>🎨 Auto-Jana Gambar Poster AI</span>
+                                    </label>
+                                    <div style="font-size: 0.725rem; color: var(--color-text-secondary); margin-top: 2px;">Wajib / disyorkan untuk Facebook &amp; Instagram</div>
+                                </div>
+                                <input type="checkbox" id="chkAutoGenerateImages" checked style="width: 18px; height: 18px; cursor: pointer;">
+                            </div>
+                            <div id="autoImageQualityGroup" style="display: flex; align-items: center; justify-content: space-between; gap: 0.5rem; margin-top: 0.65rem; border-top: 1px solid var(--color-border); padding-top: 0.65rem;">
+                                <span style="font-size: 0.775rem; color: var(--color-text-secondary); font-weight: 500;">Kualiti Gambar:</span>
+                                <select id="autoImageQuality" class="form-select" style="width: auto; font-size: 0.75rem; padding: 0.3rem 0.6rem; border-radius: var(--radius-xs);">
+                                    <option value="low">⚡ Low (Cloudflare SDXL - Free / Pantas)</option>
+                                    <option value="medium" selected>⚖️ Medium (OpenAI GPT-Image 2.0 / DALL·E 3)</option>
+                                    <option value="high">✨ High / HD (OpenAI GPT-Image 2.0 HD)</option>
+                                </select>
                             </div>
                         </div>
 
@@ -420,10 +441,16 @@
                             </select>
                         </div>
 
-                        <button type="button" class="btn btn-primary" id="btnAIAutopilot" style="width: 100%; height: 44px; justify-content: center; font-weight: 600;">
-                            <span id="spinnerAuto" style="display: none; width: 16px; height: 16px; border: 2px solid white; border-top-color: transparent; border-radius: 50%; animation: spin 0.8s linear infinite; margin-right: 0.5rem;"></span>
-                            🚀 Generate & Schedule Autopilot
-                        </button>
+                        <div style="display: flex; flex-direction: column; gap: 0.6rem;">
+                            <button type="button" class="btn btn-primary" id="btnAIAutopilotSchedule" style="width: 100%; height: 44px; justify-content: center; font-weight: 600;">
+                                <span id="spinnerAutoSchedule" style="display: none; width: 16px; height: 16px; border: 2px solid white; border-top-color: transparent; border-radius: 50%; animation: spin 0.8s linear infinite; margin-right: 0.5rem;"></span>
+                                🚀 Terus Jadualkan Autopilot (+ Auto Gambar)
+                            </button>
+                            <button type="button" class="btn btn-secondary" id="btnAIAutopilotPreview" style="width: 100%; height: 40px; justify-content: center; font-weight: 600; font-size: 0.825rem; border: 1px solid var(--color-primary); color: var(--color-primary); background: rgba(59,130,246,0.05);">
+                                <span id="spinnerAutoPreview" style="display: none; width: 14px; height: 14px; border: 2px solid var(--color-primary); border-top-color: transparent; border-radius: 50%; animation: spin 0.8s linear infinite; margin-right: 0.5rem;"></span>
+                                👀 Jana &amp; Preview Dulu (Review Sebelum Jadual)
+                            </button>
+                        </div>
                     </form>
 
                     <!-- URL Auto-Post Form (Hidden by default) -->
@@ -546,103 +573,128 @@
                             <span>Model Digunakan:</span>
                             <span id="aiModelUsedBadge" style="font-family: monospace; font-weight: 600; color: var(--color-primary);">Unknown</span>
                         </div>
-                        <div class="form-group">
-                            <label class="form-label" for="previewTitle">Post Title</label>
-                            <input type="text" id="previewTitle" class="form-input" placeholder="Enter post title..." style="width: 100%;" />
-                        </div>
-
-                        <!-- Standard Single Post Preview Fields (default) -->
-                        <div id="singlePostPreviewGroup" class="form-group">
-                            <label class="form-label" for="previewCaption">Generated Caption</label>
-                            <textarea id="previewCaption" class="form-input" rows="5" style="width: 100%; resize: vertical; height: auto !important; min-height: 120px !important;"></textarea>
-                        </div>
-
-                        <!-- Thread Storm Preview & Editor Group (dynamic) -->
-                        <div id="threadStormPreviewGroup" style="display: none; flex-direction: column; gap: 0.75rem;">
-                            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.25rem;">
-                                <label class="form-label" style="margin: 0;">Thread Storm Items (Editable)</label>
-                                <button type="button" class="btn btn-secondary btn-outline" id="btnAddThreadItem" style="font-size: 0.72rem; padding: 0.25rem 0.5rem; height: 26px; border: 1px solid var(--color-border); background: transparent;">+ Add Thread</button>
+                        <!-- Single Post & Thread Storm Preview Wrapper -->
+                        <div id="singlePostPreviewContainer" style="display: flex; flex-direction: column; gap: 1rem;">
+                            <div class="form-group">
+                                <label class="form-label" for="previewTitle">Post Title</label>
+                                <input type="text" id="previewTitle" class="form-input" placeholder="Enter post title..." style="width: 100%;" />
                             </div>
-                            <div id="threadStormCardsContainer" style="display: flex; flex-direction: column; gap: 0.75rem;">
-                                <!-- Dynamic Thread Cards will be inserted here -->
+
+                            <!-- Standard Single Post Preview Fields (default) -->
+                            <div id="singlePostPreviewGroup" class="form-group">
+                                <label class="form-label" for="previewCaption">Generated Caption</label>
+                                <textarea id="previewCaption" class="form-input" rows="5" style="width: 100%; resize: vertical; height: auto !important; min-height: 120px !important;"></textarea>
                             </div>
-                        </div>
 
-                        <div class="form-group">
-                            <label class="form-label" for="previewCTA">Call to Action (CTA)</label>
-                            <input type="text" id="previewCTA" class="form-input" style="width: 100%; max-width: 100%; box-sizing: border-box;" />
-                        </div>
-
-                        <div class="form-group">
-                            <label class="form-label" for="previewHashtags">Hashtags</label>
-                            <input type="text" id="previewHashtags" class="form-input" placeholder="e.g. #socialhub #saas" style="width: 100%; max-width: 100%; box-sizing: border-box;" />
-                        </div>
-
-                        <div class="form-group">
-                            <div class="media-header-container" style="display: flex; align-items: center; justify-content: space-between; gap: 0.5rem; flex-wrap: wrap; width: 100%; box-sizing: border-box; margin-bottom: 0.35rem;">
-                                <label class="form-label" for="previewMediaUrl" style="margin: 0; white-space: nowrap;">Media / Image Link</label>
-                                <div style="display: flex; align-items: center; gap: 0.35rem; flex-wrap: wrap; max-width: 100%;">
-                                    <select id="previewAiImageQuality" style="font-size: 0.72rem; padding: 0.25rem 0.4rem; border-radius: var(--radius-xs); border: 1px solid var(--color-border); background: var(--color-bg-primary); color: var(--color-text-primary); font-weight: 600; cursor: pointer;" title="Pilih kualiti gambar AI">
-                                        <option value="low">⚡ Low</option>
-                                        <option value="medium" selected>⚖️ Medium</option>
-                                        <option value="high">✨ HD</option>
-                                    </select>
-                                    <button type="button" class="btn btn-secondary" id="btnPreviewGenerateAiImage" style="font-size: 0.75rem; padding: 0.35rem 0.65rem; border-radius: var(--radius-xs); display: inline-flex; align-items: center; justify-content: center; gap: 0.35rem; font-weight: 600; white-space: nowrap;">
-                                        ✨ Generate AI Image
-                                    </button>
+                            <!-- Thread Storm Preview & Editor Group (dynamic) -->
+                            <div id="threadStormPreviewGroup" style="display: none; flex-direction: column; gap: 0.75rem;">
+                                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.25rem;">
+                                    <label class="form-label" style="margin: 0;">Thread Storm Items (Editable)</label>
+                                    <button type="button" class="btn btn-secondary btn-outline" id="btnAddThreadItem" style="font-size: 0.72rem; padding: 0.25rem 0.5rem; height: 26px; border: 1px solid var(--color-border); background: transparent;">+ Add Thread</button>
+                                </div>
+                                <div id="threadStormCardsContainer" style="display: flex; flex-direction: column; gap: 0.75rem;">
+                                    <!-- Dynamic Thread Cards will be inserted here -->
                                 </div>
                             </div>
-                            <input type="url" id="previewMediaUrl" class="form-input" placeholder="Paste photo link or click 'Generate AI Image'" style="width: 100%; max-width: 100%; box-sizing: border-box;" />
-                            
-                            <!-- Visual Image Preview Container -->
-                            <div id="aiImagePreviewBox" style="display: none; margin-top: 0.75rem; position: relative; border-radius: var(--radius-sm); overflow: hidden; border: 1px solid var(--color-border); background: var(--color-bg-accent); text-align: center; padding: 0.65rem;">
-                                <div class="preview-box-header">
-                                    <span style="font-size: 0.75rem; font-weight: 600; color: var(--color-text-secondary); display: flex; align-items: center; gap: 0.35rem;">
-                                        🖼️ Image Visual Preview
-                                    </span>
-                                    <div class="preview-actions-group">
-                                        <button type="button" id="btnZoomAiImage" class="preview-action-btn btn-zoom" title="Lihat saiz penuh (Zoom)">
-                                            🔍 Zoom
-                                        </button>
-                                        <button type="button" id="btnDownloadAiImage" class="preview-action-btn btn-download" title="Simpan gambar ke peranti">
-                                            ⬇️ Download
-                                        </button>
-                                        <button type="button" id="btnRemoveAiImage" class="preview-action-btn btn-remove">
-                                            🗑️ Buang
+
+                            <div class="form-group">
+                                <label class="form-label" for="previewCTA">Call to Action (CTA)</label>
+                                <input type="text" id="previewCTA" class="form-input" style="width: 100%; max-width: 100%; box-sizing: border-box;" />
+                            </div>
+
+                            <div class="form-group">
+                                <label class="form-label" for="previewHashtags">Hashtags</label>
+                                <input type="text" id="previewHashtags" class="form-input" placeholder="e.g. #socialhub #saas" style="width: 100%; max-width: 100%; box-sizing: border-box;" />
+                            </div>
+
+                            <div class="form-group">
+                                <div class="media-header-container" style="display: flex; align-items: center; justify-content: space-between; gap: 0.5rem; flex-wrap: wrap; width: 100%; box-sizing: border-box; margin-bottom: 0.35rem;">
+                                    <label class="form-label" for="previewMediaUrl" style="margin: 0; white-space: nowrap;">Media / Image Link</label>
+                                    <div style="display: flex; align-items: center; gap: 0.35rem; flex-wrap: wrap; max-width: 100%;">
+                                        <select id="previewAiImageQuality" style="font-size: 0.72rem; padding: 0.25rem 0.4rem; border-radius: var(--radius-xs); border: 1px solid var(--color-border); background: var(--color-bg-primary); color: var(--color-text-primary); font-weight: 600; cursor: pointer;" title="Pilih kualiti gambar AI">
+                                            <option value="low">⚡ Low</option>
+                                            <option value="medium" selected>⚖️ Medium</option>
+                                            <option value="high">✨ HD</option>
+                                        </select>
+                                        <button type="button" class="btn btn-secondary" id="btnPreviewGenerateAiImage" style="font-size: 0.75rem; padding: 0.35rem 0.65rem; border-radius: var(--radius-xs); display: inline-flex; align-items: center; justify-content: center; gap: 0.35rem; font-weight: 600; white-space: nowrap;">
+                                            ✨ Generate AI Image
                                         </button>
                                     </div>
                                 </div>
-                                <img id="aiImagePreviewTag" src="" alt="AI Generated Preview" style="max-width: 100%; max-height: 320px; object-fit: contain; border-radius: 6px; border: 1px solid var(--color-border); display: block; margin: 0 auto; background: #000; cursor: zoom-in;" title="Klik untuk lihat imej penuh (Zoom)" />
-                                <div id="aiImageSourceBadge" style="display: none; margin-top: 0.5rem; font-size: 0.72rem; font-weight: 600; color: #a78bfa; background: rgba(124, 58, 237, 0.12); border: 1px solid rgba(139, 92, 246, 0.25); border-radius: 20px; padding: 0.25rem 0.75rem; align-items: center; justify-content: center; gap: 0.35rem;">
-                                    ✨ Image created by OpenAI (gpt-image-2)
+                                <input type="url" id="previewMediaUrl" class="form-input" placeholder="Paste photo link or click 'Generate AI Image'" style="width: 100%; max-width: 100%; box-sizing: border-box;" />
+                                
+                                <!-- Visual Image Preview Container -->
+                                <div id="aiImagePreviewBox" style="display: none; margin-top: 0.75rem; position: relative; border-radius: var(--radius-sm); overflow: hidden; border: 1px solid var(--color-border); background: var(--color-bg-accent); text-align: center; padding: 0.65rem;">
+                                    <div class="preview-box-header">
+                                        <span style="font-size: 0.75rem; font-weight: 600; color: var(--color-text-secondary); display: flex; align-items: center; gap: 0.35rem;">
+                                            🖼️ Image Visual Preview
+                                        </span>
+                                        <div class="preview-actions-group">
+                                            <button type="button" id="btnZoomAiImage" class="preview-action-btn btn-zoom" title="Lihat saiz penuh (Zoom)">
+                                                🔍 Zoom
+                                            </button>
+                                            <button type="button" id="btnDownloadAiImage" class="preview-action-btn btn-download" title="Simpan gambar ke peranti">
+                                                ⬇️ Download
+                                            </button>
+                                            <button type="button" id="btnRemoveAiImage" class="preview-action-btn btn-remove">
+                                                🗑️ Buang
+                                            </button>
+                                        </div>
+                                    </div>
+                                    <img id="aiImagePreviewTag" src="" alt="AI Generated Preview" style="max-width: 100%; max-height: 320px; object-fit: contain; border-radius: 6px; border: 1px solid var(--color-border); display: block; margin: 0 auto; background: #000; cursor: zoom-in;" title="Klik untuk lihat imej penuh (Zoom)" />
+                                    <div id="aiImageSourceBadge" style="display: none; margin-top: 0.5rem; font-size: 0.72rem; font-weight: 600; color: #a78bfa; background: rgba(124, 58, 237, 0.12); border: 1px solid rgba(139, 92, 246, 0.25); border-radius: 20px; padding: 0.25rem 0.75rem; align-items: center; justify-content: center; gap: 0.35rem;">
+                                        ✨ Image created by OpenAI (gpt-image-2)
+                                    </div>
                                 </div>
                             </div>
-                        </div>
 
-                        <!-- Target Channels Checklist -->
-                        <div class="form-group">
-                            <label class="form-label">Target Channels</label>
-                            <div id="aiChannelsContainer" style="
-                                display: flex;
-                                flex-direction: column;
-                                gap: 0.5rem;
-                                margin-top: 0.5rem;
-                                background: var(--color-bg-accent);
-                                padding: 0.75rem 1rem;
-                                border-radius: var(--radius-xs);
-                                border: 1px solid var(--color-border);
-                            ">
-                                <p style="font-size: 0.75rem; color: var(--color-text-tertiary); font-style: italic; margin: 0;">Loading channels...</p>
+                            <!-- Target Channels Checklist -->
+                            <div class="form-group">
+                                <label class="form-label">Target Channels</label>
+                                <div id="aiChannelsContainer" style="
+                                    display: flex;
+                                    flex-direction: column;
+                                    gap: 0.5rem;
+                                    margin-top: 0.5rem;
+                                    background: var(--color-bg-accent);
+                                    padding: 0.75rem 1rem;
+                                    border-radius: var(--radius-xs);
+                                    border: 1px solid var(--color-border);
+                                ">
+                                    <p style="font-size: 0.75rem; color: var(--color-text-tertiary); font-style: italic; margin: 0;">Loading channels...</p>
+                                </div>
+                            </div>
+
+                            <!-- Action Controls -->
+                            <div style="display: flex; flex-direction: column; gap: 0.75rem; margin-top: 0.5rem;">
+                                <div class="composer-actions-row">
+                                    <button class="btn btn-secondary" id="btnAIPlanPublish">⚡ Publish Now</button>
+                                    <button class="btn btn-primary" id="btnAIPlanSchedule">📅 Schedule Post</button>
+                                </div>
+                                <button class="btn btn-secondary btn-outline" id="btnAIPlanDraft" style="width: 100%; justify-content: center; height: 42px; font-weight: 600; border: 1px solid var(--color-border); background: transparent;">💾 Save as Draft</button>
                             </div>
                         </div>
 
-                        <!-- Action Controls -->
-                        <div style="display: flex; flex-direction: column; gap: 0.75rem; margin-top: 0.5rem;">
-                            <div class="composer-actions-row">
-                                <button class="btn btn-secondary" id="btnAIPlanPublish">⚡ Publish Now</button>
-                                <button class="btn btn-primary" id="btnAIPlanSchedule">📅 Schedule Post</button>
+                        <!-- Autopilot Campaign Preview Group (dynamic) -->
+                        <div id="autopilotCampaignPreviewGroup" style="display: none; flex-direction: column; gap: 1rem;">
+                            <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid var(--color-border); padding-bottom: 0.75rem;">
+                                <div>
+                                    <h4 style="margin: 0; font-size: 0.95rem; font-weight: 700;">Kempen Autopilot Sedia Ada</h4>
+                                    <span id="autopilotCampaignSubtitle" style="font-size: 0.75rem; color: var(--color-text-secondary);">3 post sedia untuk disahkan &amp; dijadualkan</span>
+                                </div>
+                                <span class="badge" style="background: rgba(59, 130, 246, 0.12); color: var(--color-primary); font-size: 0.75rem; font-weight: 600;">AI Autopilot</span>
                             </div>
-                            <button class="btn btn-secondary btn-outline" id="btnAIPlanDraft" style="width: 100%; justify-content: center; height: 42px; font-weight: 600; border: 1px solid var(--color-border); background: transparent;">💾 Save as Draft</button>
+
+                            <div id="autopilotCampaignCardsContainer" style="display: flex; flex-direction: column; gap: 1rem;">
+                                <!-- Dynamic Post Cards for Autopilot Campaign -->
+                            </div>
+
+                            <div style="display: flex; flex-direction: column; gap: 0.6rem; margin-top: 0.5rem;">
+                                <button type="button" class="btn btn-primary" id="btnConfirmAutopilotSchedule" style="width: 100%; height: 44px; justify-content: center; font-weight: 600;">
+                                    <span id="spinnerConfirmAuto" style="display: none; width: 16px; height: 16px; border: 2px solid white; border-top-color: transparent; border-radius: 50%; animation: spin 0.8s linear infinite; margin-right: 0.5rem;"></span>
+                                    📅 Sahkan &amp; Jadualkan Semua Post Ke Kalendar
+                                </button>
+                            </div>
                         </div>
                     </div>
 
@@ -968,6 +1020,25 @@
                         });
                     }
                 }
+
+                const autoChannelsContainer = document.getElementById('autoChannelsContainer');
+                if (autoChannelsContainer) {
+                    autoChannelsContainer.innerHTML = '';
+                    if (connectedAccounts.length === 0) {
+                        autoChannelsContainer.innerHTML = `<p style="font-size: 0.75rem; color: var(--color-text-tertiary); font-style: italic; margin: 0;">Tiada akaun terhubung. <a href="accounts.html" style="color:var(--color-primary); font-weight:500;">Pautkan akaun di sini</a></p>`;
+                    } else {
+                        connectedAccounts.forEach(acc => {
+                            const label = document.createElement('label');
+                            label.style = 'display: flex; align-items: center; gap: 0.4rem; font-size: 0.85rem; cursor: pointer; color: var(--color-text-secondary); width: 100%; box-sizing: border-box;';
+                            label.innerHTML = `
+                                <input type="checkbox" class="auto-channel-checkbox" value="${acc.platform}" data-account-id="${acc.id}" checked style="flex-shrink: 0;" />
+                                <span style="text-transform: capitalize; font-weight: 500; flex-shrink: 0;">${acc.platform}</span>
+                                <span style="font-size: 0.72rem; color: var(--color-text-tertiary); max-width: 160px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">(${acc.account_name})</span>
+                            `;
+                            autoChannelsContainer.appendChild(label);
+                        });
+                    }
+                }
             } catch (err) {
                 channelsContainer.innerHTML = `<p style="font-size: 0.75rem; color: var(--color-danger); margin: 0;">Failed to load accounts</p>`;
             }
@@ -1273,6 +1344,9 @@
             tab.classList.add('active');
         }
 
+        const singlePostPreviewContainer = document.getElementById('singlePostPreviewContainer');
+        const autopilotCampaignPreviewGroup = document.getElementById('autopilotCampaignPreviewGroup');
+
         tabSingle.addEventListener('click', () => {
             selectTab(tabSingle);
             aiGenerateForm.style.display = "block";
@@ -1280,6 +1354,8 @@
             aiUrlForm.style.display = "none";
             
             currentMode = 'single';
+            if (singlePostPreviewContainer) singlePostPreviewContainer.style.display = 'flex';
+            if (autopilotCampaignPreviewGroup) autopilotCampaignPreviewGroup.style.display = 'none';
             singlePostPreviewGroup.style.display = 'block';
             threadStormPreviewGroup.style.display = 'none';
         });
@@ -1290,9 +1366,14 @@
             aiAutopilotForm.style.display = "block";
             aiUrlForm.style.display = "none";
             
-            currentMode = 'single';
-            singlePostPreviewGroup.style.display = 'block';
-            threadStormPreviewGroup.style.display = 'none';
+            currentMode = 'autopilot';
+            if (currentAutopilotPosts && currentAutopilotPosts.length > 0) {
+                if (singlePostPreviewContainer) singlePostPreviewContainer.style.display = 'none';
+                if (autopilotCampaignPreviewGroup) autopilotCampaignPreviewGroup.style.display = 'flex';
+            } else {
+                if (singlePostPreviewContainer) singlePostPreviewContainer.style.display = 'flex';
+                if (autopilotCampaignPreviewGroup) autopilotCampaignPreviewGroup.style.display = 'none';
+            }
         });
 
         tabUrlPost.addEventListener('click', () => {
@@ -1302,8 +1383,9 @@
             aiUrlForm.style.display = "block";
             
             currentMode = 'threads';
+            if (singlePostPreviewContainer) singlePostPreviewContainer.style.display = 'flex';
+            if (autopilotCampaignPreviewGroup) autopilotCampaignPreviewGroup.style.display = 'none';
             singlePostPreviewGroup.style.display = 'none';
-            threadStormPreviewGroup.style.display = 'flex';
         });
 
         // ── Thread Storm Cards Manager ─────────────────────────
@@ -1714,55 +1796,392 @@
             }
         });
 
-        // Autopilot form generation handler
-        const btnAIAutopilot = document.getElementById('btnAIAutopilot');
-        const spinnerAuto = document.getElementById('spinnerAuto');
+        // ── Autopilot Campaign Flow (Multi-Channel + AI Image Generator + Preview & Direct Schedule) ──
+        let currentAutopilotPosts = [];
 
-        btnAIAutopilot.addEventListener('click', async () => {
+        function getAutopilotChannelSelection() {
+            const checked = Array.from(document.querySelectorAll('.auto-channel-checkbox:checked'));
+            const targets = checked.map(cb => ({
+                platform: cb.value,
+                accountId: parseInt(cb.dataset.accountId, 10)
+            }));
+            const targetPlatforms = Array.from(new Set(checked.map(cb => cb.value)));
+            return { targets, targetPlatforms };
+        }
+
+        function renderAutopilotCampaign(posts, targetsInfo) {
+            const container = document.getElementById('autopilotCampaignCardsContainer');
+            if (!container) return;
+            container.innerHTML = '';
+
+            const aiOutputContainer = document.getElementById('aiOutputContainer');
+            const singlePostPreviewContainer = document.getElementById('singlePostPreviewContainer');
+            const autopilotCampaignPreviewGroup = document.getElementById('autopilotCampaignPreviewGroup');
+            const aiEmptyPreviewState = document.getElementById('aiEmptyPreviewState');
+
+            if (aiEmptyPreviewState) aiEmptyPreviewState.style.display = 'none';
+            if (aiOutputContainer) aiOutputContainer.style.display = 'flex';
+            if (singlePostPreviewContainer) singlePostPreviewContainer.style.display = 'none';
+            if (autopilotCampaignPreviewGroup) autopilotCampaignPreviewGroup.style.display = 'flex';
+
+            const subtitle = document.getElementById('autopilotCampaignSubtitle');
+            if (subtitle) subtitle.textContent = `${posts.length} post sedia untuk disahkan & dijadualkan ke saluran terpilih.`;
+
+            const platList = (targetsInfo?.targetPlatforms || []).map(p => p.toUpperCase()).join(', ') || 'Semua Platform Terpilih';
+
+            posts.forEach((post, idx) => {
+                const card = document.createElement('div');
+                card.className = 'card';
+                card.style = 'margin: 0; padding: 1.25rem; background: var(--color-bg-subtle, #f8fafc); border: 1px solid var(--color-border); border-radius: var(--radius-sm); display: flex; flex-direction: column; gap: 0.85rem;';
+
+                const pubDate = post.publish_at ? new Date(post.publish_at) : new Date();
+                const formattedTime = pubDate.toLocaleString('ms-MY', {
+                    day: 'numeric',
+                    month: 'short',
+                    hour: '2-digit',
+                    minute: '2-digit',
+                    hour12: true
+                });
+
+                const mediaUrl = (post.media_urls && post.media_urls.length > 0) ? post.media_urls[0] : (post.media_url || null);
+
+                card.innerHTML = `
+                    <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid var(--color-border); padding-bottom: 0.5rem;">
+                        <div style="display: flex; align-items: center; gap: 0.5rem; flex-wrap: wrap;">
+                            <span style="font-weight: 700; font-size: 0.85rem; color: var(--color-primary);">Post #${idx + 1}</span>
+                            <span style="font-size: 0.75rem; color: var(--color-text-secondary); background: var(--color-bg-card); padding: 0.15rem 0.5rem; border-radius: 4px; border: 1px solid var(--color-border);">
+                                📅 ${formattedTime}
+                            </span>
+                            <span style="font-size: 0.72rem; color: #10b981; font-weight: 600;">
+                                🎯 ${platList}
+                            </span>
+                        </div>
+                        <button type="button" class="btn-delete-auto-card" data-idx="${idx}" style="background: none; border: none; color: var(--color-danger); cursor: pointer; font-size: 0.8rem;" title="Buang post ini">&times; Padam</button>
+                    </div>
+
+                    <div>
+                        <label style="display: block; font-size: 0.775rem; font-weight: 600; color: var(--color-text-secondary); margin-bottom: 0.35rem;">Kapsyen Post (Boleh Disunting)</label>
+                        <textarea class="form-input auto-post-caption-input" data-idx="${idx}" rows="4" style="width: 100%; box-sizing: border-box; resize: vertical; font-size: 0.85rem; line-height: 1.45;">${post.content || ''}</textarea>
+                    </div>
+
+                    <!-- Image Section for Post -->
+                    <div class="auto-card-image-section" data-idx="${idx}" style="background: var(--color-bg-card); border: 1px solid var(--color-border); border-radius: var(--radius-xs); padding: 0.75rem;">
+                        ${mediaUrl ? `
+                            <div style="display: flex; flex-direction: column; gap: 0.6rem;">
+                                <div style="display: flex; justify-content: space-between; align-items: center;">
+                                    <span style="font-size: 0.75rem; font-weight: 600; color: var(--color-text-primary); display: flex; align-items: center; gap: 0.3rem;">
+                                        🖼️ Gambar Poster AI
+                                    </span>
+                                    <div style="display: flex; align-items: center; gap: 0.4rem;">
+                                        <select class="form-select auto-card-img-quality" data-idx="${idx}" style="font-size: 0.7rem; padding: 0.2rem 0.4rem; border-radius: var(--radius-xs); width: auto;">
+                                            <option value="low">Low (SDXL)</option>
+                                            <option value="medium" selected>Medium (GPT-Image 2.0)</option>
+                                            <option value="high">High (HD)</option>
+                                        </select>
+                                        <button type="button" class="btn btn-secondary btn-auto-regen-img" data-idx="${idx}" style="font-size: 0.72rem; padding: 0.25rem 0.5rem; font-weight: 600;">
+                                            ✨ Jana Semula
+                                        </button>
+                                        <button type="button" class="btn-auto-remove-img" data-idx="${idx}" style="background: none; border: none; color: var(--color-danger); cursor: pointer; font-size: 0.75rem;">
+                                            🗑️
+                                        </button>
+                                    </div>
+                                </div>
+                                <div style="position: relative; max-width: 100%; border-radius: 6px; overflow: hidden; background: #000; text-align: center;">
+                                    <img src="${mediaUrl}" alt="Post Image #${idx + 1}" style="max-height: 220px; width: auto; max-width: 100%; object-fit: contain; cursor: zoom-in; display: block; margin: 0 auto;" onclick="openImageLightbox('${mediaUrl}')" title="Klik untuk zoom" />
+                                </div>
+                            </div>
+                        ` : `
+                            <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 0.5rem;">
+                                <div>
+                                    <span style="font-size: 0.775rem; font-weight: 600; color: var(--color-text-secondary);">Tiada Gambar Dilampirkan</span>
+                                    <div style="font-size: 0.7rem; color: var(--color-text-tertiary);">Disyorkan untuk Facebook & Instagram</div>
+                                </div>
+                                <div style="display: flex; align-items: center; gap: 0.4rem;">
+                                    <select class="form-select auto-card-img-quality" data-idx="${idx}" style="font-size: 0.7rem; padding: 0.2rem 0.4rem; border-radius: var(--radius-xs); width: auto;">
+                                        <option value="low">Low (SDXL)</option>
+                                        <option value="medium" selected>Medium (GPT-Image 2.0)</option>
+                                        <option value="high">High (HD)</option>
+                                    </select>
+                                    <button type="button" class="btn btn-secondary btn-auto-gen-img" data-idx="${idx}" style="font-size: 0.72rem; padding: 0.3rem 0.6rem; font-weight: 600;">
+                                        🎨 + Jana Gambar AI
+                                    </button>
+                                </div>
+                            </div>
+                        `}
+                    </div>
+                `;
+
+                // Bind caption input change
+                card.querySelector('.auto-post-caption-input')?.addEventListener('input', (e) => {
+                    const i = parseInt(e.target.dataset.idx, 10);
+                    if (currentAutopilotPosts[i]) {
+                        currentAutopilotPosts[i].content = e.target.value;
+                    }
+                });
+
+                // Bind delete post card
+                card.querySelector('.btn-delete-auto-card')?.addEventListener('click', (e) => {
+                    const i = parseInt(e.target.dataset.idx, 10);
+                    currentAutopilotPosts.splice(i, 1);
+                    renderAutopilotCampaign(currentAutopilotPosts, targetsInfo);
+                });
+
+                // Bind regenerate image
+                card.querySelector('.btn-auto-regen-img')?.addEventListener('click', async (e) => {
+                    const btn = e.currentTarget;
+                    const i = parseInt(btn.dataset.idx, 10);
+                    const qualitySelect = card.querySelector(`.auto-card-img-quality[data-idx="${i}"]`);
+                    const quality = qualitySelect ? qualitySelect.value : 'medium';
+                    const caption = currentAutopilotPosts[i]?.content || '';
+
+                    btn.disabled = true;
+                    btn.innerHTML = '⏳ Menjana...';
+
+                    try {
+                        const res = await apiClient.post('/ai/generate-image', { caption, quality });
+                        if (res && (res.image_url || res.success)) {
+                            const newUrl = res.image_url || res.media?.thumbnail;
+                            if (newUrl) {
+                                currentAutopilotPosts[i].media_urls = [newUrl];
+                                currentAutopilotPosts[i].media_url = newUrl;
+                                renderAutopilotCampaign(currentAutopilotPosts, targetsInfo);
+                                notificationService.success(`Gambar AI untuk Post #${i + 1} berjaya dijana!`);
+                            }
+                        } else {
+                            notificationService.error(res?.message || 'Gagal menjana gambar.');
+                        }
+                    } catch (imgErr) {
+                        notificationService.error(`Ralat penjanaan gambar: ${imgErr.message}`);
+                    } finally {
+                        btn.disabled = false;
+                        btn.innerHTML = '✨ Jana Semula';
+                    }
+                });
+
+                // Bind generate image for empty card
+                card.querySelector('.btn-auto-gen-img')?.addEventListener('click', async (e) => {
+                    const btn = e.currentTarget;
+                    const i = parseInt(btn.dataset.idx, 10);
+                    const qualitySelect = card.querySelector(`.auto-card-img-quality[data-idx="${i}"]`);
+                    const quality = qualitySelect ? qualitySelect.value : 'medium';
+                    const caption = currentAutopilotPosts[i]?.content || '';
+
+                    btn.disabled = true;
+                    btn.innerHTML = '⏳ Menjana...';
+
+                    try {
+                        const res = await apiClient.post('/ai/generate-image', { caption, quality });
+                        if (res && (res.image_url || res.success)) {
+                            const newUrl = res.image_url || res.media?.thumbnail;
+                            if (newUrl) {
+                                currentAutopilotPosts[i].media_urls = [newUrl];
+                                currentAutopilotPosts[i].media_url = newUrl;
+                                renderAutopilotCampaign(currentAutopilotPosts, targetsInfo);
+                                notificationService.success(`Gambar AI untuk Post #${i + 1} berjaya dijana!`);
+                            }
+                        } else {
+                            notificationService.error(res?.message || 'Gagal menjana gambar.');
+                        }
+                    } catch (imgErr) {
+                        notificationService.error(`Ralat penjanaan gambar: ${imgErr.message}`);
+                    } finally {
+                        btn.disabled = false;
+                        btn.innerHTML = '🎨 + Jana Gambar AI';
+                    }
+                });
+
+                // Bind remove image
+                card.querySelector('.btn-auto-remove-img')?.addEventListener('click', (e) => {
+                    const i = parseInt(e.currentTarget.dataset.idx, 10);
+                    if (currentAutopilotPosts[i]) {
+                        currentAutopilotPosts[i].media_urls = [];
+                        currentAutopilotPosts[i].media_url = null;
+                        renderAutopilotCampaign(currentAutopilotPosts, targetsInfo);
+                        notificationService.info(`Gambar Post #${i + 1} telah dipadam.`);
+                    }
+                });
+
+                container.appendChild(card);
+            });
+        }
+
+        // Action 1: Direct Schedule Autopilot (+ Image)
+        const btnAIAutopilotSchedule = document.getElementById('btnAIAutopilotSchedule');
+        const spinnerAutoSchedule = document.getElementById('spinnerAutoSchedule');
+
+        btnAIAutopilotSchedule?.addEventListener('click', async () => {
             const niche = document.getElementById('autoNiche').value.trim();
             const targetAudience = document.getElementById('autoAudience').value.trim();
-            const platformEl = document.getElementById('autoPlatform');
-            const platform = platformEl ? platformEl.value : 'threads';
-            const count = parseInt(document.getElementById('autoCount').value);
-            const frequency = parseInt(document.getElementById('autoFrequency').value);
+            const count = parseInt(document.getElementById('autoCount').value, 10);
+            const frequency = parseInt(document.getElementById('autoFrequency').value, 10);
             const language = document.getElementById('autoLanguage').value;
             const ctaLink = document.getElementById('autoCta').value.trim();
             const postFormat = document.getElementById('autoFormat').value;
             const timezoneOffset = new Date().getTimezoneOffset();
+            const generate_images = document.getElementById('chkAutoGenerateImages').checked;
+            const image_quality = document.getElementById('autoImageQuality').value;
+
+            const { targets, targetPlatforms } = getAutopilotChannelSelection();
 
             if (!niche) {
                 notificationService.error("Sila masukkan niche perniagaan anda!");
                 return;
             }
 
-            btnAIAutopilot.disabled = true;
-            spinnerAuto.style.display = "inline-block";
+            if (targets.length === 0) {
+                notificationService.error("Sila pilih sekurang-kurangnya satu akaun / platform saluran!");
+                return;
+            }
+
+            btnAIAutopilotSchedule.disabled = true;
+            if (spinnerAutoSchedule) spinnerAutoSchedule.style.display = "inline-block";
 
             try {
                 const response = await apiClient.post('/ai/autopilot', {
                     niche,
                     targetAudience,
-                    platform,
+                    targets,
+                    targetPlatforms,
                     count,
                     frequency,
                     language,
                     timezoneOffset,
                     ctaLink,
-                    postFormat
+                    postFormat,
+                    generate_images,
+                    image_quality,
+                    preview_only: false
                 });
 
                 if (response.success) {
-                    notificationService.success(`Tahniah! ${response.scheduled_count} post autopilot telah berjaya dijana & dijadualkan (${response.status})!`);
+                    notificationService.success(`Tahniah! ${response.scheduled_count} post autopilot telah berjaya dijana & dijadualkan ke kalendar!`);
                     setTimeout(() => window.location.href = "calendar.html?view=queue&highlight=new", 1500);
                 } else {
                     notificationService.error(response.message || "Gagal menjana autopilot post.");
                 }
             } catch (err) {
-                console.error("Autopilot failed:", err);
+                console.error("Autopilot direct schedule failed:", err);
                 notificationService.error(err.message || "Ralat berlaku semasa menghubungi AI.");
             } finally {
-                btnAIAutopilot.disabled = false;
-                spinnerAuto.style.display = "none";
+                btnAIAutopilotSchedule.disabled = false;
+                if (spinnerAutoSchedule) spinnerAutoSchedule.style.display = "none";
+            }
+        });
+
+        // Action 2: Generate & Preview First
+        const btnAIAutopilotPreview = document.getElementById('btnAIAutopilotPreview');
+        const spinnerAutoPreview = document.getElementById('spinnerAutoPreview');
+
+        btnAIAutopilotPreview?.addEventListener('click', async () => {
+            const niche = document.getElementById('autoNiche').value.trim();
+            const targetAudience = document.getElementById('autoAudience').value.trim();
+            const count = parseInt(document.getElementById('autoCount').value, 10);
+            const frequency = parseInt(document.getElementById('autoFrequency').value, 10);
+            const language = document.getElementById('autoLanguage').value;
+            const ctaLink = document.getElementById('autoCta').value.trim();
+            const postFormat = document.getElementById('autoFormat').value;
+            const timezoneOffset = new Date().getTimezoneOffset();
+            const generate_images = document.getElementById('chkAutoGenerateImages').checked;
+            const image_quality = document.getElementById('autoImageQuality').value;
+
+            const targetsInfo = getAutopilotChannelSelection();
+
+            if (!niche) {
+                notificationService.error("Sila masukkan niche perniagaan anda!");
+                return;
+            }
+
+            if (targetsInfo.targets.length === 0) {
+                notificationService.error("Sila pilih sekurang-kurangnya satu akaun / platform saluran!");
+                return;
+            }
+
+            btnAIAutopilotPreview.disabled = true;
+            if (spinnerAutoPreview) spinnerAutoPreview.style.display = "inline-block";
+
+            try {
+                const response = await apiClient.post('/ai/autopilot', {
+                    niche,
+                    targetAudience,
+                    targets: targetsInfo.targets,
+                    targetPlatforms: targetsInfo.targetPlatforms,
+                    count,
+                    frequency,
+                    language,
+                    timezoneOffset,
+                    ctaLink,
+                    postFormat,
+                    generate_images,
+                    image_quality,
+                    preview_only: true
+                });
+
+                if (response.success && response.posts) {
+                    currentAutopilotPosts = response.posts;
+                    renderAutopilotCampaign(currentAutopilotPosts, targetsInfo);
+                    
+                    const modelBadge = document.getElementById('aiModelUsedBadge');
+                    if (modelBadge && response.model_used) {
+                        modelBadge.textContent = response.model_used;
+                    }
+
+                    notificationService.success(`Kempen autopilot berjaya dijana! Sila semak kandungan & gambar di sebelah kanan.`);
+                    
+                    // Smooth scroll to preview on mobile
+                    if (window.innerWidth < 992) {
+                        document.getElementById('autopilotCampaignPreviewGroup')?.scrollIntoView({ behavior: 'smooth' });
+                    }
+                } else {
+                    notificationService.error(response.message || "Gagal menjana preview autopilot.");
+                }
+            } catch (err) {
+                console.error("Autopilot preview failed:", err);
+                notificationService.error(err.message || "Ralat berlaku semasa menghubungi AI.");
+            } finally {
+                btnAIAutopilotPreview.disabled = false;
+                if (spinnerAutoPreview) spinnerAutoPreview.style.display = "none";
+            }
+        });
+
+        // Action 3: Confirm & Schedule from Preview
+        const btnConfirmAutopilotSchedule = document.getElementById('btnConfirmAutopilotSchedule');
+        const spinnerConfirmAuto = document.getElementById('spinnerConfirmAuto');
+
+        btnConfirmAutopilotSchedule?.addEventListener('click', async () => {
+            if (!currentAutopilotPosts || currentAutopilotPosts.length === 0) {
+                notificationService.error("Tiada post autopilot untuk dijadualkan!");
+                return;
+            }
+
+            const targetsInfo = getAutopilotChannelSelection();
+            if (targetsInfo.targets.length === 0) {
+                notificationService.error("Sila pastikan sekurang-kurangnya satu saluran dipilih!");
+                return;
+            }
+
+            btnConfirmAutopilotSchedule.disabled = true;
+            if (spinnerConfirmAuto) spinnerConfirmAuto.style.display = "inline-block";
+
+            try {
+                const response = await apiClient.post('/ai/autopilot', {
+                    posts: currentAutopilotPosts,
+                    targets: targetsInfo.targets,
+                    targetPlatforms: targetsInfo.targetPlatforms,
+                    preview_only: false
+                });
+
+                if (response.success) {
+                    notificationService.success(`Tahniah! ${response.scheduled_count} post autopilot telah berjaya disahkan & dimasukkan ke kalendar!`);
+                    setTimeout(() => window.location.href = "calendar.html?view=queue&highlight=new", 1500);
+                } else {
+                    notificationService.error(response.message || "Gagal menjadualkan post autopilot.");
+                }
+            } catch (err) {
+                console.error("Confirm schedule failed:", err);
+                notificationService.error(err.message || "Ralat semasa mengesahkan jadual.");
+            } finally {
+                btnConfirmAutopilotSchedule.disabled = false;
+                if (spinnerConfirmAuto) spinnerConfirmAuto.style.display = "none";
             }
         });
 
@@ -1811,10 +2230,12 @@
             lightboxImg.src = url;
             imageLightboxModal.style.display = 'flex';
         }
+        window.openImageLightbox = openImageLightbox;
 
         function closeImageLightbox() {
             if (imageLightboxModal) imageLightboxModal.style.display = 'none';
         }
+        window.closeImageLightbox = closeImageLightbox;
 
         if (btnLightboxClose) btnLightboxClose.addEventListener('click', closeImageLightbox);
         if (imageLightboxModal) {

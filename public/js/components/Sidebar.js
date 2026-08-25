@@ -6,6 +6,8 @@ class Sidebar extends HTMLElement {
         this.setActiveLink();
         this.initCloseButton();
         this.initWorkspaceSwitcher();
+        this.initUserData();
+        this.initVersionBadge();
     }
 
     render() {
@@ -270,8 +272,51 @@ class Sidebar extends HTMLElement {
                     }
                 }
             });
-        } else {
-            console.warn('⚠️ Sidebar Close Button not found!');
+        }
+    }
+
+    initVersionBadge() {
+        const vBadge = this.querySelector('#versionBadge');
+        if (vBadge) {
+            const version = window.SYS_CONFIG?.VERSION || '1.9.0';
+            vBadge.textContent = `v${version}`;
+            vBadge.addEventListener('click', (e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                if (typeof window.showSystemInfo === 'function') {
+                    window.showSystemInfo();
+                }
+            });
+        }
+    }
+
+    initUserData() {
+        try {
+            const userStr = localStorage.getItem('user');
+            if (userStr) {
+                const user = JSON.parse(userStr);
+                const nameEl = this.querySelector('#sidebarUserName');
+                const initialsEl = this.querySelector('#sidebarInitials');
+                const displayName = user.name || user.email?.split('@')[0] || 'User';
+                if (nameEl) nameEl.textContent = displayName;
+                if (initialsEl) {
+                    const parts = displayName.trim().split(' ');
+                    const initials = parts.length > 1 ? (parts[0][0] + parts[1][0]) : displayName.slice(0, 2);
+                    initialsEl.textContent = initials.toUpperCase();
+                }
+            }
+        } catch (_) {}
+
+        const logoutBtn = this.querySelector('#btnSidebarLogout');
+        if (logoutBtn) {
+            logoutBtn.addEventListener('click', async () => {
+                try {
+                    await apiClient.post('/auth/logout');
+                } catch (_) {}
+                localStorage.removeItem('token');
+                localStorage.removeItem('user');
+                window.location.href = 'login.html';
+            });
         }
     }
 

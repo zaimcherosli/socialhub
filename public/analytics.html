@@ -768,7 +768,7 @@
 
                 <div>
                     <label style="display: block; font-size: 0.78rem; font-weight: 600; color: var(--color-text-secondary); margin-bottom: 0.35rem;">Ulasan &amp; Cadangan Agensi Kepada Klien</label>
-                    <textarea id="reportStrategyNotes" class="form-input" rows="3" style="width: 100%; font-size: 0.82rem; line-height: 1.45; resize: vertical;" placeholder="Tuliskan ulasan ringkas prestasi content dan cadangan langkah seterusnya untuk klien..."></textarea>
+                    <textarea id="reportStrategyNotes" class="form-input" style="width: 100%; box-sizing: border-box; resize: none; overflow: hidden; min-height: 80px; font-size: 0.82rem; line-height: 1.5; padding: 0.6rem 0.75rem;" placeholder="Tuliskan ulasan ringkas prestasi content dan cadangan langkah seterusnya untuk klien..."></textarea>
                 </div>
 
                 <div style="display: flex; gap: 0.5rem; justify-content: flex-end; margin-top: 0.5rem;">
@@ -1360,7 +1360,19 @@
                 }
 
                 reportModal.style.display = 'flex';
+                requestAnimationFrame(autoGrowNotes);
+                setTimeout(autoGrowNotes, 50);
             });
+        }
+
+        const strategyNotesInput = document.getElementById('reportStrategyNotes');
+        const autoGrowNotes = () => {
+            if (!strategyNotesInput) return;
+            strategyNotesInput.style.height = 'auto';
+            strategyNotesInput.style.height = (strategyNotesInput.scrollHeight + 4) + 'px';
+        };
+        if (strategyNotesInput) {
+            strategyNotesInput.addEventListener('input', autoGrowNotes);
         }
 
         const hideReportModal = () => {

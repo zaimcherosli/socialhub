@@ -1861,7 +1861,7 @@
 
                     <div>
                         <label style="display: block; font-size: 0.775rem; font-weight: 600; color: var(--color-text-secondary); margin-bottom: 0.35rem;">Kapsyen Post (Boleh Disunting)</label>
-                        <textarea class="form-input auto-post-caption-input" data-idx="${idx}" rows="4" style="width: 100%; box-sizing: border-box; resize: vertical; font-size: 0.85rem; line-height: 1.45;">${post.content || ''}</textarea>
+                        <textarea class="form-input auto-post-caption-input" data-idx="${idx}" style="width: 100%; box-sizing: border-box; resize: none; overflow: hidden; min-height: 90px; font-size: 0.85rem; line-height: 1.5; padding: 0.6rem 0.75rem;">${post.content || ''}</textarea>
                     </div>
 
                     <!-- Image Section for Post -->
@@ -1911,13 +1911,25 @@
                     </div>
                 `;
 
-                // Bind caption input change
-                card.querySelector('.auto-post-caption-input')?.addEventListener('input', (e) => {
-                    const i = parseInt(e.target.dataset.idx, 10);
-                    if (currentAutopilotPosts[i]) {
-                        currentAutopilotPosts[i].content = e.target.value;
-                    }
-                });
+                // Auto-grow dynamic textarea and bind input
+                const captionTextarea = card.querySelector('.auto-post-caption-input');
+                if (captionTextarea) {
+                    const autoGrow = () => {
+                        captionTextarea.style.height = 'auto';
+                        captionTextarea.style.height = (captionTextarea.scrollHeight + 4) + 'px';
+                    };
+                    captionTextarea.addEventListener('input', (e) => {
+                        const i = parseInt(e.target.dataset.idx, 10);
+                        if (currentAutopilotPosts[i]) {
+                            currentAutopilotPosts[i].content = e.target.value;
+                        }
+                        autoGrow();
+                    });
+                    // Trigger initial expansion so full text is visible without scrollbars
+                    requestAnimationFrame(autoGrow);
+                    setTimeout(autoGrow, 30);
+                    setTimeout(autoGrow, 150);
+                }
 
                 // Bind delete post card
                 card.querySelector('.btn-delete-auto-card')?.addEventListener('click', (e) => {

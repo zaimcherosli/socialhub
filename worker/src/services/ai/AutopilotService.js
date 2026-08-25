@@ -266,10 +266,19 @@ CRITICAL HOOK & CONTENT DIVERSITY RULES (VERY IMPORTANT TO AVOID REPETITION):
             date.setUTCHours(utcHour, 0, 0, 0);
 
             // Normalize field names — different AI providers may use different keys
-            const caption = post.caption || post.text || post.content || post.body || post.post || '';
-            const cta = post.cta || post.call_to_action || post.callToAction || post.action || '';
+            let caption = (post.caption || post.text || post.content || post.body || post.post || '').trim();
+            let cta = (post.cta || post.call_to_action || post.callToAction || post.action || '').trim();
             const rawHashtags = post.hashtags || post.tags || post.hash_tags || [];
-            const hashtagsText = Array.isArray(rawHashtags) ? rawHashtags.join(' ') : (typeof rawHashtags === 'string' ? rawHashtags : '');
+            const hashtagsText = Array.isArray(rawHashtags) ? rawHashtags.join(' ').trim() : (typeof rawHashtags === 'string' ? rawHashtags.trim() : '');
+
+            // Deduplicate CTA: If the LLM already included the CTA inside the caption text, do not append it again
+            if (cta) {
+                const normCaption = caption.toLowerCase().replace(/[^a-z0-9]/g, '');
+                const normCta = cta.toLowerCase().replace(/[^a-z0-9]/g, '');
+                if (normCta && (normCaption.includes(normCta) || normCaption.endsWith(normCta) || (normCta.length > 10 && normCaption.includes(normCta.slice(0, 15))))) {
+                    cta = '';
+                }
+            }
 
             // Build full content — skip empty sections gracefully
             const parts = [caption, cta, hashtagsText].filter(p => p && p.trim() !== '');

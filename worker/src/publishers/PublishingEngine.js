@@ -107,7 +107,7 @@ export const PublishingEngine = {
         ).bind(queueItem.workspace_id, queueItem.platform).first();
 
         if (!socialAccount) {
-            const errStr = `Connected account credentials missing for platform: ${queueItem.platform}`;
+            const errStr = `Akaun ${queueItem.platform.toUpperCase()} belum disambungkan atau tidak aktif dalam workspace ini. Sila pergi ke menu Accounts dan sambungkan akaun anda.`;
             await this._handleFailure(db, queueId, queueItem, errStr, startTime, 0, false);
             return { success: false, error_message: errStr };
         }

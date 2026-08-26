@@ -1362,12 +1362,27 @@ async function executeImmediatePublish(db, spId, userId, encryptionSecret) {
 
     await db.prepare("UPDATE scheduled_posts SET status = 'publishing' WHERE id = ?").bind(spId).run();
 
-    const socialAccount = await db.prepare(
-        "SELECT * FROM social_accounts WHERE id = ? AND user_id = ?"
-    ).bind(scheduledPost.account_id, userId).first();
+    let socialAccount = null;
+    if (scheduledPost.account_id) {
+        socialAccount = await db.prepare(
+            "SELECT * FROM social_accounts WHERE id = ?"
+        ).bind(scheduledPost.account_id).first();
+    }
+
+    if (!socialAccount && scheduledPost.workspace_id) {
+        socialAccount = await db.prepare(
+            "SELECT * FROM social_accounts WHERE workspace_id = ? AND platform = ? AND status = 'active' ORDER BY id DESC LIMIT 1"
+        ).bind(scheduledPost.workspace_id, scheduledPost.platform).first();
+    }
+
+    if (!socialAccount && userId) {
+        socialAccount = await db.prepare(
+            "SELECT * FROM social_accounts WHERE user_id = ? AND platform = ? AND status = 'active' ORDER BY id DESC LIMIT 1"
+        ).bind(userId, scheduledPost.platform).first();
+    }
 
     if (!socialAccount) {
-        throw new Error('Connected social account not found.');
+        throw new Error(`Akaun ${scheduledPost.platform.toUpperCase()} belum disambungkan atau tidak aktif dalam workspace ini. Sila pergi ke menu Accounts dan sambungkan akaun ${scheduledPost.platform.toUpperCase()} anda.`);
     }
 
     const credentials = await resolveSocialCredentials(db, socialAccount, encryptionSecret);
@@ -9114,7 +9129,7 @@ LAYOUT & DESIGN RULES:
                         }
 
                         if (!socialAccount) {
-                            throw new Error(`Connected social account for ${post.platform.toUpperCase()} not found`);
+                            throw new Error(`Akaun ${post.platform.toUpperCase()} belum disambungkan atau tidak aktif dalam workspace ini. Sila pergi ke menu Accounts dan sambungkan akaun ${post.platform.toUpperCase()} anda.`);
                         }
 
                         if (post.account_id !== socialAccount.id) {

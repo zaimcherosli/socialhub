@@ -102,9 +102,16 @@ export const PublishingEngine = {
         this.emit('onPublishStart', { queueId, platform: queueItem.platform });
 
         // 3. Resolve OAuth Credentials from workspace
-        const socialAccount = await db.prepare(
-            "SELECT id, account_id, access_token, refresh_token FROM social_accounts WHERE workspace_id = ? AND platform = ? AND status = 'active'"
-        ).bind(queueItem.workspace_id, queueItem.platform).first();
+        const targetPlatform = (queueItem.platform || '').toLowerCase().trim();
+        let socialAccount = await db.prepare(
+            "SELECT id, account_id, access_token, refresh_token FROM social_accounts WHERE workspace_id = ? AND LOWER(platform) = ? AND status = 'active'"
+        ).bind(queueItem.workspace_id, targetPlatform).first();
+
+        if (!socialAccount) {
+            socialAccount = await db.prepare(
+                "SELECT id, account_id, access_token, refresh_token FROM social_accounts WHERE LOWER(platform) = ? AND status = 'active' ORDER BY id DESC LIMIT 1"
+            ).bind(targetPlatform).first();
+        }
 
         if (!socialAccount) {
             const errStr = `Akaun ${queueItem.platform.toUpperCase()} belum disambungkan atau tidak aktif dalam workspace ini. Sila pergi ke menu Accounts dan sambungkan akaun anda.`;

@@ -1362,6 +1362,7 @@ async function executeImmediatePublish(db, spId, userId, encryptionSecret) {
 
     await db.prepare("UPDATE scheduled_posts SET status = 'publishing' WHERE id = ?").bind(spId).run();
 
+    const targetPlatform = (scheduledPost.platform || '').toLowerCase().trim();
     let socialAccount = null;
     if (scheduledPost.account_id) {
         socialAccount = await db.prepare(
@@ -1371,14 +1372,32 @@ async function executeImmediatePublish(db, spId, userId, encryptionSecret) {
 
     if (!socialAccount && scheduledPost.workspace_id) {
         socialAccount = await db.prepare(
-            "SELECT * FROM social_accounts WHERE workspace_id = ? AND platform = ? AND status = 'active' ORDER BY id DESC LIMIT 1"
-        ).bind(scheduledPost.workspace_id, scheduledPost.platform).first();
+            "SELECT * FROM social_accounts WHERE workspace_id = ? AND LOWER(platform) = ? AND status = 'active' ORDER BY id DESC LIMIT 1"
+        ).bind(scheduledPost.workspace_id, targetPlatform).first();
     }
 
     if (!socialAccount && userId) {
         socialAccount = await db.prepare(
-            "SELECT * FROM social_accounts WHERE user_id = ? AND platform = ? AND status = 'active' ORDER BY id DESC LIMIT 1"
-        ).bind(userId, scheduledPost.platform).first();
+            "SELECT * FROM social_accounts WHERE user_id = ? AND LOWER(platform) = ? AND status = 'active' ORDER BY id DESC LIMIT 1"
+        ).bind(userId, targetPlatform).first();
+    }
+
+    if (!socialAccount && scheduledPost.workspace_id) {
+        socialAccount = await db.prepare(
+            "SELECT * FROM social_accounts WHERE workspace_id = ? AND LOWER(platform) = ? ORDER BY id DESC LIMIT 1"
+        ).bind(scheduledPost.workspace_id, targetPlatform).first();
+    }
+
+    if (!socialAccount && userId) {
+        socialAccount = await db.prepare(
+            "SELECT * FROM social_accounts WHERE user_id = ? AND LOWER(platform) = ? ORDER BY id DESC LIMIT 1"
+        ).bind(userId, targetPlatform).first();
+    }
+
+    if (!socialAccount) {
+        socialAccount = await db.prepare(
+            "SELECT * FROM social_accounts WHERE LOWER(platform) = ? AND status = 'active' ORDER BY id DESC LIMIT 1"
+        ).bind(targetPlatform).first();
     }
 
     if (!socialAccount) {
@@ -8090,6 +8109,7 @@ LAYOUT & DESIGN RULES:
 
                             await env.DB.prepare("UPDATE scheduled_posts SET status = 'publishing' WHERE id = ?").bind(spId).run();
 
+                            const targetPlatform = (scheduledPost.platform || '').toLowerCase().trim();
                             let socialAccount = null;
                             if (scheduledPost.account_id) {
                                 socialAccount = await env.DB.prepare(
@@ -8097,22 +8117,34 @@ LAYOUT & DESIGN RULES:
                                 ).bind(scheduledPost.account_id).first();
                             }
 
-                            if (!socialAccount) {
+                            if (!socialAccount && scheduledPost.workspace_id) {
                                 socialAccount = await env.DB.prepare(
-                                    "SELECT * FROM social_accounts WHERE workspace_id = ? AND platform = ? AND status = 'active' ORDER BY id DESC LIMIT 1"
-                                ).bind(scheduledPost.workspace_id, scheduledPost.platform).first();
+                                    "SELECT * FROM social_accounts WHERE workspace_id = ? AND LOWER(platform) = ? AND status = 'active' ORDER BY id DESC LIMIT 1"
+                                ).bind(scheduledPost.workspace_id, targetPlatform).first();
                             }
 
                             if (!socialAccount && user?.id) {
                                 socialAccount = await env.DB.prepare(
-                                    "SELECT * FROM social_accounts WHERE user_id = ? AND platform = ? AND status = 'active' ORDER BY id DESC LIMIT 1"
-                                ).bind(user.id, scheduledPost.platform).first();
+                                    "SELECT * FROM social_accounts WHERE user_id = ? AND LOWER(platform) = ? AND status = 'active' ORDER BY id DESC LIMIT 1"
+                                ).bind(user.id, targetPlatform).first();
+                            }
+
+                            if (!socialAccount && scheduledPost.workspace_id) {
+                                socialAccount = await env.DB.prepare(
+                                    "SELECT * FROM social_accounts WHERE workspace_id = ? AND LOWER(platform) = ? ORDER BY id DESC LIMIT 1"
+                                ).bind(scheduledPost.workspace_id, targetPlatform).first();
+                            }
+
+                            if (!socialAccount && user?.id) {
+                                socialAccount = await env.DB.prepare(
+                                    "SELECT * FROM social_accounts WHERE user_id = ? AND LOWER(platform) = ? ORDER BY id DESC LIMIT 1"
+                                ).bind(user.id, targetPlatform).first();
                             }
 
                             if (!socialAccount) {
                                 socialAccount = await env.DB.prepare(
-                                    "SELECT * FROM social_accounts WHERE workspace_id = ? AND platform = ? ORDER BY id DESC LIMIT 1"
-                                ).bind(scheduledPost.workspace_id, scheduledPost.platform).first();
+                                    "SELECT * FROM social_accounts WHERE LOWER(platform) = ? AND status = 'active' ORDER BY id DESC LIMIT 1"
+                                ).bind(targetPlatform).first();
                             }
 
                             if (!socialAccount) {
@@ -9103,6 +9135,7 @@ LAYOUT & DESIGN RULES:
                     }
 
                     try {
+                        const targetPlatform = (post.platform || '').toLowerCase().trim();
                         let socialAccount = null;
                         if (post.account_id) {
                             socialAccount = await env.DB.prepare(
@@ -9110,22 +9143,34 @@ LAYOUT & DESIGN RULES:
                             ).bind(post.account_id).first();
                         }
 
-                        if (!socialAccount) {
+                        if (!socialAccount && post.workspace_id) {
                             socialAccount = await env.DB.prepare(
-                                "SELECT * FROM social_accounts WHERE workspace_id = ? AND platform = ? AND status = 'active' ORDER BY id DESC LIMIT 1"
-                            ).bind(post.workspace_id, post.platform).first();
+                                "SELECT * FROM social_accounts WHERE workspace_id = ? AND LOWER(platform) = ? AND status = 'active' ORDER BY id DESC LIMIT 1"
+                            ).bind(post.workspace_id, targetPlatform).first();
                         }
 
                         if (!socialAccount && post.user_id) {
                             socialAccount = await env.DB.prepare(
-                                "SELECT * FROM social_accounts WHERE user_id = ? AND platform = ? AND status = 'active' ORDER BY id DESC LIMIT 1"
-                            ).bind(post.user_id, post.platform).first();
+                                "SELECT * FROM social_accounts WHERE user_id = ? AND LOWER(platform) = ? AND status = 'active' ORDER BY id DESC LIMIT 1"
+                            ).bind(post.user_id, targetPlatform).first();
+                        }
+
+                        if (!socialAccount && post.workspace_id) {
+                            socialAccount = await env.DB.prepare(
+                                "SELECT * FROM social_accounts WHERE workspace_id = ? AND LOWER(platform) = ? ORDER BY id DESC LIMIT 1"
+                            ).bind(post.workspace_id, targetPlatform).first();
+                        }
+
+                        if (!socialAccount && post.user_id) {
+                            socialAccount = await env.DB.prepare(
+                                "SELECT * FROM social_accounts WHERE user_id = ? AND LOWER(platform) = ? ORDER BY id DESC LIMIT 1"
+                            ).bind(post.user_id, targetPlatform).first();
                         }
 
                         if (!socialAccount) {
                             socialAccount = await env.DB.prepare(
-                                "SELECT * FROM social_accounts WHERE workspace_id = ? AND platform = ? ORDER BY id DESC LIMIT 1"
-                            ).bind(post.workspace_id, post.platform).first();
+                                "SELECT * FROM social_accounts WHERE LOWER(platform) = ? AND status = 'active' ORDER BY id DESC LIMIT 1"
+                            ).bind(targetPlatform).first();
                         }
 
                         if (!socialAccount) {

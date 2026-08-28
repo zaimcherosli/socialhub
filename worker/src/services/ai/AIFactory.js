@@ -26,13 +26,26 @@ export class AIFactory {
 
         // Force model override based on key format and default model names
         let activeModel = model;
-        if (hasOpenAI && !hasGemini && (!model.toLowerCase().includes("gpt-") && !model.toLowerCase().startsWith("openai/"))) {
+        if (hasOpenAI && !hasGemini && !hasOpenRouter && (!model.toLowerCase().includes("gpt-") && !model.toLowerCase().startsWith("openai/") && !model.toLowerCase().includes("claude") && !model.toLowerCase().includes("deepseek") && !model.toLowerCase().includes("glm"))) {
             activeModel = "gpt-4o-mini";
         } else if (hasGemini && !hasOpenAI && !model.toLowerCase().includes("gemini")) {
             activeModel = "gemini-3.7-flash";
         }
 
-        // 1. Direct OpenAI Check
+        // 1. Agent Router & Custom Multi-Model Gateway Check (Claude Opus, DeepSeek V4, GLM, GPT-5.6)
+        const isAgentRouterSpecialModel = 
+            activeModel.includes('claude-opus') || 
+            activeModel.includes('deepseek-v4') || 
+            activeModel.includes('glm-5') || 
+            activeModel.includes('gpt-5.6');
+
+        if (isAgentRouterSpecialModel) {
+            const cleanModel = activeModel.includes('/') ? activeModel.split('/').pop() : activeModel;
+            const targetKey = workspaceKey || env.OPENAI_API_KEY || env.OPENROUTER_API_KEY || "";
+            return new OpenAIProvider(targetKey, cleanModel, "https://agentrouter.org/v1");
+        }
+
+        // 2. Direct OpenAI Check
         const isDirectOpenAI = hasOpenAI && (
             activeModel.toLowerCase().includes("gpt-") || 
             activeModel.toLowerCase().startsWith("openai/")
@@ -43,7 +56,7 @@ export class AIFactory {
             return new OpenAIProvider(env.OPENAI_API_KEY || workspaceKey, cleanModel);
         }
 
-        // 2. Gemini Check
+        // 3. Gemini Check
         const isGemini = activeModel.toLowerCase().includes("gemini");
 
         if (isGemini) {
@@ -84,7 +97,7 @@ export class AIFactory {
             throw new Error("Missing GEMINI_API_KEY or OPENROUTER_API_KEY configuration for Gemini model.");
         }
 
-        // 3. Cloudflare AI Check
+        // 4. Cloudflare AI Check
         const isCloudflare = activeModel.toLowerCase().includes("cloudflare") || 
                              activeModel.toLowerCase().includes("llama-3-8b") ||
                              activeModel.toLowerCase().includes("llama-3.1-8b") ||
@@ -102,6 +115,11 @@ export class AIFactory {
             const cleanModel = isCfModel ? activeModel : '@cf/meta/llama-3.2-3b-instruct';
             return new CloudflareAIProvider(env.AI, cleanModel);
         } else {
+            // If workspace has custom key (e.g. Agent Router sk- key), use OpenAIProvider targeting AgentRouter
+            if (workspaceKey && workspaceKey.startsWith("sk-")) {
+                const cleanModel = activeModel.includes('/') ? activeModel.split('/').pop() : activeModel;
+                return new OpenAIProvider(workspaceKey, cleanModel, "https://agentrouter.org/v1");
+            }
             // OpenRouter fallback
             const apiKey = env.OPENROUTER_API_KEY || workspaceKey;
             if (!apiKey) {

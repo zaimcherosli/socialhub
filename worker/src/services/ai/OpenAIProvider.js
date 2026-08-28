@@ -1,10 +1,15 @@
 import { AIProvider } from './AIProvider.js';
 
 export class OpenAIProvider extends AIProvider {
-    constructor(apiKey, model) {
+    constructor(apiKey, model, baseUrl = null) {
         super();
         this.apiKey = apiKey ? apiKey.replace(/^["']|["']$/g, '') : '';
         this.model = model || "gpt-4o-mini";
+        this.baseUrl = baseUrl || (
+            (this.model.includes('claude-opus') || this.model.includes('deepseek-v4') || this.model.includes('glm-5') || this.model.includes('gpt-5.6') || (this.apiKey && this.apiKey.length > 40 && !this.apiKey.startsWith('sk-proj-')))
+            ? "https://agentrouter.org/v1"
+            : "https://api.openai.com/v1"
+        );
     }
 
     // Reasoning models (gpt-5+, o1/o3 family) do NOT support temperature
@@ -14,32 +19,56 @@ export class OpenAIProvider extends AIProvider {
                m.startsWith('gpt-5') || m.includes('gpt-5.');
     }
 
+    async _fetchChatCompletions(payload) {
+        const endpoints = [
+            this.baseUrl ? `${this.baseUrl}/chat/completions` : "https://api.openai.com/v1/chat/completions",
+            "https://agentrouter.org/v1/chat/completions",
+            "https://api.openai.com/v1/chat/completions",
+            "https://openrouter.ai/api/v1/chat/completions"
+        ];
+
+        const uniqueEndpoints = [...new Set(endpoints)];
+        let lastErr = null;
+
+        for (const ep of uniqueEndpoints) {
+            try {
+                const response = await fetch(ep, {
+                    method: "POST",
+                    headers: {
+                        "Authorization": `Bearer ${this.apiKey}`,
+                        "Content-Type": "application/json",
+                        "HTTP-Referer": "https://socialhub.kwikezee.my",
+                        "X-Title": "SocialHub"
+                    },
+                    body: JSON.stringify(payload)
+                });
+
+                if (response.ok) {
+                    const data = await response.json();
+                    return data;
+                }
+                const errText = await response.text();
+                lastErr = new Error(`AI API error (${ep}): ${response.status} - ${errText}`);
+            } catch (err) {
+                lastErr = err;
+            }
+        }
+        throw lastErr || new Error("Failed to communicate with AI provider.");
+    }
+
     async generateCaption({ businessType, product, targetAudience, goal, tone, language, customInstructions, postFormat, funnelStage, nicheRules, nicheExampleOutput, nicheKey, isPreset }) {
         const prompt = this.assembleCaptionPrompt({ businessType, product, targetAudience, goal, tone, language, customInstructions, postFormat, funnelStage, nicheRules, nicheExampleOutput, nicheKey, isPreset });
 
-        const response = await fetch("https://api.openai.com/v1/chat/completions", {
-            method: "POST",
-            headers: {
-                "Authorization": `Bearer ${this.apiKey}`,
-                "Content-Type": "application/json"
-            },
-            body: JSON.stringify({
-                model: this.model,
-                messages: [
-                    { role: "user", content: prompt }
-                ],
-                ...(this.isReasoningModel() ? {} : { temperature: 0.7 })
-            })
+        const data = await this._fetchChatCompletions({
+            model: this.model,
+            messages: [
+                { role: "user", content: prompt }
+            ],
+            ...(this.isReasoningModel() ? {} : { temperature: 0.7 })
         });
 
-        if (!response.ok) {
-            const errText = await response.text();
-            throw new Error(`OpenAI API error: ${response.status} - ${errText}`);
-        }
-
-        const data = await response.json();
         if (!data.choices || data.choices.length === 0) {
-            throw new Error("Invalid API response format from OpenAI.");
+            throw new Error("Invalid API response format from AI provider.");
         }
 
         const rawText = data.choices[0].message.content.trim();
@@ -104,29 +133,16 @@ Provide the output in a strict JSON format with the following keys. Return ONLY 
   "hashtags": ["hashtag1", "hashtag2", "hashtag3"]
 }`;
 
-        const response = await fetch("https://api.openai.com/v1/chat/completions", {
-            method: "POST",
-            headers: {
-                "Authorization": `Bearer ${this.apiKey}`,
-                "Content-Type": "application/json"
-            },
-            body: JSON.stringify({
-                model: this.model,
-                messages: [
-                    { role: "user", content: prompt }
-                ],
-                ...(this.isReasoningModel() ? {} : { temperature: 0.7 })
-            })
+        const data = await this._fetchChatCompletions({
+            model: this.model,
+            messages: [
+                { role: "user", content: prompt }
+            ],
+            ...(this.isReasoningModel() ? {} : { temperature: 0.7 })
         });
 
-        if (!response.ok) {
-            const errText = await response.text();
-            throw new Error(`OpenAI API error: ${response.status} - ${errText}`);
-        }
-
-        const data = await response.json();
         if (!data.choices || data.choices.length === 0) {
-            throw new Error("Invalid API response format from OpenAI.");
+            throw new Error("Invalid API response format from AI provider.");
         }
 
         const rawText = data.choices[0].message.content.trim();
@@ -156,23 +172,11 @@ Provide the output in a strict JSON format with the following keys. Return ONLY 
 
     async generateChatResponse(messages) {
         console.log(`[OpenAIProvider] Executing chatCompletion with model: ${this.model}`);
-        const response = await fetch("https://api.openai.com/v1/chat/completions", {
-            method: "POST",
-            headers: {
-                "Authorization": `Bearer ${this.apiKey}`,
-                "Content-Type": "application/json"
-            },
-            body: JSON.stringify({
-                model: this.model,
-                messages: messages,
-                ...(this.isReasoningModel() ? {} : { temperature: 0.7 })
-            })
+        const data = await this._fetchChatCompletions({
+            model: this.model,
+            messages: messages,
+            ...(this.isReasoningModel() ? {} : { temperature: 0.7 })
         });
-        if (!response.ok) {
-            const errText = await response.text();
-            throw new Error(`OpenAI provider error: ${response.status} - ${errText}`);
-        }
-        const data = await response.json();
         return data.choices[0].message.content;
     }
 }

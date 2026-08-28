@@ -37,6 +37,7 @@ export class OpenAIProvider extends AIProvider {
                     headers: {
                         "Authorization": `Bearer ${this.apiKey}`,
                         "Content-Type": "application/json",
+                        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/128.0.0.0 Safari/537.36",
                         "HTTP-Referer": "https://socialhub.kwikezee.my",
                         "X-Title": "SocialHub"
                     },

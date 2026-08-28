@@ -625,7 +625,15 @@
                         <!-- Right: API Key + Usage -->
                         <div style="display: flex; flex-direction: column; gap: 1.25rem;">
                             <div class="form-group" style="margin: 0;">
-                                <label class="form-label" for="openrouterKey">API Key (OpenAI / Gemini / OpenRouter)</label>
+                                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.35rem; flex-wrap: wrap; gap: 0.25rem;">
+                                    <label class="form-label" for="openrouterKey" style="margin-bottom: 0;">API Key (OpenAI / Gemini / OpenRouter)</label>
+                                    <div id="apiKeyStatusBadgeWrap" style="display: none; align-items: center; gap: 0.45rem;">
+                                        <span style="font-size: 0.7rem; font-weight: 700; background: #ecfdf5; color: #059669; padding: 2px 8px; border-radius: 4px; border: 1px solid rgba(5,150,105,0.25); display: inline-flex; align-items: center; gap: 4px;">
+                                            <span style="display: inline-block; width: 6px; height: 6px; border-radius: 50%; background: #10b981;"></span> Custom Key Tersimpan
+                                        </span>
+                                        <button type="button" id="btnClearApiKey" style="background: none; border: none; font-size: 0.72rem; color: #ef4444; cursor: pointer; text-decoration: underline; padding: 0; font-weight: 600;">Padam Key</button>
+                                    </div>
+                                </div>
                                 <div class="api-key-input-wrap">
                                     <input type="password" id="openrouterKey" class="form-input" placeholder="Enter OpenAI, Gemini, or OpenRouter Key..." style="width: 100%;" autocomplete="off" />
                                     <button type="button" class="toggle-key-btn" id="btnToggleKey" title="Show/Hide key">
@@ -945,6 +953,7 @@
         import { sessionService } from './js/services/sessionService.js';
         import { authService } from './js/services/authService.js';
         import { CONFIG } from './js/config/config.js';
+        import { notificationService } from './js/services/notificationService.js';
 
 
         // ── Helpers ────────────────────────────────────────────
@@ -1042,7 +1051,14 @@
                         }
                     }
 
-                    if (has_api_key) keyInput.placeholder = 'API Key Saved •••••••';
+                    const badgeWrap = document.getElementById('apiKeyStatusBadgeWrap');
+                    if (has_api_key) {
+                        if (badgeWrap) badgeWrap.style.display = 'inline-flex';
+                        keyInput.placeholder = 'API Key Tersimpan ••••••• (Taip untuk tukar)';
+                    } else {
+                        if (badgeWrap) badgeWrap.style.display = 'none';
+                        keyInput.placeholder = 'Masukkan OpenAI, Gemini, atau OpenRouter Key...';
+                    }
                     
                     document.getElementById('customInstructions').value = custom_ai_instructions || '';
                     document.getElementById('copywritingPersona').value = copywriting_persona || 'general';
@@ -1068,6 +1084,31 @@
             }
         }
 
+        // ── Clear / Remove Custom API Key ─────────────────────
+        document.getElementById('btnClearApiKey')?.addEventListener('click', async () => {
+            if (!confirm('Adakah anda pasti mahu memadam custom API Key ini dan kembali menggunakan kuota Global Sistem?')) return;
+            try {
+                const radioVal = document.querySelector('input[name="aiModel"]:checked')?.value || 'google/gemini-3.7-flash';
+                let selectedModel = radioVal;
+                if (radioVal === 'custom') {
+                    selectedModel = document.getElementById('customModelId').value.trim() || 'google/gemini-3.7-flash';
+                }
+                const res = await apiClient.post('/ai/settings', {
+                    model: selectedModel,
+                    clear_api_key: true,
+                    custom_ai_instructions: document.getElementById('customInstructions').value.trim(),
+                    copywriting_persona: document.getElementById('copywritingPersona').value
+                });
+                if (res.success) {
+                    notificationService.info('🗑️ Custom API Key telah dipadam. Workspace kembali menggunakan kuota sistem default.');
+                    keyInput.value = '';
+                    await loadAISettings();
+                }
+            } catch (err) {
+                notificationService.error(err.message || 'Gagal memadam custom key');
+            }
+        });
+
         // ── Save AI Settings ───────────────────────────────────
         document.getElementById('btnSaveAI').addEventListener('click', async () => {
             const btn = document.getElementById('btnSaveAI');
@@ -1076,13 +1117,19 @@
 
             if (radioVal === 'custom') {
                 selectedModel = document.getElementById('customModelId').value.trim();
-                if (!selectedModel) { alert('Please enter a custom model ID.'); return; }
+                if (!selectedModel) { 
+                    notificationService.error('Sila masukkan Model ID pilihan anda.'); 
+                    return; 
+                }
             }
 
-            if (!selectedModel) { alert('Please select an AI model.'); return; }
+            if (!selectedModel) { 
+                notificationService.error('Sila pilih sekurang-kurangnya satu model AI.'); 
+                return; 
+            }
 
             btn.disabled = true;
-            btn.innerHTML = `<span style="display:inline-block;width:14px;height:14px;border:2px solid #fff;border-top-color:transparent;border-radius:50%;animation:spin 0.8s linear infinite;margin-right:0.5rem;"></span>Saving...`;
+            btn.innerHTML = `<span style="display:inline-block;width:14px;height:14px;border:2px solid #fff;border-top-color:transparent;border-radius:50%;animation:spin 0.8s linear infinite;margin-right:0.5rem;"></span>Menyimpan...`;
 
             try {
                 const payload = { 
@@ -1097,7 +1144,12 @@
                 if (res.success) {
                     document.getElementById('aiSaveError').classList.remove('visible');
                     showStatus('aiSaveStatus');
-                    if (apiKey) keyInput.value = '';
+                    if (apiKey) {
+                        notificationService.success(`🔑 API Key Custom (${selectedModel}) berjaya disimpan & diaktifkan untuk workspace ini!`);
+                        keyInput.value = '';
+                    } else {
+                        notificationService.success(`✅ Tetapan model AI (${selectedModel}) berjaya dikemas kini!`);
+                    }
                     await loadAISettings();
                 } else {
                     throw new Error(res.message || 'Failed to save');
@@ -1105,6 +1157,7 @@
             } catch (e) {
                 document.getElementById('aiErrorMsg').textContent = e.message || 'Error occurred.';
                 showStatus('aiSaveError', 5000);
+                notificationService.error(e.message || 'Ralat berlaku semasa menyimpan tetapan.');
             } finally {
                 btn.disabled = false;
                 btn.innerHTML = `<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></svg> Save AI Settings`;

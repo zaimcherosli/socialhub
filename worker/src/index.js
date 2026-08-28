@@ -2957,8 +2957,16 @@ export default {
                         if (activeWorkspace.role === 'viewer') {
                             return new Response(JSON.stringify({ message: 'Forbidden: Viewers cannot change settings.' }), { status: 403, headers: corsHeaders });
                         }
-                        const { model, api_key, custom_ai_instructions, copywriting_persona } = await request.json();
+                        const { model, api_key, clear_api_key, custom_ai_instructions, copywriting_persona } = await request.json();
                         if (!model) return new Response(JSON.stringify({ message: 'Model is required.' }), { status: 400, headers: corsHeaders });
+
+                        if (clear_api_key === true || api_key === '__CLEAR__') {
+                            await env.DB.prepare(
+                                "UPDATE workspaces SET ai_model = ?, ai_api_key_enc = NULL, custom_ai_instructions = ?, copywriting_persona = ?, updated_at = (datetime('now')) WHERE id = ?"
+                            ).bind(model, custom_ai_instructions || null, copywriting_persona || 'general', activeWorkspace.workspace_id).run();
+                            await logActivity(activeWorkspace.workspace_id, user.id, 'update_ai_settings', `Custom API key cleared, model set to: ${model}`);
+                            return new Response(JSON.stringify({ success: true, message: 'Custom API Key removed.' }), { status: 200, headers: corsHeaders });
+                        }
 
                         let encKey = null;
                         if (api_key && api_key.trim() !== '') {

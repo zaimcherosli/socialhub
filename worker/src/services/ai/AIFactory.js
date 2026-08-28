@@ -29,7 +29,7 @@ export class AIFactory {
         if (hasOpenAI && !hasGemini && (!model.toLowerCase().includes("gpt-") && !model.toLowerCase().startsWith("openai/"))) {
             activeModel = "gpt-4o-mini";
         } else if (hasGemini && !hasOpenAI && !model.toLowerCase().includes("gemini")) {
-            activeModel = "gemini-3.6-flash";
+            activeModel = "gemini-3.7-flash";
         }
 
         // 1. Direct OpenAI Check
@@ -60,10 +60,10 @@ export class AIFactory {
                         if (lastPart.toLowerCase().includes('gemini')) {
                             cleanModel = lastPart;
                         } else {
-                            cleanModel = 'gemini-3.6-flash';
+                            cleanModel = 'gemini-3.7-flash';
                         }
                     }
-                    if (!cleanModel) cleanModel = 'gemini-3.6-flash';
+                    if (!cleanModel) cleanModel = 'gemini-3.7-flash';
                     return new GeminiProvider(apiKey, cleanModel);
                 }
             }

@@ -308,6 +308,29 @@ async function runFallbackAI(systemPrompt, env) {
     return null;
 }
 
+async function parseCloudflareImageResponse(res) {
+    if (!res) return null;
+    if (res.image && typeof res.image === 'string') {
+        return res.image;
+    }
+    if (typeof res === 'string') {
+        return res.startsWith('data:') ? res.split(',')[1] : res;
+    }
+    try {
+        const bytes = new Uint8Array(await new Response(res).arrayBuffer());
+        let binary = '';
+        const len = bytes.byteLength;
+        for (let i = 0; i < len; i++) {
+            binary += String.fromCharCode(bytes[i]);
+        }
+        const b64 = btoa(binary);
+        if (b64 === 'W29iamVjdCBPYmplY3Rd') return null;
+        return b64;
+    } catch (_) {
+        return null;
+    }
+}
+
 async function getAIEnvironment(db, workspaceId, env, encryptionSecret, subscriptionPlan) {
     const aiEnv = { ...env };
     
@@ -3148,24 +3171,16 @@ LAYOUT & DESIGN RULES:
                         // 1. If quality is 'low', prefer Cloudflare Workers AI (FLUX.1 Schnell or SDXL)
                         if (imgQuality === 'low' && env.AI) {
                             try {
-                                let imageBuffer = null;
+                                let rawRes = null;
                                 try {
-                                    imageBuffer = await env.AI.run('@cf/black-forest-labs/flux-1-schnell', { prompt: visualPrompt.slice(0, 500) });
+                                    rawRes = await env.AI.run('@cf/black-forest-labs/flux-1-schnell', { prompt: visualPrompt.slice(0, 500) });
                                 } catch (_) {
-                                    imageBuffer = await env.AI.run('@cf/bytedance/stable-diffusion-xl-lightning', { prompt: visualPrompt });
+                                    rawRes = await env.AI.run('@cf/bytedance/stable-diffusion-xl-lightning', { prompt: visualPrompt });
                                 }
-                                if (imageBuffer) {
-                                    const bytes = new Uint8Array(await new Response(imageBuffer).arrayBuffer());
-                                    let binary = '';
-                                    const len = bytes.byteLength;
-                                    for (let i = 0; i < len; i++) {
-                                        binary += String.fromCharCode(bytes[i]);
-                                    }
-                                    const base64 = btoa(binary);
-                                    if (base64) {
-                                        imageUrl = `data:image/jpeg;base64,${base64}`;
-                                        usedSource = 'cloudflare-flux';
-                                    }
+                                const base64 = await parseCloudflareImageResponse(rawRes);
+                                if (base64) {
+                                    imageUrl = `data:image/jpeg;base64,${base64}`;
+                                    usedSource = 'cloudflare-flux';
                                 }
                             } catch (cfErr) {
                                 console.error('[Cloudflare AI Image Error for Low Quality]:', cfErr);
@@ -3261,27 +3276,20 @@ LAYOUT & DESIGN RULES:
                             }
                         }
 
-                        // 3. Fallback: If OpenAI failed or not configured, fall back to Cloudflare Workers AI (FLUX.1 or SDXL)
+                        // 3. Fallback: If OpenAI/AgentRouter failed, fall back to Cloudflare Workers AI (FLUX.1 Schnell or SDXL)
                         if (!imageUrl && env.AI) {
                             try {
-                                let imageBuffer = null;
+                                let rawRes = null;
                                 try {
-                                    imageBuffer = await env.AI.run('@cf/black-forest-labs/flux-1-schnell', { prompt: visualPrompt.slice(0, 500) });
+                                    rawRes = await env.AI.run('@cf/black-forest-labs/flux-1-schnell', { prompt: visualPrompt.slice(0, 500) });
                                 } catch (_) {
-                                    imageBuffer = await env.AI.run('@cf/bytedance/stable-diffusion-xl-lightning', { prompt: visualPrompt });
+                                    rawRes = await env.AI.run('@cf/bytedance/stable-diffusion-xl-lightning', { prompt: visualPrompt });
                                 }
-                                if (imageBuffer) {
-                                    const bytes = new Uint8Array(await new Response(imageBuffer).arrayBuffer());
-                                    let binary = '';
-                                    const len = bytes.byteLength;
-                                    for (let i = 0; i < len; i++) {
-                                        binary += String.fromCharCode(bytes[i]);
-                                    }
-                                    const base64 = btoa(binary);
-                                    if (base64) {
-                                        imageUrl = `data:image/jpeg;base64,${base64}`;
-                                        usedSource = 'cloudflare-sdxl';
-                                    }
+                                const base64 = await parseCloudflareImageResponse(rawRes);
+                                if (base64) {
+                                    imageUrl = `data:image/jpeg;base64,${base64}`;
+                                    usedSource = 'cloudflare-flux';
+                                    openAiErrDetail = null; // Clean successful fallback without error banner
                                 }
                             } catch (cfErr) {
                                 console.error('[Cloudflare AI Image Error Fallback]:', cfErr);
@@ -5147,16 +5155,14 @@ LAYOUT & DESIGN RULES:
                                             // 1. Cloudflare Workers AI for Low Quality
                                             if (imgQuality === 'low' && env.AI) {
                                                 try {
-                                                    const imageBuffer = await env.AI.run('@cf/bytedance/stable-diffusion-xl-lightning', { prompt: visualPrompt });
-                                                    if (imageBuffer) {
-                                                        const bytes = new Uint8Array(await new Response(imageBuffer).arrayBuffer());
-                                                        let binary = '';
-                                                        for (let i = 0; i < bytes.byteLength; i++) {
-                                                            binary += String.fromCharCode(bytes[i]);
-                                                        }
-                                                        const b64 = btoa(binary);
-                                                        if (b64) imageUrl = `data:image/jpeg;base64,${b64}`;
+                                                    let rawRes = null;
+                                                    try {
+                                                        rawRes = await env.AI.run('@cf/black-forest-labs/flux-1-schnell', { prompt: visualPrompt.slice(0, 500) });
+                                                    } catch (_) {
+                                                        rawRes = await env.AI.run('@cf/bytedance/stable-diffusion-xl-lightning', { prompt: visualPrompt });
                                                     }
+                                                    const b64 = await parseCloudflareImageResponse(rawRes);
+                                                    if (b64) imageUrl = `data:image/jpeg;base64,${b64}`;
                                                 } catch (cfErr) {
                                                     console.error('[Autopilot Cloudflare AI Error]:', cfErr);
                                                 }
@@ -5236,16 +5242,14 @@ LAYOUT & DESIGN RULES:
                                             // 3. Fallback to Cloudflare AI
                                             if (!imageUrl && env.AI) {
                                                 try {
-                                                    const imageBuffer = await env.AI.run('@cf/bytedance/stable-diffusion-xl-lightning', { prompt: visualPrompt });
-                                                    if (imageBuffer) {
-                                                        const bytes = new Uint8Array(await new Response(imageBuffer).arrayBuffer());
-                                                        let binary = '';
-                                                        for (let i = 0; i < bytes.byteLength; i++) {
-                                                            binary += String.fromCharCode(bytes[i]);
-                                                        }
-                                                        const b64 = btoa(binary);
-                                                        if (b64) imageUrl = `data:image/jpeg;base64,${b64}`;
+                                                    let rawRes = null;
+                                                    try {
+                                                        rawRes = await env.AI.run('@cf/black-forest-labs/flux-1-schnell', { prompt: visualPrompt.slice(0, 500) });
+                                                    } catch (_) {
+                                                        rawRes = await env.AI.run('@cf/bytedance/stable-diffusion-xl-lightning', { prompt: visualPrompt });
                                                     }
+                                                    const b64 = await parseCloudflareImageResponse(rawRes);
+                                                    if (b64) imageUrl = `data:image/jpeg;base64,${b64}`;
                                                 } catch (_) {}
                                             }
 

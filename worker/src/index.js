@@ -3167,62 +3167,91 @@ LAYOUT & DESIGN RULES:
                             }
                         }
 
-                        // 2. Try OpenAI Image Models Cascade (dall-e-3 -> gpt-image-2 -> dall-e-2)
+                        // 2. Try OpenAI / Agent Router Image Models Cascade (gpt-image-2 -> dall-e-3 -> dall-e-2)
                         let openAiErrDetail = null;
                         if (!openaiApiKey) {
                             console.warn('[GenerateImage] OPENAI_API_KEY is not configured or failed to decrypt.');
-                            openAiErrDetail = 'API key OpenAI tidak ditemui atau gagal didekripsi.';
+                            openAiErrDetail = 'API key OpenAI / Agent Router tidak ditemui atau gagal didekripsi.';
                         } else if (!imageUrl) {
-                            const candidateModels = ['dall-e-3', 'gpt-image-2', 'dall-e-2'];
+                            const candidateModels = ['gpt-image-2', 'dall-e-3', 'dall-e-2'];
+                            const candidateEndpoints = [
+                                'https://agentrouter.org/v1/images/generations',
+                                'https://api.openai.com/v1/images/generations'
+                            ];
+
                             for (const modelName of candidateModels) {
                                 if (imageUrl) break;
-                                try {
-                                    console.log(`[GenerateImage] Attempting OpenAI image generation with model: ${modelName}...`);
-                                    const payload = {
-                                        model: modelName,
-                                        prompt: visualPrompt.slice(0, 1000),
-                                        n: 1,
-                                        size: '1024x1024'
-                                    };
-                                    if (modelName === 'dall-e-3') {
-                                        payload.quality = (imgQuality === 'high' || imgQuality === 'hd') ? 'hd' : 'standard';
-                                    }
+                                for (const ep of candidateEndpoints) {
+                                    if (imageUrl) break;
+                                    try {
+                                        console.log(`[GenerateImage] Attempting image generation with model: ${modelName} on ${ep}...`);
+                                        const payload = {
+                                            model: modelName,
+                                            prompt: visualPrompt.slice(0, 1000),
+                                            n: 1,
+                                            size: '1024x1024'
+                                        };
+                                        if (modelName === 'dall-e-3') {
+                                            payload.quality = (imgQuality === 'high' || imgQuality === 'hd') ? 'hd' : 'standard';
+                                        }
 
-                                    const openAiRes = await fetch('https://api.openai.com/v1/images/generations', {
-                                        method: 'POST',
-                                        headers: {
+                                        const isAgentRouter = ep.includes('agentrouter.org');
+                                        const headers = {
                                             'Content-Type': 'application/json',
-                                            'Authorization': `Bearer ${openaiApiKey}`
-                                        },
-                                        body: JSON.stringify(payload)
-                                    });
+                                            'Authorization': `Bearer ${openaiApiKey}`,
+                                            'x-api-key': openaiApiKey,
+                                            'HTTP-Referer': 'https://socialhub.kwikezee.my',
+                                            'X-Title': 'SocialHub'
+                                        };
+                                        if (isAgentRouter) {
+                                            headers['User-Agent'] = 'claude-cli/2.1.158 (external, sdk-cli)';
+                                            headers['anthropic-version'] = '2023-06-01';
+                                            headers['anthropic-beta'] = 'claude-code-20250219,interleaved-thinking-2025-05-14,effort-2025-11-24';
+                                            headers['anthropic-dangerous-direct-browser-access'] = 'true';
+                                            headers['x-app'] = 'cli';
+                                            headers['X-Stainless-Arch'] = 'x64';
+                                            headers['X-Stainless-Lang'] = 'js';
+                                            headers['X-Stainless-OS'] = 'Linux';
+                                            headers['X-Stainless-Package-Version'] = '0.38.0';
+                                            headers['X-Stainless-Runtime'] = 'node';
+                                            headers['X-Stainless-Runtime-Version'] = 'v20.10.0';
+                                        } else {
+                                            headers['User-Agent'] = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/128.0.0.0 Safari/537.36';
+                                        }
 
-                                    if (openAiRes.ok) {
-                                        const data = await openAiRes.json();
-                                        if (data.data && data.data[0]) {
-                                            if (data.data[0].b64_json) {
-                                                imageUrl = `data:image/jpeg;base64,${data.data[0].b64_json}`;
-                                            } else if (data.data[0].url) {
-                                                imageUrl = data.data[0].url;
+                                        const openAiRes = await fetch(ep, {
+                                            method: 'POST',
+                                            headers: headers,
+                                            body: JSON.stringify(payload)
+                                        });
+
+                                        if (openAiRes.ok) {
+                                            const data = await openAiRes.json();
+                                            if (data.data && data.data[0]) {
+                                                if (data.data[0].b64_json) {
+                                                    imageUrl = `data:image/jpeg;base64,${data.data[0].b64_json}`;
+                                                } else if (data.data[0].url) {
+                                                    imageUrl = data.data[0].url;
+                                                }
+                                                usedSource = `openai-${modelName}`;
+                                                openAiErrDetail = null;
+                                                console.log(`[GenerateImage] Success with model: ${modelName} on ${ep}`);
+                                                break;
                                             }
-                                            usedSource = `openai-${modelName}`;
-                                            openAiErrDetail = null;
-                                            console.log(`[GenerateImage] Success with OpenAI model: ${modelName}`);
-                                            break;
+                                        } else {
+                                            const errText = await openAiRes.text();
+                                            console.warn(`[Image Generation Error for ${modelName} on ${ep} HTTP ${openAiRes.status}]:`, errText);
+                                            try {
+                                                const parsedErr = JSON.parse(errText);
+                                                openAiErrDetail = parsedErr.error?.message || errText;
+                                            } catch (_) {
+                                                openAiErrDetail = errText;
+                                            }
                                         }
-                                    } else {
-                                        const errText = await openAiRes.text();
-                                        console.error(`[OpenAI Image Error for ${modelName} HTTP ${openAiRes.status}]:`, errText);
-                                        try {
-                                            const parsedErr = JSON.parse(errText);
-                                            openAiErrDetail = parsedErr.error?.message || errText;
-                                        } catch (_) {
-                                            openAiErrDetail = errText;
-                                        }
+                                    } catch (oaiErr) {
+                                        console.warn(`[Image Generation Fetch Error for ${modelName} on ${ep}]:`, oaiErr);
+                                        openAiErrDetail = oaiErr.message;
                                     }
-                                } catch (oaiErr) {
-                                    console.error(`[OpenAI Image Fetch Error for ${modelName}]:`, oaiErr);
-                                    openAiErrDetail = oaiErr.message;
                                 }
                             }
                         }
@@ -5123,44 +5152,73 @@ LAYOUT & DESIGN RULES:
                                                 }
                                             }
 
-                                            // 2. OpenAI Image Generation for Medium / High
+                                            // 2. OpenAI / Agent Router Image Generation for Medium / High
                                             if (!imageUrl && openaiApiKey) {
-                                                const candidateModels = ['dall-e-3', 'gpt-image-2', 'dall-e-2'];
+                                                const candidateModels = ['gpt-image-2', 'dall-e-3', 'dall-e-2'];
+                                                const candidateEndpoints = [
+                                                    'https://agentrouter.org/v1/images/generations',
+                                                    'https://api.openai.com/v1/images/generations'
+                                                ];
+
                                                 for (const modelName of candidateModels) {
                                                     if (imageUrl) break;
-                                                    try {
-                                                        const payload = {
-                                                            model: modelName,
-                                                            prompt: visualPrompt.slice(0, 1000),
-                                                            n: 1,
-                                                            size: '1024x1024'
-                                                        };
-                                                        if (modelName === 'dall-e-3') {
-                                                            payload.quality = (imgQuality === 'high' || imgQuality === 'hd') ? 'hd' : 'standard';
-                                                        }
-
-                                                        const openAiRes = await fetch('https://api.openai.com/v1/images/generations', {
-                                                            method: 'POST',
-                                                            headers: {
-                                                                'Content-Type': 'application/json',
-                                                                'Authorization': `Bearer ${openaiApiKey}`
-                                                            },
-                                                            body: JSON.stringify(payload)
-                                                        });
-
-                                                        if (openAiRes.ok) {
-                                                            const data = await openAiRes.json();
-                                                            if (data.data && data.data[0]) {
-                                                                if (data.data[0].b64_json) {
-                                                                    imageUrl = `data:image/jpeg;base64,${data.data[0].b64_json}`;
-                                                                } else if (data.data[0].url) {
-                                                                    imageUrl = data.data[0].url;
-                                                                }
-                                                                break;
+                                                    for (const ep of candidateEndpoints) {
+                                                        if (imageUrl) break;
+                                                        try {
+                                                            const payload = {
+                                                                model: modelName,
+                                                                prompt: visualPrompt.slice(0, 1000),
+                                                                n: 1,
+                                                                size: '1024x1024'
+                                                            };
+                                                            if (modelName === 'dall-e-3') {
+                                                                payload.quality = (imgQuality === 'high' || imgQuality === 'hd') ? 'hd' : 'standard';
                                                             }
+
+                                                            const isAgentRouter = ep.includes('agentrouter.org');
+                                                            const headers = {
+                                                                'Content-Type': 'application/json',
+                                                                'Authorization': `Bearer ${openaiApiKey}`,
+                                                                'x-api-key': openaiApiKey,
+                                                                'HTTP-Referer': 'https://socialhub.kwikezee.my',
+                                                                'X-Title': 'SocialHub'
+                                                            };
+                                                            if (isAgentRouter) {
+                                                                headers['User-Agent'] = 'claude-cli/2.1.158 (external, sdk-cli)';
+                                                                headers['anthropic-version'] = '2023-06-01';
+                                                                headers['anthropic-beta'] = 'claude-code-20250219,interleaved-thinking-2025-05-14,effort-2025-11-24';
+                                                                headers['anthropic-dangerous-direct-browser-access'] = 'true';
+                                                                headers['x-app'] = 'cli';
+                                                                headers['X-Stainless-Arch'] = 'x64';
+                                                                headers['X-Stainless-Lang'] = 'js';
+                                                                headers['X-Stainless-OS'] = 'Linux';
+                                                                headers['X-Stainless-Package-Version'] = '0.38.0';
+                                                                headers['X-Stainless-Runtime'] = 'node';
+                                                                headers['X-Stainless-Runtime-Version'] = 'v20.10.0';
+                                                            } else {
+                                                                headers['User-Agent'] = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/128.0.0.0 Safari/537.36';
+                                                            }
+
+                                                            const openAiRes = await fetch(ep, {
+                                                                method: 'POST',
+                                                                headers: headers,
+                                                                body: JSON.stringify(payload)
+                                                            });
+
+                                                            if (openAiRes.ok) {
+                                                                const data = await openAiRes.json();
+                                                                if (data.data && data.data[0]) {
+                                                                    if (data.data[0].b64_json) {
+                                                                        imageUrl = `data:image/jpeg;base64,${data.data[0].b64_json}`;
+                                                                    } else if (data.data[0].url) {
+                                                                        imageUrl = data.data[0].url;
+                                                                    }
+                                                                    break;
+                                                                }
+                                                            }
+                                                        } catch (oaiErr) {
+                                                            console.error(`[Autopilot OpenAI Err ${modelName} on ${ep}]:`, oaiErr);
                                                         }
-                                                    } catch (oaiErr) {
-                                                        console.error(`[Autopilot OpenAI Err ${modelName}]:`, oaiErr);
                                                     }
                                                 }
                                             }

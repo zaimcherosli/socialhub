@@ -1289,18 +1289,22 @@
                             updateImagePreviewDisplay();
                             
                             let sourceMsg = '✨ Gambar AI berjaya dijana!';
-                            let badgeText = '✨ Image created by OpenAI';
+                            let badgeText = '✨ Image created by AI';
                             if (response.source && response.source.startsWith('openai-')) {
                                 const modelTag = response.source.replace('openai-', '').toUpperCase();
                                 sourceMsg = `✨ Gambar AI (OpenAI ${modelTag}) berjaya dijana!`;
                                 badgeText = `✨ Image created by OpenAI (${modelTag})`;
+                            } else if (response.source === 'cloudflare-flux') {
+                                sourceMsg = '✨ Gambar AI (FLUX.1 Schnell) berjaya dijana!';
+                                badgeText = '⚡ Image created by Cloudflare Workers AI (FLUX.1 Schnell)';
                             } else if (response.source === 'cloudflare-sdxl') {
-                                const errReason = response.openai_error ? ` (${response.openai_error})` : '';
-                                sourceMsg = `⚠️ OpenAI fallback${errReason}. Gambar AI dijana menggunakan Cloudflare Workers AI (Stable Diffusion)`;
+                                sourceMsg = '✨ Gambar AI (Stable Diffusion XL) berjaya dijana!';
                                 badgeText = '⚡ Image created by Cloudflare Workers AI (Stable Diffusion XL)';
                             } else if (response.source === 'unsplash-fallback') {
                                 sourceMsg = '⚠️ Enjin AI tergendala. Gambar diambil daripada Fallback: Unsplash Stock';
                                 badgeText = '🖼️ Image from Unsplash Stock Library';
+                            } else if (response.source) {
+                                badgeText = `⚡ Image created by ${response.source}`;
                             }
                             
                             const srcBadge = document.getElementById('aiImageSourceBadge');

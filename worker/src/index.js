@@ -3145,10 +3145,15 @@ LAYOUT & DESIGN RULES:
                         let imageUrl = null;
                         let usedSource = 'none';
 
-                        // 1. If quality is 'low', prefer Cloudflare Workers AI (Stable Diffusion XL Lightning) for fast, free generation
+                        // 1. If quality is 'low', prefer Cloudflare Workers AI (FLUX.1 Schnell or SDXL)
                         if (imgQuality === 'low' && env.AI) {
                             try {
-                                const imageBuffer = await env.AI.run('@cf/bytedance/stable-diffusion-xl-lightning', { prompt: visualPrompt });
+                                let imageBuffer = null;
+                                try {
+                                    imageBuffer = await env.AI.run('@cf/black-forest-labs/flux-1-schnell', { prompt: visualPrompt.slice(0, 500) });
+                                } catch (_) {
+                                    imageBuffer = await env.AI.run('@cf/bytedance/stable-diffusion-xl-lightning', { prompt: visualPrompt });
+                                }
                                 if (imageBuffer) {
                                     const bytes = new Uint8Array(await new Response(imageBuffer).arrayBuffer());
                                     let binary = '';
@@ -3159,7 +3164,7 @@ LAYOUT & DESIGN RULES:
                                     const base64 = btoa(binary);
                                     if (base64) {
                                         imageUrl = `data:image/jpeg;base64,${base64}`;
-                                        usedSource = 'cloudflare-sdxl';
+                                        usedSource = 'cloudflare-flux';
                                     }
                                 }
                             } catch (cfErr) {
@@ -3256,10 +3261,15 @@ LAYOUT & DESIGN RULES:
                             }
                         }
 
-                        // 3. Fallback: If OpenAI failed or not configured, fall back to Cloudflare Workers AI
+                        // 3. Fallback: If OpenAI failed or not configured, fall back to Cloudflare Workers AI (FLUX.1 or SDXL)
                         if (!imageUrl && env.AI) {
                             try {
-                                const imageBuffer = await env.AI.run('@cf/bytedance/stable-diffusion-xl-lightning', { prompt: visualPrompt });
+                                let imageBuffer = null;
+                                try {
+                                    imageBuffer = await env.AI.run('@cf/black-forest-labs/flux-1-schnell', { prompt: visualPrompt.slice(0, 500) });
+                                } catch (_) {
+                                    imageBuffer = await env.AI.run('@cf/bytedance/stable-diffusion-xl-lightning', { prompt: visualPrompt });
+                                }
                                 if (imageBuffer) {
                                     const bytes = new Uint8Array(await new Response(imageBuffer).arrayBuffer());
                                     let binary = '';

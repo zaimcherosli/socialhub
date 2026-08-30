@@ -47,9 +47,6 @@ export class OpenAIProvider extends AIProvider {
                 if (isAgentRouterEp) {
                     // Claude Code Wire Image headers required by Agent Router Aliyun WAF
                     headers["User-Agent"] = "claude-cli/2.1.158 (external, sdk-cli)";
-                    headers["anthropic-version"] = "2023-06-01";
-                    headers["anthropic-beta"] = "claude-code-20250219,interleaved-thinking-2025-05-14,effort-2025-11-24";
-                    headers["anthropic-dangerous-direct-browser-access"] = "true";
                     headers["x-app"] = "cli";
                     headers["X-Stainless-Arch"] = "x64";
                     headers["X-Stainless-Lang"] = "js";
@@ -57,6 +54,11 @@ export class OpenAIProvider extends AIProvider {
                     headers["X-Stainless-Package-Version"] = "0.38.0";
                     headers["X-Stainless-Runtime"] = "node";
                     headers["X-Stainless-Runtime-Version"] = "v20.10.0";
+                    if (isAnthropicMessages) {
+                        headers["anthropic-version"] = "2023-06-01";
+                        headers["anthropic-beta"] = "claude-code-20250219,interleaved-thinking-2025-05-14,effort-2025-11-24";
+                        headers["anthropic-dangerous-direct-browser-access"] = "true";
+                    }
                 } else {
                     headers["User-Agent"] = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/128.0.0.0 Safari/537.36";
                 }

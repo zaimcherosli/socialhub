@@ -1016,12 +1016,36 @@
         const customWrap  = document.getElementById('customModelInputWrap');
 
         modelCards.forEach(card => {
-            card.addEventListener('click', () => {
+            card.addEventListener('click', async () => {
                 modelCards.forEach(c => c.classList.remove('selected'));
                 card.classList.add('selected');
                 const radio = card.querySelector('input[type="radio"]');
                 if (radio) radio.checked = true;
                 customWrap.style.display = (radio?.value === 'custom') ? 'block' : 'none';
+
+                // Auto-save model selection immediately when user clicks a preset card
+                if (radio && radio.value && radio.value !== 'custom') {
+                    try {
+                        const payload = {
+                            model: radio.value,
+                            custom_ai_instructions: document.getElementById('customInstructions').value.trim(),
+                            copywriting_persona: document.getElementById('copywritingPersona').value
+                        };
+                        const apiKey = keyInput.value.trim();
+                        if (apiKey && !apiKey.includes('•')) payload.api_key = apiKey;
+
+                        const res = await apiClient.post('/ai/settings', payload);
+                        if (res.success) {
+                            notificationService.success(`✅ Model AI aktif ditukar kepada: ${radio.value}`);
+                            const smartLabel = document.getElementById('smartAIModelLabel');
+                            if (smartLabel) {
+                                smartLabel.textContent = `⚡ Custom Model: ${radio.value}`;
+                            }
+                        }
+                    } catch (e) {
+                        console.error('Auto-save model failed:', e);
+                    }
+                }
             });
         });
 

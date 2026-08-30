@@ -923,7 +923,9 @@
                     return fetchSchedules(retries - 1);
                 }
                 console.error("Failed to load schedules:", err);
-                notificationService.error('Connection error loading scheduled queue.');
+                if (!allSchedules || allSchedules.length === 0) {
+                    notificationService.error('Gagal memuat senarai jadual, sila refresh.');
+                }
                 return;
             }
             try {

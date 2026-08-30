@@ -20,10 +20,21 @@ export class OpenAIProvider extends AIProvider {
     }
 
     async _fetchChatCompletions(payload) {
-        const endpoints = [
-            this.baseUrl ? `${this.baseUrl}/chat/completions` : "https://agentrouter.org/v1/chat/completions",
-            "https://agentrouter.org/v1/chat/completions",
+        const isAgentRouterModel = 
+            this.model.includes('claude-opus') || 
+            this.model.includes('deepseek-v4') || 
+            this.model.includes('glm-5') || 
+            this.model.includes('gpt-5.6');
+
+        const endpoints = isAgentRouterModel ? [
             "https://agentrouter.org/v1/messages",
+            "https://agentrouter.org/v1/chat/completions",
+            "https://api.openai.com/v1/chat/completions",
+            "https://openrouter.ai/api/v1/chat/completions"
+        ] : [
+            this.baseUrl ? `${this.baseUrl}/chat/completions` : "https://api.openai.com/v1/chat/completions",
+            "https://agentrouter.org/v1/messages",
+            "https://agentrouter.org/v1/chat/completions",
             "https://api.openai.com/v1/chat/completions",
             "https://openrouter.ai/api/v1/chat/completions"
         ];
@@ -88,7 +99,11 @@ export class OpenAIProvider extends AIProvider {
                 if (response.ok) {
                     const data = await response.json();
                     if (isAnthropicMessages && data.content && Array.isArray(data.content)) {
-                        const text = data.content.map(c => c.text || '').join('');
+                        // Extract text cleanly, skipping reasoning/thinking blocks
+                        const text = data.content
+                            .filter(c => c.type === 'text' || (!c.type && c.text))
+                            .map(c => c.text || '')
+                            .join('');
                         return {
                             choices: [{ message: { content: text } }]
                         };

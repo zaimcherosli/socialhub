@@ -20,18 +20,28 @@ export class OpenAIProvider extends AIProvider {
     }
 
     async _fetchChatCompletions(payload) {
+        const isClaudeModel = this.model.includes('claude-opus') || this.model.includes('claude-');
         const isAgentRouterModel = 
             this.model.includes('claude-opus') || 
             this.model.includes('deepseek-v4') || 
             this.model.includes('glm-5') || 
             this.model.includes('gpt-5.6');
 
-        const endpoints = isAgentRouterModel ? [
-            "https://agentrouter.org/v1/messages",
-            "https://agentrouter.org/v1/chat/completions",
-            "https://api.openai.com/v1/chat/completions",
-            "https://openrouter.ai/api/v1/chat/completions"
-        ] : [
+        // Claude models: prefer /messages (native Anthropic format) first
+        // Non-Claude Agent Router models (DeepSeek, GLM, GPT-5.6): prefer /chat/completions first
+        const endpoints = isAgentRouterModel ? (
+            isClaudeModel ? [
+                "https://agentrouter.org/v1/messages",
+                "https://agentrouter.org/v1/chat/completions",
+                "https://api.openai.com/v1/chat/completions",
+                "https://openrouter.ai/api/v1/chat/completions"
+            ] : [
+                "https://agentrouter.org/v1/chat/completions",
+                "https://agentrouter.org/v1/messages",
+                "https://api.openai.com/v1/chat/completions",
+                "https://openrouter.ai/api/v1/chat/completions"
+            ]
+        ) : [
             this.baseUrl ? `${this.baseUrl}/chat/completions` : "https://api.openai.com/v1/chat/completions",
             "https://agentrouter.org/v1/messages",
             "https://agentrouter.org/v1/chat/completions",

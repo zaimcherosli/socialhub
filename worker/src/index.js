@@ -3410,7 +3410,16 @@ LAYOUT & DESIGN RULES:
                         // Build env-like object overriding with workspace preferences
                         const aiEnv = await getAIEnvironment(env.DB, activeWorkspace.workspace_id, env, encryptionSecret);
 
+                        // DEEP DEBUG: trace workspace key resolution
+                        console.log('[AI_DEBUG] workspace_id:', activeWorkspace.workspace_id);
+                        console.log('[AI_DEBUG] _workspaceKeySet:', aiEnv._workspaceKeySet);
+                        console.log('[AI_DEBUG] OPENROUTER_MODEL:', aiEnv.OPENROUTER_MODEL);
+                        console.log('[AI_DEBUG] OPENAI_API_KEY (first 8):', (aiEnv.OPENAI_API_KEY || '').substring(0, 8) || 'EMPTY');
+                        console.log('[AI_DEBUG] OPENROUTER_API_KEY (first 8):', (aiEnv.OPENROUTER_API_KEY || '').substring(0, 8) || 'EMPTY');
+                        console.log('[AI_DEBUG] GEMINI_API_KEY (first 8):', (aiEnv.GEMINI_API_KEY || '').substring(0, 8) || 'EMPTY');
+
                         const provider = AIFactory.getProvider(aiEnv);
+                        console.log('[AI_DEBUG] provider:', provider?.constructor?.name, 'model:', provider?.model, 'apiKey (first 8):', (provider?.apiKey || '').substring(0, 8) || 'EMPTY', 'baseUrl:', provider?.baseUrl);
                         
                         const nicheData = await getNicheInstructions(env.DB, product, 'single');
                         

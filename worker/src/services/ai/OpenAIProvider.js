@@ -61,15 +61,20 @@ export class OpenAIProvider extends AIProvider {
                     headers["User-Agent"] = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/128.0.0.0 Safari/537.36";
                 }
 
-                let requestBody = payload;
+                let requestBody = { ...payload };
                 if (isAnthropicMessages) {
                     // Translate payload to Anthropic /messages format
                     requestBody = {
                         model: payload.model,
-                        max_tokens: 1500,
+                        max_tokens: payload.max_tokens || payload.max_completion_tokens || 4096,
                         messages: payload.messages.filter(m => m.role !== 'system'),
                         ...(payload.messages.find(m => m.role === 'system') ? { system: payload.messages.find(m => m.role === 'system').content } : {})
                     };
+                } else if (this.isReasoningModel()) {
+                    // Reasoning models prefer max_completion_tokens
+                    if (!requestBody.max_completion_tokens && !requestBody.max_tokens) {
+                        requestBody.max_completion_tokens = 4096;
+                    }
                 }
 
                 const response = await fetch(ep, {
@@ -89,8 +94,10 @@ export class OpenAIProvider extends AIProvider {
                     return data;
                 }
                 const errText = await response.text();
+                console.error(`[OpenAIProvider] ${ep} error ${response.status}:`, errText);
                 lastErr = new Error(`AI API error (${ep}): ${response.status} - ${errText}`);
             } catch (err) {
+                console.error(`[OpenAIProvider] ${ep} exception:`, err.message);
                 lastErr = err;
             }
         }
@@ -105,7 +112,7 @@ export class OpenAIProvider extends AIProvider {
             messages: [
                 { role: "user", content: prompt }
             ],
-            ...(this.isReasoningModel() ? {} : { temperature: 0.7 })
+            ...(this.isReasoningModel() ? { max_completion_tokens: 4096 } : { temperature: 0.7, max_tokens: 4096 })
         });
 
         if (!data.choices || data.choices.length === 0) {

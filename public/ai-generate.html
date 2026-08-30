@@ -2319,7 +2319,7 @@
         // ─── AI Usage Stats Widget ──────────────────────────────────────────────
         async function fetchUsageStats() {
             try {
-                const res = await apiClient.get('/api/workspaces/usage');
+                const res = await apiClient.get('/workspaces/usage');
                 if (!res || !res.success) return;
 
                 const u = res.usage;

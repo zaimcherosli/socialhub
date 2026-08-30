@@ -150,28 +150,16 @@ CRITICAL HOOK & CONTENT DIVERSITY RULES (VERY IMPORTANT TO AVOID REPETITION):
             responseText = data.candidates?.[0]?.content?.parts?.[0]?.text || "";
 
         } else if (providerName === 'OpenAIProvider') {
-            // ── OpenAI ─────────────────────────────────────────────────────────────
-            console.log(`[AutopilotService] Calling OpenAI API with model: ${this.provider.model}`);
-            const res = await fetch("https://api.openai.com/v1/chat/completions", {
-                method: "POST",
-                headers: {
-                    "Authorization": `Bearer ${this.provider.apiKey}`,
-                    "Content-Type": "application/json"
-                },
-                body: JSON.stringify({
-                    model: this.provider.model || "gpt-4o-mini",
-                    messages: [
-                        { role: "system", content: "You are a professional social media marketing expert. You must output strictly a valid JSON array of post objects, each with keys: caption, cta, hashtags. Do not wrap in any object." },
-                        { role: "user", content: prompt }
-                    ],
-                    temperature: 0.7
-                })
+            // ── OpenAI / AgentRouter Multi-Gateway Provider ────────────────────────
+            console.log(`[AutopilotService] Calling OpenAI / AgentRouter API with model: ${this.provider.model}`);
+            const data = await this.provider._fetchChatCompletions({
+                model: this.provider.model || "gpt-4o-mini",
+                messages: [
+                    { role: "system", content: "You are a professional social media marketing expert. You must output strictly a valid JSON array of post objects, each with keys: caption, cta, hashtags. Do not wrap in any object." },
+                    { role: "user", content: prompt }
+                ],
+                ...(this.provider.isReasoningModel && this.provider.isReasoningModel() ? {} : { temperature: 0.7 })
             });
-            if (!res.ok) {
-                const errText = await res.text();
-                throw new Error(`OpenAI API error: ${res.status} - ${errText}`);
-            }
-            const data = await res.json();
             responseText = data.choices?.[0]?.message?.content || "";
 
         } else if (providerName === 'OpenRouterProvider') {

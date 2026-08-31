@@ -2350,6 +2350,12 @@
                 setBar('usageTextLabel', 'usageTextBar', u.ai_text.used, u.ai_text.limit, 'linear-gradient(90deg,#8b5cf6,#6366f1)');
                 setBar('usageLowLabel',  'usageLowBar',  u.ai_image_low.used,    u.ai_image_low.limit,    'linear-gradient(90deg,#22c55e,#16a34a)');
                 setBar('usageMedLabel',  'usageMedBar',  u.ai_image_medium.used, u.ai_image_medium.limit, 'linear-gradient(90deg,#f59e0b,#d97706)');
+                setBar('usageHdLabel',   'usageHdBar',   u.ai_image_high.used,   u.ai_image_high.limit,   'linear-gradient(90deg,#a855f7,#7c3aed)');
+            } catch (e) {
+                console.warn('[UsageWidget] Could not load usage stats:', e);
+            }
+        }
+
         // ─── Workspace WhatsApp Integration ────────────────────────────────────
         async function loadWorkspaceInfo() {
             try {
@@ -2372,6 +2378,7 @@
                 console.warn('[Workspace] Could not load workspace WhatsApp:', e);
             }
         }
+
         // Load on page ready
         fetchUsageStats();
         loadWorkspaceInfo();

@@ -2026,6 +2026,61 @@
             });
         }
 
+        // Progressive Auto-Image Generator for Autopilot Preview
+        let isAutoGeneratingCampaignImages = false;
+        async function autoGenerateMissingCampaignImages(targetsInfo, quality = 'medium') {
+            if (isAutoGeneratingCampaignImages) return;
+            isAutoGeneratingCampaignImages = true;
+
+            const missingIndices = [];
+            currentAutopilotPosts.forEach((post, i) => {
+                if (!post.media_urls || post.media_urls.length === 0) {
+                    missingIndices.push(i);
+                }
+            });
+
+            if (missingIndices.length === 0) {
+                isAutoGeneratingCampaignImages = false;
+                return;
+            }
+
+            notificationService.info(`🎨 Memulakan penjanaan poster AI untuk ${missingIndices.length} post secara berperingkat...`);
+
+            for (const i of missingIndices) {
+                if (!currentAutopilotPosts[i]) continue;
+
+                // Update UI on this specific card
+                const cardImgSection = document.querySelector(`.auto-card-image-section[data-idx="${i}"]`);
+                if (cardImgSection) {
+                    cardImgSection.innerHTML = `
+                        <div style="display: flex; align-items: center; justify-content: center; gap: 0.6rem; padding: 1.25rem; color: var(--color-primary); font-size: 0.82rem; font-weight: 600; background: rgba(59, 130, 246, 0.06); border-radius: var(--radius-xs);">
+                            <span style="width: 16px; height: 16px; border: 2px solid var(--color-primary); border-top-color: transparent; border-radius: 50%; animation: spin 0.8s linear infinite; display: inline-block;"></span>
+                            <span>🎨 Sedang menjana gambar poster AI Post #${i + 1}...</span>
+                        </div>
+                    `;
+                }
+
+                try {
+                    const caption = currentAutopilotPosts[i]?.content || '';
+                    const res = await apiClient.post('/ai/generate-image', { caption, quality });
+                    if (res && (res.image_url || res.success)) {
+                        const newUrl = res.image_url || res.media?.thumbnail;
+                        if (newUrl && currentAutopilotPosts[i]) {
+                            currentAutopilotPosts[i].media_urls = [newUrl];
+                            currentAutopilotPosts[i].media_url = newUrl;
+                            renderAutopilotCampaign(currentAutopilotPosts, targetsInfo);
+                        }
+                    }
+                } catch (err) {
+                    console.warn(`[Auto-Image Gen error on Post #${i + 1}]:`, err);
+                    renderAutopilotCampaign(currentAutopilotPosts, targetsInfo);
+                }
+            }
+
+            isAutoGeneratingCampaignImages = false;
+            notificationService.success(`Semua gambar poster AI telah berjaya dijana!`);
+        }
+
         // Helper to run dynamic live progress steps on buttons
         function startDynamicButtonProgress(button, count) {
             const origHtml = button.innerHTML;
@@ -2172,6 +2227,11 @@
 
                     notificationService.success(`Kempen autopilot berjaya dijana! Sila semak kandungan & gambar di sebelah kanan.`);
                     
+                    // Progressive Auto-Image Generation for posts without images
+                    if (generate_images) {
+                        autoGenerateMissingCampaignImages(targetsInfo, image_quality);
+                    }
+
                     // Smooth scroll to preview on mobile
                     if (window.innerWidth < 992) {
                         document.getElementById('autopilotCampaignPreviewGroup')?.scrollIntoView({ behavior: 'smooth' });

@@ -369,6 +369,9 @@
                         <div class="form-group" style="margin-bottom: 1rem;">
                             <label class="form-label" for="autoCta">CTA / Arahan Tindakan (DM, WhatsApp, atau Pautan)</label>
                             <input type="text" id="autoCta" class="form-input" placeholder="e.g. DM kami, WhatsApp 0123456789, atau https://wa.me/..." style="width: 100%;" />
+                            <div id="autoCtaWorkspaceHint" style="display: none; font-size: 0.72rem; color: var(--color-success, #16a34a); margin-top: 0.35rem; display: flex; align-items: center; gap: 0.3rem;">
+                                <span>🟢</span> <span id="autoCtaWorkspaceHintText">WhatsApp workspace dikesan. Link WhatsApp akan dimasukkan secara automatik jika medan ini dibiarkan kosong.</span>
+                            </div>
                         </div>
 
                         <div class="form-group" style="margin-bottom: 1rem;">
@@ -2347,13 +2350,31 @@
                 setBar('usageTextLabel', 'usageTextBar', u.ai_text.used, u.ai_text.limit, 'linear-gradient(90deg,#8b5cf6,#6366f1)');
                 setBar('usageLowLabel',  'usageLowBar',  u.ai_image_low.used,    u.ai_image_low.limit,    'linear-gradient(90deg,#22c55e,#16a34a)');
                 setBar('usageMedLabel',  'usageMedBar',  u.ai_image_medium.used, u.ai_image_medium.limit, 'linear-gradient(90deg,#f59e0b,#d97706)');
-                setBar('usageHdLabel',   'usageHdBar',   u.ai_image_high.used,   u.ai_image_high.limit,   'linear-gradient(90deg,#a855f7,#7c3aed)');
+        // ─── Workspace WhatsApp Integration ────────────────────────────────────
+        async function loadWorkspaceInfo() {
+            try {
+                const res = await apiClient.get('/workspaces/me');
+                if (res && res.workspace && res.workspace.whatsapp_number) {
+                    const rawNum = res.workspace.whatsapp_number.trim();
+                    const cleanNum = rawNum.replace(/\D/g, '');
+                    const hintEl = document.getElementById('autoCtaWorkspaceHint');
+                    const textEl = document.getElementById('autoCtaWorkspaceHintText');
+                    const inputEl = document.getElementById('autoCta');
+                    if (hintEl && textEl) {
+                        hintEl.style.display = 'flex';
+                        textEl.innerHTML = `WhatsApp Workspace aktif: <b>+${cleanNum}</b> (Link <code>https://wa.me/${cleanNum}</code> akan dimasukkan secara automatik ke dalam CTA jika medan ini kosong)`;
+                    }
+                    if (inputEl && !inputEl.value) {
+                        inputEl.placeholder = `Auto-guna WhatsApp workspace (+${cleanNum}) atau masukkan link/arahan lain...`;
+                    }
+                }
             } catch (e) {
-                console.warn('[UsageWidget] Could not load usage stats:', e);
+                console.warn('[Workspace] Could not load workspace WhatsApp:', e);
             }
         }
         // Load on page ready
         fetchUsageStats();
+        loadWorkspaceInfo();
         // ──────────────────────────────────────────────────────────────────────
     </script>
 

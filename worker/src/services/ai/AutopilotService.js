@@ -23,14 +23,26 @@ export class AutopilotService {
 - The caption text must be around 400 to 600 characters with rich, high-converting storytelling paragraphs.`;
         }
 
+        // Normalize CTA Link (auto-convert raw phone numbers to WhatsApp wa.me links)
+        let normalizedCtaLink = (ctaLink || '').trim();
+        if (/^\+?\d{8,15}$/.test(normalizedCtaLink.replace(/\s+/g, ''))) {
+            let cleanDigits = normalizedCtaLink.replace(/\D/g, '');
+            if (cleanDigits.startsWith('01')) cleanDigits = '6' + cleanDigits;
+            normalizedCtaLink = `https://wa.me/${cleanDigits}`;
+        }
+
         let ctaInstructions = "A casual, non-pushy redirect phrase.";
-        if (ctaLink && ctaLink.trim() !== '') {
-            const cleanCta = ctaLink.trim();
-            const isUrl = cleanCta.startsWith('http://') || cleanCta.startsWith('https://') || cleanCta.includes('wa.me/');
+        if (normalizedCtaLink !== '') {
+            const isUrl = normalizedCtaLink.startsWith('http://') || normalizedCtaLink.startsWith('https://') || normalizedCtaLink.includes('wa.me/');
             if (isUrl) {
-                ctaInstructions = `A very casual, laid-back, and non-pushy Malaysian conversational redirect phrase pointing to the link: ${cleanCta}. Example: 'Nah link kalau ada yang nak ushar: ${cleanCta}', 'Korang ushar sendiri kat sini: ${cleanCta}', or 'Kot lah ada yang nak tengok: ${cleanCta}'. Do NOT write salesy or pushy calls-to-action like 'Dapatkan sekarang!' or 'Beli hari ini!'.`;
+                const isWa = normalizedCtaLink.includes('wa.me') || normalizedCtaLink.includes('whatsapp');
+                if (isWa) {
+                    ctaInstructions = `A natural, friendly, non-pushy Malaysian WhatsApp CTA inviting readers to contact/consult/semak kelayakan with the exact WhatsApp link: ${normalizedCtaLink}. Example: 'Berminat nak semak kelayakan secara percuma? WhatsApp kami slip gaji terus kat sini: ${normalizedCtaLink}', 'Untuk kiraan DSR & semak slip gaji, roger kami di WhatsApp: ${normalizedCtaLink}', or 'Ada sebarang soalan atau nak semak dokumen? Tekan link WhatsApp kami: ${normalizedCtaLink}'. MANDATORY: You MUST include the exact link ${normalizedCtaLink} in the cta output!`;
+                } else {
+                    ctaInstructions = `A very casual, laid-back, and non-pushy Malaysian conversational redirect phrase pointing to the link: ${normalizedCtaLink}. Example: 'Nah link kalau ada yang nak ushar: ${normalizedCtaLink}', 'Korang ushar sendiri kat sini: ${normalizedCtaLink}', or 'Kot lah ada yang nak tengok: ${normalizedCtaLink}'. Do NOT write salesy or pushy calls-to-action like 'Dapatkan sekarang!' or 'Beli hari ini!'.`;
+                }
             } else {
-                ctaInstructions = `The user specified a direct CTA instruction: "${cleanCta}". Generate a very natural, conversational Malaysian CTA line using this instruction. For example, if "${cleanCta}" is "DM" or "DM kami", write "Berminat? Boleh DM terus untuk semakan / maklumat lanjut." or "Korang yang berminat, roger melalui DM sekarang!" or "Drop DM kalau nak tahu details.". Do NOT mention any website links, URLs, or phrases like "Nah link..." or "Kat link ni:".`;
+                ctaInstructions = `The user specified a direct CTA instruction: "${normalizedCtaLink}". Generate a very natural, conversational Malaysian CTA line using this instruction. For example, if "${normalizedCtaLink}" is "DM" or "DM kami", write "Berminat? Boleh DM terus untuk semakan / maklumat lanjut." or "Korang yang berminat, roger melalui DM sekarang!" or "Drop DM kalau nak tahu details.". Do NOT mention any website links, URLs, or phrases like "Nah link..." or "Kat link ni:".`;
             }
         } else {
             ctaInstructions = `A casual, friendly, non-pushy Malaysian engagement or action question (e.g. 'Korang rasa macam mana? Komen kat bawah.', 'Berminat? Boleh DM kami terus untuk info lanjut.'). CRITICAL STRICT MANDATE: You are STRICTLY FORBIDDEN from using the word 'link', 'link ni', 'pautan', 'url', or mentioning any website links because NO URL link is provided by the user. Do NOT write fake link phrases like 'ushar link ni' or 'tengok link kat sini'!`;
@@ -265,6 +277,32 @@ CRITICAL HOOK & CONTENT DIVERSITY RULES (VERY IMPORTANT TO AVOID REPETITION):
                 const normCta = cta.toLowerCase().replace(/[^a-z0-9]/g, '');
                 if (normCta && (normCaption.includes(normCta) || normCaption.endsWith(normCta) || (normCta.length > 10 && normCaption.includes(normCta.slice(0, 15))))) {
                     cta = '';
+                }
+            }
+
+            // GUARANTEED LINK INJECTION: If a valid URL/WhatsApp link was configured, ensure the link is present in the final copy!
+            if (normalizedCtaLink !== '') {
+                const isUrl = normalizedCtaLink.startsWith('http://') || normalizedCtaLink.startsWith('https://') || normalizedCtaLink.includes('wa.me/');
+                if (isUrl) {
+                    const fullTextSoFar = `${caption} ${cta}`;
+                    if (!fullTextSoFar.includes(normalizedCtaLink)) {
+                        const isWa = normalizedCtaLink.includes('wa.me') || normalizedCtaLink.includes('whatsapp');
+                        if (isWa) {
+                            if (cta && /whatsapp/i.test(cta)) {
+                                cta = `${cta} 👉 ${normalizedCtaLink}`;
+                            } else if (cta) {
+                                cta = `${cta}\n\n👉 WhatsApp kami: ${normalizedCtaLink}`;
+                            } else {
+                                cta = `Berminat untuk maklumat lanjut / semak kelayakan? WhatsApp kami di: ${normalizedCtaLink}`;
+                            }
+                        } else {
+                            if (cta) {
+                                cta = `${cta} 👉 ${normalizedCtaLink}`;
+                            } else {
+                                cta = `Info lanjut kat sini: ${normalizedCtaLink}`;
+                            }
+                        }
+                    }
                 }
             }
 

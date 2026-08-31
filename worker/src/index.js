@@ -3492,6 +3492,20 @@ LAYOUT & DESIGN RULES:
                             }
                         }
 
+                        // Append workspace WhatsApp link to CTA if configured and not already present
+                        if (activeWorkspace.whatsapp_number && result) {
+                            const cleanNum = activeWorkspace.whatsapp_number.replace(/\D/g, '');
+                            const waLink = `https://wa.me/${cleanNum}`;
+                            const fullText = `${result.caption || ''} ${result.cta || ''}`;
+                            if (!fullText.includes(waLink)) {
+                                if (result.cta && /whatsapp|wasap|hubungi|roger|semak|link|slip/i.test(result.cta)) {
+                                    result.cta = `${result.cta} 👉 ${waLink}`;
+                                } else if (!result.cta && (nicheData?.niche_key === 'pembiayaan' || nicheData?.niche_key === 'hartanah')) {
+                                    result.cta = `Berminat untuk semakan kelayakan & kiraan DSR? WhatsApp kami di: ${waLink}`;
+                                }
+                            }
+                        }
+
                         await logActivity(activeWorkspace.workspace_id, user.id, 'ai_generate', `Generated caption for business "${businessType}": ${(product || '').substring(0, 30)}... model: ${modelUsed}`);
                         // Track monthly AI text usage in workspace_usage table
                         try { await incrementTextUsage(activeWorkspace.workspace_id); } catch (_) {}
@@ -5074,6 +5088,10 @@ CRITICAL LANGUAGE / SPEECH RULES:
                             const nicheData = await getNicheInstructions(env.DB, niche, 'autopilot');
                             const performanceFeedback = await getPerformanceFeedback(env.DB, activeWorkspace.workspace_id, nicheData ? nicheData.niche_key : null);
                             
+                            const effectiveCtaLink = (ctaLink && ctaLink.trim()) 
+                                ? ctaLink.trim() 
+                                : (activeWorkspace.whatsapp_number ? `https://wa.me/${activeWorkspace.whatsapp_number.replace(/\D/g, '')}` : '');
+
                             campaign = await autopilotService.generateAutopilotCampaign({
                                 niche: (niche || '') + performanceFeedback,
                                 targetAudience: targetAudience || 'General public',
@@ -5082,7 +5100,7 @@ CRITICAL LANGUAGE / SPEECH RULES:
                                 language: language || 'Bahasa Melayu',
                                 timezoneOffset: parseInt(timezoneOffset) || -480,
                                 frequency: parseInt(frequency) || 1,
-                                ctaLink,
+                                ctaLink: effectiveCtaLink,
                                 postFormat,
                                 nicheRules: nicheData ? nicheData.rules : null,
                                 nicheKey: nicheData ? nicheData.niche_key : null,

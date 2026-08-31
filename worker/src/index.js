@@ -7480,22 +7480,34 @@ LAYOUT & DESIGN RULES:
                     let diagnosisStatus = 'ACTIVE';
                     let summaryMessageMs = '';
 
-                    if (igProfileData && igProfileData.username) {
+                    if (!isTokenValid) {
+                        diagnosisStatus = 'EXPIRED';
+                        summaryMessageMs = '❌ STATUS: TOKEN META TERBATAL / TAMAT TEMPOH\nSila klik Reconnect untuk memperbaharui akses token.';
+                    } else if (igProfileData && igProfileData.username) {
                         diagnosisStatus = 'ACTIVE';
-                        summaryMessageMs = `✅ STATUS: AKAUN INSTAGRAM SANGAT AKTIF & DISAHKAN META!\n\n` +
+                        summaryMessageMs = `✅ STATUS: AKAUN INSTAGRAM AKTIF & DISAHKAN META!\n\n` +
                             `• Status Token: Valid & Active (Sah sehingga ${expiresAtStr || '60 hari'})\n` +
                             `• Instagram Business: @${igProfileData.username} (ID: ${igProfileData.id})\n` +
-                            `• Pautan Facebook Page: Disahkan Terikat di Meta\n` +
-                            `• Status Graf API: Boleh diakses & sedia untuk auto-post!`;
-                    } else if (!isTokenValid) {
-                        diagnosisStatus = 'EXPIRED';
-                        summaryMessageMs = '❌ STATUS: TOKEN META TERBATAL / TAMAT TEMPOH\nSila klik Reconnect untuk memperbaharui akses.';
-                    } else {
+                            `• Facebook Page Terikat: ${fbAccount ? fbAccount.account_name : 'Disahkan di Meta'}\n` +
+                            `• Status Graph API: Boleh diakses & sedia untuk auto-post!`;
+                    } else if (igAccount) {
                         diagnosisStatus = 'ACTIVE';
                         summaryMessageMs = `✅ STATUS: AKAUN INSTAGRAM DIKESAN AKTIF!\n\n` +
                             `• Status Token: Valid & Active\n` +
-                            `• Instagram Account: ${igAccount ? igAccount.account_name : 'Hartanah Online IG'}\n` +
-                            `• Status Graf API: Boleh diakses!`;
+                            `• Instagram Account: ${igAccount.account_name}\n` +
+                            `• Status Graph API: Boleh diakses!`;
+                    } else if (fbAccount) {
+                        diagnosisStatus = 'ACTIVE';
+                        summaryMessageMs = `✅ STATUS: TOKEN META (FACEBOOK PAGE) AKTIF!\n\n` +
+                            `• Status Token: Valid & Active (Sah sehingga ${expiresAtStr || '60 hari'})\n` +
+                            `• Facebook Page: ${fbAccount.account_name}\n` +
+                            `• Instagram: Tiada akaun Instagram dihubungkan dalam workspace ini.\n` +
+                            `• Status Graph API: Boleh diakses!`;
+                    } else {
+                        diagnosisStatus = 'ACTIVE';
+                        summaryMessageMs = `✅ STATUS: TOKEN META SAH!\n\n` +
+                            `• Status Token: Valid & Active\n` +
+                            `• Status Graph API: Boleh diakses!`;
                     }
 
                     return new Response(JSON.stringify({

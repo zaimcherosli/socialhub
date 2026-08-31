@@ -1,6 +1,6 @@
-// SocialHub Service Worker — v1.8.0
+// SocialHub Service Worker — v1.9.3
 // CACHE_NAME is tied to version so old caches auto-purge on every deployment
-const SW_VERSION = '1.8.0';
+const SW_VERSION = '1.9.3';
 const CACHE_NAME = `socialhub-cache-v${SW_VERSION}`;
 const ASSETS_TO_CACHE = [
   '/',

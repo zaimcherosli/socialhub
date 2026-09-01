@@ -4,10 +4,10 @@
  */
 (function() {
     const CONFIG = Object.freeze({
-        VERSION: '1.9.3',
+        VERSION: '1.9.4',
         BUILD_DATE: new Date().toLocaleDateString('ms-MY'),
         ENV: 'production',
-        PWA_VERSION: 'v1.9.3'
+        PWA_VERSION: 'v1.9.4'
     });
 
     window.SYS_CONFIG = CONFIG;

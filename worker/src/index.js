@@ -5349,24 +5349,41 @@ LAYOUT & DESIGN RULES:
                             const mediaUrlsJson = JSON.stringify(post.media_urls || (post.media_url ? [post.media_url] : []));
 
                             if (resolvedAccounts.length > 0) {
-                                for (const acc of resolvedAccounts) {
+                                for (let accIdx = 0; accIdx < resolvedAccounts.length; accIdx++) {
+                                    const acc = resolvedAccounts[accIdx];
+                                    let platformPublishAt = post.publish_at;
+                                    if (accIdx > 0 && post.publish_at) {
+                                        try {
+                                            const pDate = new Date(post.publish_at);
+                                            pDate.setMinutes(pDate.getMinutes() + accIdx);
+                                            platformPublishAt = pDate.toISOString();
+                                        } catch (_) {}
+                                    }
+
+                                    let platformContent = post.content || '';
+                                    if (acc.platform !== 'threads') {
+                                        platformContent = platformContent
+                                            .replace(/[\n\r]*(?:---thread-separator---|\[THREAD_DELIMITER\])[\n\r]*/g, '\n\n')
+                                            .trim();
+                                    }
+
                                     const result = await dbInsert.bind(
                                         user.id,
                                         activeWorkspace.workspace_id,
                                         acc.id,
                                         acc.platform,
-                                        post.content,
+                                        platformContent,
                                         mediaUrlsJson,
                                         'scheduled',
-                                        post.publish_at
+                                        platformPublishAt
                                     ).run();
 
                                     insertedPosts.push({
                                         id: result.meta?.last_row_id || null,
                                         platform: acc.platform,
-                                        content: post.content,
+                                        content: platformContent,
                                         media_urls: post.media_urls || [],
-                                        publish_at: post.publish_at,
+                                        publish_at: platformPublishAt,
                                         status: 'scheduled'
                                     });
                                 }
@@ -9191,12 +9208,24 @@ LAYOUT & DESIGN RULES:
                              WHERE id = ?`
                         ).bind(successLog.published_at, successLog.external_post_id, post.id).run();
                     } else {
-                        console.log(`[Cron] Post ID: ${post.id} failed/timed out. Marking as failed.`);
-                        await env.DB.prepare(
-                            `UPDATE scheduled_posts 
-                             SET status = 'failed', error_message = 'Publishing timed out or worker execution was aborted.', updated_at = (datetime('now'))
-                             WHERE id = ?`
-                        ).bind(post.id).run();
+                        const currentRetries = (post.retry_count || 0) + 1;
+                        if (currentRetries < 3) {
+                            console.log(`[Cron] Post ID: ${post.id} timed out / interrupted. Auto-rescheduling retry ${currentRetries}/3...`);
+                            await env.DB.prepare(
+                                `UPDATE scheduled_posts 
+                                 SET status = 'scheduled', retry_count = ?, publish_at = (datetime('now', '+2 minutes')), 
+                                     error_message = 'Publishing took too long or worker was restarted. Auto-retrying...', 
+                                     updated_at = (datetime('now'))
+                                 WHERE id = ?`
+                            ).bind(currentRetries, post.id).run();
+                        } else {
+                            console.log(`[Cron] Post ID: ${post.id} failed/timed out after 3 attempts. Marking as failed.`);
+                            await env.DB.prepare(
+                                `UPDATE scheduled_posts 
+                                 SET status = 'failed', retry_count = 3, error_message = 'Publishing timed out or worker execution was aborted.', updated_at = (datetime('now'))
+                                 WHERE id = ?`
+                            ).bind(post.id).run();
+                        }
                     }
                 }
             }

@@ -126,9 +126,11 @@ export class FacebookPublisher extends PublisherInterface {
         if (!token) return null;
         try {
             // 1. /me/accounts fetch (Works with User Access Token)
-            const meRes = await fetch(`${this.baseUrl}/me/accounts?fields=id,name,access_token&access_token=${token}`);
+            const meRes = await fetch(`${this.baseUrl}/me/accounts?fields=id,name,access_token&access_token=${token}`, {
+                signal: AbortSignal.timeout(8000)
+            });
             if (meRes.ok) {
-                const meData = await meRes.json();
+                const meData = await meRes.json().catch(() => ({}));
                 const pages = meData.data || [];
                 const matched = pages.find(p => p.id?.toString() === pageId?.toString());
                 if (matched && matched.access_token) {
@@ -138,9 +140,11 @@ export class FacebookPublisher extends PublisherInterface {
             }
 
             // 2. Direct page fetch
-            const directRes = await fetch(`${this.baseUrl}/${pageId}?fields=id,name,access_token&access_token=${token}`);
+            const directRes = await fetch(`${this.baseUrl}/${pageId}?fields=id,name,access_token&access_token=${token}`, {
+                signal: AbortSignal.timeout(8000)
+            });
             if (directRes.ok) {
-                const directData = await directRes.json();
+                const directData = await directRes.json().catch(() => ({}));
                 if (directData.access_token) {
                     console.log(`[FacebookPublisher] Found Page Token via direct page query for Page ID ${pageId}`);
                     return directData.access_token;
@@ -157,24 +161,64 @@ export class FacebookPublisher extends PublisherInterface {
      * Returns a standardised result object.
      */
     async _postToPage(pageId, message, pageAccessToken, post) {
-        let endpoint = `${this.baseUrl}/${pageId}/feed`;
-        const payload = { message, access_token: pageAccessToken };
+        let response = null;
 
-        // If media attached, use /photos endpoint instead
+        // Check if media is attached
         if (post.media && post.media.length > 0 && post.media[0].url) {
-            endpoint = `${this.baseUrl}/${pageId}/photos`;
-            payload.url = post.media[0].url;
-            payload.caption = message;
-            delete payload.message;
+            const mediaUrl = post.media[0].url.trim();
+
+            if (mediaUrl.startsWith('data:image/')) {
+                // Upload binary blob directly via FormData to prevent Facebook URL fetch failures
+                try {
+                    const parts = mediaUrl.split(',');
+                    const mime = (parts[0].match(/:(.*?);/) || [])[1] || 'image/jpeg';
+                    const binary = atob(parts[1]);
+                    const array = new Uint8Array(binary.length);
+                    for (let i = 0; i < binary.length; i++) array[i] = binary.charCodeAt(i);
+                    const blob = new Blob([array], { type: mime });
+
+                    const form = new FormData();
+                    form.append('access_token', pageAccessToken);
+                    if (message) form.append('caption', message);
+                    form.append('source', blob, 'poster.jpg');
+
+                    response = await fetch(`${this.baseUrl}/${pageId}/photos`, {
+                        method: 'POST',
+                        body: form,
+                        signal: AbortSignal.timeout(20000)
+                    });
+                } catch (b64Err) {
+                    console.warn('[FacebookPublisher] Failed to convert base64 image, falling back to feed:', b64Err.message);
+                }
+            } else if (mediaUrl.startsWith('http')) {
+                // Public URL photo post
+                const payload = {
+                    url: mediaUrl,
+                    caption: message,
+                    access_token: pageAccessToken
+                };
+
+                response = await fetch(`${this.baseUrl}/${pageId}/photos`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(payload),
+                    signal: AbortSignal.timeout(20000)
+                });
+            }
         }
 
-        const response = await fetch(endpoint, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(payload)
-        });
+        // Standard text/feed post fallback if no media was posted
+        if (!response) {
+            const payload = { message, access_token: pageAccessToken };
+            response = await fetch(`${this.baseUrl}/${pageId}/feed`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(payload),
+                signal: AbortSignal.timeout(15000)
+            });
+        }
 
-        const result = await response.json();
+        const result = await response.json().catch(() => ({}));
 
         if (!response.ok || result.error) {
             const fbError = result.error || {};

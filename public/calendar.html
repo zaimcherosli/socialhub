@@ -760,7 +760,10 @@
                 </button>
             </div>
 
-            <div style="display: flex; gap: 0.5rem; margin-top: 0.75rem; flex-wrap: wrap;">
+            <div style="margin-top: 0.75rem;">
+                <button class="btn btn-success" style="width: 100%; font-size: 0.85rem; font-weight: 700; margin-bottom: 0.5rem; background: #16a34a; border-color: #16a34a; justify-content: center; display: none;" id="btnPublishNowModal">🚀 Terbitkan Sekarang (Publish Now)</button>
+            </div>
+            <div style="display: flex; gap: 0.5rem; flex-wrap: wrap;">
                 <button class="btn btn-secondary" style="flex: 1; font-size: 0.8125rem;" id="btnShowReschedule">Reschedule</button>
                 <button class="btn btn-primary" style="flex: 1; font-size: 0.8125rem;" id="btnEditScheduleContent">Edit Content</button>
                 <button class="btn btn-danger" style="flex: 1; font-size: 0.8125rem;" id="btnCancelSchedule">Cancel Schedule</button>
@@ -1692,8 +1695,43 @@
                 ` : ''}
             `;
 
+            const btnPubNow = document.getElementById('btnPublishNowModal');
+            if (btnPubNow) {
+                if (item.status === 'failed' || item.status === 'scheduled') {
+                    btnPubNow.style.display = 'flex';
+                    btnPubNow.innerHTML = item.status === 'failed' ? '🔄 Cuba Terbit Sekarang (Retry Now)' : '🚀 Terbitkan Sekarang (Publish Now)';
+                } else {
+                    btnPubNow.style.display = 'none';
+                }
+            }
+
             detailModal.style.display = 'flex';
         }
+
+        // Direct Publish Now from details modal
+        document.getElementById('btnPublishNowModal')?.addEventListener('click', async () => {
+            if (!selectedSchedule) return;
+            const btn = document.getElementById('btnPublishNowModal');
+            btn.disabled = true;
+            const originalText = btn.innerHTML;
+            btn.innerHTML = '<span class="spinner-border spinner-border-sm" role="status" style="margin-right: 6px;"></span> ⏳ Sedang menerbitkan...';
+
+            try {
+                const res = await apiClient.post(`/scheduled-posts/${selectedSchedule.id}/publish`);
+                if (res && res.success) {
+                    notificationService.success('Tahniah! Post berjaya diterbitkan ke saluran sekarang! 🚀');
+                    detailModal.style.display = 'none';
+                    fetchSchedules();
+                } else {
+                    notificationService.error(res?.message || 'Gagal menerbitkan post.');
+                }
+            } catch (e) {
+                notificationService.error(`Ralat: ${e.message}`);
+            } finally {
+                btn.disabled = false;
+                btn.innerHTML = originalText;
+            }
+        });
 
         // Cancel schedule
         document.getElementById('btnCancelSchedule').addEventListener('click', async () => {

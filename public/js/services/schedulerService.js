@@ -23,6 +23,10 @@ export const schedulerService = {
         return await apiClient.delete(`/scheduled-posts/${id}`);
     },
 
+    async publishScheduledPost(id) {
+        return await apiClient.post(`/scheduled-posts/${id}/publish`);
+    },
+
     async getScheduleStatusSummary() {
         return await apiClient.get('/scheduled-posts/summary');
     },

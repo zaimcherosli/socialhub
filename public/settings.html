@@ -1638,6 +1638,14 @@
             }
         }
         window.handleSaveWorkspace = handleSaveWorkspace;
+        document.getElementById('workspaceForm')?.addEventListener('submit', (e) => {
+            e.preventDefault();
+            handleSaveWorkspace();
+        });
+        document.getElementById('btnUploadLogo')?.addEventListener('click', () => {
+            document.getElementById('brandLogoInput')?.click();
+        });
+        document.getElementById('btnRemoveLogo')?.addEventListener('click', handleRemoveLogo);
 
         async function handleSaveProfile() {
             const nameInput = document.getElementById('profileName');
@@ -2011,7 +2019,12 @@
                 }
             } catch (err) {
                 alert('Error: ' + err.message);
+            } finally {
+                btnDisconnect.disabled = false;
+                btnDisconnect.textContent = "Disconnect Bot";
             }
+        }
+
         // ─── Subscription & Usage Loader ────────────────────────────────────
         async function loadSubscriptionUsage() {
             try {

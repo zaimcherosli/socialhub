@@ -511,6 +511,14 @@
         const postId = urlParams.get('id') || 'new';
         const postType = urlParams.get('type') || 'draft';
 
+        // Immediate UI update if editing existing post
+        if (postId !== 'new') {
+            const pageTitle = document.getElementById('pageTitleLabel');
+            if (pageTitle) pageTitle.textContent = 'Edit Post';
+            const pageSub = document.querySelector('.page-subtitle');
+            if (pageSub) pageSub.textContent = 'Update post content and scheduled release settings.';
+        }
+
         const titleInput = document.getElementById('postTitle');
         const captionTextarea = document.getElementById('postCaption');
         const visibilitySelect = document.getElementById('postVisibility');
@@ -951,71 +959,137 @@
             }
         }
 
-        // Initialize editor loading
+        // Initialize editor loading with instant cache hydration and parallel loading
         async function initEditor() {
-            await fetchUserPreviewMeta();
-            await fetchConnectedAccounts();
-
             let initialState = { title: '', caption: '', visibility: 'public', status: 'draft', scheduled_at: null, attachedMedia: [] };
 
+            // 1. Instant 0ms cache hydration from sessionStorage (if navigated from Calendar or Post Table)
+            let hydratedFromCache = false;
             if (postId !== 'new') {
-                document.getElementById('pageTitleLabel').textContent = 'Edit Post';
                 try {
-                    if (postType === 'scheduled') {
-                        const post = await schedulerService.getScheduledPost(postId);
+                    const cachedStr = sessionStorage.getItem(`socialhub_edit_post_${postId}`);
+                    if (cachedStr) {
+                        const cached = JSON.parse(cachedStr);
                         initialState = {
-                            title: '',
-                            caption: post.content || '',
-                            visibility: 'public',
-                            status: 'scheduled',
-                            scheduled_at: post.publish_at,
+                            title: cached.title || '',
+                            caption: cached.content || cached.caption || '',
+                            visibility: cached.visibility || 'public',
+                            status: cached.status || (postType === 'scheduled' ? 'scheduled' : 'draft'),
+                            scheduled_at: cached.publish_at || cached.scheduled_at || null,
                             attachedMedia: (() => {
                                 try {
-                                    const parsed = JSON.parse(post.media_urls);
+                                    if (Array.isArray(cached.media_urls)) return cached.media_urls;
+                                    const parsed = JSON.parse(cached.media_urls || '[]');
                                     return Array.isArray(parsed) ? parsed : [];
-                                } catch (e) {
-                                    return [];
-                                }
+                                } catch (_) { return []; }
                             })()
                         };
-                        dbUpdatedAt = post.updated_at;
-                    } else {
-                        const post = await postService.getPost(postId);
-                        const media = await mediaService.getPostMedia(postId);
-                        
-                        initialState = {
-                            title: post.title,
-                            caption: post.caption,
-                            visibility: post.visibility,
-                            status: post.status,
-                            scheduled_at: post.scheduled_at,
-                            attachedMedia: media
-                        };
-                        dbUpdatedAt = post.updated_at;
+                        dbUpdatedAt = cached.updated_at || cached.created_at;
+                        setEditorState(initialState);
+                        editorService.resetHistory(initialState);
+                        if (initialState.status === 'scheduled') {
+                            scheduleTimeGroup.style.display = 'block';
+                            if (initialState.scheduled_at) {
+                                txtScheduleTime.value = timezoneService.utcToLocalInputFormat(initialState.scheduled_at);
+                            }
+                        }
+                        hydratedFromCache = true;
                     }
-                } catch (err) {
-                    alert('Failed to retrieve post details from backend database.');
-                    window.location.replace('posts.html');
-                    return;
+                } catch (_) {}
+
+                if (!hydratedFromCache) {
+                    captionTextarea.placeholder = 'Memuatkan maklumat post daripada pelayan...';
                 }
             } else {
                 const presetCaption = urlParams.get('caption');
                 if (presetCaption) {
                     initialState.caption = decodeURIComponent(presetCaption);
                 }
+                setEditorState(initialState);
+                editorService.resetHistory(initialState);
             }
 
-            setEditorState(initialState);
-            editorService.resetHistory(initialState);
+            // 2. Fetch user preview metadata, connected accounts, and remote post concurrently in parallel
+            const metaPromise = fetchUserPreviewMeta();
+            const accountsPromise = fetchConnectedAccounts();
 
-            // Handle initial schedule UI visibility
-            if (initialState.status === 'scheduled') {
-                scheduleTimeGroup.style.display = 'block';
-                if (initialState.scheduled_at) {
-                    txtScheduleTime.value = timezoneService.utcToLocalInputFormat(initialState.scheduled_at);
+            let postFetchPromise = Promise.resolve(null);
+            if (postId !== 'new') {
+                postFetchPromise = (async () => {
+                    let post = null;
+                    let media = [];
+
+                    if (postType === 'scheduled') {
+                        try {
+                            post = await schedulerService.getScheduledPost(postId);
+                        } catch (e1) {
+                            console.warn('[PostEditor] getScheduledPost failed, trying getPost fallback:', e1.message);
+                            post = await postService.getPost(postId).catch(() => null);
+                        }
+                    } else {
+                        try {
+                            post = await postService.getPost(postId);
+                            media = await mediaService.getPostMedia(postId).catch(() => []);
+                        } catch (e2) {
+                            console.warn('[PostEditor] getPost failed, trying getScheduledPost fallback:', e2.message);
+                            post = await schedulerService.getScheduledPost(postId).catch(() => null);
+                        }
+                    }
+
+                    return { post, media };
+                })();
+            }
+
+            try {
+                const [_, __, postResult] = await Promise.all([metaPromise, accountsPromise, postFetchPromise]);
+
+                if (postResult && postResult.post) {
+                    const post = postResult.post;
+                    let mediaList = postResult.media || [];
+                    if ((!mediaList || mediaList.length === 0) && post.media_urls) {
+                        try {
+                            const parsed = typeof post.media_urls === 'string' ? JSON.parse(post.media_urls) : post.media_urls;
+                            if (Array.isArray(parsed)) mediaList = parsed;
+                        } catch (_) {}
+                    }
+
+                    initialState = {
+                        title: post.title || '',
+                        caption: post.content || post.caption || '',
+                        visibility: post.visibility || 'public',
+                        status: post.status || (postType === 'scheduled' ? 'scheduled' : 'draft'),
+                        scheduled_at: post.publish_at || post.scheduled_at || null,
+                        attachedMedia: mediaList
+                    };
+                    dbUpdatedAt = post.updated_at || post.created_at;
+
+                    setEditorState(initialState);
+                    editorService.resetHistory(initialState);
+
+                    if (initialState.status === 'scheduled') {
+                        scheduleTimeGroup.style.display = 'block';
+                        if (initialState.scheduled_at) {
+                            txtScheduleTime.value = timezoneService.utcToLocalInputFormat(initialState.scheduled_at);
+                        }
+                    } else {
+                        scheduleTimeGroup.style.display = 'none';
+                    }
+
+                    // Auto-select corresponding channel checkbox if post has a platform target
+                    if (post.platform) {
+                        const targetCheckbox = document.querySelector(`.channel-checkbox[value="${post.platform}"]`);
+                        if (targetCheckbox) targetCheckbox.checked = true;
+                    }
+                } else if (postId !== 'new' && !hydratedFromCache) {
+                    notificationService.error('Gagal memuatkan perincian post daripada pangkalan data.');
                 }
-            } else {
-                scheduleTimeGroup.style.display = 'none';
+            } catch (err) {
+                console.error('[PostEditor] Parallel loading failed:', err);
+                if (!hydratedFromCache && postId !== 'new') {
+                    notificationService.error('Ralat ketika memuatkan data post.');
+                }
+            } finally {
+                captionTextarea.placeholder = 'Compose your post content here... Type #hashtags or @mentions. Add links...';
             }
 
             if (draftService.hasNewerBackup(postId, dbUpdatedAt)) {

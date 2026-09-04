@@ -7716,84 +7716,87 @@ LAYOUT & DESIGN RULES:
                     const { results } = await env.DB.prepare("SELECT id, platform, account_name, account_id, expires_at, status, created_at FROM social_accounts WHERE workspace_id = ?").bind(activeWorkspace.workspace_id).all();
                     
                     // Comprehensive Master Auto-Repair for Facebook & Instagram Accounts
-                    try {
-                        const userMetaAccs = await env.DB.prepare(
-                            "SELECT id, platform, account_id, account_name, access_token, refresh_token FROM social_accounts WHERE user_id = ? AND platform IN ('facebook', 'instagram')"
-                        ).bind(user.id).all();
-                        
-                        let masterUserToken = null;
-                        for (const row of userMetaAccs.results || []) {
-                            const decR = await decryptToken(row.refresh_token, encryptionSecret);
-                            if (decR && decR.length > 50 && !decR.includes('no-refresh-token') && !decR.includes('mock')) {
-                                masterUserToken = decR;
-                                break;
-                            }
-                            const decA = await decryptToken(row.access_token, encryptionSecret);
-                            if (decA && decA.length > 50 && !decA.includes('no-refresh-token') && !decA.includes('mock')) {
-                                // Test if decA can query /me/accounts
-                                const testRes = await fetch(`https://graph.facebook.com/v18.0/me/accounts?access_token=${decA}&fields=id,name,access_token`);
-                                if (testRes.ok) {
-                                    masterUserToken = decA;
+                    // Only execute when explicitly requested via ?repair=true to prevent multi-second delays on regular page loads
+                    if (url.searchParams.get('repair') === 'true') {
+                        try {
+                            const userMetaAccs = await env.DB.prepare(
+                                "SELECT id, platform, account_id, account_name, access_token, refresh_token FROM social_accounts WHERE user_id = ? AND platform IN ('facebook', 'instagram')"
+                            ).bind(user.id).all();
+                            
+                            let masterUserToken = null;
+                            for (const row of userMetaAccs.results || []) {
+                                const decR = await decryptToken(row.refresh_token, encryptionSecret);
+                                if (decR && decR.length > 50 && !decR.includes('no-refresh-token') && !decR.includes('mock')) {
+                                    masterUserToken = decR;
                                     break;
                                 }
+                                const decA = await decryptToken(row.access_token, encryptionSecret);
+                                if (decA && decA.length > 50 && !decA.includes('no-refresh-token') && !decA.includes('mock')) {
+                                    // Test if decA can query /me/accounts
+                                    const testRes = await fetch(`https://graph.facebook.com/v18.0/me/accounts?access_token=${decA}&fields=id,name,access_token`);
+                                    if (testRes.ok) {
+                                        masterUserToken = decA;
+                                        break;
+                                    }
+                                }
                             }
-                        }
 
-                        if (masterUserToken) {
-                            const meRes = await fetch(`https://graph.facebook.com/v18.0/me/accounts?access_token=${masterUserToken}&fields=id,name,access_token,instagram_business_account{id,username,name}`);
-                            if (meRes.ok) {
-                                const meData = await meRes.json();
-                                const pages = meData.data || [];
-                                const encryptedUserToken = await encryptToken(masterUserToken, encryptionSecret);
+                            if (masterUserToken) {
+                                const meRes = await fetch(`https://graph.facebook.com/v18.0/me/accounts?access_token=${masterUserToken}&fields=id,name,access_token,instagram_business_account{id,username,name}`);
+                                if (meRes.ok) {
+                                    const meData = await meRes.json();
+                                    const pages = meData.data || [];
+                                    const encryptedUserToken = await encryptToken(masterUserToken, encryptionSecret);
 
-                                for (const row of userMetaAccs.results || []) {
-                                    if (row.platform === 'facebook' && row.account_id) {
-                                        const matchedPage = pages.find(p => p.id?.toString() === row.account_id?.toString()) || (pages.length === 1 ? pages[0] : null);
-                                        if (matchedPage && matchedPage.access_token) {
-                                            const pageName = `${matchedPage.name} (FB Page)`;
-                                            const encPageToken = await encryptToken(matchedPage.access_token, encryptionSecret);
-                                            await env.DB.prepare("UPDATE social_accounts SET account_name = ?, account_id = ?, access_token = ?, refresh_token = ?, status = 'active', updated_at = (datetime('now')) WHERE id = ?")
-                                                .bind(pageName, matchedPage.id.toString(), encPageToken, encryptedUserToken, row.id).run();
-                                            
-                                            const inMem = (results || []).find(r => r.id === row.id);
-                                            if (inMem) { inMem.account_name = pageName; inMem.account_id = matchedPage.id.toString(); inMem.status = 'active'; }
-                                            console.log(`[Auto-Repair FB] Successfully synchronized Page Token for ${pageName}`);
-                                        }
-                                    } else if (row.platform === 'instagram') {
-                                        let matchedIg = null;
-                                        let parentPage = null;
-                                        for (const p of pages) {
-                                            if (p.instagram_business_account && (p.instagram_business_account.id?.toString() === row.account_id?.toString() || p.id?.toString() === row.account_id?.toString())) {
-                                                matchedIg = p.instagram_business_account;
-                                                parentPage = p;
-                                                break;
+                                    for (const row of userMetaAccs.results || []) {
+                                        if (row.platform === 'facebook' && row.account_id) {
+                                            const matchedPage = pages.find(p => p.id?.toString() === row.account_id?.toString()) || (pages.length === 1 ? pages[0] : null);
+                                            if (matchedPage && matchedPage.access_token) {
+                                                const pageName = `${matchedPage.name} (FB Page)`;
+                                                const encPageToken = await encryptToken(matchedPage.access_token, encryptionSecret);
+                                                await env.DB.prepare("UPDATE social_accounts SET account_name = ?, account_id = ?, access_token = ?, refresh_token = ?, status = 'active', updated_at = (datetime('now')) WHERE id = ?")
+                                                    .bind(pageName, matchedPage.id.toString(), encPageToken, encryptedUserToken, row.id).run();
+                                                
+                                                const inMem = (results || []).find(r => r.id === row.id);
+                                                if (inMem) { inMem.account_name = pageName; inMem.account_id = matchedPage.id.toString(); inMem.status = 'active'; }
+                                                console.log(`[Auto-Repair FB] Successfully synchronized Page Token for ${pageName}`);
                                             }
-                                        }
-                                        if (!matchedIg) {
+                                        } else if (row.platform === 'instagram') {
+                                            let matchedIg = null;
+                                            let parentPage = null;
                                             for (const p of pages) {
-                                                if (p.instagram_business_account) {
+                                                if (p.instagram_business_account && (p.instagram_business_account.id?.toString() === row.account_id?.toString() || p.id?.toString() === row.account_id?.toString())) {
                                                     matchedIg = p.instagram_business_account;
                                                     parentPage = p;
                                                     break;
                                                 }
                                             }
-                                        }
-                                        if (matchedIg && parentPage && parentPage.access_token) {
-                                            const igName = `@${matchedIg.username || 'instagram_user'} (Instagram)`;
-                                            const encIgToken = await encryptToken(parentPage.access_token, encryptionSecret);
-                                            await env.DB.prepare("UPDATE social_accounts SET account_name = ?, account_id = ?, access_token = ?, refresh_token = ?, status = 'active', updated_at = (datetime('now')) WHERE id = ?")
-                                                .bind(igName, matchedIg.id.toString(), encIgToken, encryptedUserToken, row.id).run();
+                                            if (!matchedIg) {
+                                                for (const p of pages) {
+                                                    if (p.instagram_business_account) {
+                                                        matchedIg = p.instagram_business_account;
+                                                        parentPage = p;
+                                                        break;
+                                                    }
+                                                }
+                                            }
+                                            if (matchedIg && parentPage && parentPage.access_token) {
+                                                const igName = `@${matchedIg.username || 'instagram_user'} (Instagram)`;
+                                                const encIgToken = await encryptToken(parentPage.access_token, encryptionSecret);
+                                                await env.DB.prepare("UPDATE social_accounts SET account_name = ?, account_id = ?, access_token = ?, refresh_token = ?, status = 'active', updated_at = (datetime('now')) WHERE id = ?")
+                                                    .bind(igName, matchedIg.id.toString(), encIgToken, encryptedUserToken, row.id).run();
 
-                                            const inMem = (results || []).find(r => r.id === row.id);
-                                            if (inMem) { inMem.account_name = igName; inMem.account_id = matchedIg.id.toString(); inMem.status = 'active'; }
-                                            console.log(`[Auto-Repair IG] Successfully synchronized IG Token for ${igName}`);
+                                                const inMem = (results || []).find(r => r.id === row.id);
+                                                if (inMem) { inMem.account_name = igName; inMem.account_id = matchedIg.id.toString(); inMem.status = 'active'; }
+                                                console.log(`[Auto-Repair IG] Successfully synchronized IG Token for ${igName}`);
+                                            }
                                         }
                                     }
                                 }
                             }
+                        } catch (repairErr) {
+                            console.error('[Auto-Repair Master] Error:', repairErr.message);
                         }
-                    } catch (repairErr) {
-                        console.error('[Auto-Repair Master] Error:', repairErr.message);
                     }
 
                     const currentPlan = activeWorkspace.subscription_plan || 'free';
@@ -8531,8 +8534,77 @@ LAYOUT & DESIGN RULES:
                         if (!user) return new Response(JSON.stringify({ message: 'Unauthorized session' }), { status: 401, headers: corsHeaders });
                         if (!env.DB) return new Response(JSON.stringify({ message: 'Database missing' }), { status: 500, headers: corsHeaders });
 
+                        const activeWorkspace = await getActiveWorkspace(user);
+                        const wsId = activeWorkspace?.workspace_id || -1;
+
                         if (request.method === 'GET') {
-                            const post = await env.DB.prepare("SELECT * FROM scheduled_posts WHERE id = ? AND user_id = ?").bind(spId, user.id).first();
+                            // 1. Primary lookup in scheduled_posts
+                            let post = await env.DB.prepare(
+                                `SELECT sp.*, sa.account_name 
+                                 FROM scheduled_posts sp
+                                 LEFT JOIN social_accounts sa ON sp.account_id = sa.id
+                                 WHERE sp.id = ? AND (sp.user_id = ? OR (sp.workspace_id IS NOT NULL AND sp.workspace_id = ?))`
+                            ).bind(spId, user.id, wsId).first();
+
+                            // 2. Fallback: if virtual ID from publish_queue (>= 9000000)
+                            if (!post && spId >= 9000000) {
+                                const qId = spId - 9000000;
+                                const q = await env.DB.prepare(
+                                    `SELECT q.*, p.title, p.caption, p.status as post_status, p.published_at, p.workspace_id,
+                                            sa.account_name
+                                     FROM publish_queue q
+                                     JOIN posts p ON q.post_id = p.id
+                                     LEFT JOIN social_accounts sa ON (sa.workspace_id = p.workspace_id AND LOWER(sa.platform) = LOWER(q.platform) AND sa.status = 'active')
+                                     WHERE q.id = ? AND (p.user_id = ? OR (p.workspace_id IS NOT NULL AND p.workspace_id = ?))`
+                                ).bind(qId, user.id, wsId).first().catch(() => null);
+
+                                if (q) {
+                                    post = {
+                                        id: spId,
+                                        user_id: user.id,
+                                        workspace_id: q.workspace_id,
+                                        account_id: q.account_id || null,
+                                        account_name: q.account_name || null,
+                                        platform: q.platform,
+                                        content: q.caption || q.title || '',
+                                        media_urls: '[]',
+                                        status: (q.status === 'published' || q.post_status === 'published') ? 'published' : (q.status || 'scheduled'),
+                                        publish_at: q.published_at || q.scheduled_at || q.created_at,
+                                        timezone: 'UTC',
+                                        created_at: q.created_at,
+                                        updated_at: q.updated_at
+                                    };
+                                }
+                            }
+
+                            // 3. Fallback: check posts table (in case spId was a posts table ID)
+                            if (!post) {
+                                const p = await env.DB.prepare(
+                                    `SELECT p.*, sa.account_name
+                                     FROM posts p
+                                     LEFT JOIN social_accounts sa ON (sa.workspace_id = p.workspace_id AND sa.status = 'active')
+                                     WHERE p.id = ? AND (p.user_id = ? OR (p.workspace_id IS NOT NULL AND p.workspace_id = ?))`
+                                ).bind(spId, user.id, wsId).first().catch(() => null);
+
+                                if (p) {
+                                    post = {
+                                        id: p.id,
+                                        user_id: p.user_id,
+                                        workspace_id: p.workspace_id,
+                                        account_id: null,
+                                        account_name: p.account_name || null,
+                                        platform: 'threads',
+                                        content: p.caption || p.title || '',
+                                        media_urls: '[]',
+                                        status: p.status || 'draft',
+                                        publish_at: p.scheduled_at || p.published_at || p.created_at,
+                                        timezone: 'UTC',
+                                        created_at: p.created_at,
+                                        updated_at: p.updated_at
+                                    };
+                                }
+                            }
+
                             if (!post) return new Response(JSON.stringify({ message: 'Scheduled post not found' }), { status: 404, headers: corsHeaders });
                             return new Response(JSON.stringify({ success: true, post }), { status: 200, headers: corsHeaders });
                         }
@@ -8568,17 +8640,35 @@ LAYOUT & DESIGN RULES:
                                 return new Response(JSON.stringify({ message: 'No fields to update' }), { status: 400, headers: corsHeaders });
                             }
 
-                            binds.push(spId, user.id);
+                            binds.push(spId, user.id, wsId);
                             
-                            await env.DB.prepare(
-                                `UPDATE scheduled_posts SET ${fields.join(', ')}, updated_at = (datetime('now')) WHERE id = ? AND user_id = ?`
+                            const updateRes = await env.DB.prepare(
+                                `UPDATE scheduled_posts SET ${fields.join(', ')}, updated_at = (datetime('now')) WHERE id = ? AND (user_id = ? OR (workspace_id IS NOT NULL AND workspace_id = ?))`
                             ).bind(...binds).run();
+
+                            if (updateRes.meta?.changes === 0 && spId >= 9000000) {
+                                const qId = spId - 9000000;
+                                if (content !== undefined) {
+                                    await env.DB.prepare(
+                                        `UPDATE posts SET caption = ?, updated_at = (datetime('now')) WHERE id = (SELECT post_id FROM publish_queue WHERE id = ?)`
+                                    ).bind(content, qId).run().catch(() => {});
+                                }
+                                if (publish_at !== undefined) {
+                                    await env.DB.prepare(
+                                        `UPDATE publish_queue SET scheduled_at = ?, updated_at = (datetime('now')) WHERE id = ?`
+                                    ).bind(publish_at, qId).run().catch(() => {});
+                                }
+                            }
 
                             return new Response(JSON.stringify({ success: true, message: 'Scheduled post updated successfully' }), { status: 200, headers: corsHeaders });
                         }
 
                         if (request.method === 'DELETE') {
-                            await env.DB.prepare("DELETE FROM scheduled_posts WHERE id = ? AND user_id = ?").bind(spId, user.id).run();
+                            await env.DB.prepare("DELETE FROM scheduled_posts WHERE id = ? AND (user_id = ? OR (workspace_id IS NOT NULL AND workspace_id = ?))").bind(spId, user.id, wsId).run();
+                            if (spId >= 9000000) {
+                                const qId = spId - 9000000;
+                                await env.DB.prepare("DELETE FROM publish_queue WHERE id = ?").bind(qId).run().catch(() => {});
+                            }
                             return new Response(JSON.stringify({ success: true, message: 'Scheduled post deleted successfully' }), { status: 200, headers: corsHeaders });
                         }
 

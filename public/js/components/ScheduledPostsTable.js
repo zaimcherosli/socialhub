@@ -137,13 +137,20 @@ class ScheduledPostsTable extends HTMLElement {
                         <div style="display: inline-flex; gap: 0.35rem; justify-content: flex-end; align-items: center; flex-wrap: nowrap; white-space: nowrap;">
                             <button class="btn btn-secondary btn-sm btn-view-post" data-id="${post.id}" style="padding: 0.25rem 0.5rem; font-size: 0.75rem; font-weight: 500; height: 28px; line-height: 1;">View</button>
                             ${post.status === 'scheduled' || post.status === 'failed' ? `
-                                <a href="post-editor.html?id=${post.id}&type=scheduled" class="btn btn-secondary btn-sm" style="padding: 0.25rem 0.5rem; font-size: 0.75rem; font-weight: 500; height: 28px; line-height: 1; text-decoration: none; display: inline-flex; align-items: center;">Edit</a>
+                                <a href="post-editor.html?id=${post.id}&type=scheduled" class="btn btn-secondary btn-sm btn-edit-post" data-id="${post.id}" style="padding: 0.25rem 0.5rem; font-size: 0.75rem; font-weight: 500; height: 28px; line-height: 1; text-decoration: none; display: inline-flex; align-items: center;">Edit</a>
                                 <button class="btn btn-secondary btn-sm btn-publish-now" data-id="${post.id}" style="padding: 0.25rem 0.5rem; font-size: 0.75rem; font-weight: 600; height: 28px; line-height: 1; color: #d97706; border-color: rgba(217, 119, 6, 0.3);">⚡ Now</button>
                                 <button class="btn btn-danger btn-sm btn-cancel-post" data-id="${post.id}" style="padding: 0.25rem 0.5rem; font-size: 0.75rem; font-weight: 500; height: 28px; line-height: 1;">Cancel</button>
                             ` : ''}
                         </div>
                     </td>
                 `;
+
+                const editLink = tr.querySelector('.btn-edit-post');
+                if (editLink) {
+                    editLink.addEventListener('click', () => {
+                        try { sessionStorage.setItem(`socialhub_edit_post_${post.id}`, JSON.stringify(post)); } catch (_) {}
+                    });
+                }
 
                 tbody.appendChild(tr);
             });

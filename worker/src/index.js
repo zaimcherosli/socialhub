@@ -5782,7 +5782,6 @@ LAYOUT & DESIGN RULES:
 
                     if (request.method !== 'GET') return new Response(JSON.stringify({ error: 'Method not allowed' }), { status: 405, headers: corsHeaders });
 
-                    await BrandProfileService.ensureTable(env.DB);
                     const summary = await BrandProfileService.getActiveBrandSummary(env.DB, activeWorkspace.workspace_id);
                     return new Response(JSON.stringify({ success: true, ...summary }), { status: 200, headers: corsHeaders });
                 }
@@ -5794,8 +5793,6 @@ LAYOUT & DESIGN RULES:
 
                     const activeWorkspace = await getActiveWorkspace(user);
                     if (!activeWorkspace) return new Response(JSON.stringify({ message: 'No active workspace found' }), { status: 404, headers: corsHeaders });
-
-                    await BrandProfileService.ensureTable(env.DB);
 
                     if (request.method === 'GET') {
                         const brands = await BrandProfileService.listProfiles(env.DB, activeWorkspace.workspace_id);
@@ -8645,14 +8642,17 @@ LAYOUT & DESIGN RULES:
 
                         if (request.method !== 'POST') return new Response(JSON.stringify({ error: 'Method not allowed' }), { status: 405, headers: corsHeaders });
 
-                        await BrandProfileService.ensureTable(env.DB);
-                        const success = await BrandProfileService.setDefault(env.DB, activeWorkspace.workspace_id, brandId);
-                        if (!success) {
-                            return new Response(JSON.stringify({ message: 'Brand profile not found in active workspace' }), { status: 404, headers: corsHeaders });
-                        }
+                        try {
+                            const success = await BrandProfileService.setDefault(env.DB, activeWorkspace.workspace_id, brandId);
+                            if (!success) {
+                                return new Response(JSON.stringify({ message: 'Brand profile not found in active workspace' }), { status: 404, headers: corsHeaders });
+                            }
 
-                        await logActivity(activeWorkspace.workspace_id, user.id, 'set_default_brand', `Set brand ID ${brandId} as default`);
-                        return new Response(JSON.stringify({ success: true, message: 'Default brand profile updated successfully' }), { status: 200, headers: corsHeaders });
+                            await logActivity(activeWorkspace.workspace_id, user.id, 'set_default_brand', `Set brand ID ${brandId} as default`);
+                            return new Response(JSON.stringify({ success: true, message: 'Default brand profile updated successfully' }), { status: 200, headers: corsHeaders });
+                        } catch (err) {
+                            return new Response(JSON.stringify({ message: err.message }), { status: 400, headers: corsHeaders });
+                        }
                     }
 
                     // Match /api/creative/brands/:id
@@ -8665,8 +8665,6 @@ LAYOUT & DESIGN RULES:
 
                         const activeWorkspace = await getActiveWorkspace(user);
                         if (!activeWorkspace) return new Response(JSON.stringify({ message: 'No active workspace found' }), { status: 404, headers: corsHeaders });
-
-                        await BrandProfileService.ensureTable(env.DB);
 
                         if (request.method === 'GET') {
                             const brand = await BrandProfileService.getProfileById(env.DB, activeWorkspace.workspace_id, brandId);

@@ -1,4 +1,4 @@
-﻿/**
+/**
  * BrandProfileService.js
  * Multi-tenant Brand Profile Service with strict workspace isolation.
  * Handles CRUD operations, client association validation, single-default guarantees,
@@ -20,19 +20,64 @@ export class BrandProfileService {
     }
 
     /**
-     * Helper to validate and serialize input into valid JSON text
+     * Strict JSON validator & serializer by expected field type.
+     * Rejects malformed JSON strings, type mismatches (e.g. array where object expected),
+     * and ensures no silent coercion of invalid types.
+     * 
+     * @param {string} fieldName - Field name for clear error messaging
+     * @param {any} val - Input value (JS object/array, JSON string, or undefined/null)
+     * @param {'object' | 'array'} expectedType - 'object' (non-null, non-array) or 'array'
+     * @param {boolean} required - Whether the field is mandatory
+     * @param {any} defaultValue - Fallback default value if val is null/undefined
+     * @returns {string} Clean JSON string for database storage
      */
-    static safeJsonStringify(val, fallback = '{}') {
-        if (val === null || val === undefined) return fallback;
+    static validateAndSerializeJson(fieldName, val, expectedType, required = false, defaultValue = null) {
+        if (val === null || val === undefined) {
+            if (required) {
+                throw new Error(`Field '${fieldName}' is required and cannot be empty.`);
+            }
+            if (defaultValue !== null && defaultValue !== undefined) {
+                return JSON.stringify(defaultValue);
+            }
+            return expectedType === 'array' ? '[]' : '{}';
+        }
+
+        let parsed = val;
         if (typeof val === 'string') {
+            const trimmed = val.trim();
+            if (!trimmed) {
+                if (required) {
+                    throw new Error(`Field '${fieldName}' is required and cannot be empty.`);
+                }
+                if (defaultValue !== null && defaultValue !== undefined) {
+                    return JSON.stringify(defaultValue);
+                }
+                return expectedType === 'array' ? '[]' : '{}';
+            }
             try {
-                JSON.parse(val);
-                return val.trim();
-            } catch (_) {
-                return JSON.stringify(val);
+                parsed = JSON.parse(trimmed);
+            } catch (e) {
+                throw new Error(`Field '${fieldName}' contains invalid JSON: ${e.message}`);
             }
         }
-        return JSON.stringify(val);
+
+        if (expectedType === 'array') {
+            if (!Array.isArray(parsed)) {
+                const actualType = (typeof parsed === 'object' && parsed !== null) ? 'object' : typeof parsed;
+                throw new Error(`Field '${fieldName}' must be a JSON array, received ${actualType}.`);
+            }
+            return JSON.stringify(parsed);
+        }
+
+        if (expectedType === 'object') {
+            if (typeof parsed !== 'object' || parsed === null || Array.isArray(parsed)) {
+                const actualType = Array.isArray(parsed) ? 'array' : (parsed === null ? 'null' : typeof parsed);
+                throw new Error(`Field '${fieldName}' must be a JSON object, received ${actualType}.`);
+            }
+            return JSON.stringify(parsed);
+        }
+
+        throw new Error(`Unsupported expectedType '${expectedType}' for field '${fieldName}'.`);
     }
 
     /**
@@ -227,38 +272,81 @@ export class BrandProfileService {
         const isDefault = (data.is_default === 1 || data.is_default === true) ? 1 : 0;
         const isEnabled = (data.is_enabled === 0 || data.is_enabled === false) ? 0 : 1;
 
-        // If this profile is marked as default, unset any existing default in this workspace
-        if (isDefault === 1) {
-            await db.prepare(
-                `UPDATE brand_profiles SET is_default = 0 WHERE workspace_id = ?`
-            ).bind(workspaceId).run();
+        if (isDefault === 1 && isEnabled === 0) {
+            throw new Error('Profil jenama yang tidak aktif (disabled) tidak boleh dijadikan default.');
         }
 
-        const primaryColors = this.safeJsonStringify(data.primary_colors, JSON.stringify({
-            primary: '#FBBF24',
-            secondary: '#111827',
-            accent: '#F59E0B',
-            background: '#FFFFFF',
-            surface: '#0B0F19'
-        }));
+        // Strict JSON validation by expected field type
+        const primaryColors = this.validateAndSerializeJson(
+            'primary_colors',
+            data.primary_colors,
+            'object',
+            false,
+            {
+                primary: '#FBBF24',
+                secondary: '#111827',
+                accent: '#F59E0B',
+                background: '#FFFFFF',
+                surface: '#0B0F19'
+            }
+        );
 
-        const typographyStyle = this.safeJsonStringify(data.typography_style, JSON.stringify({
-            headingFont: 'Montserrat',
-            bodyFont: 'Inter',
-            headingWeight: '900'
-        }));
+        const typographyStyle = this.validateAndSerializeJson(
+            'typography_style',
+            data.typography_style,
+            'object',
+            false,
+            {
+                headingFont: 'Montserrat',
+                bodyFont: 'Inter',
+                headingWeight: '900'
+            }
+        );
 
-        const visualStyle = this.safeJsonStringify(data.visual_style, JSON.stringify({
-            style: 'Corporate Infographic',
-            photographyStyle: 'Authentic Malaysian professional'
-        }));
+        const visualStyle = this.validateAndSerializeJson(
+            'visual_style',
+            data.visual_style,
+            'object',
+            false,
+            {
+                style: 'Corporate Infographic',
+                photographyStyle: 'Authentic Malaysian professional'
+            }
+        );
 
-        const allowedClaims = this.safeJsonStringify(data.allowed_claims, '[]');
-        const forbiddenClaims = this.safeJsonStringify(data.forbidden_claims, '[]');
-        const contactInfo = this.safeJsonStringify(data.contact_info, '{}');
-        const referenceImages = this.safeJsonStringify(data.reference_images, '[]');
+        const contactInfo = this.validateAndSerializeJson(
+            'contact_info',
+            data.contact_info,
+            'object',
+            false,
+            {}
+        );
 
-        const result = await db.prepare(`
+        const allowedClaims = this.validateAndSerializeJson(
+            'allowed_claims',
+            data.allowed_claims,
+            'array',
+            false,
+            []
+        );
+
+        const forbiddenClaims = this.validateAndSerializeJson(
+            'forbidden_claims',
+            data.forbidden_claims,
+            'array',
+            false,
+            []
+        );
+
+        const referenceImages = this.validateAndSerializeJson(
+            'reference_images',
+            data.reference_images,
+            'array',
+            false,
+            []
+        );
+
+        const insertStmt = db.prepare(`
             INSERT INTO brand_profiles (
                 workspace_id, client_id, name, website, industry, brand_description,
                 preferred_language, tone_of_voice, target_audience, primary_colors,
@@ -295,14 +383,33 @@ export class BrandProfileService {
             referenceImages,
             isEnabled,
             isDefault
-        ).run();
+        );
 
-        const newId = result.meta.last_row_id;
+        let newId;
+        if (isDefault === 1) {
+            const unsetStmt = db.prepare(
+                `UPDATE brand_profiles SET is_default = 0 WHERE workspace_id = ?`
+            ).bind(workspaceId);
+
+            if (typeof db.batch === 'function') {
+                const batchResults = await db.batch([unsetStmt, insertStmt]);
+                const insertRes = batchResults[1];
+                newId = insertRes.meta.last_row_id;
+            } else {
+                await unsetStmt.run();
+                const res = await insertStmt.run();
+                newId = res.meta.last_row_id;
+            }
+        } else {
+            const result = await insertStmt.run();
+            newId = result.meta.last_row_id;
+        }
+
         return await this.getProfileById(db, workspaceId, newId);
     }
 
     /**
-     * Update brand profile with strict workspace scoping
+     * Update brand profile with strict workspace scoping and atomic default handling
      */
     static async updateProfile(db, workspaceId, profileId, data) {
         if (!db || !workspaceId || !profileId) throw new Error('Parameter tidak sah.');
@@ -328,45 +435,44 @@ export class BrandProfileService {
             ? ((data.is_enabled === 1 || data.is_enabled === true) ? 1 : 0)
             : (existing.is_enabled ? 1 : 0);
 
-        // If setting as default, unset other defaults in this workspace
-        if (isDefault === 1 && !existing.is_default) {
-            await db.prepare(
-                `UPDATE brand_profiles SET is_default = 0 WHERE workspace_id = ? AND id != ?`
-            ).bind(workspaceId, profileId).run();
+        const explicitlySettingDefault = (data.is_default === 1 || data.is_default === true);
+        if (explicitlySettingDefault && isEnabled === 0) {
+            throw new Error('Profil jenama yang tidak aktif (disabled) tidak boleh dijadikan default.');
         }
 
         const name = data.name !== undefined ? (data.name || '').trim() : existing.name;
         if (!name) throw new Error('Nama jenama (brand name) tidak boleh kosong.');
 
+        // Strict JSON validation by expected field type on update
         const primaryColors = data.primary_colors !== undefined
-            ? this.safeJsonStringify(data.primary_colors)
+            ? this.validateAndSerializeJson('primary_colors', data.primary_colors, 'object', false, existing.primary_colors)
             : JSON.stringify(existing.primary_colors);
 
         const typographyStyle = data.typography_style !== undefined
-            ? this.safeJsonStringify(data.typography_style)
+            ? this.validateAndSerializeJson('typography_style', data.typography_style, 'object', false, existing.typography_style)
             : JSON.stringify(existing.typography_style);
 
         const visualStyle = data.visual_style !== undefined
-            ? this.safeJsonStringify(data.visual_style)
+            ? this.validateAndSerializeJson('visual_style', data.visual_style, 'object', false, existing.visual_style)
             : JSON.stringify(existing.visual_style);
 
         const allowedClaims = data.allowed_claims !== undefined
-            ? this.safeJsonStringify(data.allowed_claims, '[]')
+            ? this.validateAndSerializeJson('allowed_claims', data.allowed_claims, 'array', false, existing.allowed_claims)
             : JSON.stringify(existing.allowed_claims);
 
         const forbiddenClaims = data.forbidden_claims !== undefined
-            ? this.safeJsonStringify(data.forbidden_claims, '[]')
+            ? this.validateAndSerializeJson('forbidden_claims', data.forbidden_claims, 'array', false, existing.forbidden_claims)
             : JSON.stringify(existing.forbidden_claims);
 
         const contactInfo = data.contact_info !== undefined
-            ? this.safeJsonStringify(data.contact_info, '{}')
+            ? this.validateAndSerializeJson('contact_info', data.contact_info, 'object', false, existing.contact_info)
             : JSON.stringify(existing.contact_info);
 
         const referenceImages = data.reference_images !== undefined
-            ? this.safeJsonStringify(data.reference_images, '[]')
+            ? this.validateAndSerializeJson('reference_images', data.reference_images, 'array', false, existing.reference_images)
             : JSON.stringify(existing.reference_images);
 
-        await db.prepare(`
+        const updateStmt = db.prepare(`
             UPDATE brand_profiles SET
                 client_id = ?,
                 name = ?,
@@ -415,13 +521,28 @@ export class BrandProfileService {
             isDefault,
             profileId,
             workspaceId
-        ).run();
+        );
+
+        if (isDefault === 1 && !existing.is_default) {
+            const unsetStmt = db.prepare(
+                `UPDATE brand_profiles SET is_default = 0 WHERE workspace_id = ? AND id != ?`
+            ).bind(workspaceId, profileId);
+
+            if (typeof db.batch === 'function') {
+                await db.batch([unsetStmt, updateStmt]);
+            } else {
+                await unsetStmt.run();
+                await updateStmt.run();
+            }
+        } else {
+            await updateStmt.run();
+        }
 
         return await this.getProfileById(db, workspaceId, profileId);
     }
 
     /**
-     * Safely set a profile as the default for the active workspace
+     * Safely set a profile as the default for the active workspace using atomic db.batch
      */
     static async setDefault(db, workspaceId, profileId) {
         if (!db || !workspaceId || !profileId) return false;
@@ -429,15 +550,24 @@ export class BrandProfileService {
         const existing = await this.getProfileById(db, workspaceId, profileId);
         if (!existing) return null;
 
-        // Unset any existing default in this workspace
-        await db.prepare(
-            `UPDATE brand_profiles SET is_default = 0 WHERE workspace_id = ?`
-        ).bind(workspaceId).run();
+        if (!existing.is_enabled) {
+            throw new Error('Profil jenama yang tidak aktif (disabled) tidak boleh dijadikan default.');
+        }
 
-        // Set this profile as default
-        await db.prepare(
+        const unsetStmt = db.prepare(
+            `UPDATE brand_profiles SET is_default = 0 WHERE workspace_id = ?`
+        ).bind(workspaceId);
+
+        const setStmt = db.prepare(
             `UPDATE brand_profiles SET is_default = 1, updated_at = (datetime('now')) WHERE id = ? AND workspace_id = ?`
-        ).bind(profileId, workspaceId).run();
+        ).bind(profileId, workspaceId);
+
+        if (typeof db.batch === 'function') {
+            await db.batch([unsetStmt, setStmt]);
+        } else {
+            await unsetStmt.run();
+            await setStmt.run();
+        }
 
         return true;
     }

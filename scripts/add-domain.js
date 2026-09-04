@@ -1,45 +1,40 @@
-const accountId = '08f4a1647bc1230e867e4818b5aada0a';
-const projectName = 'socialhub';
-const domainName = 'socialhub.kwikezee.my';
-const apiKey = 'cfk_8XQiA8F34ClevRpeqkllMAapCF7najJUJ1LOSBK8edf6885f';
-const email = 'huzaimrosli@gmail.com';
+const accountId = process.env.CLOUDFLARE_ACCOUNT_ID || '08f4a1647bc1230e867e4818b5aada0a';
+const projectName = process.env.CLOUDFLARE_PROJECT_NAME || 'socialhub';
+const domainName = process.env.CLOUDFLARE_DOMAIN_NAME || 'socialhub.kwikezee.my';
+const apiToken = process.env.CLOUDFLARE_API_TOKEN;
+const apiKey = process.env.CLOUDFLARE_API_KEY;
+const email = process.env.CLOUDFLARE_EMAIL;
+
+function getAuthHeaders() {
+    if (apiToken) {
+        return {
+            'Authorization': `Bearer ${apiToken}`,
+            'Content-Type': 'application/json'
+        };
+    }
+    if (apiKey && email) {
+        return {
+            'X-Auth-Email': email,
+            'X-Auth-Key': apiKey,
+            'Content-Type': 'application/json'
+        };
+    }
+    console.error('Error: Set CLOUDFLARE_API_TOKEN or both CLOUDFLARE_EMAIL and CLOUDFLARE_API_KEY.');
+    process.exit(1);
+}
 
 console.log(`🚀 Adding custom domain '${domainName}' to Pages project '${projectName}' via Cloudflare REST API...`);
 
 async function run() {
     const url = `https://api.cloudflare.com/client/v4/accounts/${accountId}/pages/projects/${projectName}/domains`;
     
-    // Variation 1: Bearer Token
-    console.log(`Attempting Variation 1 (Bearer Token)...`);
     let res = await fetch(url, {
         method: 'POST',
-        headers: {
-            'Authorization': `Bearer ${apiKey}`,
-            'Content-Type': 'application/json'
-        },
+        headers: getAuthHeaders(),
         body: JSON.stringify({ name: domainName })
     });
     let data = await res.json();
-    console.log('Response #1:', JSON.stringify(data, null, 2));
-
-    if (data.success) {
-        console.log(`\n🎉 SUCCESS! Custom domain '${domainName}' has been added!`);
-        return;
-    }
-
-    // Variation 2: Global API Key (X-Auth-Email + X-Auth-Key)
-    console.log(`\nAttempting Variation 2 (Global API Key)...`);
-    res = await fetch(url, {
-        method: 'POST',
-        headers: {
-            'X-Auth-Email': email,
-            'X-Auth-Key': apiKey,
-            'Content-Type': 'application/json'
-        },
-        body: JSON.stringify({ name: domainName })
-    });
-    data = await res.json();
-    console.log('Response #2:', JSON.stringify(data, null, 2));
+    console.log('Response:', JSON.stringify(data, null, 2));
 
     if (data.success) {
         console.log(`\n🎉 SUCCESS! Custom domain '${domainName}' has been added to Cloudflare Pages!`);

@@ -40,11 +40,55 @@ export const sessionService = {
     },
 
     /**
-     * Discard active session token
+     * Discard active session token and user cache
      */
     clearToken() {
         localStorage.removeItem(JWT_KEY);
         sessionStorage.removeItem(JWT_KEY);
+        localStorage.removeItem('user');
+        localStorage.removeItem('cached_workspace_name');
+        localStorage.removeItem('cached_workspace_plan');
+        localStorage.removeItem('cached_workspace_role');
+    },
+
+    /**
+     * Store active user metadata in local storage for instant UI hydration
+     * @param {object} user 
+     */
+    setUser(user) {
+        if (!user) return;
+        try {
+            localStorage.setItem('user', JSON.stringify(user));
+        } catch (_) {}
+    },
+
+    /**
+     * Synchronously retrieve active user context from cache or JWT token
+     * @returns {object|null}
+     */
+    getUser() {
+        try {
+            const raw = localStorage.getItem('user');
+            if (raw) {
+                const parsed = JSON.parse(raw);
+                if (parsed && typeof parsed === 'object') return parsed;
+            }
+        } catch (_) {}
+
+        // Fallback: parse basic user info directly from JWT payload
+        const token = this.getToken();
+        if (token) {
+            const payload = parseJwt(token);
+            if (payload && (payload.name || payload.email)) {
+                return {
+                    uuid: payload.sub,
+                    name: payload.name || (payload.email ? payload.email.split('@')[0] : 'User'),
+                    email: payload.email || '',
+                    role: payload.role || 'user'
+                };
+            }
+        }
+        return null;
     },
 
     /**

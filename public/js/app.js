@@ -27,12 +27,18 @@ class App {
     async init() {
         console.log('🚀 SocialHub SaaS Foundation Initialized');
         
-        // Retrieve and verify active session context
+        // Instant synchronous hydration from local cache
+        const cachedUser = authService.getUser();
+        if (cachedUser) {
+            this.updateUserInterface(cachedUser);
+        }
+
+        // Retrieve and verify active session context in background
         const user = await authService.getSession();
         if (user) {
             console.log(`👤 Active Session: ${user.name} (${user.email})`);
             this.updateUserInterface(user);
-        } else {
+        } else if (!cachedUser) {
             console.warn('⚠️ No active session detected');
         }
 

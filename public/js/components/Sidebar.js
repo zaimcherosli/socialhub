@@ -11,6 +11,37 @@ class Sidebar extends HTMLElement {
     }
 
     render() {
+        const cachedWsName = localStorage.getItem('cached_workspace_name') || 'Loading...';
+        const cachedPlan = localStorage.getItem('cached_workspace_plan');
+        const cachedRole = localStorage.getItem('cached_workspace_role');
+        const cachedPlanText = (cachedPlan && cachedRole) 
+            ? `${cachedPlan.toUpperCase()} (${cachedRole.toUpperCase()})` 
+            : (cachedPlan ? cachedPlan.toUpperCase() : 'User');
+
+        let cachedUserName = 'Loading...';
+        let cachedInitials = '--';
+        try {
+            const raw = localStorage.getItem('user');
+            if (raw) {
+                const u = JSON.parse(raw);
+                if (u && (u.name || u.email)) {
+                    cachedUserName = u.name || u.email.split('@')[0];
+                    const parts = cachedUserName.trim().split(' ');
+                    cachedInitials = (parts.length > 1 ? (parts[0][0] + parts[1][0]) : cachedUserName.slice(0, 2)).toUpperCase();
+                }
+            } else {
+                const token = localStorage.getItem('socialhub_jwt') || sessionStorage.getItem('socialhub_jwt');
+                if (token) {
+                    const payload = JSON.parse(atob(token.split('.')[1]));
+                    if (payload && (payload.name || payload.email)) {
+                        cachedUserName = payload.name || payload.email.split('@')[0];
+                        const parts = cachedUserName.trim().split(' ');
+                        cachedInitials = (parts.length > 1 ? (parts[0][0] + parts[1][0]) : cachedUserName.slice(0, 2)).toUpperCase();
+                    }
+                }
+            }
+        } catch (_) {}
+
         this.classList.add('sidebar-element');
         this.innerHTML = `
             <aside class="sidebar-wrapper">
@@ -49,7 +80,7 @@ class Sidebar extends HTMLElement {
                                     <rect x="14" y="12" width="7" height="9" rx="1" />
                                     <rect x="3" y="16" width="7" height="5" rx="1" />
                                 </svg>
-                                <span id="currentWorkspaceName" style="overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">Loading...</span>
+                                <span id="currentWorkspaceName" style="overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">${cachedWsName}</span>
                             </span>
                             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink: 0; margin-left: 0.25rem;">
                                 <polyline points="6 9 12 15 18 9"></polyline>
@@ -204,11 +235,11 @@ class Sidebar extends HTMLElement {
                 <div class="sidebar-footer">
                     <div class="user-avatar-row">
                         <div class="avatar-holder">
-                            <span class="avatar-letters" id="sidebarInitials">--</span>
+                            <span class="avatar-letters" id="sidebarInitials">${cachedInitials}</span>
                         </div>
                         <div class="user-info" style="flex: 1; min-width: 0; display: flex; flex-direction: column;">
-                            <span class="user-name" id="sidebarUserName">Loading...</span>
-                            <span class="user-plan">User</span>
+                            <span class="user-name" id="sidebarUserName">${cachedUserName}</span>
+                            <span class="user-plan">${cachedPlanText}</span>
                             <span class="user-version" id="versionBadge" style="font-size: 0.65rem; color: var(--color-text-tertiary); font-weight: 500; margin-top: 0.1rem; cursor: pointer;" title="Tekan untuk info sistem diagnostik">v...</span>
                         </div>
                         <button class="header-action-btn" id="btnSidebarLogout" title="Logout" style="padding: 0.35rem; color: var(--color-danger); background: none; border: none; cursor: pointer; display: flex; align-items: center; justify-content: center;">
@@ -293,11 +324,22 @@ class Sidebar extends HTMLElement {
     initUserData() {
         try {
             const userStr = localStorage.getItem('user');
+            let displayName = null;
             if (userStr) {
                 const user = JSON.parse(userStr);
+                displayName = user.name || user.email?.split('@')[0];
+            } else {
+                const token = localStorage.getItem('socialhub_jwt') || sessionStorage.getItem('socialhub_jwt');
+                if (token) {
+                    const payload = JSON.parse(atob(token.split('.')[1]));
+                    if (payload && (payload.name || payload.email)) {
+                        displayName = payload.name || payload.email.split('@')[0];
+                    }
+                }
+            }
+            if (displayName) {
                 const nameEl = this.querySelector('#sidebarUserName');
                 const initialsEl = this.querySelector('#sidebarInitials');
-                const displayName = user.name || user.email?.split('@')[0] || 'User';
                 if (nameEl) nameEl.textContent = displayName;
                 if (initialsEl) {
                     const parts = displayName.trim().split(' ');
@@ -313,8 +355,12 @@ class Sidebar extends HTMLElement {
                 try {
                     await apiClient.post('/auth/logout');
                 } catch (_) {}
-                localStorage.removeItem('token');
+                localStorage.removeItem('socialhub_jwt');
+                sessionStorage.removeItem('socialhub_jwt');
                 localStorage.removeItem('user');
+                localStorage.removeItem('cached_workspace_name');
+                localStorage.removeItem('cached_workspace_plan');
+                localStorage.removeItem('cached_workspace_role');
                 window.location.href = 'login.html';
             });
         }
@@ -348,16 +394,22 @@ class Sidebar extends HTMLElement {
 
         menu.addEventListener('click', (e) => e.stopPropagation());
 
-        // Fetch user workspaces
+        // Fetch user workspaces in parallel
         try {
-            // 1. Get list of workspaces using apiClient (handles token and correct base url automatically)
-            const data = await apiClient.get('/workspaces');
+            const [data, meData] = await Promise.all([
+                apiClient.get('/workspaces'),
+                apiClient.get('/workspaces/me')
+            ]);
 
-            // 2. Get active workspace info
-            const meData = await apiClient.get('/workspaces/me');
-
-            if (meData.success && meData.workspace) {
+            if (meData && meData.success && meData.workspace) {
                 currentNameEl.textContent = meData.workspace.name;
+                localStorage.setItem('cached_workspace_name', meData.workspace.name);
+                if (meData.workspace.subscription_plan) {
+                    localStorage.setItem('cached_workspace_plan', meData.workspace.subscription_plan);
+                }
+                if (meData.workspace.role) {
+                    localStorage.setItem('cached_workspace_role', meData.workspace.role);
+                }
                 // Update workspace role/plan badge in sidebar footer
                 const badgeEl = this.querySelector('.user-plan');
                 if (badgeEl) {

@@ -1310,12 +1310,21 @@
 
         // ── Load Workspace Info & Active Brand ──────────────────
         async function loadWorkspaceInfo() {
+            // Instant hydration from local storage cache
+            const cachedName = localStorage.getItem('cached_workspace_name');
+            if (cachedName && !document.getElementById('workspaceName').value) {
+                document.getElementById('workspaceName').value = cachedName;
+            }
+
             try {
                 const res = await apiClient.get('/workspaces/me');
                 if (res.success && res.workspace) {
                     document.getElementById('workspaceName').value = res.workspace.name || '';
                     document.getElementById('workspaceSlug').value = res.workspace.slug || '';
                     document.getElementById('workspaceWhatsapp').value = res.workspace.whatsapp_number || '';
+                    if (res.workspace.name) {
+                        localStorage.setItem('cached_workspace_name', res.workspace.name);
+                    }
                 }
             } catch (e) { console.warn('Workspace load error:', e.message); }
 
@@ -1521,6 +1530,15 @@
 
         // ── Load user email from session ───────────────────────
         async function loadUserInfo() {
+            // Instant synchronous hydration from local cache
+            try {
+                const cachedUser = authService.getUser();
+                if (cachedUser) {
+                    if (cachedUser.email) document.getElementById('profileEmail').value = cachedUser.email;
+                    if (cachedUser.name) document.getElementById('profileName').value = cachedUser.name;
+                }
+            } catch (_) {}
+
             try {
                 const user = await authService.getSession();
                 if (user) {
@@ -1604,10 +1622,9 @@
         });
 
         // ── Init ───────────────────────────────────────────────
-        loadAISettings();
-        loadWorkspaceInfo();
         loadUserInfo();
-        loadDiagnosticsInfo();
+        loadWorkspaceInfo();
+        loadAISettings();
 
         // ==================== API KEYS MANAGEMENT ====================
         // CONFIG.API_BASE_URL ends with /api so we strip it for our custom routes
@@ -1817,11 +1834,6 @@
             } catch (err) {
                 alert('Error: ' + err.message);
             }
-        }
-
-        loadApiKeys();
-        loadTelegramStatus();
-
         // ─── Subscription & Usage Loader ────────────────────────────────────
         async function loadSubscriptionUsage() {
             try {
@@ -1865,7 +1877,13 @@
                 console.warn('[SubscriptionUsage] Failed to load:', e);
             }
         }
-        loadSubscriptionUsage();
+        // Secondary panels loaded in background without blocking initial paint
+        setTimeout(() => {
+            loadSubscriptionUsage();
+            loadApiKeys();
+            loadTelegramStatus();
+            loadDiagnosticsInfo();
+        }, 80);
         // ────────────────────────────────────────────────────────────────────
     </script>
 </body>

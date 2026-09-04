@@ -4,6 +4,8 @@
 import { apiClient } from '../utils/api.js';
 import { sessionService } from './sessionService.js';
 
+let getSessionInFlight = null;
+
 export const authService = {
     /**
      * Authenticate user with credentials and persist session
@@ -17,6 +19,9 @@ export const authService = {
         const data = await apiClient.post('/auth/login', { email, password, rememberMe });
         if (data && data.token) {
             sessionService.saveToken(data.token, rememberMe);
+            if (data.user) {
+                sessionService.setUser(data.user);
+            }
         }
         return data;
     },
@@ -32,6 +37,9 @@ export const authService = {
         const data = await apiClient.post('/auth/google', { credential, rememberMe });
         if (data && data.token) {
             sessionService.saveToken(data.token, rememberMe);
+            if (data.user) {
+                sessionService.setUser(data.user);
+            }
         }
         return data;
     },
@@ -77,28 +85,44 @@ export const authService = {
     },
 
     /**
-     * Query currently active profile session context.
-     * NOTE: Only clears the stored token on a genuine 401 Unauthorized response.
-     * Transient network errors, cold-start failures, and 5xx errors do NOT log
-     * the user out — the local token remains valid and the page continues loading.
-     * This fixes the "double login required" bug caused by Cloudflare Worker cold starts.
+     * Query currently active profile session context with request deduplication and local caching.
      * @returns {Promise<object|null>} Active user metadata, or null on failure
      */
     async getSession() {
         if (!sessionService.isAuthenticated()) return null;
-        try {
-            const data = await apiClient.get('/users/me');
-            return data.user;
-        } catch (error) {
-            console.warn('[AuthService] Could not fetch session from server:', error.message);
-            // Only clear the token if the server explicitly says the token is invalid/expired (401).
-            // For network errors, cold starts, or 5xx errors, keep the local token intact.
-            if (error.status === 401) {
-                console.warn('[AuthService] Token rejected by server (401). Clearing session.');
-                sessionService.clearToken();
+
+        // If an identical request is already in-flight, return existing Promise
+        if (getSessionInFlight) return getSessionInFlight;
+
+        getSessionInFlight = (async () => {
+            try {
+                const data = await apiClient.get('/users/me');
+                if (data && data.user) {
+                    sessionService.setUser(data.user);
+                    return data.user;
+                }
+                return null;
+            } catch (error) {
+                console.warn('[AuthService] Could not fetch session from server:', error.message);
+                if (error.status === 401) {
+                    console.warn('[AuthService] Token rejected by server (401). Clearing session.');
+                    sessionService.clearToken();
+                }
+                return null;
+            } finally {
+                getSessionInFlight = null;
             }
-            return null;
-        }
+        })();
+
+        return getSessionInFlight;
+    },
+
+    /**
+     * Synchronously get cached user profile without awaiting network
+     * @returns {object|null}
+     */
+    getUser() {
+        return sessionService.getUser();
     },
 
     /**

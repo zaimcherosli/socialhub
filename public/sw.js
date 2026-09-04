@@ -1,6 +1,6 @@
-// SocialHub Service Worker — v1.9.8
+// SocialHub Service Worker — v1.9.9
 // CACHE_NAME is tied to version so old caches auto-purge on every deployment
-const SW_VERSION = '1.9.8';
+const SW_VERSION = '1.9.9';
 const CACHE_NAME = `socialhub-cache-v${SW_VERSION}`;
 const ASSETS_TO_CACHE = [
   '/',
@@ -117,13 +117,10 @@ self.addEventListener('fetch', (event) => {
   const isJsOrCss = url.pathname.endsWith('.js') || url.pathname.endsWith('.css');
   const isImage = url.pathname.match(/\.(png|jpg|jpeg|gif|svg|webp|ico)$/i);
 
-  if (isHtmlRequest || isJsOrCss) {
+  if (isHtmlRequest) {
     // ══════════════════════════════════════════════════════════════════════
-    // Network-First strategy for HTML + JS + CSS
-    // CRITICAL: { cache: 'no-store' } forces the fetch to bypass the
-    // browser's HTTP cache entirely. Without this, even "Network-First"
-    // actually hits the HTTP cache first (which may return stale content
-    // if Cache-Control max-age hasn't expired).
+    // Network-First strategy for HTML navigation requests
+    // Ensures users always receive the latest shell with newest script tags
     // ══════════════════════════════════════════════════════════════════════
     event.respondWith(
       fetch(event.request, { cache: 'no-store' })
@@ -138,15 +135,34 @@ self.addEventListener('fetch', (event) => {
           // Network failed — fall back to SW cache (offline support)
           return caches.match(event.request).then((cachedResponse) => {
             if (cachedResponse) return cachedResponse;
-            if (isHtmlRequest) {
-              return new Response(OFFLINE_PAGE_HTML, {
-                status: 200,
-                headers: { 'Content-Type': 'text/html' }
-              });
-            }
-            return new Response('Asset unavailable offline', { status: 404, statusText: 'Offline' });
+            return new Response(OFFLINE_PAGE_HTML, {
+              status: 200,
+              headers: { 'Content-Type': 'text/html' }
+            });
           });
         })
+    );
+  } else if (isJsOrCss) {
+    // ══════════════════════════════════════════════════════════════════════
+    // Cache-First strategy for JS and CSS within current version
+    // Because CACHE_NAME is tied to SW_VERSION (e.g. socialhub-cache-v1.9.9),
+    // cached assets are immutable within this version and load in 0ms!
+    // ══════════════════════════════════════════════════════════════════════
+    event.respondWith(
+      caches.match(event.request).then((cachedResponse) => {
+        if (cachedResponse) {
+          return cachedResponse;
+        }
+        return fetch(event.request, { cache: 'no-store' }).then((response) => {
+          if (response && response.status === 200) {
+            const responseClone = response.clone();
+            caches.open(CACHE_NAME).then((cache) => cache.put(event.request, responseClone));
+          }
+          return response;
+        }).catch(() => {
+          return new Response('Asset unavailable offline', { status: 404, statusText: 'Offline' });
+        });
+      })
     );
   } else if (isImage) {
     // Cache-First strategy for images (rarely change, safe to cache)

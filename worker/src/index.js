@@ -3112,7 +3112,7 @@ export default {
                         try {
                             const provider = AIFactory.getProvider(aiEnv);
                             const systemInstructions = `You are an expert Social Media Advertising & Infographic Poster Art Director.
-Analyze the provided social media post content (written in Malay/English) and generate a detailed English prompt for creating a high-converting, professional INFOGRAPHIC POSTER image suitable for DALL·E 3 / AI image generation.
+Analyze the provided social media post content (written in Malay/English) and generate a detailed English prompt for creating a high-converting, professional INFOGRAPHIC POSTER image suitable for GPT-Image 2.0 / AI image generation.
 
 MANDATORY POSTER TEXT & LANGUAGE RULES:
 1. IF the post content or language is Bahasa Melayu or Manglish, all visible text labels and headlines ON THE POSTER MUST BE WRITTEN IN BAHASA MELAYU (Malay).
@@ -5134,7 +5134,7 @@ CRITICAL LANGUAGE / SPEECH RULES:
                                             try {
                                                 const imgProvider = AIFactory.getProvider(aiEnv);
                                                 const systemInstructions = `You are an expert Social Media Advertising & Infographic Poster Art Director.
-Analyze the provided social media post content (written in Malay/English) and generate a detailed English prompt for creating a high-converting, professional INFOGRAPHIC POSTER image suitable for DALL·E 3 / AI image generation.
+Analyze the provided social media post content (written in Malay/English) and generate a detailed English prompt for creating a high-converting, professional INFOGRAPHIC POSTER image suitable for GPT-Image 2.0 / AI image generation.
 
 MANDATORY POSTER TEXT & LANGUAGE RULES:
 1. IF the post content or language is Bahasa Melayu or Manglish, all visible text labels and headlines ON THE POSTER MUST BE WRITTEN IN BAHASA MELAYU (Malay).

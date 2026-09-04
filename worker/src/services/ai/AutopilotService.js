@@ -7,20 +7,22 @@ export class AutopilotService {
         console.log(`[AutopilotService] Starting autopilot campaign generation for niche: "${niche}", count: ${count}, frequency: ${frequency}, format: ${postFormat}, ctaLink: ${ctaLink}, nicheKey: ${nicheKey}`);
 
         let formatInstructions = "";
+        const lineSpacingRule = `\n- MANDATORY LINE SPACING: Inside each individual slide/card, write in short micro-paragraphs (strictly 1 to 2 sentences each) and separate every micro-paragraph with an empty line (double newline \\n\\n). Never merge multiple points into one continuous thick paragraph.`;
+
         if (postFormat === 'short_thread') {
             formatInstructions = `
 - Each post in the calendar MUST be a Thread Storm (berangkai) consisting of exactly 2 to 3 thread posts/slides.
 - Split the slides of each thread storm using the exact separator string '---thread-separator---'. For example: 'Slide 1 content\\n---thread-separator---\\nSlide 2 content\\n---thread-separator---\\nSlide 3 content'.
-- Each individual slide/card in the thread storm must be around 350 to 450 characters (providing 3 to 4 substantial lines/sentences of rich explanation while staying safely under the 500-character Threads limit).`;
+- Each individual slide/card in the thread storm must be around 350 to 450 characters (providing 3 to 4 substantial lines/sentences of rich explanation while staying safely under the 500-character Threads limit).${lineSpacingRule}`;
         } else if (postFormat === 'deep_thread') {
             formatInstructions = `
 - Each post in the calendar MUST be a deep-dive Thread Storm (berangkai) consisting of exactly 3 to 5 thread posts/slides.
 - Split the slides of each thread storm using the exact separator string '---thread-separator---'. For example: 'Slide 1 content\\n---thread-separator---\\nSlide 2 content\\n---thread-separator---\\nSlide 3 content\\n---thread-separator---\\nSlide 4 content'.
-- Each individual slide/card in the thread storm must be around 350 to 450 characters (providing 3 to 4 substantial lines/sentences of rich explanation while staying safely under the 500-character Threads limit).`;
+- Each individual slide/card in the thread storm must be around 350 to 450 characters (providing 3 to 4 substantial lines/sentences of rich explanation while staying safely under the 500-character Threads limit).${lineSpacingRule}`;
         } else {
             formatInstructions = `
 - Each post in the calendar must be a single post.
-- The caption text must be around 400 to 600 characters with rich, high-converting storytelling paragraphs.`;
+- The caption text must be around 400 to 600 characters with rich, high-converting storytelling paragraphs.${lineSpacingRule}`;
         }
 
         // Normalize CTA Link (auto-convert raw phone numbers to WhatsApp wa.me links)

@@ -451,6 +451,36 @@
                             <input type="text" id="workspaceWhatsapp" class="form-input" placeholder="e.g. 60108118559" style="width: 100%;" />
                             <p style="font-size: 0.72rem; color: var(--color-text-tertiary); margin-top: 0.35rem;">Enter international format without '+' or spaces. e.g. 60108118559. Used to auto-generate WhatsApp links in CTA for non-ecommerce listings (like Telegram links).</p>
                         </div>
+
+                        <hr style="border: none; border-top: 1px solid var(--color-border, #e5e7eb); margin: 1.25rem 0;" />
+
+                        <!-- Company Logo (Brand Profile) -->
+                        <div class="form-group" style="margin-bottom: 1.25rem;">
+                            <label class="form-label" style="display: flex; align-items: center; justify-content: space-between;">
+                                <span>Company Logo (Poster &amp; Brand)</span>
+                                <span style="font-size: 0.7rem; color: var(--color-text-tertiary); font-weight: normal;">Format: PNG transparent / SVG / JPG (Max 5MB)</span>
+                            </label>
+                            <div style="display: flex; align-items: center; gap: 1.25rem; margin-top: 0.5rem; background: var(--color-bg-accent); padding: 1rem; border-radius: var(--radius-sm); border: 1px solid var(--color-border);">
+                                <div id="logoPreviewContainer" style="width: 120px; height: 60px; border-radius: var(--radius-xs); border: 1.5px dashed var(--color-border); display: flex; align-items: center; justify-content: center; background: #ffffff; overflow: hidden; position: relative; flex-shrink: 0;">
+                                    <img id="brandLogoPreview" src="" alt="Logo" style="max-width: 90%; max-height: 90%; object-fit: contain; display: none;" />
+                                    <span id="brandLogoPlaceholder" style="font-size: 0.72rem; color: var(--color-text-tertiary); text-align: center; padding: 0.25rem;">Tiada Logo</span>
+                                </div>
+                                <div style="display: flex; flex-direction: column; gap: 0.5rem; flex: 1;">
+                                    <input type="file" id="brandLogoInput" accept="image/png,image/jpeg,image/svg+xml,image/webp" style="display: none;" />
+                                    <div style="display: flex; gap: 0.5rem; flex-wrap: wrap;">
+                                        <button type="button" class="btn btn-secondary btn-sm" id="btnUploadLogo" onclick="document.getElementById('brandLogoInput').click()">
+                                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="margin-right: 0.35rem;"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+                                            Pilih Fail Logo
+                                        </button>
+                                        <button type="button" class="btn btn-sm" id="btnRemoveLogo" style="display: none; color: var(--color-danger); border: 1px solid rgba(239,68,68,0.3); background: transparent;" onclick="handleRemoveLogo()">
+                                            Buang Logo
+                                        </button>
+                                    </div>
+                                    <div id="logoUploadStatus" style="font-size: 0.72rem; color: var(--color-text-tertiary);">Logo akan dipaparkan secara automatik di bahagian atas poster Creative Studio.</div>
+                                </div>
+                            </div>
+                        </div>
+
                         <div class="save-btn-row">
                             <button type="submit" class="btn btn-primary">Save Workspace</button>
                             <span class="save-status" id="workspaceSaveStatus">
@@ -1254,7 +1284,31 @@
         document.getElementById('customInstructions').addEventListener('input', autoSaveFunc);
         document.getElementById('copywritingPersona').addEventListener('change', autoSaveFunc);
 
-        // ── Load Workspace Info ────────────────────────────────
+        // ── Active Brand Profile & Logo Management ────────────
+        let currentBrandProfile = null;
+
+        function updateLogoUI(logoUrl) {
+            const preview = document.getElementById('brandLogoPreview');
+            const placeholder = document.getElementById('brandLogoPlaceholder');
+            const removeBtn = document.getElementById('btnRemoveLogo');
+            const statusText = document.getElementById('logoUploadStatus');
+
+            if (logoUrl) {
+                preview.src = logoUrl;
+                preview.style.display = 'block';
+                placeholder.style.display = 'none';
+                if (removeBtn) removeBtn.style.display = 'inline-flex';
+                if (statusText) statusText.textContent = 'Logo aktif dipaparkan di bahagian atas poster Creative Studio.';
+            } else {
+                preview.src = '';
+                preview.style.display = 'none';
+                placeholder.style.display = 'block';
+                if (removeBtn) removeBtn.style.display = 'none';
+                if (statusText) statusText.textContent = 'Logo akan dipaparkan secara automatik di bahagian atas poster Creative Studio.';
+            }
+        }
+
+        // ── Load Workspace Info & Active Brand ──────────────────
         async function loadWorkspaceInfo() {
             try {
                 const res = await apiClient.get('/workspaces/me');
@@ -1264,7 +1318,126 @@
                     document.getElementById('workspaceWhatsapp').value = res.workspace.whatsapp_number || '';
                 }
             } catch (e) { console.warn('Workspace load error:', e.message); }
+
+            try {
+                const brandRes = await apiClient.get('/creative/brand-active');
+                if (brandRes && brandRes.has_brand && brandRes.brand) {
+                    currentBrandProfile = brandRes.brand;
+                    updateLogoUI(brandRes.brand.logo_url);
+                } else {
+                    updateLogoUI(null);
+                }
+            } catch (e) {
+                console.warn('[Workspace] Brand profile load error:', e.message);
+                updateLogoUI(null);
+            }
         }
+
+        async function handleLogoFileChange(e) {
+            const file = e.target.files && e.target.files[0];
+            if (!file) return;
+
+            const statusText = document.getElementById('logoUploadStatus');
+            const uploadBtn = document.getElementById('btnUploadLogo');
+
+            const allowedTypes = ['image/png', 'image/jpeg', 'image/webp', 'image/svg+xml'];
+            if (!allowedTypes.includes(file.type)) {
+                alert('Sila muat naik fail imej yang sah (PNG, JPG, SVG, WebP).');
+                e.target.value = '';
+                return;
+            }
+            if (file.size > 5 * 1024 * 1024) {
+                alert('Saiz fail melebihi had 5MB.');
+                e.target.value = '';
+                return;
+            }
+
+            try {
+                uploadBtn.disabled = true;
+                uploadBtn.textContent = 'Memuat naik...';
+                if (statusText) statusText.textContent = 'Sedang memuat naik logo ke storan...';
+
+                const formData = new FormData();
+                formData.append('file', file);
+
+                const token = sessionService.getToken();
+                const headers = {};
+                if (token) headers['Authorization'] = `Bearer ${token}`;
+
+                const uploadRes = await fetch(`${CONFIG.API_BASE_URL}/media/upload`, {
+                    method: 'POST',
+                    headers,
+                    body: formData
+                }).then(r => r.json());
+
+                if (!uploadRes.success || !uploadRes.url) {
+                    throw new Error(uploadRes.message || 'Gagal memuat naik fail logo.');
+                }
+
+                const newLogoUrl = uploadRes.url;
+                const newMediaId = uploadRes.media ? uploadRes.media.id : null;
+
+                // Associate with brand profile
+                let activeBrandId = currentBrandProfile?.id;
+                if (!activeBrandId) {
+                    const wsName = document.getElementById('workspaceName').value.trim() || 'My Brand';
+                    const createRes = await apiClient.post('/creative/brands', {
+                        name: wsName,
+                        logo_url: newLogoUrl,
+                        logo_media_id: newMediaId,
+                        is_default: 1,
+                        is_enabled: 1
+                    });
+                    if (createRes && createRes.brand) {
+                        activeBrandId = createRes.brand.id;
+                        currentBrandProfile = createRes.brand;
+                    }
+                } else {
+                    await apiClient.put(`/creative/brands/${activeBrandId}`, {
+                        logo_url: newLogoUrl,
+                        logo_media_id: newMediaId
+                    });
+                    if (currentBrandProfile) {
+                        currentBrandProfile.logo_url = newLogoUrl;
+                        currentBrandProfile.logo_media_id = newMediaId;
+                    }
+                }
+
+                updateLogoUI(newLogoUrl);
+                if (statusText) statusText.textContent = '✨ Logo berjaya dimuat naik dan disimpan!';
+                notificationService.showToast('✨ Logo syarikat berjaya dimuat naik!', 'success');
+            } catch (err) {
+                console.error('[Logo Upload] Error:', err);
+                alert(`Ralat memuat naik logo: ${err.message}`);
+                if (statusText) statusText.textContent = 'Ralat memuat naik logo.';
+            } finally {
+                uploadBtn.disabled = false;
+                uploadBtn.innerHTML = `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="margin-right: 0.35rem;"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg> Tukar Logo`;
+                e.target.value = '';
+            }
+        }
+        window.handleLogoFileChange = handleLogoFileChange;
+
+        async function handleRemoveLogo() {
+            if (!confirm('Adakah anda pasti mahu membuang logo syarikat ini?')) return;
+            try {
+                if (currentBrandProfile?.id) {
+                    await apiClient.put(`/creative/brands/${currentBrandProfile.id}`, {
+                        logo_url: '',
+                        logo_media_id: null
+                    });
+                    currentBrandProfile.logo_url = '';
+                    currentBrandProfile.logo_media_id = null;
+                }
+                updateLogoUI(null);
+                notificationService.showToast('Logo syarikat telah dikeluarkan.', 'info');
+            } catch (err) {
+                alert(`Gagal membuang logo: ${err.message}`);
+            }
+        }
+        window.handleRemoveLogo = handleRemoveLogo;
+
+        document.getElementById('brandLogoInput')?.addEventListener('change', handleLogoFileChange);
 
         async function handleSaveWorkspace() {
             const name = document.getElementById('workspaceName').value.trim();

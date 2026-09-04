@@ -55,7 +55,7 @@ class Sidebar extends HTMLElement {
                                 <polyline points="6 9 12 15 18 9"></polyline>
                             </svg>
                         </button>
-                        <div class="dropdown-menu" id="workspaceDropdownMenu" style="display: none; position: absolute; top: 100%; left: 0; right: 0; margin-top: 0.25rem; background: var(--color-bg-dropdown, #ffffff); backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px); border: 1px solid var(--color-border); border-radius: var(--radius-sm); box-shadow: var(--shadow-md); z-index: 9999; max-height: 250px; overflow-y: auto; padding: 0.5rem 0;">
+                        <div class="dropdown-menu" id="workspaceDropdownMenu" style="display: none; position: absolute; top: 100%; left: 0; right: 0; margin-top: 0.25rem; background: var(--color-bg-dropdown, #ffffff); backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px); border: 1px solid var(--color-border); border-radius: var(--radius-sm); box-shadow: var(--shadow-md); z-index: 9999; max-height: min(380px, 65vh); overflow-y: auto; overscroll-behavior: contain; padding: 0.5rem 0;">
                             <div style="padding: 0.5rem 1rem; font-size: 0.7rem; color: var(--color-text-tertiary); text-transform: uppercase; font-weight: 700; letter-spacing: 0.05em;">Switch Workspace</div>
                             <div id="workspaceListItems"></div>
                             <div style="border-top: 1px solid var(--color-border); margin: 0.5rem 0;"></div>
@@ -367,9 +367,12 @@ class Sidebar extends HTMLElement {
 
             if (data.success && data.workspaces) {
                 listContainer.innerHTML = '';
+                let isSwitching = false;
+
                 data.workspaces.forEach(ws => {
                     const isCurrent = meData.success && meData.workspace && ws.id === meData.workspace.workspace_id;
                     const item = document.createElement('button');
+                    item.type = 'button';
                     item.className = 'dropdown-item';
                     item.style.cssText = `
                         width: 100%;
@@ -385,35 +388,78 @@ class Sidebar extends HTMLElement {
                         align-items: center;
                         justify-content: space-between;
                         gap: 0.5rem;
-                        transition: background var(--transition-fast);
+                        transition: background var(--transition-fast), opacity 0.2s;
+                        user-select: none;
                     `;
-                    item.addEventListener('mouseenter', () => item.style.background = 'var(--color-bg-secondary)');
-                    item.addEventListener('mouseleave', () => item.style.background = 'none');
+                    item.addEventListener('mouseenter', () => { if (!isSwitching) item.style.background = 'var(--color-bg-secondary)'; });
+                    item.addEventListener('mouseleave', () => { if (!isSwitching) item.style.background = 'none'; });
 
                     item.innerHTML = `
-                        <span style="overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">${ws.name}</span>
+                        <span style="overflow: hidden; text-overflow: ellipsis; white-space: nowrap; pointer-events: none;">${ws.name}</span>
                         ${isCurrent ? `
-                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="color: var(--color-primary); flex-shrink: 0;">
+                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="color: var(--color-primary); flex-shrink: 0; pointer-events: none;">
                                 <polyline points="20 6 9 17 4 12"></polyline>
                             </svg>
                         ` : ''}
                     `;
 
-                    // Switch event
-                    if (!isCurrent) {
-                        item.addEventListener('click', async () => {
-                            try {
-                                const switchData = await apiClient.post('/workspaces/switch', { workspace_id: ws.id });
-                                if (switchData.success) {
-                                    window.location.reload();
-                                } else {
-                                    alert(switchData.message || 'Failed to switch workspace.');
-                                }
-                            } catch (err) {
-                                console.error('Error switching workspace:', err);
-                            }
+                    // Instant, responsive workspace switch event
+                    item.addEventListener('click', async (e) => {
+                        e.stopPropagation();
+
+                        if (isCurrent) {
+                            menu.style.display = 'none';
+                            return;
+                        }
+
+                        if (isSwitching) return;
+                        isSwitching = true;
+
+                        // Immediate responsive feedback: lock list and indicate loading
+                        currentNameEl.textContent = `Menukar...`;
+                        item.innerHTML = `
+                            <span style="display: flex; align-items: center; gap: 0.4rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; pointer-events: none;">
+                                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="animation: spin 0.8s linear infinite; flex-shrink: 0;">
+                                    <path d="M21 12a9 9 0 1 1-6.219-8.56"/>
+                                </svg>
+                                <span>Menukar...</span>
+                            </span>
+                        `;
+                        item.style.background = 'var(--color-bg-secondary)';
+
+                        // Lock all workspace items against spam clicks
+                        listContainer.querySelectorAll('button').forEach(b => {
+                            b.style.pointerEvents = 'none';
+                            if (b !== item) b.style.opacity = '0.5';
                         });
-                    }
+
+                        try {
+                            const switchData = await apiClient.post('/workspaces/switch', { workspace_id: ws.id });
+                            if (switchData.success) {
+                                menu.style.display = 'none';
+                                window.location.reload();
+                            } else {
+                                alert(switchData.message || 'Gagal menukar ruang kerja.');
+                                isSwitching = false;
+                                listContainer.querySelectorAll('button').forEach(b => {
+                                    b.style.pointerEvents = 'auto';
+                                    b.style.opacity = '1';
+                                });
+                                item.innerHTML = `<span style="pointer-events: none;">${ws.name}</span>`;
+                                currentNameEl.textContent = meData.workspace.name;
+                            }
+                        } catch (err) {
+                            console.error('Error switching workspace:', err);
+                            alert('Ralat rangkaian semasa menukar ruang kerja.');
+                            isSwitching = false;
+                            listContainer.querySelectorAll('button').forEach(b => {
+                                b.style.pointerEvents = 'auto';
+                                b.style.opacity = '1';
+                            });
+                            item.innerHTML = `<span style="pointer-events: none;">${ws.name}</span>`;
+                            currentNameEl.textContent = meData.workspace.name;
+                        }
+                    });
 
                     listContainer.appendChild(item);
                 });

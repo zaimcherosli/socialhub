@@ -50,14 +50,16 @@ export class AIProvider {
     }) {
         // Format formatting instructions & JSON structure
         let formatInstructions = "";
+        const lineSpacingRule = `\n  * MANDATORY LINE SPACING: Write in short, punchy micro-paragraphs (strictly 1 to 2 sentences per paragraph). You MUST separate every micro-paragraph with a blank line (double newline \\n\\n). Strictly forbidden to merge multiple points into one thick continuous paragraph.`;
+
         if (postFormat === 'mega_thread') {
-            formatInstructions = `- Format: Thread / Bebenang Panjang (MEGA STORY). You MUST generate a sequence of exactly 7 to 10 connected slides/posts. The "caption" key in the JSON output MUST be a JSON array of strings containing these 7 to 10 slides in order. Each individual slide/post string in the array must be around 350 to 450 characters (providing 3 to 4 rich, detailed sentences/lines while staying safely under the 500-character Threads limit) and carry a suspenseful or engaging storytelling progression.`;
+            formatInstructions = `- Format: Thread / Bebenang Panjang (MEGA STORY). You MUST generate a sequence of exactly 7 to 10 connected slides/posts. The "caption" key in the JSON output MUST be a JSON array of strings containing these 7 to 10 slides in order. Each individual slide/post string in the array must be around 350 to 450 characters (providing 3 to 4 rich, detailed sentences/lines while staying safely under the 500-character Threads limit) and carry a suspenseful or engaging storytelling progression.${lineSpacingRule}`;
         } else if (postFormat === 'deep_thread' || postFormat === 'thread') {
-            formatInstructions = `- Format: Thread / Bebenang Berangkai (DEEP). You MUST generate a sequence of exactly 4 to 5 connected slides/posts. The "caption" key in the JSON output MUST be a JSON array of strings containing these 4 to 5 slides in order. Each individual slide/post string in the array must be around 350 to 450 characters (providing 3 to 4 rich, detailed sentences/lines of explanation while staying safely under the 500-character Threads limit).`;
+            formatInstructions = `- Format: Thread / Bebenang Berangkai (DEEP). You MUST generate a sequence of exactly 4 to 5 connected slides/posts. The "caption" key in the JSON output MUST be a JSON array of strings containing these 4 to 5 slides in order. Each individual slide/post string in the array must be around 350 to 450 characters (providing 3 to 4 rich, detailed sentences/lines of explanation while staying safely under the 500-character Threads limit).${lineSpacingRule}`;
         } else if (postFormat === 'short_thread') {
-            formatInstructions = `- Format: Thread / Bebenang Ringkas (SHORT). You MUST generate a sequence of exactly 2 to 3 connected slides/posts (no more than 3). The "caption" key in the JSON output MUST be a JSON array of strings containing these 2 to 3 slides in order. Each individual slide/post string in the array must be around 350 to 450 characters (providing 3 to 4 rich, detailed sentences/lines of explanation while staying safely under the 500-character Threads limit).`;
+            formatInstructions = `- Format: Thread / Bebenang Ringkas (SHORT). You MUST generate a sequence of exactly 2 to 3 connected slides/posts (no more than 3). The "caption" key in the JSON output MUST be a JSON array of strings containing these 2 to 3 slides in order. Each individual slide/post string in the array must be around 350 to 450 characters (providing 3 to 4 rich, detailed sentences/lines of explanation while staying safely under the 500-character Threads limit).${lineSpacingRule}`;
         } else {
-            formatInstructions = `- Format: Single standalone post. The caption must be around 400 to 600 characters with rich, high-converting storytelling paragraphs.`;
+            formatInstructions = `- Format: Single standalone post. The caption must be around 400 to 600 characters with rich, high-converting storytelling paragraphs.${lineSpacingRule}`;
         }
 
         let jsonStructure = "";
@@ -155,8 +157,8 @@ CRITICAL HUMANIZER ENGINE & STRICT ANTI-AI RULES (MANDATORY TO SOUND 100% LIKE A
 
 2. DYNAMIC CONVERSATIONAL RHYTHM & TEMPO (Vary sentence lengths):
    - Combine ultra-short 2-to-4 word punchy fragments (e.g., "Sumpah tak sangka.", "Realiti pahit.", "Benda simple je.") with medium conversational sentences.
-   - Use micro-paragraphs (1 to 2 lines per paragraph maximum with line breaks) for smooth, addicting mobile reading.
-   - Never make all sentences equal length or write long walls of text.
+   - Use micro-paragraphs (strictly 1 to 2 sentences per paragraph maximum).
+   - MANDATORY: Always insert an empty line / blank line (double enter / \n\n) between every micro-paragraph for effortless mobile skimming. Never write continuous walls of text.
 
 3. ZERO HARD-SELLING & COMMENT MAGNET STRATEGY:
    - NEVER praise the product in Slide 1. Slide 1 MUST be 100% about the human emotion, conflict, taboo confession, or skepticism.

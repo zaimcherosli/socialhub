@@ -3055,11 +3055,11 @@ export default {
                         const dataUrl = `data:image/jpeg;base64,${base64Str}`;
                         const fileSize = arrayBuffer.byteLength;
 
-                        const plan = activeWorkspace.subscription_plan;
-                        const limits = PLANS[plan];
+                        const plan = (activeWorkspace.subscription_plan || 'free').toLowerCase();
+                        const limits = PLANS[plan] || PLANS.free;
                         const sizeRes = await env.DB.prepare("SELECT SUM(file_size) as total FROM media WHERE workspace_id = ?").bind(activeWorkspace.workspace_id).first();
                         const currentTotal = sizeRes ? (sizeRes.total || 0) : 0;
-                        if ((currentTotal + fileSize) > limits.storage) {
+                        if ((currentTotal + fileSize) > (limits?.storage || (50 * 1024 * 1024))) {
                             return new Response(JSON.stringify({ message: "Subscription limit reached: Storage capacity exceeded." }), { status: 403, headers: corsHeaders });
                         }
 
@@ -3827,14 +3827,16 @@ LAYOUT & DESIGN RULES:
 
                         // Compile the AI copywriting generation prompt
                         let formatInstructions = "";
+                        const lineSpacingRule = ` MANDATORY LINE SPACING: Write in short micro-paragraphs (strictly 1 to 2 sentences each) and separate every micro-paragraph with an empty line (double newline \\n\\n). Never merge multiple thoughts into one continuous thick paragraph.`;
+
                         if (postFormat === 'short_thread') {
-                            formatInstructions = `MUST be a Thread Storm (berangkai) consisting of exactly 2 to 3 posts/slides. Split different slides using the exact separator string '---thread-separator---'. For example: 'Slide 1 content\\n---thread-separator---\\nSlide 2 content\\n---thread-separator---\\nSlide 3 content'. Each individual slide must be under 300 characters.`;
+                            formatInstructions = `MUST be a Thread Storm (berangkai) consisting of exactly 2 to 3 posts/slides. Split different slides using the exact separator string '---thread-separator---'. For example: 'Slide 1 content\\n---thread-separator---\\nSlide 2 content\\n---thread-separator---\\nSlide 3 content'. Each individual slide must be under 350 characters.${lineSpacingRule}`;
                         } else if (postFormat === 'deep_thread') {
-                            formatInstructions = `MUST be a deep-dive Thread Storm (berangkai) consisting of exactly 3 to 5 posts/slides. Split different slides using the exact separator string '---thread-separator---'. For example: 'Slide 1 content\\n---thread-separator---\\nSlide 2 content\\n---thread-separator---\\nSlide 3 content\\n---thread-separator---\\nSlide 4 content'. Each individual slide must be under 300 characters.`;
+                            formatInstructions = `MUST be a deep-dive Thread Storm (berangkai) consisting of exactly 3 to 5 posts/slides. Split different slides using the exact separator string '---thread-separator---'. For example: 'Slide 1 content\\n---thread-separator---\\nSlide 2 content\\n---thread-separator---\\nSlide 3 content\\n---thread-separator---\\nSlide 4 content'. Each individual slide must be under 350 characters.${lineSpacingRule}`;
                         } else if (postFormat === 'mega_thread') {
-                            formatInstructions = `MUST be a mega-story Thread Storm (berangkai) consisting of exactly 7 to 10 posts/slides. Split different slides using the exact separator string '---thread-separator---'. For example: 'Slide 1 content\\n---thread-separator---\\nSlide 2 content\\n...\\n---thread-separator---\\nSlide 8 content'. Each individual slide must be under 280 characters and carry a suspenseful or engaging storytelling progression.`;
+                            formatInstructions = `MUST be a mega-story Thread Storm (berangkai) consisting of exactly 7 to 10 posts/slides. Split different slides using the exact separator string '---thread-separator---'. For example: 'Slide 1 content\\n---thread-separator---\\nSlide 2 content\\n...\\n---thread-separator---\\nSlide 8 content'. Each individual slide must be under 300 characters and carry a suspenseful or engaging storytelling progression.${lineSpacingRule}`;
                         } else {
-                            formatInstructions = `must be a standard single post, under 350 characters.`;
+                            formatInstructions = `must be a standard single post, under 450 characters.${lineSpacingRule}`;
                         }
 
                         // Smart Tone / Viral Angle Resolver
@@ -6847,63 +6849,90 @@ LAYOUT & DESIGN RULES:
                 }
 
                 case '/api/media/upload': {
-                    const user = await getAuthUser();
-                    if (!user) return new Response(JSON.stringify({ message: 'Unauthorized session' }), { status: 401, headers: corsHeaders });
-                    if (!env.DB) return new Response(JSON.stringify({ message: 'Database missing' }), { status: 500, headers: corsHeaders });
+                    try {
+                        const user = await getAuthUser();
+                        if (!user) return new Response(JSON.stringify({ success: false, message: 'Unauthorized session' }), { status: 401, headers: corsHeaders });
+                        if (!env.DB) return new Response(JSON.stringify({ success: false, message: 'Database missing' }), { status: 500, headers: corsHeaders });
 
-                    const activeWorkspace = await getActiveWorkspace(user);
-                    if (!activeWorkspace) return new Response(JSON.stringify({ message: 'No active workspace found' }), { status: 404, headers: corsHeaders });
+                        const activeWorkspace = await getActiveWorkspace(user);
+                        if (!activeWorkspace) return new Response(JSON.stringify({ success: false, message: 'No active workspace found' }), { status: 404, headers: corsHeaders });
 
-                    if (request.method !== 'POST') return new Response(JSON.stringify({ error: 'Method not allowed' }), { status: 405, headers: corsHeaders });
-                    if (activeWorkspace.role === 'viewer') {
-                        return new Response(JSON.stringify({ message: 'Forbidden: Viewers cannot upload media.' }), { status: 403, headers: corsHeaders });
+                        if (request.method !== 'POST') return new Response(JSON.stringify({ error: 'Method not allowed' }), { status: 405, headers: corsHeaders });
+                        if (activeWorkspace.role === 'viewer') {
+                            return new Response(JSON.stringify({ success: false, message: 'Forbidden: Viewers cannot upload media.' }), { status: 403, headers: corsHeaders });
+                        }
+
+                        const formData = await request.formData();
+                        const file = formData.get('file');
+                        const width = parseInt(formData.get('width')) || null;
+                        const height = parseInt(formData.get('height')) || null;
+
+                        if (!file) return new Response(JSON.stringify({ success: false, message: 'No file uploaded' }), { status: 400, headers: corsHeaders });
+
+                        const originalName = file.name || 'uploaded_file';
+                        const mimeType = file.type || 'image/jpeg';
+                        const fileSize = file.size || 0;
+                        const filename = sanitizeFilename(originalName);
+
+                        // Safe subscription plan lookup with fallback
+                        const planKey = (activeWorkspace.subscription_plan || 'free').toLowerCase();
+                        const limits = PLANS[planKey] || PLANS.free;
+                        const sizeRes = await env.DB.prepare("SELECT SUM(file_size) as total FROM media WHERE workspace_id = ?").bind(activeWorkspace.workspace_id).first();
+                        const currentTotal = sizeRes ? (sizeRes.total || 0) : 0;
+                        if ((currentTotal + fileSize) > (limits?.storage || (50 * 1024 * 1024))) {
+                            return new Response(JSON.stringify({ success: false, message: "Subscription limit reached: Storage capacity exceeded." }), { status: 403, headers: corsHeaders });
+                        }
+
+                        // Guard against raw oversized blobs directly in D1 SQLite
+                        if (fileSize > 2 * 1024 * 1024) {
+                            return new Response(JSON.stringify({ 
+                                success: false, 
+                                message: "Fail melebihi had saiz simpanan langsung (Maksimum 2MB). Sila gunakan gambar yang telah dimampatkan." 
+                            }), { status: 400, headers: corsHeaders });
+                        }
+
+                        const buffer = await file.arrayBuffer();
+                        const uint8 = new Uint8Array(buffer);
+                        let binary = '';
+                        const chunkSize = 8192;
+                        for (let i = 0; i < uint8.length; i += chunkSize) {
+                            binary += String.fromCharCode.apply(null, uint8.subarray(i, i + chunkSize));
+                        }
+                        const base64Str = btoa(binary);
+                        const dataUrl = `data:${mimeType};base64,${base64Str}`;
+
+                        // Prevent duplicate parameter binding in D1: thumbnail is set to NULL if base64 is large
+                        const thumbVal = dataUrl.length < 20480 ? dataUrl : null;
+
+                        let result;
+                        try {
+                            result = await env.DB.prepare("INSERT INTO media (user_id, workspace_id, filename, original_name, mime_type, file_size, width, height, storage_provider, storage_key, thumbnail) VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'local', ?, ?)")
+                                .bind(user.id, activeWorkspace.workspace_id, filename, originalName, mimeType, fileSize, width, height, dataUrl, thumbVal)
+                                .run();
+                        } catch (dbErr) {
+                            console.error('[Media Upload D1 Insert Error]:', dbErr);
+                            return new Response(JSON.stringify({ 
+                                success: false, 
+                                message: "Pangkalan data tidak dapat memproses saiz gambar ini. Sila pastikan gambar berukuran bawah 1MB atau mampatkan terlebih dahulu." 
+                            }), { status: 400, headers: corsHeaders });
+                        }
+
+                        const newMediaId = result.meta.last_row_id;
+                        const baseUrl = (url.origin && !url.origin.includes('undefined')) ? url.origin : 'https://socialhub-api.huzaimrosli.workers.dev';
+                        const publicUrl = `${baseUrl}/api/media/file?id=${newMediaId}`;
+                        const uploadedRecord = await env.DB.prepare("SELECT * FROM media WHERE id = ?").bind(newMediaId).first();
+                        if (uploadedRecord) {
+                            uploadedRecord.url = publicUrl;
+                            uploadedRecord.public_url = publicUrl;
+                        }
+
+                        await logActivity(activeWorkspace.workspace_id, user.id, 'upload_media', `Uploaded file: ${filename} (${fileSize} bytes)`);
+
+                        return new Response(JSON.stringify({ success: true, message: 'Uploaded successfully', media: uploadedRecord, url: publicUrl }), { status: 201, headers: corsHeaders });
+                    } catch (err) {
+                        console.error('[Media Upload General Error]:', err);
+                        return new Response(JSON.stringify({ success: false, message: err.message || 'Ralat semasa memuat naik fail.' }), { status: 500, headers: corsHeaders });
                     }
-
-                    const formData = await request.formData();
-                    const file = formData.get('file');
-                    const width = parseInt(formData.get('width')) || null;
-                    const height = parseInt(formData.get('height')) || null;
-
-                    if (!file) return new Response(JSON.stringify({ message: 'No file uploaded' }), { status: 400, headers: corsHeaders });
-
-                    const originalName = file.name;
-                    const mimeType = file.type;
-                    const fileSize = file.size;
-                    const filename = sanitizeFilename(originalName);
-
-                    const plan = activeWorkspace.subscription_plan;
-                    const limits = PLANS[plan];
-                    const sizeRes = await env.DB.prepare("SELECT SUM(file_size) as total FROM media WHERE workspace_id = ?").bind(activeWorkspace.workspace_id).first();
-                    const currentTotal = sizeRes ? (sizeRes.total || 0) : 0;
-                    if ((currentTotal + fileSize) > limits.storage) {
-                        return new Response(JSON.stringify({ message: "Subscription limit reached: Storage capacity exceeded." }), { status: 403, headers: corsHeaders });
-                    }
-
-                    const buffer = await file.arrayBuffer();
-                    const uint8 = new Uint8Array(buffer);
-                    let binary = '';
-                    const chunkSize = 8192;
-                    for (let i = 0; i < uint8.length; i += chunkSize) {
-                        binary += String.fromCharCode.apply(null, uint8.subarray(i, i + chunkSize));
-                    }
-                    const base64Str = btoa(binary);
-                    const dataUrl = `data:${mimeType};base64,${base64Str}`;
-
-                    const result = await env.DB.prepare("INSERT INTO media (user_id, workspace_id, filename, original_name, mime_type, file_size, width, height, storage_provider, storage_key, thumbnail) VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'local', ?, ?)")
-                        .bind(user.id, activeWorkspace.workspace_id, filename, originalName, mimeType, fileSize, width, height, dataUrl, dataUrl)
-                        .run();
-
-                    const newMediaId = result.meta.last_row_id;
-                    const publicUrl = `https://socialhub-api.huzaimrosli.workers.dev/api/media/file?id=${newMediaId}`;
-                    const uploadedRecord = await env.DB.prepare("SELECT * FROM media WHERE id = ?").bind(newMediaId).first();
-                    if (uploadedRecord) {
-                        uploadedRecord.url = publicUrl;
-                        uploadedRecord.public_url = publicUrl;
-                    }
-
-                    await logActivity(activeWorkspace.workspace_id, user.id, 'upload_media', `Uploaded file: ${filename} (${fileSize} bytes)`);
-
-                    return new Response(JSON.stringify({ success: true, message: 'Uploaded successfully', media: uploadedRecord, url: publicUrl }), { status: 201, headers: corsHeaders });
                 }
 
                 // ==================== OAUTH FLOWS ====================

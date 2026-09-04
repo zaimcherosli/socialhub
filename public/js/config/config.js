@@ -1,12 +1,14 @@
 /* SocialHub Global Configuration Registry */
 
+const hostname = typeof window !== 'undefined' && window.location ? window.location.hostname : 'localhost';
+
 export const CONFIG = {
-    API_BASE_URL: window.location.hostname === 'localhost' || 
-                  window.location.hostname === '127.0.0.1' ||
-                  window.location.hostname.startsWith('192.168.') ||
-                  window.location.hostname.startsWith('10.') ||
-                  window.location.hostname.startsWith('172.')
-        ? `http://${window.location.hostname}:8787/api`
+    API_BASE_URL: hostname === 'localhost' || 
+                  hostname === '127.0.0.1' ||
+                  hostname.startsWith('192.168.') ||
+                  hostname.startsWith('10.') ||
+                  hostname.startsWith('172.')
+        ? `http://${hostname}:8787/api`
         : 'https://api.socialhub.kwikezee.my/api',
     PLATFORMS: {
         THREADS: 'threads',

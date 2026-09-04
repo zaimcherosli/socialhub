@@ -3,6 +3,7 @@
 
 import { sessionService } from './sessionService.js';
 import { CONFIG } from '../config/config.js';
+import { imageService } from './imageService.js';
 
 const ALLOWED_MIME_TYPES = [
     'image/jpeg', 'image/png', 'image/webp', 'image/gif',
@@ -49,6 +50,21 @@ export const uploadService = {
         const validation = this.validateFile(file);
         if (!validation.isValid) {
             throw new Error(validation.error);
+        }
+
+        // Auto-compress heavy images client-side before sending to server/D1
+        let uploadPayload = file;
+        if (file.type && file.type.startsWith('image/') && file.size > 350 * 1024) {
+            try {
+                uploadPayload = await imageService.compressImage(file, 0.82, 1920, 1920);
+                if (uploadPayload !== file && (!dimensions.width || !dimensions.height)) {
+                    const newDims = await imageService.getImageDimensions(uploadPayload);
+                    dimensions = { ...dimensions, ...newDims };
+                }
+            } catch (compErr) {
+                console.warn('[UploadService] Auto-compression fallback:', compErr);
+                uploadPayload = file;
+            }
         }
 
         return new Promise((resolve, reject) => {

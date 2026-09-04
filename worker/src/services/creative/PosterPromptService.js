@@ -63,7 +63,7 @@ export class PosterPromptService {
 
             const mood = art.mood || 'Professional, crisp, trustworthy';
             promptSegments.push(
-                `Lighting and mood: ${mood}. Clean studio lighting, sharp focus, natural skin textures, 8k resolution commercial masterwork.`
+                `Lighting and mood: ${mood}. Clean daylight studio lighting, sharp focus, natural skin textures, 8k resolution commercial masterwork. NO DARK NEON, NO NIGHT CITYSCAPES.`
             );
         } else {
             // ── CUTOUT MODE FALSE: Full Environmental Commercial Photography ──
@@ -71,7 +71,7 @@ export class PosterPromptService {
                 `High-end contextual environmental commercial photography featuring: ${subjectDesc}. The subject is organically integrated into an authentic, realistic environment.`
             );
 
-            const setting = art.setting || 'contemporary Southeast Asian corporate office with warm architectural ambient lighting';
+            const setting = art.setting || 'contemporary Southeast Asian corporate office with bright natural daylight and warm architectural ambient lighting';
             promptSegments.push(
                 `Environment & Setting: ${setting}. Subtle cinematic depth of field with creamy bokeh in the background to preserve clean visual contrast.`
             );
@@ -92,9 +92,9 @@ export class PosterPromptService {
                 );
             }
 
-            const mood = art.mood || 'Confident, prestigious, trustworthy, warm corporate';
+            const mood = art.mood || 'Confident, prestigious, trustworthy, bright daylight corporate';
             promptSegments.push(
-                `Lighting and mood: ${mood}. Professional studio lighting, sharp focus, natural textures, 8k resolution commercial masterwork.`
+                `Lighting and mood: ${mood}. Bright daylight illumination, professional studio lighting, sharp focus, natural textures, 8k resolution commercial masterwork. NO DARK NEON, NO NIGHT CITYSCAPES, NO CYBERPUNK NOCTURNAL LIGHTING.`
             );
         }
 

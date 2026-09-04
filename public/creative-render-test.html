@@ -1,0 +1,418 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SocialHub Canvas Engine Test Harness (Phase 3)</title>
+    <link rel="stylesheet" href="css/variables.css">
+    <link rel="stylesheet" href="css/layout.css">
+    <link rel="stylesheet" href="css/components.css">
+    <style>
+        body {
+            background-color: #090D16;
+            color: #F8FAFC;
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            margin: 0;
+            padding: 1.5rem;
+            box-sizing: border-box;
+        }
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+        }
+        .header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding-bottom: 1.5rem;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+            margin-bottom: 1.5rem;
+        }
+        .header h1 {
+            font-size: 1.5rem;
+            margin: 0;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+        .badge-dev {
+            background: #F59E0B;
+            color: #000;
+            font-weight: 800;
+            font-size: 0.75rem;
+            padding: 0.2rem 0.6rem;
+            border-radius: 999px;
+            letter-spacing: 0.05em;
+        }
+        .grid {
+            display: grid;
+            grid-template-columns: 460px 1fr;
+            gap: 2rem;
+        }
+        @media (max-width: 1024px) {
+            .grid {
+                grid-template-columns: 1fr;
+            }
+        }
+        .control-panel {
+            background: #111827;
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            border-radius: 12px;
+            padding: 1.5rem;
+            display: flex;
+            flex-direction: column;
+            gap: 1.25rem;
+        }
+        .control-group {
+            display: flex;
+            flex-direction: column;
+            gap: 0.4rem;
+        }
+        label {
+            font-size: 0.85rem;
+            font-weight: 600;
+            color: #94A3B8;
+        }
+        select, input, textarea {
+            background: #0B0F19;
+            border: 1px solid rgba(255, 255, 255, 0.15);
+            border-radius: 8px;
+            padding: 0.6rem 0.8rem;
+            color: #FFFFFF;
+            font-size: 0.9rem;
+            outline: none;
+            transition: border-color 0.2s;
+        }
+        select:focus, input:focus, textarea:focus {
+            border-color: #F59E0B;
+        }
+        textarea {
+            font-family: monospace;
+            font-size: 0.8rem;
+            resize: vertical;
+            height: 220px;
+        }
+        .btn-row {
+            display: flex;
+            gap: 0.75rem;
+        }
+        .btn {
+            padding: 0.65rem 1.2rem;
+            border-radius: 8px;
+            font-weight: 700;
+            font-size: 0.9rem;
+            cursor: pointer;
+            border: none;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            gap: 0.5rem;
+            transition: all 0.2s;
+        }
+        .btn-primary {
+            background: #F59E0B;
+            color: #000000;
+        }
+        .btn-primary:hover {
+            background: #D97706;
+        }
+        .btn-secondary {
+            background: rgba(255, 255, 255, 0.1);
+            color: #FFFFFF;
+        }
+        .btn-secondary:hover {
+            background: rgba(255, 255, 255, 0.15);
+        }
+        .preview-panel {
+            background: #111827;
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            border-radius: 12px;
+            padding: 1.5rem;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 1.5rem;
+        }
+        .canvas-container {
+            width: 540px;
+            height: 540px;
+            max-width: 100%;
+            background: #000;
+            border-radius: 12px;
+            overflow: hidden;
+            box-shadow: 0 20px 40px rgba(0, 0, 0, 0.6);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        canvas {
+            width: 100%;
+            height: 100%;
+            display: block;
+        }
+        .metadata-box {
+            width: 100%;
+            background: #0B0F19;
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            border-radius: 8px;
+            padding: 1rem;
+            font-family: monospace;
+            font-size: 0.8rem;
+            color: #10B981;
+            max-height: 160px;
+            overflow-y: auto;
+        }
+        .alert-box {
+            padding: 0.75rem 1rem;
+            border-radius: 8px;
+            font-size: 0.85rem;
+            display: none;
+        }
+        .alert-warning {
+            background: rgba(239, 68, 68, 0.15);
+            border: 1px solid #EF4444;
+            color: #FCA5A5;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>🎨 Deterministic Canvas Engine <span class="badge-dev">PHASE 3 TEST HARNESS</span></h1>
+            <span style="font-size:0.85rem; color:#94A3B8;">Target Output: 1080 x 1080 px</span>
+        </div>
+
+        <div class="grid">
+            <!-- Left: Controls -->
+            <div class="control-panel">
+                <div class="control-group">
+                    <label for="fixtureSelect">Load Phase 2.6 Live Fixture</label>
+                    <select id="fixtureSelect">
+                        <option value="testA">Test A: BEFORE_AFTER (Split Comparison)</option>
+                        <option value="testB">Test B: PROFESSION_SPECIFIC (Lecturer Portrait)</option>
+                        <option value="testC">Test C: PROBLEM_SOLUTION (BNPL / Multi-due date)</option>
+                    </select>
+                </div>
+
+                <div class="control-group">
+                    <label for="photoSelect">Photographic Background Asset</label>
+                    <select id="photoSelect">
+                        <option value="generated">Procedural Corporate Photo (High-Contrast Office Bokeh)</option>
+                        <option value="none">None (Textured Dot Grid Fallback)</option>
+                    </select>
+                </div>
+
+                <div class="control-group">
+                    <label for="logoSelect">Company Logo Asset</label>
+                    <select id="logoSelect">
+                        <option value="jomconsult">JomConsult Logo (Daylight Transparent Vector)</option>
+                        <option value="none">None (Fallback to Top-Left Badge)</option>
+                        <option value="custom">Upload Custom Logo File...</option>
+                    </select>
+                    <input type="file" id="customLogoFile" accept="image/*" style="display:none; margin-top:0.4rem;" />
+                </div>
+
+                <div class="control-group">
+                    <label for="briefJson">Creative Brief JSON (Exact Strings)</label>
+                    <textarea id="briefJson"></textarea>
+                </div>
+
+                <div id="statusAlert" class="alert-box alert-warning"></div>
+
+                <div class="btn-row">
+                    <button id="btnRender" class="btn btn-primary">⚡ Re-Render 1080x1080</button>
+                    <button id="btnExport" class="btn btn-secondary">💾 Export PNG</button>
+                </div>
+            </div>
+
+            <!-- Right: Live Canvas Preview -->
+            <div class="preview-panel">
+                <div class="canvas-container">
+                    <canvas id="posterCanvas" width="1080" height="1080"></canvas>
+                </div>
+
+                <div class="metadata-box" id="metadataOutput">
+                    // Render metadata will appear here...
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Scripts -->
+    <script type="module">
+        import { PosterCanvasEngine } from './js/creative/PosterCanvasEngine.js';
+        import { mockJomConsultBrand, briefTestA, briefTestB, briefTestC } from '../tests/fixtures/jomconsult_briefs.js';
+
+        const canvasEl = document.getElementById('posterCanvas');
+        const fixtureSelect = document.getElementById('fixtureSelect');
+        const photoSelect = document.getElementById('photoSelect');
+        const logoSelect = document.getElementById('logoSelect');
+        const customLogoFile = document.getElementById('customLogoFile');
+        const briefJsonEl = document.getElementById('briefJson');
+        const metadataEl = document.getElementById('metadataOutput');
+        const statusAlert = document.getElementById('statusAlert');
+        const btnRender = document.getElementById('btnRender');
+        const btnExport = document.getElementById('btnExport');
+
+        const engine = new PosterCanvasEngine({ canvas: canvasEl, width: 1080, height: 1080 });
+        engine.setBrandProfile(mockJomConsultBrand);
+
+        const fixtures = {
+            testA: briefTestA,
+            testB: briefTestB,
+            testC: briefTestC
+        };
+
+        let customLogoAsset = null;
+
+        // Create sample transparent vector logo for JomConsult
+        function createProceduralLogo() {
+            const off = document.createElement('canvas');
+            off.width = 300;
+            off.height = 64;
+            const ctx = off.getContext('2d');
+            
+            // Brand Yellow Accent Diamond Mark
+            ctx.fillStyle = '#FFD400';
+            ctx.beginPath();
+            ctx.moveTo(28, 8);
+            ctx.lineTo(50, 32);
+            ctx.lineTo(28, 56);
+            ctx.lineTo(6, 32);
+            ctx.closePath();
+            ctx.fill();
+
+            // Bold Black Brand Typography
+            ctx.fillStyle = '#111111';
+            ctx.font = '900 32px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif';
+            ctx.fillText('JomConsult', 62, 43);
+            return off;
+        }
+
+        // Create high-contrast procedural test photo
+        function createProceduralPhoto(focalAlignment = 'right') {
+            const off = document.createElement('canvas');
+            off.width = 1080;
+            off.height = 1080;
+            const ctx = off.getContext('2d');
+
+            // Office daylight ambient lighting
+            const bgGrad = ctx.createLinearGradient(0, 0, 1080, 1080);
+            bgGrad.addColorStop(0, '#FFFFFF');
+            bgGrad.addColorStop(0.45, '#F8FAFC');
+            bgGrad.addColorStop(1, '#F1F5F9');
+            ctx.fillStyle = bgGrad;
+            ctx.fillRect(0, 0, 1080, 1080);
+
+            // Bokeh circles
+            const bokehs = [
+                { x: 300, y: 350, r: 160, c: 'rgba(255, 212, 0, 0.15)' },
+                { x: 850, y: 250, r: 240, c: 'rgba(255, 212, 0, 0.12)' },
+                { x: 920, y: 650, r: 190, c: 'rgba(0, 0, 0, 0.04)' },
+                { x: 200, y: 800, r: 220, c: 'rgba(255, 212, 0, 0.08)' }
+            ];
+            bokehs.forEach(b => {
+                ctx.beginPath();
+                ctx.arc(b.x, b.y, b.r, 0, Math.PI * 2);
+                ctx.fillStyle = b.c;
+                ctx.fill();
+            });
+
+            // Stylized executive silhouette representing the Malaysian professional
+            const charX = focalAlignment === 'right' ? 760 : (focalAlignment === 'left' ? 320 : 540);
+            ctx.save();
+            ctx.fillStyle = 'rgba(15, 23, 42, 0.9)';
+            ctx.beginPath();
+            ctx.ellipse(charX, 700, 160, 260, 0, 0, Math.PI * 2);
+            ctx.fill();
+            ctx.beginPath();
+            ctx.arc(charX, 420, 95, 0, Math.PI * 2);
+            ctx.fill();
+            ctx.restore();
+
+            return off;
+        }
+
+        async function triggerRender() {
+            statusAlert.style.display = 'none';
+            try {
+                const brief = JSON.parse(briefJsonEl.value);
+                engine.setBrief(brief);
+
+                let photo = null;
+                if (photoSelect.value === 'generated') {
+                    const focal = brief.archetype === 'BEFORE_AFTER' ? 'center' : 'right';
+                    photo = createProceduralPhoto(focal);
+                }
+
+                let logo = null;
+                if (logoSelect.value === 'jomconsult') {
+                    logo = createProceduralLogo();
+                } else if (logoSelect.value === 'custom' && customLogoAsset) {
+                    logo = customLogoAsset;
+                }
+
+                await engine.setImageAsset(photo);
+                const meta = await engine.render({ logoAsset: logo });
+                metadataEl.textContent = JSON.stringify(meta, null, 2);
+            } catch (err) {
+                statusAlert.textContent = `Render Error: ${err.message}`;
+                statusAlert.style.display = 'block';
+                console.error(err);
+            }
+        }
+
+        fixtureSelect.addEventListener('change', () => {
+            const selected = fixtures[fixtureSelect.value];
+            briefJsonEl.value = JSON.stringify(selected, null, 2);
+            triggerRender();
+        });
+
+        photoSelect.addEventListener('change', triggerRender);
+
+        logoSelect.addEventListener('change', () => {
+            if (logoSelect.value === 'custom') {
+                customLogoFile.click();
+            } else {
+                customLogoAsset = null;
+                triggerRender();
+            }
+        });
+
+        customLogoFile.addEventListener('change', (e) => {
+            const file = e.target.files && e.target.files[0];
+            if (file) {
+                const reader = new FileReader();
+                reader.onload = (ev) => {
+                    const img = new Image();
+                    img.onload = () => {
+                        customLogoAsset = img;
+                        triggerRender();
+                    };
+                    img.src = ev.target.result;
+                };
+                reader.readAsDataURL(file);
+            }
+        });
+
+        btnRender.addEventListener('click', triggerRender);
+
+        btnExport.addEventListener('click', () => {
+            const res = engine.exportPNG();
+            if (res.success) {
+                const a = document.createElement('a');
+                a.href = res.dataUrl;
+                a.download = `poster-${fixtureSelect.value}-1080x1080.png`;
+                a.click();
+            } else {
+                statusAlert.textContent = `Export Failed [${res.code}]: ${res.message}`;
+                statusAlert.style.display = 'block';
+            }
+        });
+
+        // Initialize on load
+        briefJsonEl.value = JSON.stringify(briefTestA, null, 2);
+        triggerRender();
+    </script>
+</body>
+</html>

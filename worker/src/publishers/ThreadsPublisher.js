@@ -126,11 +126,21 @@ export class ThreadsPublisher extends PublisherInterface {
                 let retryDelay = 5000;
 
                 // Retry loop for container creation to handle Meta/Threads propagation delay
-                // Check if the chunkText contains an image URL (camera emoji + url pattern)
+                // Check if the chunkText contains an image URL (camera emoji + url pattern) or if post.media has an image for Slide 1
                 const imgUrlMatch = chunkText.match(/📷\s*(https?:\/\/\S+)/i);
-                const hasImage = !!imgUrlMatch;
-                const imageUrl = hasImage ? imgUrlMatch[1].trim() : null;
-                const cleanedText = hasImage ? chunkText.replace(/📷\s*https?:\/\/\S+/gi, '').trim() : chunkText;
+                let hasImage = !!imgUrlMatch;
+                let imageUrl = hasImage ? imgUrlMatch[1].trim() : null;
+
+                // Support image on Slide 1 (i === 0) if post has media attached
+                if (!hasImage && i === 0 && post.media && post.media.length > 0 && post.media[0].url) {
+                    const candidateUrl = post.media[0].url.trim();
+                    if (candidateUrl.startsWith('http://') || candidateUrl.startsWith('https://')) {
+                        hasImage = true;
+                        imageUrl = candidateUrl;
+                    }
+                }
+
+                const cleanedText = hasImage && imgUrlMatch ? chunkText.replace(/📷\s*https?:\/\/\S+/gi, '').trim() : chunkText;
 
                 for (let attempt = 1; attempt <= 4; attempt++) {
                     const containerUrl = new URL(`https://graph.threads.net/v1.0/${threadsAccountId}/threads`);
@@ -151,7 +161,10 @@ export class ThreadsPublisher extends PublisherInterface {
                     }
 
                     try {
-                        containerRes = await fetch(containerUrl.toString(), { method: 'POST' });
+                        containerRes = await fetch(containerUrl.toString(), { 
+                            method: 'POST',
+                            signal: AbortSignal.timeout(15000)
+                        });
                         containerData = await containerRes.json().catch(() => ({}));
                         
                         if (containerRes.ok && containerData.id) {
@@ -197,7 +210,9 @@ export class ThreadsPublisher extends PublisherInterface {
                 let attempts = 0;
                 while (!isReady && attempts < 15) {
                     attempts++;
-                    const statusRes = await fetch(`https://graph.threads.net/v1.0/${containerId}?fields=status,error_message&access_token=${accessToken}`);
+                    const statusRes = await fetch(`https://graph.threads.net/v1.0/${containerId}?fields=status,error_message&access_token=${accessToken}`, {
+                        signal: AbortSignal.timeout(10000)
+                    });
                     const statusData = await statusRes.json().catch(() => ({}));
                     
                     if (statusData.status === 'FINISHED') {
@@ -243,7 +258,10 @@ export class ThreadsPublisher extends PublisherInterface {
                     publishUrl.searchParams.set('access_token', accessToken);
 
                     try {
-                        publishRes = await fetch(publishUrl.toString(), { method: 'POST' });
+                        publishRes = await fetch(publishUrl.toString(), { 
+                            method: 'POST',
+                            signal: AbortSignal.timeout(15000)
+                        });
                         publishData = await publishRes.json().catch(() => ({}));
 
                         if (publishRes.ok && publishData.id) {

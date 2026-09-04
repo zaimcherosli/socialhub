@@ -5067,6 +5067,7 @@ CRITICAL LANGUAGE / SPEECH RULES:
                         postFormat,
                         generate_images,
                         image_quality,
+                        include_threads_image,
                         preview_only,
                         posts: passedPosts
                     } = await request.json();
@@ -5329,7 +5330,6 @@ LAYOUT & DESIGN RULES:
                             ).bind(activeWorkspace.workspace_id, platform).first();
                             if (acc) resolvedAccounts.push(acc);
                         }
-
                         // Fallback: If no accounts found, get all active accounts in workspace
                         if (resolvedAccounts.length === 0) {
                             const allAccounts = await env.DB.prepare(
@@ -5338,6 +5338,7 @@ LAYOUT & DESIGN RULES:
                             resolvedAccounts = allAccounts.results || [];
                         }
 
+                        const shouldIncludeThreadsImage = (include_threads_image === true || include_threads_image === 'true');
                         const dbInsert = env.DB.prepare(
                             `INSERT INTO scheduled_posts (user_id, workspace_id, account_id, platform, content, media_urls, status, publish_at, created_at, updated_at)
                              VALUES (?, ?, ?, ?, ?, ?, ?, ?, (datetime('now')), (datetime('now')))`
@@ -5346,7 +5347,9 @@ LAYOUT & DESIGN RULES:
                         const insertedPosts = [];
 
                         for (const post of campaign) {
-                            const mediaUrlsJson = JSON.stringify(post.media_urls || (post.media_url ? [post.media_url] : []));
+                            const rawMedia = post.media_urls || (post.media_url ? [post.media_url] : []);
+                            const sanitizedUrls = await sanitizeAndStoreMediaUrls(env.DB, user.id, activeWorkspace.workspace_id, rawMedia);
+                            const mediaUrlsJson = JSON.stringify(sanitizedUrls);
 
                             if (resolvedAccounts.length > 0) {
                                 for (let accIdx = 0; accIdx < resolvedAccounts.length; accIdx++) {
@@ -5367,13 +5370,21 @@ LAYOUT & DESIGN RULES:
                                             .trim();
                                     }
 
+                                    // Determine media for this specific platform
+                                    const effectiveMediaJson = (acc.platform === 'threads' && !shouldIncludeThreadsImage)
+                                        ? JSON.stringify([])
+                                        : mediaUrlsJson;
+                                    const effectiveMediaList = (acc.platform === 'threads' && !shouldIncludeThreadsImage)
+                                        ? []
+                                        : sanitizedUrls;
+
                                     const result = await dbInsert.bind(
                                         user.id,
                                         activeWorkspace.workspace_id,
                                         acc.id,
                                         acc.platform,
                                         platformContent,
-                                        mediaUrlsJson,
+                                        effectiveMediaJson,
                                         'scheduled',
                                         platformPublishAt
                                     ).run();
@@ -5382,20 +5393,27 @@ LAYOUT & DESIGN RULES:
                                         id: result.meta?.last_row_id || null,
                                         platform: acc.platform,
                                         content: platformContent,
-                                        media_urls: post.media_urls || [],
+                                        media_urls: effectiveMediaList,
                                         publish_at: platformPublishAt,
                                         status: 'scheduled'
                                     });
                                 }
                             } else {
                                 // Save as draft without account
+                                const effectiveDraftMediaJson = (platform === 'threads' && !shouldIncludeThreadsImage)
+                                    ? JSON.stringify([])
+                                    : mediaUrlsJson;
+                                const effectiveDraftMediaList = (platform === 'threads' && !shouldIncludeThreadsImage)
+                                    ? []
+                                    : sanitizedUrls;
+
                                 const result = await dbInsert.bind(
                                     user.id,
                                     activeWorkspace.workspace_id,
                                     null,
                                     platform || 'threads',
                                     post.content,
-                                    mediaUrlsJson,
+                                    effectiveDraftMediaJson,
                                     'draft',
                                     post.publish_at
                                 ).run();
@@ -5404,7 +5422,7 @@ LAYOUT & DESIGN RULES:
                                     id: result.meta?.last_row_id || null,
                                     platform: platform || 'threads',
                                     content: post.content,
-                                    media_urls: post.media_urls || [],
+                                    media_urls: effectiveDraftMediaList,
                                     publish_at: post.publish_at,
                                     status: 'draft'
                                 });

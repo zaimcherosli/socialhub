@@ -600,7 +600,7 @@
             const previewContainer = document.getElementById('previewMediaContainer');
             const previewImg = document.getElementById('previewMediaImg');
 
-            if (attachedMedia.length === 0) {
+            if (!attachedMedia || attachedMedia.length === 0) {
                 mediaContainer.innerHTML = `
                     <p style="font-size: 0.75rem; color: var(--color-text-tertiary); font-style: italic;">No media attachments linked.</p>
                 `;
@@ -608,37 +608,59 @@
                 return;
             }
 
-            attachedMedia.forEach(item => {
+            attachedMedia.forEach((item, index) => {
                 const card = document.createElement('div');
                 card.className = 'attachment-badge-card';
                 
-                const isImage = item.mime_type && item.mime_type.startsWith('image/');
-                const url = item.storage_key; // base64 preview path
+                const rawUrl = typeof item === 'string' ? item : (item.storage_key || item.url || item.thumbnail || '');
+                const mime = (typeof item === 'object' && item.mime_type) ? item.mime_type : '';
+                const isVideo = mime.startsWith('video/') || rawUrl.match(/\.(mp4|mov|avi|webm)/i);
+                const isImage = !isVideo && (mime.startsWith('image/') || rawUrl.startsWith('data:image') || rawUrl.match(/\.(jpeg|jpg|png|webp|gif)/i) || rawUrl.length > 0);
 
                 card.innerHTML = `
                     ${isImage 
-                        ? `<img src="${url}" class="attachment-img-preview" />`
+                        ? `<img src="${rawUrl}" class="attachment-img-preview" alt="Attachment ${index + 1}" />`
                         : `<div style="font-size: 1.5rem;">🎥</div>`
                     }
-                    <button class="attachment-detach-btn btnDetach" data-id="${item.id}">×</button>
+                    <button class="attachment-detach-btn btnDetach" data-index="${index}" title="Padam lampiran ini">×</button>
                 `;
                 mediaContainer.appendChild(card);
             });
 
-            // Bind detach button listeners
+            // Bind detach button listeners by index
             document.querySelectorAll('.btnDetach').forEach(btn => {
                 btn.addEventListener('click', (e) => {
-                    const id = parseInt(e.currentTarget.getAttribute('data-id'));
-                    attachedMedia = attachedMedia.filter(m => m.id !== id);
-                    isDirty = true;
-                    renderAttachedMedia();
+                    const idx = parseInt(e.currentTarget.getAttribute('data-index'));
+                    if (!isNaN(idx) && idx >= 0 && idx < attachedMedia.length) {
+                        const removed = attachedMedia[idx];
+                        attachedMedia.splice(idx, 1);
+                        isDirty = true;
+                        
+                        // Also clear stale camera tag in caption if it matches
+                        const removedUrl = typeof removed === 'string' ? removed : (removed?.storage_key || removed?.url);
+                        if (removedUrl) {
+                            try {
+                                const escapedUrl = removedUrl.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+                                captionTextarea.value = captionTextarea.value.replace(new RegExp(`📷\\s*${escapedUrl}`, 'gi'), '').trim();
+                            } catch (_) {}
+                        }
+
+                        renderAttachedMedia();
+                        updateEditorStats();
+                        recordState();
+                    }
                 });
             });
 
-            // Display first image attachment in Threads feed live preview
-            const firstImage = attachedMedia.find(m => m.mime_type && m.mime_type.startsWith('image/'));
+            // Display first image attachment in live preview
+            const firstImage = attachedMedia.find(m => {
+                const u = typeof m === 'string' ? m : (m.storage_key || m.url || '');
+                const mime = typeof m === 'object' ? (m.mime_type || '') : '';
+                return !mime.startsWith('video/') && (mime.startsWith('image/') || u.startsWith('data:image') || u.match(/\.(jpeg|jpg|png|webp|gif)/i) || u.length > 0);
+            });
+
             if (firstImage) {
-                previewImg.src = firstImage.storage_key;
+                previewImg.src = typeof firstImage === 'string' ? firstImage : (firstImage.storage_key || firstImage.url);
                 previewContainer.style.display = 'block';
             } else {
                 previewContainer.style.display = 'none';
@@ -736,14 +758,36 @@
                 }
                 
                 if (postType === 'scheduled') {
+                    // Clean stale camera tags if attachedMedia has items
+                    let cleanCaption = state.caption;
+                    if (attachedMedia.length > 0) {
+                        cleanCaption = cleanCaption.replace(/📷\s*https?:\/\/\S+/gi, '').trim();
+                    }
+
                     const updates = {
-                        content: state.caption,
+                        content: cleanCaption,
                         publish_at: state.status === 'scheduled' ? scheduledTimeUtc : undefined,
                         status: state.status,
                         timezone: userTimezone,
                         media_urls: JSON.stringify(attachedMedia)
                     };
                     await schedulerService.updateScheduledPost(postId, updates);
+
+                    // Update sessionStorage so calendar immediately shows updated poster & caption
+                    try {
+                        const cachedStr = sessionStorage.getItem(`socialhub_edit_post_${postId}`);
+                        const cachedObj = cachedStr ? JSON.parse(cachedStr) : {};
+                        sessionStorage.setItem(`socialhub_edit_post_${postId}`, JSON.stringify({
+                            ...cachedObj,
+                            title: state.title,
+                            content: cleanCaption,
+                            publish_at: updates.publish_at || cachedObj.publish_at,
+                            status: updates.status,
+                            media_urls: updates.media_urls,
+                            updated_at: new Date().toISOString()
+                        }));
+                    } catch (_) {}
+
                     draftService.clearBackup(postId);
                     isDirty = false;
                     window.location.replace('calendar.html');
@@ -1299,9 +1343,24 @@
                 // XHR upload to D1 storage
                 const response = await uploadService.uploadFile(file, dimensions);
                 if (response.success && response.media) {
-                    attachedMedia.push(response.media);
+                    // If there was only 1 existing media item, replace it with the new poster
+                    if (attachedMedia.length <= 1) {
+                        attachedMedia = [response.media];
+                    } else {
+                        // Put new poster as primary at the front
+                        attachedMedia.unshift(response.media);
+                    }
+                    
+                    // Clean stale camera tag from caption text so it doesn't conflict
+                    try {
+                        captionTextarea.value = captionTextarea.value.replace(/📷\s*https?:\/\/\S+/gi, '').trim();
+                    } catch (_) {}
+
                     isDirty = true;
                     renderAttachedMedia();
+                    updateEditorStats();
+                    recordState();
+                    notificationService.success('Gambar berjaya dimuat naik dan ditetapkan sebagai poster utama!');
                 }
             } catch (err) {
                 alert(`Upload failed: ${err.message}`);

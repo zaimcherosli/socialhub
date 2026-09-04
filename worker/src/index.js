@@ -1258,7 +1258,13 @@ async function resolvePostMedia(db, post) {
         try {
             const parsed = typeof post.media_urls === 'string' ? JSON.parse(post.media_urls) : post.media_urls;
             if (Array.isArray(parsed) && parsed.length > 0) {
-                mediaList = parsed.map(item => typeof item === 'string' ? { url: item } : item);
+                mediaList = parsed.map(item => {
+                    if (typeof item === 'string') return { url: item };
+                    return {
+                        ...item,
+                        url: item.url || item.storage_key || null
+                    };
+                }).filter(m => m.url);
             }
         } catch (_) {}
     }
@@ -1269,19 +1275,20 @@ async function resolvePostMedia(db, post) {
                 "SELECT m.* FROM media m JOIN post_media pm ON m.id = pm.media_id WHERE pm.post_id = ?"
             ).bind(post.id).all();
             if (results && results.length > 0) {
-                mediaList = results;
+                mediaList = results.map(m => ({ ...m, url: m.url || m.storage_key }));
             }
         } catch (_) {}
     }
 
-    if (post) {
+    // Only fallback to text scraping if no explicit media exists
+    if (post && mediaList.length === 0) {
         const text = post.content || post.caption || '';
         const imgMatches = [...text.matchAll(/📷\s*(\S+)/gi)];
         if (imgMatches && imgMatches.length > 0) {
             for (const m of imgMatches) {
                 if (m[1]) mediaList.push({ url: m[1].trim() });
             }
-        } else if (mediaList.length === 0) {
+        } else {
             const urlMatches = [...text.matchAll(/(https?:\/\/\S+\.(?:jpg|jpeg|png|webp|gif)(?:\?\S*)?)/gi)];
             for (const m of urlMatches) {
                 if (m[1]) mediaList.push({ url: m[1].trim() });
@@ -7089,11 +7096,11 @@ LAYOUT & DESIGN RULES:
                     const clientIdKey = `${platform.toUpperCase()}_CLIENT_ID`;
                     const clientSecretKey = `${platform.toUpperCase()}_CLIENT_SECRET`;
                     let clientId = (platform === 'facebook' || platform === 'instagram')
-                        ? (env.FACEBOOK_APP_ID || env.META_APP_ID || "1775553577131102")
-                        : (platform === 'threads' ? "952901221088471" : (env[clientIdKey] || env.FACEBOOK_APP_ID));
+                        ? (env.FACEBOOK_APP_ID || env.META_APP_ID || env.FACEBOOK_CLIENT_ID || "1775553577131102")
+                        : (platform === 'threads' ? (env.THREADS_CLIENT_ID || "952901221088471") : (env[clientIdKey] || env.FACEBOOK_APP_ID));
                     let clientSecret = (platform === 'facebook' || platform === 'instagram')
-                        ? (env.FACEBOOK_APP_SECRET || env.META_APP_SECRET || "981dcf660f939dbae9c081362dd01afd")
-                        : (platform === 'threads' ? "15c245d402e826008ef0837bfdf0c37e" : (env[clientSecretKey] || env.FACEBOOK_APP_SECRET));
+                        ? (env.FACEBOOK_APP_SECRET || env.FACEBOOK_CLIENT_SECRET || env.META_APP_SECRET)
+                        : (platform === 'threads' ? (env.THREADS_CLIENT_SECRET || env.THREADS_APP_SECRET) : (env[clientSecretKey] || env.FACEBOOK_APP_SECRET));
 
                     if (!clientId || !clientSecret) {
                         if (env.ENVIRONMENT === 'development' || (code && code.includes("mock"))) {

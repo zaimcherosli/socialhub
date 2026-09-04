@@ -1619,19 +1619,31 @@
                 try {
                     const parsed = typeof item.media_urls === 'string' ? JSON.parse(item.media_urls) : item.media_urls;
                     if (Array.isArray(parsed) && parsed.length > 0) {
-                        attachedMediaUrl = typeof parsed[0] === 'string' ? parsed[0] : (parsed[0]?.url || null);
+                        for (let i = 0; i < parsed.length; i++) {
+                            const p = parsed[i];
+                            const u = typeof p === 'string' ? p : (p?.storage_key || p?.url || null);
+                            if (u && typeof u === 'string' && u.trim().length > 0) {
+                                attachedMediaUrl = u.trim();
+                                break;
+                            }
+                        }
                     }
                 } catch (_) {}
             }
 
             // Image parsing helper to display visual thumbnail inside details modal
             const renderTextWithImagePreview = (text, isFirstSlide = false) => {
-                const imgMatch = text.match(/📷\s*(https?:\/\/\S+)/i);
-                let imageUrl = imgMatch ? imgMatch[1].trim() : null;
-                let cleaned = imgMatch ? text.replace(/📷\s*https?:\/\/\S+/gi, '').trim() : text;
+                let imageUrl = (isFirstSlide && attachedMediaUrl) ? attachedMediaUrl : null;
+                let cleaned = text;
 
-                if (!imageUrl && isFirstSlide && attachedMediaUrl) {
-                    imageUrl = attachedMediaUrl;
+                if (!imageUrl) {
+                    const imgMatch = text.match(/📷\s*(https?:\/\/\S+)/i);
+                    if (imgMatch) {
+                        imageUrl = imgMatch[1].trim();
+                        cleaned = text.replace(/📷\s*https?:\/\/\S+/gi, '').trim();
+                    }
+                } else {
+                    cleaned = text.replace(/📷\s*https?:\/\/\S+/gi, '').trim();
                 }
 
                 if (imageUrl) {

@@ -9,6 +9,7 @@ import { PublishingEngine } from './publishers/PublishingEngine.js';
 import { PublisherFactory } from './publishers/PublisherFactory.js';
 import { AIFactory } from './services/ai/AIFactory.js';
 import { AutopilotService } from './services/ai/AutopilotService.js';
+import { BrandProfileService } from './services/creative/BrandProfileService.js';
 
 const encoder = new TextEncoder();
 const decoder = new TextDecoder();
@@ -5771,6 +5772,51 @@ LAYOUT & DESIGN RULES:
                     return new Response(JSON.stringify({ error: 'Method not allowed' }), { status: 405, headers: corsHeaders });
                 }
 
+                case '/api/creative/brand-active': {
+                    const user = await getAuthUser();
+                    if (!user) return new Response(JSON.stringify({ message: 'Unauthorized session' }), { status: 401, headers: corsHeaders });
+                    if (!env.DB) return new Response(JSON.stringify({ message: 'Database missing' }), { status: 500, headers: corsHeaders });
+
+                    const activeWorkspace = await getActiveWorkspace(user);
+                    if (!activeWorkspace) return new Response(JSON.stringify({ message: 'No active workspace found' }), { status: 404, headers: corsHeaders });
+
+                    if (request.method !== 'GET') return new Response(JSON.stringify({ error: 'Method not allowed' }), { status: 405, headers: corsHeaders });
+
+                    await BrandProfileService.ensureTable(env.DB);
+                    const summary = await BrandProfileService.getActiveBrandSummary(env.DB, activeWorkspace.workspace_id);
+                    return new Response(JSON.stringify({ success: true, ...summary }), { status: 200, headers: corsHeaders });
+                }
+
+                case '/api/creative/brands': {
+                    const user = await getAuthUser();
+                    if (!user) return new Response(JSON.stringify({ message: 'Unauthorized session' }), { status: 401, headers: corsHeaders });
+                    if (!env.DB) return new Response(JSON.stringify({ message: 'Database missing' }), { status: 500, headers: corsHeaders });
+
+                    const activeWorkspace = await getActiveWorkspace(user);
+                    if (!activeWorkspace) return new Response(JSON.stringify({ message: 'No active workspace found' }), { status: 404, headers: corsHeaders });
+
+                    await BrandProfileService.ensureTable(env.DB);
+
+                    if (request.method === 'GET') {
+                        const brands = await BrandProfileService.listProfiles(env.DB, activeWorkspace.workspace_id);
+                        return new Response(JSON.stringify({ success: true, brands }), { status: 200, headers: corsHeaders });
+                    }
+
+                    if (request.method === 'POST') {
+                        if (activeWorkspace.role === 'viewer') return new Response(JSON.stringify({ message: 'Forbidden: Viewers cannot create brand profiles' }), { status: 403, headers: corsHeaders });
+                        const body = await request.json().catch(() => ({}));
+                        try {
+                            const brand = await BrandProfileService.createProfile(env.DB, activeWorkspace.workspace_id, body);
+                            await logActivity(activeWorkspace.workspace_id, user.id, 'create_brand_profile', `Created brand profile: ${brand.name}`);
+                            return new Response(JSON.stringify({ success: true, message: 'Brand profile created successfully', brand }), { status: 201, headers: corsHeaders });
+                        } catch (err) {
+                            return new Response(JSON.stringify({ message: err.message }), { status: 400, headers: corsHeaders });
+                        }
+                    }
+
+                    return new Response(JSON.stringify({ error: 'Method not allowed' }), { status: 405, headers: corsHeaders });
+                }
+
                 case '/api/audit-logs': {
                     const user = await getAuthUser();
                     if (!user) return new Response(JSON.stringify({ message: 'Unauthorized session' }), { status: 401, headers: corsHeaders });
@@ -8583,6 +8629,73 @@ LAYOUT & DESIGN RULES:
                             await logActivity(activeWorkspace.workspace_id, user.id, 'delete_client', `Deleted client ID ${clientId}`);
                             return new Response(JSON.stringify({ success: true, message: 'Client deleted successfully' }), { status: 200, headers: corsHeaders });
                         }
+                    }
+
+                    // Match /api/creative/brands/:id/default
+                    const brandDefaultMatch = url.pathname.match(/^\/api\/creative\/brands\/(\d+)\/default$/);
+                    if (brandDefaultMatch) {
+                        const brandId = parseInt(brandDefaultMatch[1], 10);
+                        const user = await getAuthUser();
+                        if (!user) return new Response(JSON.stringify({ message: 'Unauthorized session' }), { status: 401, headers: corsHeaders });
+                        if (!env.DB) return new Response(JSON.stringify({ message: 'Database missing' }), { status: 500, headers: corsHeaders });
+
+                        const activeWorkspace = await getActiveWorkspace(user);
+                        if (!activeWorkspace) return new Response(JSON.stringify({ message: 'No active workspace found' }), { status: 404, headers: corsHeaders });
+                        if (activeWorkspace.role === 'viewer') return new Response(JSON.stringify({ message: 'Forbidden: Viewers cannot update brand settings' }), { status: 403, headers: corsHeaders });
+
+                        if (request.method !== 'POST') return new Response(JSON.stringify({ error: 'Method not allowed' }), { status: 405, headers: corsHeaders });
+
+                        await BrandProfileService.ensureTable(env.DB);
+                        const success = await BrandProfileService.setDefault(env.DB, activeWorkspace.workspace_id, brandId);
+                        if (!success) {
+                            return new Response(JSON.stringify({ message: 'Brand profile not found in active workspace' }), { status: 404, headers: corsHeaders });
+                        }
+
+                        await logActivity(activeWorkspace.workspace_id, user.id, 'set_default_brand', `Set brand ID ${brandId} as default`);
+                        return new Response(JSON.stringify({ success: true, message: 'Default brand profile updated successfully' }), { status: 200, headers: corsHeaders });
+                    }
+
+                    // Match /api/creative/brands/:id
+                    const brandMatch = url.pathname.match(/^\/api\/creative\/brands\/(\d+)$/);
+                    if (brandMatch) {
+                        const brandId = parseInt(brandMatch[1], 10);
+                        const user = await getAuthUser();
+                        if (!user) return new Response(JSON.stringify({ message: 'Unauthorized session' }), { status: 401, headers: corsHeaders });
+                        if (!env.DB) return new Response(JSON.stringify({ message: 'Database missing' }), { status: 500, headers: corsHeaders });
+
+                        const activeWorkspace = await getActiveWorkspace(user);
+                        if (!activeWorkspace) return new Response(JSON.stringify({ message: 'No active workspace found' }), { status: 404, headers: corsHeaders });
+
+                        await BrandProfileService.ensureTable(env.DB);
+
+                        if (request.method === 'GET') {
+                            const brand = await BrandProfileService.getProfileById(env.DB, activeWorkspace.workspace_id, brandId);
+                            if (!brand) return new Response(JSON.stringify({ message: 'Brand profile not found in active workspace' }), { status: 404, headers: corsHeaders });
+                            return new Response(JSON.stringify({ success: true, brand }), { status: 200, headers: corsHeaders });
+                        }
+
+                        if (request.method === 'PUT') {
+                            if (activeWorkspace.role === 'viewer') return new Response(JSON.stringify({ message: 'Forbidden: Viewers cannot update brand profiles' }), { status: 403, headers: corsHeaders });
+                            const body = await request.json().catch(() => ({}));
+                            try {
+                                const brand = await BrandProfileService.updateProfile(env.DB, activeWorkspace.workspace_id, brandId, body);
+                                if (!brand) return new Response(JSON.stringify({ message: 'Brand profile not found in active workspace' }), { status: 404, headers: corsHeaders });
+                                await logActivity(activeWorkspace.workspace_id, user.id, 'update_brand_profile', `Updated brand profile ID ${brandId}`);
+                                return new Response(JSON.stringify({ success: true, message: 'Brand profile updated successfully', brand }), { status: 200, headers: corsHeaders });
+                            } catch (err) {
+                                return new Response(JSON.stringify({ message: err.message }), { status: 400, headers: corsHeaders });
+                            }
+                        }
+
+                        if (request.method === 'DELETE') {
+                            if (activeWorkspace.role === 'viewer') return new Response(JSON.stringify({ message: 'Forbidden: Viewers cannot delete brand profiles' }), { status: 403, headers: corsHeaders });
+                            const deleted = await BrandProfileService.deleteProfile(env.DB, activeWorkspace.workspace_id, brandId);
+                            if (!deleted) return new Response(JSON.stringify({ message: 'Brand profile not found in active workspace' }), { status: 404, headers: corsHeaders });
+                            await logActivity(activeWorkspace.workspace_id, user.id, 'delete_brand_profile', `Deleted brand profile ID ${brandId}`);
+                            return new Response(JSON.stringify({ success: true, message: 'Brand profile deleted successfully' }), { status: 200, headers: corsHeaders });
+                        }
+
+                        return new Response(JSON.stringify({ error: 'Method not allowed' }), { status: 405, headers: corsHeaders });
                     }
 
                     // Match /api/media/:id

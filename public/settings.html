@@ -204,6 +204,55 @@
             align-items: start;
         }
 
+        /* Company Logo Uploader Styles */
+        .logo-section-label {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 0.5rem;
+            flex-wrap: wrap;
+        }
+        .logo-format-hint {
+            font-size: 0.7rem;
+            color: var(--color-text-tertiary);
+            font-weight: normal;
+        }
+        .logo-uploader-card {
+            display: flex;
+            align-items: center;
+            gap: 1.25rem;
+            margin-top: 0.5rem;
+            background: var(--color-bg-accent);
+            padding: 1rem;
+            border-radius: var(--radius-sm);
+            border: 1px solid var(--color-border);
+        }
+        .logo-preview-box {
+            width: 120px;
+            height: 60px;
+            border-radius: var(--radius-xs);
+            border: 1.5px dashed var(--color-border);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background: #ffffff;
+            overflow: hidden;
+            position: relative;
+            flex-shrink: 0;
+        }
+        .logo-details-box {
+            display: flex;
+            flex-direction: column;
+            gap: 0.5rem;
+            flex: 1;
+            min-width: 0;
+        }
+        .logo-btn-group {
+            display: flex;
+            gap: 0.5rem;
+            flex-wrap: wrap;
+        }
+
         /* Responsive */
         @media (max-width: 1024px) {
             .model-option-grid { grid-template-columns: repeat(2, 1fr); }
@@ -216,6 +265,32 @@
             .model-option-grid { grid-template-columns: repeat(2, 1fr); }
             .settings-card { padding: 1.25rem; }
             .diagnostics-grid { grid-template-columns: 1fr; }
+
+            /* Mobile Logo Section: Stack vertically (ke bawah, bukan ke kanan) */
+            .logo-section-label {
+                flex-direction: column;
+                align-items: flex-start;
+                gap: 0.25rem;
+            }
+            .logo-uploader-card {
+                flex-direction: column;
+                align-items: flex-start;
+                gap: 0.875rem;
+                padding: 0.875rem;
+            }
+            .logo-preview-box {
+                width: 130px;
+                height: 65px;
+            }
+            .logo-details-box {
+                width: 100%;
+            }
+            .logo-btn-group {
+                width: 100%;
+                display: flex;
+                gap: 0.5rem;
+                flex-wrap: wrap;
+            }
         }
 
         @media (max-width: 480px) {
@@ -223,6 +298,10 @@
             .save-btn-row { flex-direction: column; align-items: stretch; }
             .save-btn-row .btn { justify-content: center; }
             .api-key-buttons { flex-direction: column; }
+            .logo-btn-group .btn {
+                flex: 1 1 auto;
+                justify-content: center;
+            }
         }
 
         /* Responsive Subscription Section Improvements */
@@ -456,18 +535,18 @@
 
                         <!-- Company Logo (Brand Profile) -->
                         <div class="form-group" style="margin-bottom: 1.25rem;">
-                            <label class="form-label" style="display: flex; align-items: center; justify-content: space-between;">
+                            <label class="form-label logo-section-label">
                                 <span>Company Logo (Poster &amp; Brand)</span>
-                                <span style="font-size: 0.7rem; color: var(--color-text-tertiary); font-weight: normal;">Format: PNG transparent / SVG / JPG (Max 5MB)</span>
+                                <span class="logo-format-hint">Format: PNG transparent / SVG / JPG (Max 5MB)</span>
                             </label>
-                            <div style="display: flex; align-items: center; gap: 1.25rem; margin-top: 0.5rem; background: var(--color-bg-accent); padding: 1rem; border-radius: var(--radius-sm); border: 1px solid var(--color-border);">
-                                <div id="logoPreviewContainer" style="width: 120px; height: 60px; border-radius: var(--radius-xs); border: 1.5px dashed var(--color-border); display: flex; align-items: center; justify-content: center; background: #ffffff; overflow: hidden; position: relative; flex-shrink: 0;">
+                            <div class="logo-uploader-card">
+                                <div id="logoPreviewContainer" class="logo-preview-box">
                                     <img id="brandLogoPreview" src="" alt="Logo" style="max-width: 90%; max-height: 90%; object-fit: contain; display: none;" />
                                     <span id="brandLogoPlaceholder" style="font-size: 0.72rem; color: var(--color-text-tertiary); text-align: center; padding: 0.25rem;">Tiada Logo</span>
                                 </div>
-                                <div style="display: flex; flex-direction: column; gap: 0.5rem; flex: 1;">
-                                    <input type="file" id="brandLogoInput" accept="image/png,image/jpeg,image/svg+xml,image/webp" style="display: none;" />
-                                    <div style="display: flex; gap: 0.5rem; flex-wrap: wrap;">
+                                <div class="logo-details-box">
+                                    <input type="file" id="brandLogoInput" accept="image/*,.png,.jpg,.jpeg,.svg,.webp" style="display: none;" />
+                                    <div class="logo-btn-group">
                                         <button type="button" class="btn btn-secondary btn-sm" id="btnUploadLogo" onclick="document.getElementById('brandLogoInput').click()">
                                             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="margin-right: 0.35rem;"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
                                             Pilih Fail Logo
@@ -476,7 +555,7 @@
                                             Buang Logo
                                         </button>
                                     </div>
-                                    <div id="logoUploadStatus" style="font-size: 0.72rem; color: var(--color-text-tertiary);">Logo akan dipaparkan secara automatik di bahagian atas poster Creative Studio.</div>
+                                    <div id="logoUploadStatus" style="font-size: 0.72rem; color: var(--color-text-tertiary); line-height: 1.4;">Logo akan dipaparkan secara automatik di bahagian atas poster Creative Studio.</div>
                                 </div>
                             </div>
                         </div>
@@ -1315,6 +1394,10 @@
             if (cachedName && !document.getElementById('workspaceName').value) {
                 document.getElementById('workspaceName').value = cachedName;
             }
+            const cachedLogo = localStorage.getItem('cached_brand_logo_url');
+            if (cachedLogo) {
+                updateLogoUI(cachedLogo);
+            }
 
             try {
                 const res = await apiClient.get('/workspaces/me');
@@ -1325,6 +1408,10 @@
                     if (res.workspace.name) {
                         localStorage.setItem('cached_workspace_name', res.workspace.name);
                     }
+                    if (!res.workspace.slug && res.workspace.name) {
+                        const autoSlug = res.workspace.name.toLowerCase().replace(/[^a-z0-9]/g, '-').replace(/-+/g, '-').replace(/^-|-$/g, '');
+                        document.getElementById('workspaceSlug').value = autoSlug;
+                    }
                 }
             } catch (e) { console.warn('Workspace load error:', e.message); }
 
@@ -1333,13 +1420,56 @@
                 if (brandRes && brandRes.has_brand && brandRes.brand) {
                     currentBrandProfile = brandRes.brand;
                     updateLogoUI(brandRes.brand.logo_url);
+                    if (brandRes.brand.logo_url) {
+                        localStorage.setItem('cached_brand_logo_url', brandRes.brand.logo_url);
+                    } else {
+                        localStorage.removeItem('cached_brand_logo_url');
+                    }
                 } else {
-                    updateLogoUI(null);
+                    if (!cachedLogo) updateLogoUI(null);
                 }
             } catch (e) {
                 console.warn('[Workspace] Brand profile load error:', e.message);
-                updateLogoUI(null);
+                if (!cachedLogo) updateLogoUI(null);
             }
+        }
+
+        // Helper to optimize large logo images (>1.2MB) to stay well within D1 limits
+        function optimizeLogoImage(file) {
+            return new Promise((resolve) => {
+                const img = new Image();
+                const url = URL.createObjectURL(file);
+                img.onload = () => {
+                    URL.revokeObjectURL(url);
+                    let width = img.width;
+                    let height = img.height;
+                    const maxDim = 1200;
+                    if (width > maxDim || height > maxDim) {
+                        if (width > height) {
+                            height = Math.round((height * maxDim) / width);
+                            width = maxDim;
+                        } else {
+                            width = Math.round((width * maxDim) / height);
+                            height = maxDim;
+                        }
+                    }
+                    const canvas = document.createElement('canvas');
+                    canvas.width = width;
+                    canvas.height = height;
+                    const ctx = canvas.getContext('2d');
+                    ctx.drawImage(img, 0, 0, width, height);
+                    const mime = file.type === 'image/jpeg' ? 'image/jpeg' : 'image/png';
+                    canvas.toBlob((blob) => {
+                        if (blob && blob.size < file.size) {
+                            resolve(new File([blob], file.name, { type: mime }));
+                        } else {
+                            resolve(file);
+                        }
+                    }, mime, 0.9);
+                };
+                img.onerror = () => resolve(file);
+                img.src = url;
+            });
         }
 
         async function handleLogoFileChange(e) {
@@ -1349,25 +1479,39 @@
             const statusText = document.getElementById('logoUploadStatus');
             const uploadBtn = document.getElementById('btnUploadLogo');
 
-            const allowedTypes = ['image/png', 'image/jpeg', 'image/webp', 'image/svg+xml'];
-            if (!allowedTypes.includes(file.type)) {
-                alert('Sila muat naik fail imej yang sah (PNG, JPG, SVG, WebP).');
+            const isImage = (file.type && file.type.startsWith('image/')) || /\.(png|jpe?g|webp|svg)$/i.test(file.name || '');
+            if (!isImage) {
+                alert('Sila pilih fail imej yang sah (PNG, JPG, SVG, WebP).');
                 e.target.value = '';
                 return;
             }
             if (file.size > 5 * 1024 * 1024) {
-                alert('Saiz fail melebihi had 5MB.');
+                alert('Saiz fail melebihi had 5MB. Sila pilih gambar yang lebih kecil.');
                 e.target.value = '';
                 return;
             }
 
+            // 1. INSTANT LOCAL PREVIEW (0ms feedback)
+            const localPreviewUrl = URL.createObjectURL(file);
+            updateLogoUI(localPreviewUrl);
+
             try {
                 uploadBtn.disabled = true;
-                uploadBtn.textContent = 'Memuat naik...';
-                if (statusText) statusText.textContent = 'Sedang memuat naik logo ke storan...';
+                uploadBtn.textContent = 'Menyimpan...';
+                if (statusText) statusText.textContent = 'Sedang memproses dan memuat naik logo...';
+
+                // Client-side auto optimization if file is large (>1.2MB)
+                let fileToUpload = file;
+                if (file.size > 1.2 * 1024 * 1024 && !file.type.includes('svg') && !/\.svg$/i.test(file.name)) {
+                    try {
+                        fileToUpload = await optimizeLogoImage(file);
+                    } catch (_) {
+                        fileToUpload = file;
+                    }
+                }
 
                 const formData = new FormData();
-                formData.append('file', file);
+                formData.append('file', fileToUpload);
 
                 const token = sessionService.getToken();
                 const headers = {};
@@ -1389,7 +1533,7 @@
                 // Associate with brand profile
                 let activeBrandId = currentBrandProfile?.id;
                 if (!activeBrandId) {
-                    const wsName = document.getElementById('workspaceName').value.trim() || 'My Brand';
+                    const wsName = document.getElementById('workspaceName')?.value?.trim() || localStorage.getItem('cached_workspace_name') || 'My Brand';
                     const createRes = await apiClient.post('/creative/brands', {
                         name: wsName,
                         logo_url: newLogoUrl,
@@ -1397,9 +1541,8 @@
                         is_default: 1,
                         is_enabled: 1
                     });
-                    if (createRes && createRes.brand) {
-                        activeBrandId = createRes.brand.id;
-                        currentBrandProfile = createRes.brand;
+                    if (createRes && (createRes.brand || createRes.id)) {
+                        currentBrandProfile = createRes.brand || { id: createRes.id, logo_url: newLogoUrl, logo_media_id: newMediaId };
                     }
                 } else {
                     await apiClient.put(`/creative/brands/${activeBrandId}`, {
@@ -1412,13 +1555,16 @@
                     }
                 }
 
+                localStorage.setItem('cached_brand_logo_url', newLogoUrl);
                 updateLogoUI(newLogoUrl);
                 if (statusText) statusText.textContent = '✨ Logo berjaya dimuat naik dan disimpan!';
-                notificationService.showToast('✨ Logo syarikat berjaya dimuat naik!', 'success');
+                if (window.notificationService?.success) {
+                    notificationService.success('✨ Logo syarikat berjaya dimuat naik dan disimpan!');
+                }
             } catch (err) {
                 console.error('[Logo Upload] Error:', err);
                 alert(`Ralat memuat naik logo: ${err.message}`);
-                if (statusText) statusText.textContent = 'Ralat memuat naik logo.';
+                if (statusText) statusText.textContent = 'Ralat memuat naik logo. Sila cuba lagi.';
             } finally {
                 uploadBtn.disabled = false;
                 uploadBtn.innerHTML = `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="margin-right: 0.35rem;"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg> Tukar Logo`;
@@ -1438,8 +1584,11 @@
                     currentBrandProfile.logo_url = '';
                     currentBrandProfile.logo_media_id = null;
                 }
+                localStorage.removeItem('cached_brand_logo_url');
                 updateLogoUI(null);
-                notificationService.showToast('Logo syarikat telah dikeluarkan.', 'info');
+                if (window.notificationService?.info) {
+                    notificationService.info('Logo syarikat telah dikeluarkan.');
+                }
             } catch (err) {
                 alert(`Gagal membuang logo: ${err.message}`);
             }
@@ -1449,15 +1598,44 @@
         document.getElementById('brandLogoInput')?.addEventListener('change', handleLogoFileChange);
 
         async function handleSaveWorkspace() {
-            const name = document.getElementById('workspaceName').value.trim();
-            const slug = document.getElementById('workspaceSlug').value.trim();
-            const whatsapp_number = document.getElementById('workspaceWhatsapp').value.trim();
-            if (!name || !slug) { alert('Name and slug are required.'); return; }
+            const nameInput = document.getElementById('workspaceName');
+            const slugInput = document.getElementById('workspaceSlug');
+            const whatsappInput = document.getElementById('workspaceWhatsapp');
+
+            let name = (nameInput?.value || '').trim();
+            let slug = (slugInput?.value || '').trim();
+            const whatsapp_number = (whatsappInput?.value || '').trim();
+
+            if (!name) {
+                name = localStorage.getItem('cached_workspace_name') || 'My Workspace';
+                if (nameInput) nameInput.value = name;
+            }
+
+            if (!slug) {
+                slug = name.toLowerCase()
+                    .replace(/[^a-z0-9]/g, '-')
+                    .replace(/-+/g, '-')
+                    .replace(/^-|-$/g, '') || 'workspace';
+                if (slugInput) slugInput.value = slug;
+            }
+
             try {
                 const res = await apiClient.put('/workspaces/me', { name, slug, whatsapp_number });
-                if (res.success) showStatus('workspaceSaveStatus');
-                else alert(res.message || 'Failed to save workspace.');
-            } catch (e) { alert(e.message || 'Error occurred.'); }
+                if (res.success) {
+                    localStorage.setItem('cached_workspace_name', name);
+                    showStatus('workspaceSaveStatus');
+                    if (window.notificationService?.success) {
+                        notificationService.success('Tetapan workspace berjaya disimpan!');
+                    }
+                    if (currentBrandProfile?.id) {
+                        apiClient.put(`/creative/brands/${currentBrandProfile.id}`, { name }).catch(() => {});
+                    }
+                } else {
+                    alert(res.message || 'Gagal menyimpan tetapan workspace.');
+                }
+            } catch (e) {
+                alert(e.message || 'Ralat berlaku semasa menyimpan workspace.');
+            }
         }
         window.handleSaveWorkspace = handleSaveWorkspace;
 

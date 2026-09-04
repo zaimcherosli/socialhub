@@ -127,12 +127,18 @@ export class BrandProfileService {
         };
     }
 
+    static _tableEnsured = false;
+
     /**
      * Idempotent table & index initialization in D1 SQLite
      */
     static async ensureTable(db) {
-        if (!db) return;
+        if (!db || this._tableEnsured) return;
         try {
+            if (typeof db.prepare !== 'function') return;
+            const testStmt = db.prepare('SELECT 1');
+            if (!testStmt || typeof testStmt.run !== 'function') return;
+
             await db.prepare(`
                 CREATE TABLE IF NOT EXISTS brand_profiles (
                     id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -174,6 +180,7 @@ export class BrandProfileService {
                     WHERE is_default = 1
                 `).run();
             } catch (_) {}
+            this._tableEnsured = true;
         } catch (err) {
             console.warn('[BrandProfileService.ensureTable] Notice:', err.message);
         }
@@ -185,6 +192,7 @@ export class BrandProfileService {
      */
     static async getActiveBrandSummary(db, workspaceId) {
         if (!db || !workspaceId) return { has_active_brand: false, brand: null };
+        await this.ensureTable(db);
 
         const row = await db.prepare(
             `SELECT id, name, industry, logo_url, is_default, is_enabled 
@@ -219,6 +227,7 @@ export class BrandProfileService {
      */
     static async getActiveProfile(db, workspaceId) {
         if (!db || !workspaceId) return null;
+        await this.ensureTable(db);
 
         const row = await db.prepare(
             `SELECT * FROM brand_profiles 
@@ -235,6 +244,7 @@ export class BrandProfileService {
      */
     static async listProfiles(db, workspaceId) {
         if (!db || !workspaceId) return [];
+        await this.ensureTable(db);
         const { results } = await db.prepare(
             `SELECT * FROM brand_profiles 
              WHERE workspace_id = ? 
@@ -249,6 +259,7 @@ export class BrandProfileService {
      */
     static async getProfileById(db, workspaceId, profileId) {
         if (!db || !workspaceId || !profileId) return null;
+        await this.ensureTable(db);
         const row = await db.prepare(
             `SELECT * FROM brand_profiles WHERE id = ? AND workspace_id = ?`
         ).bind(profileId, workspaceId).first();
@@ -276,6 +287,7 @@ export class BrandProfileService {
      */
     static async createProfile(db, workspaceId, data) {
         if (!db || !workspaceId) throw new Error('Database atau workspace tidak sah.');
+        await this.ensureTable(db);
 
         const name = (data.name || '').trim();
         if (!name) throw new Error('Nama jenama (brand name) adalah wajib.');
@@ -594,6 +606,7 @@ export class BrandProfileService {
      */
     static async deleteProfile(db, workspaceId, profileId) {
         if (!db || !workspaceId || !profileId) return false;
+        await this.ensureTable(db);
 
         const result = await db.prepare(
             `DELETE FROM brand_profiles WHERE id = ? AND workspace_id = ?`

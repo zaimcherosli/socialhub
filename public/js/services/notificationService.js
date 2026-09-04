@@ -76,6 +76,9 @@ export const notificationService = {
         }, duration);
     },
 
+    showToast(message, type = 'success', duration = 4000) {
+        this.show(message, type, duration);
+    },
     success(message, duration) { this.show(message, 'success', duration); },
     error(message, duration) { this.show(message, 'error', duration); },
     warning(message, duration) { this.show(message, 'warning', duration); },

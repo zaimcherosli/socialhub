@@ -10,6 +10,10 @@ import { PublisherFactory } from './publishers/PublisherFactory.js';
 import { AIFactory } from './services/ai/AIFactory.js';
 import { AutopilotService } from './services/ai/AutopilotService.js';
 import { BrandProfileService } from './services/creative/BrandProfileService.js';
+import { PosterArchetypeService } from './services/creative/PosterArchetypeService.js';
+import { CreativeBriefService } from './services/creative/CreativeBriefService.js';
+import { PosterPromptService } from './services/creative/PosterPromptService.js';
+import { SharedImageGenerationService } from './services/creative/SharedImageGenerationService.js';
 
 const encoder = new TextEncoder();
 const decoder = new TextDecoder();
@@ -3166,166 +3170,23 @@ LAYOUT & DESIGN RULES:
                             visualPrompt += ', high quality social media poster design';
                         }
 
-                        let imageUrl = null;
-                        let usedSource = 'none';
-
-                        // 1. If quality is 'low', prefer Cloudflare Workers AI (FLUX.1 Schnell or SDXL)
-                        if (imgQuality === 'low' && env.AI) {
-                            try {
-                                let rawRes = null;
-                                try {
-                                    rawRes = await env.AI.run('@cf/black-forest-labs/flux-1-schnell', { prompt: visualPrompt.slice(0, 500) });
-                                } catch (_) {
-                                    rawRes = await env.AI.run('@cf/bytedance/stable-diffusion-xl-lightning', { prompt: visualPrompt });
-                                }
-                                const base64 = await parseCloudflareImageResponse(rawRes);
-                                if (base64) {
-                                    imageUrl = `data:image/jpeg;base64,${base64}`;
-                                    usedSource = 'cloudflare-flux';
-                                }
-                            } catch (cfErr) {
-                                console.error('[Cloudflare AI Image Error for Low Quality]:', cfErr);
-                            }
-                        }
-
-                        // 2. Try OpenAI / Agent Router Image Models Cascade (gpt-image-2 -> dall-e-3 -> dall-e-2)
-                        let openAiErrDetail = null;
-                        if (!openaiApiKey) {
-                            console.warn('[GenerateImage] OPENAI_API_KEY is not configured or failed to decrypt.');
-                            openAiErrDetail = 'API key OpenAI / Agent Router tidak ditemui atau gagal didekripsi.';
-                        } else if (!imageUrl) {
-                            const candidateModels = ['gpt-image-2', 'dall-e-3', 'dall-e-2'];
-                            const candidateEndpoints = [
-                                'https://agentrouter.org/v1/images/generations',
-                                'https://api.openai.com/v1/images/generations'
-                            ];
-
-                            for (const modelName of candidateModels) {
-                                if (imageUrl) break;
-                                for (const ep of candidateEndpoints) {
-                                    if (imageUrl) break;
-                                    try {
-                                        console.log(`[GenerateImage] Attempting image generation with model: ${modelName} on ${ep}...`);
-                                        const payload = {
-                                            model: modelName,
-                                            prompt: visualPrompt.slice(0, 1000),
-                                            n: 1,
-                                            size: '1024x1024'
-                                        };
-                                        if (modelName === 'dall-e-3') {
-                                            payload.quality = (imgQuality === 'high' || imgQuality === 'hd') ? 'hd' : 'standard';
-                                        }
-
-                                        const isAgentRouter = ep.includes('agentrouter.org');
-                                        const headers = {
-                                            'Content-Type': 'application/json',
-                                            'Authorization': `Bearer ${openaiApiKey}`,
-                                            'x-api-key': openaiApiKey,
-                                            'HTTP-Referer': 'https://socialhub.kwikezee.my',
-                                            'X-Title': 'SocialHub'
-                                        };
-                                        if (isAgentRouter) {
-                                            headers['User-Agent'] = 'claude-cli/2.1.158 (external, sdk-cli)';
-                                            headers['anthropic-version'] = '2023-06-01';
-                                            headers['anthropic-beta'] = 'claude-code-20250219,interleaved-thinking-2025-05-14,effort-2025-11-24';
-                                            headers['anthropic-dangerous-direct-browser-access'] = 'true';
-                                            headers['x-app'] = 'cli';
-                                            headers['X-Stainless-Arch'] = 'x64';
-                                            headers['X-Stainless-Lang'] = 'js';
-                                            headers['X-Stainless-OS'] = 'Linux';
-                                            headers['X-Stainless-Package-Version'] = '0.38.0';
-                                            headers['X-Stainless-Runtime'] = 'node';
-                                            headers['X-Stainless-Runtime-Version'] = 'v20.10.0';
-                                        } else {
-                                            headers['User-Agent'] = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/128.0.0.0 Safari/537.36';
-                                        }
-
-                                        const openAiRes = await fetch(ep, {
-                                            method: 'POST',
-                                            headers: headers,
-                                            body: JSON.stringify(payload)
-                                        });
-
-                                        if (openAiRes.ok) {
-                                            const data = await openAiRes.json();
-                                            if (data.data && data.data[0]) {
-                                                if (data.data[0].b64_json) {
-                                                    imageUrl = `data:image/jpeg;base64,${data.data[0].b64_json}`;
-                                                } else if (data.data[0].url) {
-                                                    imageUrl = data.data[0].url;
-                                                }
-                                                usedSource = `openai-${modelName}`;
-                                                openAiErrDetail = null;
-                                                console.log(`[GenerateImage] Success with model: ${modelName} on ${ep}`);
-                                                break;
-                                            }
-                                        } else {
-                                            const errText = await openAiRes.text();
-                                            console.warn(`[Image Generation Error for ${modelName} on ${ep} HTTP ${openAiRes.status}]:`, errText);
-                                            try {
-                                                const parsedErr = JSON.parse(errText);
-                                                openAiErrDetail = parsedErr.error?.message || errText;
-                                            } catch (_) {
-                                                openAiErrDetail = errText;
-                                            }
-                                        }
-                                    } catch (oaiErr) {
-                                        console.warn(`[Image Generation Fetch Error for ${modelName} on ${ep}]:`, oaiErr);
-                                        openAiErrDetail = oaiErr.message;
-                                    }
-                                }
-                            }
-                        }
-
-                        // 3. Fallback: If OpenAI/AgentRouter failed, fall back to Cloudflare Workers AI (FLUX.1 Schnell or SDXL)
-                        if (!imageUrl && env.AI) {
-                            try {
-                                let rawRes = null;
-                                try {
-                                    rawRes = await env.AI.run('@cf/black-forest-labs/flux-1-schnell', { prompt: visualPrompt.slice(0, 500) });
-                                } catch (_) {
-                                    rawRes = await env.AI.run('@cf/bytedance/stable-diffusion-xl-lightning', { prompt: visualPrompt });
-                                }
-                                const base64 = await parseCloudflareImageResponse(rawRes);
-                                if (base64) {
-                                    imageUrl = `data:image/jpeg;base64,${base64}`;
-                                    usedSource = 'cloudflare-flux';
-                                    openAiErrDetail = null; // Clean successful fallback without error banner
-                                }
-                            } catch (cfErr) {
-                                console.error('[Cloudflare AI Image Error Fallback]:', cfErr);
-                            }
-                        }
-
-                        if (!imageUrl) {
-                            imageUrl = "https://images.unsplash.com/photo-1560518883-ce09059eeffa?auto=format&fit=crop&w=1200&q=80";
-                            usedSource = 'unsplash-fallback';
-                        }
-
-                        let publicUrl = imageUrl;
-
-                        if (env.DB && imageUrl && imageUrl.startsWith('data:')) {
-                            try {
-                                const ext = imageUrl.includes('png') ? 'png' : 'jpg';
-                                const mime = imageUrl.includes('png') ? 'image/png' : 'image/jpeg';
-                                const filename = `ai_generated_${Date.now()}.${ext}`;
-                                const result = await env.DB.prepare(
-                                    `INSERT INTO media (user_id, workspace_id, filename, original_name, mime_type, file_size, width, height, storage_provider, storage_key, thumbnail) 
-                                     VALUES (?, ?, ?, ?, ?, 0, 1024, 1024, 'local', ?, NULL)`
-                                ).bind(user.id, activeWorkspace.workspace_id, filename, filename, mime, imageUrl).run();
-
-                                const newMediaId = result.meta.last_row_id;
-                                publicUrl = `https://socialhub-api.huzaimrosli.workers.dev/api/media/file?id=${newMediaId}`;
-                            } catch (saveErr) {
-                                console.error("[Media Save Error]:", saveErr);
-                            }
-                        }
+                        const origin = new URL(request.url).origin;
+                        const genResult = await SharedImageGenerationService.generateImage({
+                            env,
+                            userId: user.id,
+                            workspaceId: activeWorkspace.workspace_id,
+                            visualPrompt,
+                            quality: imgQuality,
+                            openaiApiKey,
+                            requestOrigin: origin,
+                            allowStockFallback: true
+                        });
 
                         return new Response(JSON.stringify({
-                            success: true,
-                            image_url: publicUrl,
-                            source: usedSource,
-                            openai_error: openAiErrDetail
+                            success: genResult.success,
+                            image_url: genResult.image_url,
+                            source: genResult.source,
+                            openai_error: genResult.openai_error
                         }), { status: 200, headers: corsHeaders });
 
                     } catch (e) {
@@ -5812,6 +5673,158 @@ LAYOUT & DESIGN RULES:
                     }
 
                     return new Response(JSON.stringify({ error: 'Method not allowed' }), { status: 405, headers: corsHeaders });
+                }
+
+                case '/api/creative/archetypes': {
+                    const user = await getAuthUser();
+                    if (!user) return new Response(JSON.stringify({ message: 'Unauthorized session' }), { status: 401, headers: corsHeaders });
+                    if (!env.DB) return new Response(JSON.stringify({ message: 'Database missing' }), { status: 500, headers: corsHeaders });
+
+                    const activeWorkspace = await getActiveWorkspace(user);
+                    if (!activeWorkspace) return new Response(JSON.stringify({ message: 'No active workspace found' }), { status: 404, headers: corsHeaders });
+
+                    if (request.method !== 'GET') return new Response(JSON.stringify({ error: 'Method not allowed' }), { status: 405, headers: corsHeaders });
+
+                    const archetypes = PosterArchetypeService.getAllArchetypes();
+                    return new Response(JSON.stringify({ success: true, archetypes }), { status: 200, headers: corsHeaders });
+                }
+
+                case '/api/creative/brief': {
+                    const user = await getAuthUser();
+                    if (!user) return new Response(JSON.stringify({ message: 'Unauthorized session' }), { status: 401, headers: corsHeaders });
+                    if (!env.DB) return new Response(JSON.stringify({ message: 'Database missing' }), { status: 500, headers: corsHeaders });
+
+                    const activeWorkspace = await getActiveWorkspace(user);
+                    if (!activeWorkspace) return new Response(JSON.stringify({ message: 'No active workspace found' }), { status: 404, headers: corsHeaders });
+
+                    if (request.method !== 'POST') return new Response(JSON.stringify({ error: 'Method not allowed' }), { status: 405, headers: corsHeaders });
+
+                    if (activeWorkspace.role === 'viewer') {
+                        return new Response(JSON.stringify({ message: 'Forbidden: Viewers cannot generate creative briefs' }), { status: 403, headers: corsHeaders });
+                    }
+
+                    try {
+                        const body = await request.json().catch(() => ({}));
+                        const { topic, archetype = 'auto', campaign_objective, target_audience, user_instructions } = body;
+
+                        if (!topic || typeof topic !== 'string' || !topic.trim()) {
+                            return new Response(JSON.stringify({ message: 'Topic is required for creative brief generation' }), { status: 400, headers: corsHeaders });
+                        }
+
+                        // Server-side brand profile resolution within active workspace
+                        const brandProfile = await BrandProfileService.getActiveProfile(env.DB, activeWorkspace.workspace_id);
+                        if (!brandProfile) {
+                            return new Response(JSON.stringify({ 
+                                success: false, 
+                                message: 'No active brand profile found for this workspace. Please create and enable a brand profile first.' 
+                            }), { status: 400, headers: corsHeaders });
+                        }
+
+                        const aiEnv = await getAIEnvironment(env.DB, activeWorkspace.workspace_id, env, encryptionSecret, activeWorkspace.subscription_plan);
+
+                        const brief = await CreativeBriefService.generateBrief({
+                            aiEnv,
+                            brandProfile,
+                            topic: topic.trim(),
+                            archetype: archetype || 'auto',
+                            campaign_objective: campaign_objective || '',
+                            target_audience: target_audience || '',
+                            user_instructions: user_instructions || ''
+                        });
+
+                        return new Response(JSON.stringify({ success: true, brief }), { status: 200, headers: corsHeaders });
+                    } catch (err) {
+                        const status = err.statusCode || 400;
+                        return new Response(JSON.stringify({ success: false, message: err.message }), { status, headers: corsHeaders });
+                    }
+                }
+
+                case '/api/creative/generate-visual': {
+                    const user = await getAuthUser();
+                    if (!user) return new Response(JSON.stringify({ message: 'Unauthorized session' }), { status: 401, headers: corsHeaders });
+                    if (!env.DB) return new Response(JSON.stringify({ message: 'Database missing' }), { status: 500, headers: corsHeaders });
+
+                    const activeWorkspace = await getActiveWorkspace(user);
+                    if (!activeWorkspace) return new Response(JSON.stringify({ message: 'No active workspace found' }), { status: 404, headers: corsHeaders });
+
+                    if (request.method !== 'POST') return new Response(JSON.stringify({ error: 'Method not allowed' }), { status: 405, headers: corsHeaders });
+
+                    if (activeWorkspace.role === 'viewer') {
+                        return new Response(JSON.stringify({ message: 'Forbidden: Viewers cannot generate creative visuals' }), { status: 403, headers: corsHeaders });
+                    }
+
+                    try {
+                        const body = await request.json().catch(() => ({}));
+                        const { brief, quality } = body;
+
+                        if (!brief || typeof brief !== 'object') {
+                            return new Response(JSON.stringify({ message: 'A valid creative brief object is required' }), { status: 400, headers: corsHeaders });
+                        }
+
+                        // Server-side brand profile resolution within active workspace
+                        const brandProfile = await BrandProfileService.getActiveProfile(env.DB, activeWorkspace.workspace_id);
+                        if (!brandProfile) {
+                            return new Response(JSON.stringify({ 
+                                success: false, 
+                                message: 'No active brand profile found for this workspace. Please create and enable a brand profile first.' 
+                            }), { status: 400, headers: corsHeaders });
+                        }
+
+                        // Strict brand profile binding: reject if brief claims another brand profile ID
+                        if (brief.brand_profile_id && Number(brief.brand_profile_id) !== Number(brandProfile.id)) {
+                            return new Response(JSON.stringify({
+                                success: false,
+                                message: `Creative brief brand mismatch: supplied brief belongs to brand_profile_id ${brief.brand_profile_id}, but active workspace brand is ${brandProfile.id}`
+                            }), { status: 400, headers: corsHeaders });
+                        }
+
+                        // Validate brief against schema, density limits, and brand guardrails
+                        const validatedBrief = CreativeBriefService.validateBrief(brief, brandProfile, brief.archetype);
+
+                        const imgQuality = (quality || 'standard').toLowerCase();
+
+                        // ── AI Image Quota Check ──────────────────────────────────────────
+                        const plan = activeWorkspace.subscription_plan || 'free';
+                        const isDev = env.ENVIRONMENT === 'development';
+                        if (!isDev) {
+                            const quotaCheck = await checkAndIncrementImageUsage(
+                                activeWorkspace.workspace_id, plan, imgQuality
+                            );
+                            if (!quotaCheck.allowed) {
+                                return new Response(JSON.stringify({ message: quotaCheck.message }), { status: 403, headers: corsHeaders });
+                            }
+                        }
+                        // ─────────────────────────────────────────────────────────────────
+
+                        const aiEnv = await getAIEnvironment(env.DB, activeWorkspace.workspace_id, env, encryptionSecret, activeWorkspace.subscription_plan);
+                        const openaiApiKey = aiEnv.OPENAI_API_KEY || env.OPENAI_API_KEY;
+
+                        // Generate pure visual prompt with negative text constraints & negative space direction
+                        const visualPrompt = PosterPromptService.generateVisualPrompt(brandProfile, validatedBrief);
+
+                        const origin = new URL(request.url).origin;
+                        const genResult = await SharedImageGenerationService.generateImage({
+                            env,
+                            userId: user.id,
+                            workspaceId: activeWorkspace.workspace_id,
+                            visualPrompt,
+                            quality: imgQuality,
+                            openaiApiKey,
+                            requestOrigin: origin,
+                            allowStockFallback: false
+                        });
+
+                        return new Response(JSON.stringify({
+                            success: genResult.success,
+                            image_url: genResult.image_url,
+                            source: genResult.source,
+                            visual_prompt: visualPrompt,
+                            openai_error: genResult.openai_error
+                        }), { status: 200, headers: corsHeaders });
+                    } catch (err) {
+                        const status = err.statusCode || 400;
+                        return new Response(JSON.stringify({ success: false, message: err.message }), { status, headers: corsHeaders });
+                    }
                 }
 
                 case '/api/audit-logs': {

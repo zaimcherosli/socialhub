@@ -214,6 +214,23 @@ export class BrandProfileService {
     }
 
     /**
+     * Retrieve the active brand profile with full details for Creative Studio operations.
+     * Resolves: enabled profiles only -> default enabled profile first -> otherwise first enabled profile -> otherwise null
+     */
+    static async getActiveProfile(db, workspaceId) {
+        if (!db || !workspaceId) return null;
+
+        const row = await db.prepare(
+            `SELECT * FROM brand_profiles 
+             WHERE workspace_id = ? AND is_enabled = 1 
+             ORDER BY is_default DESC, id ASC 
+             LIMIT 1`
+        ).bind(workspaceId).first();
+
+        return this.formatRecord(row);
+    }
+
+    /**
      * List all brand profiles strictly within the active workspace
      */
     static async listProfiles(db, workspaceId) {

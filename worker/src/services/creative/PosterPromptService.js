@@ -29,7 +29,12 @@ export class PosterPromptService {
         const isCutout = Boolean(art.cutout_mode);
 
         const promptSegments = [];
-        const subjectDesc = art.subject || brief.topic || 'A professional consultant at a modern desk';
+        let subjectDesc = art.subject || brief.topic || 'A professional consultant at a modern desk';
+        // Clean any leaked 2D graphic / typography terms from photographic subject description
+        subjectDesc = subjectDesc
+            .replace(/\b(tipografi\s+tebal|tipografi|typography|kad\s+solusi|callout\s+cards?|black\s+blocks?|yellow\s+bars?|torn[\s-]paper|badges?)\b/gi, '')
+            .replace(/\s+/g, ' ')
+            .trim();
 
         if (isCutout) {
             // ── CUTOUT MODE TRUE: Isolated Subject Commercial Photography ──
@@ -43,16 +48,16 @@ export class PosterPromptService {
             // Archetype-aware negative space for cutout mode
             if (archetype === 'BEFORE_AFTER') {
                 promptSegments.push(
-                    'Composition: Subject positioned deliberately on one side of the frame with generous empty, clean space across the opposite half for dual-zone canvas typography overlay.'
+                    'Composition: Subject positioned deliberately on one side of the frame with generous empty, clean space across the opposite half for dual-zone balanced composite layout.'
                 );
             } else if (archetype === 'PROFESSION_SPECIFIC') {
-                const badgeContext = brief.badge ? `targeted toward ${brief.badge}` : 'professional niche';
+                const audienceContext = brief.target_audience ? `targeted toward ${brief.target_audience}` : 'professional niche';
                 promptSegments.push(
-                    `Composition: Subject wearing authentic professional attire (${badgeContext}), positioned off-center leaving wide open negative space for canvas badges and bullet points.`
+                    `Composition: Subject wearing authentic professional attire (${audienceContext}), positioned off-center leaving wide open negative space for uncluttered visual balance.`
                 );
             } else {
                 promptSegments.push(
-                    'Composition: Subject placed with intentional negative space leaving the upper and lower canvas areas clean and clear for typography overlay.'
+                    'Composition: Subject placed with intentional negative space leaving the upper and lower canvas areas clean and clear for balanced graphic layout integration.'
                 );
             }
 
@@ -68,7 +73,7 @@ export class PosterPromptService {
 
             const setting = art.setting || 'contemporary Southeast Asian corporate office with warm architectural ambient lighting';
             promptSegments.push(
-                `Environment & Setting: ${setting}. Subtle cinematic depth of field with creamy bokeh in the background to preserve high contrast for text.`
+                `Environment & Setting: ${setting}. Subtle cinematic depth of field with creamy bokeh in the background to preserve clean visual contrast.`
             );
 
             // Archetype-aware negative space for environmental mode
@@ -78,12 +83,12 @@ export class PosterPromptService {
                 );
             } else if (archetype === 'PROBLEM_SOLUTION') {
                 promptSegments.push(
-                    'Composition: Asymmetric hero composition with strong emotional contrast of relief and accomplishment. Keep the top one-third and lower third of the canvas completely uncluttered with smooth, quiet negative space for typography overlay.'
+                    'Composition: Asymmetric hero composition with strong emotional contrast of relief and accomplishment. Keep the top one-third and lower third of the canvas completely uncluttered with smooth, quiet negative space for clean composite balance.'
                 );
             } else if (archetype === 'PROFESSION_SPECIFIC') {
-                const badgeContext = brief.badge ? `targeted toward ${brief.badge}` : 'targeted professional';
+                const audienceContext = brief.target_audience ? `targeted toward ${brief.target_audience}` : 'targeted professional';
                 promptSegments.push(
-                    `Composition: Subject positioned elegantly in authentic professional attire (${badgeContext}), looking confident toward the viewer. Off-center placement with wide usable negative space on one side for headline layout.`
+                    `Composition: Subject positioned elegantly in authentic professional attire (${audienceContext}), looking confident toward the viewer. Off-center placement with wide usable negative space on one side for clean layout integration.`
                 );
             }
 
@@ -94,16 +99,29 @@ export class PosterPromptService {
         }
 
         // ── Brand Visual Style & Cultural Context ──
-        const visualStyle = brandProfile.visual_style || '';
+        let visualStyleStr = '';
+        if (typeof brandProfile.visual_style === 'object' && brandProfile.visual_style !== null) {
+            visualStyleStr = brandProfile.visual_style.photography_style || brandProfile.visual_style.style || '';
+        } else if (typeof brandProfile.visual_style === 'string') {
+            visualStyleStr = brandProfile.visual_style;
+        }
+
         const creativeNotes = brandProfile.creative_notes || '';
-        const combinedNotes = `${visualStyle} ${creativeNotes}`.toLowerCase();
+        const combinedNotes = `${visualStyleStr} ${creativeNotes}`.toLowerCase();
 
         if (combinedNotes.includes('malaysia') || brandProfile.preferred_language === 'ms' || (brandProfile.industry && brandProfile.industry.toLowerCase().includes('consult'))) {
             promptSegments.push('Authentic modern Malaysian context, local Southeast Asian professional attire, respectful cultural nuances.');
         }
 
-        if (visualStyle) {
-            promptSegments.push(`Aesthetic styling: ${visualStyle}.`);
+        if (visualStyleStr) {
+            // Filter out purely 2D graphic canvas terms (cards, blocks, bars) from aesthetic styling
+            const cleanAesthetic = visualStyleStr
+                .replace(/\b(infographic|editorial\s+cards?|black\s+blocks?|yellow\s+bars?|torn[\s-]paper|graphic\s+accents?|typography|tipografi)\b/gi, '')
+                .replace(/\s+/g, ' ')
+                .trim();
+            if (cleanAesthetic) {
+                promptSegments.push(`Aesthetic styling: ${cleanAesthetic}.`);
+            }
         }
 
         // ── Strict Mandatory Negative Constraints ──

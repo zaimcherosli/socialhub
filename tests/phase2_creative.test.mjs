@@ -663,6 +663,398 @@ runTest('Audit', 12, 'Forbidden claims scanned across all renderable text fields
     }
 });
 
+// ════════════════════════════════════════════════════════════════════════════════
+// SECTION 3: PHASE 2.6 CREATIVE-BRIEF TUNING PASS TESTS
+// ════════════════════════════════════════════════════════════════════════════════
+
+console.log('\n--- Section 3: Phase 2.6 Tuning Pass Tests ---');
+
+const mockJomConsultProfile = {
+    id: 1,
+    workspace_id: 6,
+    name: 'JomConsult',
+    industry: 'Financial Advisory / Financing Consultation',
+    brand_description: 'JomConsult ialah jenama konsultasi kewangan Malaysia yang membantu individu bergaji memahami pilihan pembiayaan, menyusun komitmen kewangan dan menilai pilihan yang sesuai berdasarkan profil masing-masing.',
+    preferred_language: 'ms',
+    tone_of_voice: 'Direct, punchy, empathetic, credible and professional Malaysian Bahasa Melayu.',
+    target_audience: 'Malaysian salaried adults and working professionals',
+    primary_colors: { primary: '#FFD400', secondary: '#111111' },
+    typography_style: { heading_style: 'Very bold condensed uppercase' },
+    visual_style: {
+        style: 'High-impact Malaysian financial editorial infographic advertising',
+        photography_style: 'Ultra-realistic Malaysian professional photography with believable local office context',
+        elements: ['bold black blocks', 'yellow highlight bars', 'torn-paper style cards']
+    },
+    default_cta: 'Semak pilihan yang sesuai dengan profil anda',
+    allowed_claims: [
+        'Semakan kelayakan berdasarkan profil',
+        'Pilihan tertakluk kepada kelayakan dan penilaian institusi kewangan',
+        'Konsultasi untuk memahami pilihan pembiayaan',
+        'Bantu menyusun komitmen kewangan dengan lebih teratur',
+        'Pilihan bergantung kepada profil dan komitmen semasa'
+    ],
+    forbidden_claims: [
+        '100% lulus', 'confirm lulus', 'gerenti lulus', 'guarantee lulus', 'jamin lulus',
+        'pasti lulus', 'kelulusan dijamin', 'CCRIS bersih', 'CTOS hilang', 'blacklist clear',
+        'jamin jimat', 'confirm jimat', 'dijamin jimat', 'bank partner rasmi', 'approved by bank'
+    ],
+    creative_notes: 'JOMCONSULT CREATIVE DIRECTION: Every poster must communicate ONE dominant idea.',
+    is_enabled: 1,
+    is_default: 1
+};
+
+// Tuning Test 1: Profession-specific copy cannot invent unsupported salary/income attributes
+runTest('Tuning', 1, 'Profession-specific copy cannot invent unsupported salary/income attributes', () => {
+    const briefWithInventedSalary = {
+        archetype: 'PROFESSION_SPECIFIC',
+        headline: 'Gaji Pensyarah Stabil, Tapi Aliran Tunai Bulanan Terasa Sempit?',
+        badge: 'KHAS UNTUK PENSYARAH',
+        supporting_points: ['Semak komitmen sedia ada'],
+        cta: 'Semak Profil'
+    };
+
+    // Fails when inputContext does not contain salary info
+    assert.throws(() => {
+        CreativeBriefService.validateBrief(briefWithInventedSalary, mockJomConsultProfile, 'PROFESSION_SPECIFIC', 'Pensyarah universiti dengan hutang kad kredit');
+    }, /Unsupported demographic or profession assumption detected/, 'Should reject invented salary assumption');
+
+    // Passes when using problem-focused phrasing without assuming salary
+    const safeBrief = {
+        ...briefWithInventedSalary,
+        headline: 'Pensyarah Pun Boleh Rasa Aliran Tunai Makin Sempit?'
+    };
+    const validated = CreativeBriefService.validateBrief(safeBrief, mockJomConsultProfile, 'PROFESSION_SPECIFIC', 'Pensyarah universiti dengan hutang kad kredit');
+    assert.strictEqual(validated.headline, 'Pensyarah Pun Boleh Rasa Aliran Tunai Makin Sempit?');
+
+    // Passes when input context explicitly provided salary information
+    const briefWithExplicitSalary = CreativeBriefService.validateBrief(
+        briefWithInventedSalary,
+        mockJomConsultProfile,
+        'PROFESSION_SPECIFIC',
+        'Pensyarah dengan gaji stabil tetapi komitmen bertindih'
+    );
+    assert.ok(briefWithExplicitSalary);
+});
+
+// Tuning Test 2: Brand copy cannot invent "independent", "licensed", "official partner", etc.
+runTest('Tuning', 2, 'Brand copy cannot invent "independent", "licensed", "official partner", etc.', () => {
+    const briefWithBebas = {
+        archetype: 'PROBLEM_SOLUTION',
+        headline: 'Pening Urus Komitmen?',
+        solution: 'Dapatkan sesi konsultasi kewangan bebas dari pakar',
+        cta: 'Semak Sekarang'
+    };
+
+    assert.throws(() => {
+        CreativeBriefService.validateBrief(briefWithBebas, mockJomConsultProfile, 'PROBLEM_SOLUTION');
+    }, /Unsupported business or regulatory claim detected/, 'Should reject unverified "bebas" claim');
+
+    const briefWithLicensed = {
+        archetype: 'PROBLEM_SOLUTION',
+        headline: 'Pening Urus Komitmen?',
+        solution: 'Kami agensi perundingan berlesen di Malaysia',
+        cta: 'Semak Sekarang'
+    };
+
+    assert.throws(() => {
+        CreativeBriefService.validateBrief(briefWithLicensed, mockJomConsultProfile, 'PROBLEM_SOLUTION');
+    }, /Unsupported business or regulatory claim detected/, 'Should reject unverified "berlesen" claim');
+
+    // Allowed claim from brand profile ('Perunding bertauliah' in Apex Consult) passes
+    const allowedBrief = {
+        archetype: 'PROBLEM_SOLUTION',
+        headline: 'Penyelesaian SME',
+        solution: 'Dibimbing oleh perunding bertauliah',
+        cta: 'Hubungi Kami'
+    };
+    const validatedAllowed = CreativeBriefService.validateBrief(allowedBrief, mockBrandProfile, 'PROBLEM_SOLUTION');
+    assert.ok(validatedAllowed);
+});
+
+// Tuning Test 3: Disclaimer uses only supported brand facts
+runTest('Tuning', 3, 'Disclaimer uses only supported brand facts', () => {
+    // Neutral consultative disclaimer passes
+    const neutralBrief = {
+        archetype: 'PROBLEM_SOLUTION',
+        headline: 'Pengurusan Komitmen Tersusun',
+        disclaimer: 'Pilihan tertakluk kepada kelayakan dan penilaian institusi kewangan. JomConsult menyediakan perkhidmatan konsultasi kewangan.',
+        cta: 'Semak Pilihan'
+    };
+    const validatedNeutral = CreativeBriefService.validateBrief(neutralBrief, mockJomConsultProfile, 'PROBLEM_SOLUTION');
+    assert.ok(validatedNeutral.disclaimer.includes('institusi kewangan'));
+
+    // Disclaimer inventing regulatory status fails
+    const regulatoryBrief = {
+        archetype: 'PROBLEM_SOLUTION',
+        headline: 'Pengurusan Komitmen Tersusun',
+        disclaimer: 'Diluluskan oleh bank dan merupakan rakan bank rasmi.',
+        cta: 'Semak Pilihan'
+    };
+    assert.throws(() => {
+        CreativeBriefService.validateBrief(regulatoryBrief, mockJomConsultProfile, 'PROBLEM_SOLUTION');
+    }, /Forbidden claim detected|Unsupported business or regulatory claim detected/);
+});
+
+// Tuning Test 4: Image visual direction contains no Canvas typography/card instructions
+runTest('Tuning', 4, 'Image visual direction contains no Canvas typography/card instructions & separates canvas_direction', () => {
+    const briefWithCanvasLeak = {
+        archetype: 'PROBLEM_SOLUTION',
+        headline: 'Pening Urus Due Date?',
+        cta: 'Semak Pilihan',
+        visual_concept: 'Poster editorial berimpak tinggi yang mengetengahkan eksekutif Malaysia, disokong oleh tipografi tebal hitam-kuning dan kad solusi yang teratur.',
+        art_direction: {
+            subject: 'Eksekutif muda Malaysia berbaju kemeja kemas',
+            setting: 'Pejabat moden dengan cahaya natural',
+            mood: 'Realistik dan tenang',
+            composition: 'Subjek di sebelah kanan, ruang negatif di sebelah kiri'
+        },
+        canvas_direction: {
+            layout_style: 'Editorial infographic poster',
+            graphic_elements: ['bold black blocks', 'yellow highlight bars', 'callout cards'],
+            text_hierarchy: 'Extreme uppercase headline dominance',
+            accent_treatment: 'Yellow highlighter accent'
+        }
+    };
+
+    const validated = CreativeBriefService.validateBrief(briefWithCanvasLeak, mockJomConsultProfile, 'PROBLEM_SOLUTION');
+    
+    // Check visual_concept sanitization: typography and card overlay phrases removed
+    assert.ok(!validated.visual_concept.includes('tipografi tebal'), 'visual_concept should not contain "tipografi tebal"');
+    assert.ok(!validated.visual_concept.includes('kad solusi'), 'visual_concept should not contain "kad solusi"');
+    assert.ok(validated.visual_concept.includes('eksekutif Malaysia'));
+
+    // Check canvas_direction separated into dedicated structure
+    assert.ok(validated.canvas_direction);
+    assert.strictEqual(validated.canvas_direction.layout_style, 'Editorial infographic poster');
+    assert.deepStrictEqual(validated.canvas_direction.graphic_elements, ['bold black blocks', 'yellow highlight bars', 'callout cards']);
+    assert.strictEqual(validated.canvas_direction.text_hierarchy, 'Extreme uppercase headline dominance');
+});
+
+// Tuning Test 5: PosterPrompt does not receive Canvas design language
+runTest('Tuning', 5, 'PosterPrompt does not receive Canvas design language', () => {
+    const brief = {
+        archetype: 'PROBLEM_SOLUTION',
+        topic: 'Aliran tunai sempit',
+        target_audience: 'Pensyarah universiti di Malaysia',
+        art_direction: {
+            subject: 'Pensyarah universiti Malaysia memegang buku rujukan',
+            setting: 'Perpustakaan universiti kontemporari',
+            mood: 'Kredibel dan tenang',
+            cutout_mode: false
+        },
+        canvas_direction: {
+            layout_style: 'Poster editorial hitam kuning',
+            graphic_elements: ['bold black blocks', 'yellow highlight bars', 'torn-paper style cards'],
+            text_hierarchy: 'Bold uppercase headline',
+            accent_treatment: 'Yellow paint stroke'
+        }
+    };
+
+    const prompt = PosterPromptService.generateVisualPrompt(mockJomConsultProfile, brief);
+
+    // Prompt MUST NOT contain graphic canvas elements
+    assert.ok(!prompt.includes('bold black blocks'), 'Prompt must not contain canvas card elements');
+    assert.ok(!prompt.includes('yellow highlight bars'), 'Prompt must not contain canvas highlight bars');
+    assert.ok(!prompt.includes('torn-paper style cards'), 'Prompt must not contain torn-paper cards');
+    assert.ok(!prompt.includes('canvas_direction'), 'Prompt must not leak canvas_direction object');
+    assert.ok(!prompt.includes('typography'), 'Prompt must not contain typography instructions');
+    assert.ok(!prompt.includes('tipografi'), 'Prompt must not contain tipografi instructions');
+
+    // Prompt MUST enforce negative constraints
+    assert.ok(prompt.includes('NO TEXT, NO WORDS, NO LETTERING, NO TYPOGRAPHY'));
+});
+
+// Tuning Test 6: Outcome wording avoids unsupported guaranteed results
+runTest('Tuning', 6, 'Outcome wording avoids unsupported guaranteed results', () => {
+    const briefWithGuarantee = {
+        archetype: 'BEFORE_AFTER',
+        headline: 'Pasti Jimat Setiap Bulan',
+        cta: 'Semak Pilihan',
+        before_points: ['Komitmen bertimbun'],
+        after_points: ['Pasti jimat bayaran bulanan']
+    };
+
+    assert.throws(() => {
+        CreativeBriefService.validateBrief(briefWithGuarantee, mockJomConsultProfile, 'BEFORE_AFTER');
+    }, /guaranteed outcome claim/, 'Should reject "pasti jimat"');
+
+    // Advisory outcome framing passes
+    const advisoryBrief = {
+        archetype: 'BEFORE_AFTER',
+        headline: 'Dari Komitmen Berselerak Kepada Lebih Terurus',
+        cta: 'Semak Pilihan Sesuai Profil Anda',
+        before_points: ['Banyak tarikh bayaran berbeza'],
+        after_points: ['Aliran tunai lebih mudah dipantau', 'Gambaran komitmen lebih kemas']
+    };
+    const validated = CreativeBriefService.validateBrief(advisoryBrief, mockJomConsultProfile, 'BEFORE_AFTER');
+    assert.ok(validated);
+});
+
+// Tuning Test 7: Re-run the 3 live-style fixtures locally with mocked AI outputs
+runTest('Tuning', 7, 'Re-run the 3 live-style fixtures locally with mocked AI outputs', () => {
+    // Fixture A: BEFORE_AFTER (Tuned outcome language, separate canvas_direction)
+    const rawFixtureA = {
+        archetype: 'BEFORE_AFTER',
+        topic: 'Komitmen bulanan terlalu banyak dan sukar diurus',
+        target_audience: 'Pekerja bergaji di Malaysia yang mempunyai beberapa komitmen seperti pembiayaan peribadi dan kad kredit',
+        campaign_objective: 'Tunjukkan perubahan daripada komitmen kewangan yang berselerak kepada keadaan yang lebih tersusun',
+        headline: 'Dari Komitmen Berselerak Kepada Lebih Terurus',
+        subheadline: 'Fahami profil kewangan anda dan terokai pilihan penyusunan semula komitmen bulanan secara teratur.',
+        badge: 'PENGURUSAN KOMITMEN',
+        before_points: [
+            'Banyak tarikh bayaran bulanan berbeza',
+            'Komitmen kad kredit & pembiayaan bertindih',
+            'Sukar pantau baki aliran tunai bulanan'
+        ],
+        after_points: [
+            'Struktur bayaran lebih tersusun & jelas',
+            'Gambaran komitmen bulanan lebih kemas',
+            'Aliran tunai lebih mudah dipantau'
+        ],
+        cta: 'Semak Pilihan Sesuai Profil Anda',
+        disclaimer: 'Tertakluk kepada penilaian profil dan syarat institusi kewangan.',
+        visual_concept: 'Komposisi fotografi studio eksekutif Malaysia memegang dokumen kewangan dengan tenang.',
+        art_direction: {
+            subject: 'Seorang eksekutif pejabat Malaysia berpakaian kemas memegang dokumen kewangan yang teratur',
+            setting: 'Ruang pejabat moden bernuansa profesional di Kuala Lumpur',
+            mood: 'Lega, berkeyakinan, berstruktur dan profesional',
+            composition: 'Subjek di bahagian sisi dengan ruang negatif mencukupi untuk kad perbandingan',
+            cutout_mode: false
+        },
+        canvas_direction: {
+            layout_style: 'Before & After split card layout',
+            graphic_elements: ['torn-paper style cards', 'black card blocks', 'green checkmarks'],
+            text_hierarchy: 'Large bold display headline with dual comparison columns',
+            accent_treatment: 'Yellow highlight bars on key outcome keywords'
+        }
+    };
+    const validatedA = CreativeBriefService.validateBrief(rawFixtureA, mockJomConsultProfile, 'BEFORE_AFTER');
+    assert.strictEqual(validatedA.archetype, 'BEFORE_AFTER');
+    assert.ok(validatedA.canvas_direction);
+    assert.strictEqual(validatedA.after_points[2], 'Aliran tunai lebih mudah dipantau');
+
+    // Fixture B: PROFESSION_SPECIFIC (Tuned headline without "gaji stabil", neutral disclaimer without "bebas")
+    const rawFixtureB = {
+        archetype: 'PROFESSION_SPECIFIC',
+        topic: 'Pensyarah universiti dengan personal financing dan kad kredit sehingga aliran tunai bulanan semakin sempit',
+        target_audience: 'Pensyarah universiti di Malaysia',
+        campaign_objective: 'Tarik perhatian golongan pensyarah yang mahu memahami pilihan untuk menyusun komitmen kewangan dengan lebih teratur',
+        headline: 'Pensyarah Pun Boleh Rasa Aliran Tunai Makin Sempit?',
+        subheadline: 'Fahami cara menyusun semula komitmen pembiayaan peribadi & kad kredit secara teratur berdasarkan profil anda.',
+        badge: 'KHAS UNTUK PENSYARAH UNIVERSITI',
+        supporting_points: [
+            'Semak struktur komitmen pembiayaan sedia ada',
+            'Fahami pilihan penyusunan aliran tunai mengikut profil',
+            'Bimbingan konsultasi berhemah berasaskan profil semasa'
+        ],
+        cta: 'Semak Pilihan Sesuai Profil Anda',
+        disclaimer: 'Tertakluk kepada kelayakan dan penilaian institusi kewangan. JomConsult menyediakan perkhidmatan konsultasi kewangan.',
+        visual_concept: 'Potret pensyarah universiti Malaysia yang berwibawa dalam persekitaran kampus moden.',
+        art_direction: {
+            subject: 'Seorang pensyarah universiti Malaysia berpakaian smart casual memegang tablet',
+            setting: 'Perpustakaan fakulti universiti moden di Malaysia dengan bokeh lembut',
+            mood: 'Kredibel, empati dan tenang',
+            composition: 'Subjek di satu pertiga sisi bingkai dengan ruang negatif luas di sebelah kiri',
+            cutout_mode: false
+        },
+        canvas_direction: {
+            layout_style: 'Profession spotlight card layout',
+            graphic_elements: ['profession badge pill', 'bold black card block', 'bullet point markers'],
+            text_hierarchy: 'High-impact headline above structured bullet card',
+            accent_treatment: 'Yellow badge background with black text'
+        }
+    };
+    const validatedB = CreativeBriefService.validateBrief(rawFixtureB, mockJomConsultProfile, 'PROFESSION_SPECIFIC');
+    assert.strictEqual(validatedB.archetype, 'PROFESSION_SPECIFIC');
+    assert.strictEqual(validatedB.headline, 'Pensyarah Pun Boleh Rasa Aliran Tunai Makin Sempit?');
+    assert.ok(!validatedB.disclaimer.includes('bebas'));
+
+    // Fixture C: PROBLEM_SOLUTION (Tuned advisory language, pure photographic visual_concept)
+    const rawFixtureC = {
+        archetype: 'PROBLEM_SOLUTION',
+        topic: 'BNPL, kad kredit dan pembiayaan peribadi menyebabkan terlalu banyak due date dan susah mengurus aliran tunai',
+        target_audience: 'Golongan bekerja di Malaysia dengan beberapa komitmen kewangan aktif',
+        campaign_objective: 'Bantu audiens memahami bahawa terlalu banyak komitmen berasingan boleh menjadi masalah pengurusan kewangan dan mereka boleh membuat semakan pilihan yang sesuai dengan profil mereka',
+        headline: "Pening Urus Terlalu Banyak 'Due Date' Setiap Bulan?",
+        subheadline: 'Bila komitmen berasingan semakin bertimbun, aliran tunai sukar dikawal. Nilai profil anda untuk susun kewangan dengan lebih teratur.',
+        badge: 'PANDUAN ALIRAN TUNAI',
+        problem: 'BNPL, kad kredit dan pembiayaan berasingan membuatkan tarikh bayaran berselerak serta komitmen sukar dipantau.',
+        solution: 'Dapatkan konsultasi untuk menyemak pilihan penstrukturan pembiayaan yang bersesuaian dengan profil kewangan anda.',
+        supporting_points: [
+            'Fahami pecahan komitmen aktif anda',
+            'Semak pilihan susun semula ikut kelayakan',
+            'Bantu susun komitmen dengan lebih teratur',
+            'Konsultasi profesional berasaskan profil semasa'
+        ],
+        cta: 'Semak Pilihan Ikut Profil Anda',
+        disclaimer: 'Pilihan tertakluk kepada kelayakan dan penilaian institusi kewangan. JomConsult menyediakan khidmat konsultasi kewangan.',
+        visual_concept: 'Eksekutif muda Malaysia melihat kalendar perbelanjaan di meja kerja bersih.',
+        art_direction: {
+            subject: 'Eksekutif muda Malaysia kelihatan berfikir sambil memegang telefon pintar',
+            setting: 'Ruang pejabat moden dengan pencahayaan semula jadi',
+            mood: 'Realistik, prihatin dan profesional',
+            composition: 'Subjek di sebelah kanan dengan ruang negatif luas di kiri dan atas',
+            cutout_mode: false
+        },
+        canvas_direction: {
+            layout_style: 'Problem-Solution spotlight layout',
+            graphic_elements: ['red warning problem card', 'green solution card', 'checklist block'],
+            text_hierarchy: 'Bold question headline followed by two-tier problem/solution cards',
+            accent_treatment: 'Red for problem accent, green for solution accent, yellow for CTA'
+        }
+    };
+    const validatedC = CreativeBriefService.validateBrief(rawFixtureC, mockJomConsultProfile, 'PROBLEM_SOLUTION');
+    assert.strictEqual(validatedC.archetype, 'PROBLEM_SOLUTION');
+    assert.strictEqual(validatedC.supporting_points[2], 'Bantu susun komitmen dengan lebih teratur');
+    assert.ok(validatedC.canvas_direction);
+});
+
+// Tuning 8: canvas_direction schema normalization and length/count bounds
+runTest('Tuning', 8, 'canvas_direction deterministically enforces schema bounds (max lengths, max 6 elements, object safety)', () => {
+    // Over-limit input
+    const overLimitBrief = {
+        archetype: 'PROBLEM_SOLUTION',
+        headline: 'Urus Aliran Tunai Dengan Teratur',
+        cta: 'Hubungi Kami',
+        canvas_direction: {
+            layout_style: 'A'.repeat(250), // exceeds 200
+            graphic_elements: [
+                'Item 1 ' + 'X'.repeat(100), // exceeds 80
+                'Item 2',
+                'Item 3',
+                'Item 4',
+                'Item 5',
+                'Item 6',
+                'Item 7', // exceeds max 6
+                'Item 8'
+            ],
+            text_hierarchy: 'B'.repeat(300), // exceeds 240
+            accent_treatment: 'C'.repeat(250) // exceeds 200
+        }
+    };
+
+    const validated = CreativeBriefService.validateBrief(overLimitBrief, mockJomConsultProfile, 'PROBLEM_SOLUTION');
+    assert.ok(validated.canvas_direction && typeof validated.canvas_direction === 'object');
+    assert.strictEqual(validated.canvas_direction.layout_style.length, 200);
+    assert.strictEqual(validated.canvas_direction.graphic_elements.length, 6);
+    assert.strictEqual(validated.canvas_direction.graphic_elements[0].length, 80);
+    assert.strictEqual(validated.canvas_direction.text_hierarchy.length, 240);
+    assert.strictEqual(validated.canvas_direction.accent_treatment.length, 200);
+
+    // Malformed canvas_direction (null or string) gets safely replaced with archetype defaults
+    const malformedBrief = {
+        archetype: 'BEFORE_AFTER',
+        headline: 'Perbandingan Sebelum & Selepas',
+        cta: 'Hubungi Kami',
+        canvas_direction: 'invalid-string-instead-of-object'
+    };
+    const validatedMalformed = CreativeBriefService.validateBrief(malformedBrief, mockJomConsultProfile, 'BEFORE_AFTER');
+    assert.ok(validatedMalformed.canvas_direction && typeof validatedMalformed.canvas_direction === 'object');
+    assert.ok(Array.isArray(validatedMalformed.canvas_direction.graphic_elements));
+    assert.ok(validatedMalformed.canvas_direction.graphic_elements.length <= 6);
+    assert.ok(typeof validatedMalformed.canvas_direction.layout_style === 'string');
+});
+
 console.log('\n================================================================');
 console.log(`Total Results: ${passed} Passed, ${failed} Failed`);
 console.log('================================================================\n');

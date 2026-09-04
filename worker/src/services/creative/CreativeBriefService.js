@@ -166,9 +166,138 @@ export class CreativeBriefService {
     }
 
     /**
+     * Unsupported Demographic / Audience / Profession claim patterns
+     * Prohibits inventing salary levels, job stability, profile strength, or ease of approval
+     * unless explicitly present in campaign inputs or brand profile.
+     */
+    static UNSUPPORTED_DEMOGRAPHIC_PATTERNS = [
+        { pattern: /\b(gaji|pendapatan)\s+([a-z0-9_-]+\s+)?(stabil|tinggi|besar|lumayan|tetap|kukuh|mewah)\b/i, label: 'unsupported salary attribute' },
+        { pattern: /\b(bergaji|berpendapatan)\s+(stabil|tinggi|besar|lumayan|tetap|kukuh|mewah)\b/i, label: 'unsupported salary attribute' },
+        { pattern: /\bkerja\s+(secure|terjamin|stabil)\b/i, label: 'unsupported job security claim' },
+        { pattern: /\bprofil\s+(kukuh|mantap|cantik|kebal)\b/i, label: 'unsupported profile strength claim' },
+        { pattern: /\b(mudah|senang)\s+lulus\b/i, label: 'unsupported approval ease claim' },
+        { pattern: /\bbank\s+suka\s+profession\b/i, label: 'unsupported bank preference claim' }
+    ];
+
+    /**
+     * Unsupported Business / Regulatory / Status claim patterns
+     * Prohibits claiming independence, official licenses, bank partnerships, accreditation,
+     * or official approval unless explicitly present in Brand Profile allowed facts or user instructions.
+     */
+    static UNSUPPORTED_BUSINESS_PATTERNS = [
+        { pattern: /\b(bebas|independent)\s+(adviser|advisor|konsultan|perunding|konsultasi|khidmat)\b/i, label: 'unsupported independence claim' },
+        { pattern: /\b(konsultasi|perundingan|sesi)\s+(kewangan\s+)?(bebas|independent)\b/i, label: 'unsupported independence claim' },
+        { pattern: /\b(berlesen|licensed)\b/i, label: 'unsupported licensing claim' },
+        { pattern: /\b(rakan\s+(rasmi|bank)|bank\s+partner|official\s+partner|panel\s+bank|approved\s+by\s+bank)\b/i, label: 'unsupported bank partnership claim' },
+        { pattern: /\b(bertauliah|certified)\b/i, label: 'unsupported certification claim' },
+        { pattern: /\b(dikawal\s+selia|regulated\s+by)\b/i, label: 'unsupported regulatory claim' },
+        { pattern: /\b(diluluskan\s+oleh|approved\s+by)\b/i, label: 'unsupported approval authority claim' },
+        { pattern: /\bpakar\s+sejak\s+\d+\s+tahun\b/i, label: 'unsupported tenure claim' }
+    ];
+
+    /**
+     * Implied Guaranteed Outcome patterns
+     * Catches phrases that imply guaranteed outcomes rather than advisory, circumstance-dependent guidance.
+     */
+    static IMPLIED_GUARANTEED_OUTCOME_PATTERNS = [
+        { pattern: /\b(pasti|gerenti|dijamin)\s+(jimat|selesai|bebas|terurus)\b/i, label: 'guaranteed outcome claim' },
+        { pattern: /\bbebas\s+hutang\s+sepenuhnya\b/i, label: 'debt-free guarantee' },
+        { pattern: /\bkembalikan\s+kawalan\s+aliran\s+tunai\s+(sepenuhnya|mutlak)\b/i, label: 'absolute cashflow control guarantee' }
+    ];
+
+    /**
+     * Scan for unsupported demographic assumptions in copy surfaces
+     */
+    static checkUnsupportedDemographicAssumptions(brief, inputContext = '') {
+        const textSurfaces = [
+            brief.headline || '',
+            brief.subheadline || '',
+            brief.badge || '',
+            brief.problem || '',
+            brief.solution || '',
+            brief.cta || '',
+            ...(Array.isArray(brief.supporting_points) ? brief.supporting_points : []),
+            ...(Array.isArray(brief.before_points) ? brief.before_points : []),
+            ...(Array.isArray(brief.after_points) ? brief.after_points : [])
+        ];
+        const aggregatedText = textSurfaces.join(' ').toLowerCase();
+        const normalizedContext = (inputContext || '').toLowerCase();
+
+        for (const item of this.UNSUPPORTED_DEMOGRAPHIC_PATTERNS) {
+            if (item.pattern.test(aggregatedText)) {
+                if (!item.pattern.test(normalizedContext)) {
+                    return item.label;
+                }
+            }
+        }
+        return null;
+    }
+
+    /**
+     * Scan for unsupported business or regulatory claims in copy surfaces and disclaimer
+     */
+    static checkUnsupportedBusinessClaims(brief, brandProfile = {}, inputContext = '') {
+        const textSurfaces = [
+            brief.headline || '',
+            brief.subheadline || '',
+            brief.badge || '',
+            brief.problem || '',
+            brief.solution || '',
+            brief.cta || '',
+            brief.disclaimer || '',
+            ...(Array.isArray(brief.supporting_points) ? brief.supporting_points : []),
+            ...(Array.isArray(brief.before_points) ? brief.before_points : []),
+            ...(Array.isArray(brief.after_points) ? brief.after_points : [])
+        ];
+        const aggregatedText = textSurfaces.join(' ').toLowerCase();
+
+        const allowedContext = [
+            brandProfile.brand_description || '',
+            brandProfile.creative_notes || '',
+            ...(Array.isArray(brandProfile.allowed_claims) ? brandProfile.allowed_claims : []),
+            inputContext || ''
+        ].join(' ').toLowerCase();
+
+        for (const item of this.UNSUPPORTED_BUSINESS_PATTERNS) {
+            if (item.pattern.test(aggregatedText)) {
+                if (!item.pattern.test(allowedContext)) {
+                    return item.label;
+                }
+            }
+        }
+        return null;
+    }
+
+    /**
+     * Scan for implied guaranteed outcome phrasing in copy surfaces
+     */
+    static checkImpliedGuaranteedOutcomes(brief) {
+        const textSurfaces = [
+            brief.headline || '',
+            brief.subheadline || '',
+            brief.badge || '',
+            brief.problem || '',
+            brief.solution || '',
+            brief.cta || '',
+            brief.disclaimer || '',
+            ...(Array.isArray(brief.supporting_points) ? brief.supporting_points : []),
+            ...(Array.isArray(brief.before_points) ? brief.before_points : []),
+            ...(Array.isArray(brief.after_points) ? brief.after_points : [])
+        ];
+        const aggregatedText = textSurfaces.join(' ').toLowerCase();
+
+        for (const item of this.IMPLIED_GUARANTEED_OUTCOME_PATTERNS) {
+            if (item.pattern.test(aggregatedText)) {
+                return item.label;
+            }
+        }
+        return null;
+    }
+
+    /**
      * Validate and normalize brief object against archetype rules and brand constraints
      */
-    static validateBrief(rawBrief, brandProfile, requestedArchetype = 'auto') {
+    static validateBrief(rawBrief, brandProfile, requestedArchetype = 'auto', inputContext = '') {
         if (!rawBrief || typeof rawBrief !== 'object') {
             throw new Error('Creative brief must be a valid JSON object.');
         }
@@ -268,7 +397,7 @@ export class CreativeBriefService {
             }
         }
 
-        // 7. Normalize Art Direction object
+        // 7. Normalize Art Direction object (Pure Photographic Image Asset Direction)
         const rawArt = rawBrief.art_direction || {};
         const artDirection = {
             subject: typeof rawArt.subject === 'string' ? rawArt.subject.trim() : '',
@@ -278,7 +407,55 @@ export class CreativeBriefService {
             cutout_mode: Boolean(rawArt.cutout_mode)
         };
 
-        // 8. Assemble normalized Creative Brief
+        // 8. Normalize Canvas Direction object (Poster Layout & Graphic Direction)
+        const rawCanvas = (rawBrief.canvas_direction && typeof rawBrief.canvas_direction === 'object' && !Array.isArray(rawBrief.canvas_direction))
+            ? rawBrief.canvas_direction
+            : {};
+
+        let layoutStyle = typeof rawCanvas.layout_style === 'string' && rawCanvas.layout_style.trim()
+            ? rawCanvas.layout_style.trim()
+            : `${archetypeDef.name} layout with clear headline and card hierarchy`;
+        if (layoutStyle.length > 200) layoutStyle = layoutStyle.slice(0, 200).trim();
+
+        let graphicElements = Array.isArray(rawCanvas.graphic_elements)
+            ? rawCanvas.graphic_elements
+                .filter(e => typeof e === 'string' && e.trim().length > 0)
+                .map(e => e.trim().slice(0, 80).trim())
+                .filter(e => e.length > 0)
+                .slice(0, 6)
+            : ['bold card blocks', 'high-contrast highlight accents', 'structured editorial callouts'];
+        if (graphicElements.length === 0) {
+            graphicElements = ['bold card blocks', 'high-contrast highlight accents', 'structured editorial callouts'];
+        }
+
+        let textHierarchy = typeof rawCanvas.text_hierarchy === 'string' && rawCanvas.text_hierarchy.trim()
+            ? rawCanvas.text_hierarchy.trim()
+            : 'Dominant uppercase headline with clear supporting points and badge';
+        if (textHierarchy.length > 240) textHierarchy = textHierarchy.slice(0, 240).trim();
+
+        let accentTreatment = typeof rawCanvas.accent_treatment === 'string' && rawCanvas.accent_treatment.trim()
+            ? rawCanvas.accent_treatment.trim()
+            : 'Brand primary color accent for key focus words; functional indicator highlights';
+        if (accentTreatment.length > 200) accentTreatment = accentTreatment.slice(0, 200).trim();
+
+        const canvasDirection = {
+            layout_style: layoutStyle,
+            graphic_elements: graphicElements,
+            text_hierarchy: textHierarchy,
+            accent_treatment: accentTreatment
+        };
+
+        // Sanitize 2D graphic overlay / typography leakage from photographic visual_concept
+        let visualConcept = typeof rawBrief.visual_concept === 'string' ? rawBrief.visual_concept.trim() : '';
+        visualConcept = visualConcept
+            .replace(/,\s*(disokong\s+oleh|dengan)\s+tipografi[^,.]*/gi, '')
+            .replace(/,\s*(disokong\s+oleh|dengan)\s+elemen\s+kad[^,.]*/gi, '')
+            .replace(/\btipografi\s+tebal[^,.]*/gi, '')
+            .replace(/\bkad\s+solusi[^,.]*/gi, '')
+            .replace(/\s+/g, ' ')
+            .trim();
+
+        // 9. Assemble normalized Creative Brief
         const validatedBrief = {
             brand_profile_id: brandProfile ? brandProfile.id : null,
             archetype: archetype,
@@ -300,9 +477,9 @@ export class CreativeBriefService {
             cta: cta,
             disclaimer: typeof rawBrief.disclaimer === 'string' ? rawBrief.disclaimer.trim() : null,
 
-            visual_concept: typeof rawBrief.visual_concept === 'string' ? rawBrief.visual_concept.trim() : '',
-
+            visual_concept: visualConcept,
             art_direction: artDirection,
+            canvas_direction: canvasDirection,
 
             guardrails_applied: {
                 forbidden_claims_blocked: [],
@@ -310,7 +487,7 @@ export class CreativeBriefService {
             }
         };
 
-        // 9. Hard Claim Guardrails: Deterministic Forbidden Claims Scan
+        // 10. Hard Claim Guardrails: Deterministic Forbidden Claims Scan
         const forbiddenClaims = (brandProfile && Array.isArray(brandProfile.forbidden_claims)) 
             ? brandProfile.forbidden_claims 
             : [];
@@ -320,7 +497,25 @@ export class CreativeBriefService {
             throw new Error(`Creative brief validation failed: Forbidden claim detected: "${detectedForbidden[0]}"`);
         }
 
-        // 10. Check Allowed Claims
+        // 11. Scan for unsupported demographic assumptions (Issue 1)
+        const demographicViolation = this.checkUnsupportedDemographicAssumptions(validatedBrief, inputContext);
+        if (demographicViolation) {
+            throw new Error(`Creative brief validation failed: Unsupported demographic or profession assumption detected: "${demographicViolation}".`);
+        }
+
+        // 12. Scan for unsupported business/regulatory claims (Issue 2)
+        const businessViolation = this.checkUnsupportedBusinessClaims(validatedBrief, brandProfile, inputContext);
+        if (businessViolation) {
+            throw new Error(`Creative brief validation failed: Unsupported business or regulatory claim detected: "${businessViolation}".`);
+        }
+
+        // 13. Scan for implied guaranteed outcomes (Issue 4)
+        const outcomeViolation = this.checkImpliedGuaranteedOutcomes(validatedBrief);
+        if (outcomeViolation) {
+            throw new Error(`Creative brief validation failed: Implied guaranteed outcome detected: "${outcomeViolation}".`);
+        }
+
+        // 14. Check Allowed Claims
         const allowedClaims = (brandProfile && Array.isArray(brandProfile.allowed_claims)) 
             ? brandProfile.allowed_claims 
             : [];
@@ -365,6 +560,27 @@ ${allowedList}
 FORBIDDEN CLAIMS (HARD PROHIBITION - NEVER INCLUDE ANY OF THESE WORDS OR PROMISES IN ANY FIELD):
 ${forbiddenList}
 
+=== STRICT FACTUAL & REGULATORY SAFETY RULES ===
+1. UNSUPPORTED DEMOGRAPHIC & PROFESSION CLAIMS:
+   Do NOT invent unsupported factual attributes about a profession, audience, or demographic (e.g. salary level, job stability, wealth, creditworthiness, loan ease) unless explicitly provided in the user prompt, brand profile, or campaign objective.
+   NEVER assume or write phrases like: "gaji stabil", "gaji tinggi", "pendapatan tetap", "mudah lulus", "profil kukuh", "kerja secure", "bank suka profession ini".
+   Focus strictly on the user's stated scenario and challenge (e.g. "Pensyarah Pun Boleh Rasa Aliran Tunai Makin Sempit?", NOT "Gaji Pensyarah Stabil...").
+
+2. UNSUPPORTED BUSINESS & REGULATORY STATUS CLAIMS:
+   Do NOT invent factual, regulatory, or business claims about the brand unless explicitly stated in the Brand Profile description or allowed claims.
+   NEVER claim the brand is: "bebas" / "independent", "berlesen" / "licensed", "rakan bank" / "bank partner", "official partner", "certified" / "bertauliah", "diluluskan oleh", "dikawal selia oleh", or "pakar sejak X tahun".
+   Disclaimers MUST strictly use ONLY neutral consultative language, eligibility statements, and institution assessment language.
+
+3. ADVISORY OUTCOME FRAMING (AVOID IMPLIED FINANCIAL GUARANTEES):
+   When describing positive outcomes or after-states, use advisory, process-focused framing rather than guaranteeing financial results that depend on individual circumstances.
+   NEVER use implied outcome guarantees such as: "aliran tunai pasti/lebih mudah diuruskan", "pasti jimat", "bebas hutang", "kembalikan kawalan aliran tunai sepenuhnya".
+   PREFER: "lebih mudah dipantau", "lebih jelas untuk dinilai", "bantu susun komitmen dengan lebih teratur", "bantu fahami komitmen semasa", "gambaran kewangan lebih kemas".
+
+4. SEPARATE VISUAL ASSET DIRECTION FROM CANVAS DESIGN DIRECTION:
+   Strictly separate photographic scene generation from Canvas graphic layout:
+   - "visual_concept" & "art_direction": Pure camera/photo direction (subject, environment, mood, lighting, negative space). NEVER mention typography, font styles, text colors, badges, torn paper, or card overlays here.
+   - "canvas_direction": Dedicated structure for graphic layout (card blocks, color accents, typography hierarchy, flow indicators).
+
 === ARCHETYPE REQUIREMENTS ===
 Allowed Archetypes: ${allowedArchetypes.join(', ')}
 Requested Archetype Mode: "${archetype}"
@@ -408,13 +624,19 @@ You MUST return ONLY valid JSON matching this exact structure with NO markdown w
   "after_points": ["point 1", "point 2"],
   "cta": "string",
   "disclaimer": "string or null",
-  "visual_concept": "Description of overall visual poster idea",
+  "visual_concept": "Pure photographic scene description for image generation (NO typography or card overlay mentions)",
   "art_direction": {
-    "subject": "Primary subject of the background visual",
-    "setting": "Environment / setting",
-    "mood": "Emotional tone / lighting mood",
-    "composition": "Visual framing and negative space direction",
+    "subject": "Primary subject of the background photo visual",
+    "setting": "Environment / setting / lighting",
+    "mood": "Emotional tone / atmosphere",
+    "composition": "Framing and camera angle with intentional negative space",
     "cutout_mode": false
+  },
+  "canvas_direction": {
+    "layout_style": "Poster layout style description",
+    "graphic_elements": ["bold card blocks", "color highlight bars"],
+    "text_hierarchy": "Headline dominance and typography hierarchy description",
+    "accent_treatment": "Color accents and visual callout treatment"
   }
 }`;
 
@@ -487,8 +709,9 @@ Generate the complete Creative Brief JSON now:`;
             parsedBrief.topic = topic.trim();
         }
 
-        // Validate and apply guardrails
-        const validatedBrief = this.validateBrief(parsedBrief, brandProfile, normalizedArchetype);
+        // Validate and apply guardrails with input context
+        const inputContext = `${topic} ${campaign_objective} ${target_audience} ${user_instructions}`;
+        const validatedBrief = this.validateBrief(parsedBrief, brandProfile, normalizedArchetype, inputContext);
 
         return validatedBrief;
     }

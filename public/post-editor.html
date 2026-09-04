@@ -770,6 +770,16 @@
                 if (state.status === 'scheduled') {
                     for (const checkbox of selectedCheckboxes) {
                         const platform = checkbox.value;
+                        const accountId = checkbox.getAttribute('data-id');
+                        try {
+                            await schedulerService.createScheduledPost({
+                                title: state.title,
+                                content: state.caption || state.title,
+                                targets: [{ platform, accountId: accountId ? parseInt(accountId) : null }],
+                                publish_at: scheduledTimeUtc,
+                                timezone: userTimezone
+                            });
+                        } catch (_) {}
                         await scheduleService.createSchedule(targetId, platform, scheduledTimeUtc, userTimezone);
                     }
                 }
@@ -899,20 +909,41 @@
                 
                 for (const checkbox of selectedCheckboxes) {
                     const platform = checkbox.value;
-                    const schedResult = await scheduleService.createSchedule(targetId, platform, nowUtc, userTimezone);
-                    if (schedResult && schedResult.id) {
-                        // Immediately execute manually
-                        const publishSuccess = await queueService.manualPublish(schedResult.id);
-                        if (!publishSuccess) {
-                            throw new Error('Manual dispatch execution failed in the publishing queue.');
+                    const accountId = checkbox.getAttribute('data-id');
+
+                    // Unified publish: sync to modern scheduled_posts table so it appears in Calendar & Scheduler
+                    let publishedSuccessfully = false;
+                    try {
+                        const newSp = await schedulerService.createScheduledPost({
+                            title: state.title,
+                            content: state.caption || state.title,
+                            targets: [{ platform, accountId: accountId ? parseInt(accountId) : null }],
+                            publish_at: nowUtc,
+                            timezone: userTimezone
+                        });
+                        if (newSp && newSp.ids && newSp.ids[0]) {
+                            await publishService.publishImmediately(newSp.ids[0]);
+                            publishedSuccessfully = true;
+                        }
+                    } catch (schedErr) {
+                        console.warn('[PostEditor] Modern scheduler direct publish notice, falling back to queue:', schedErr.message);
+                    }
+
+                    if (!publishedSuccessfully) {
+                        const schedResult = await scheduleService.createSchedule(targetId, platform, nowUtc, userTimezone);
+                        if (schedResult && schedResult.id) {
+                            const publishSuccess = await queueService.manualPublish(schedResult.id);
+                            if (!publishSuccess) {
+                                throw new Error('Manual dispatch execution failed in the publishing queue.');
+                            }
                         }
                     }
                 }
 
                 draftService.clearBackup(postId);
                 isDirty = false;
-                alert('Successfully published to Threads!');
-                window.location.replace(`monitor.html`);
+                alert('Successfully published!');
+                window.location.replace(`calendar.html`);
             } catch (err) {
                 alert(`Publishing failed: ${err.message}`);
                 btnPublish.disabled = false;

@@ -6186,15 +6186,75 @@ LAYOUT & DESIGN RULES:
                     if (!activeWorkspace) return new Response(JSON.stringify({ message: 'No active workspace found' }), { status: 404, headers: corsHeaders });
 
                     if (request.method === 'GET') {
-                        const { results } = await env.DB.prepare(
+                        const toIsoUtcString = (dateVal) => {
+                            if (!dateVal) return new Date().toISOString();
+                            const str = String(dateVal).trim();
+                            if (str.endsWith('Z') || str.includes('+') || (str.includes('-') && str.length > 19)) {
+                                try { return new Date(str).toISOString(); } catch (_) { return str; }
+                            }
+                            try {
+                                return new Date(str.replace(' ', 'T') + 'Z').toISOString();
+                            } catch (_) {
+                                return str;
+                            }
+                        };
+
+                        const { results: spResults } = await env.DB.prepare(
                             `SELECT sp.*, sa.account_name 
                              FROM scheduled_posts sp
                              LEFT JOIN social_accounts sa ON sp.account_id = sa.id
                              WHERE sp.workspace_id = ? 
                              ORDER BY sp.publish_at ASC`
-                        ).bind(activeWorkspace.workspace_id).all();
-                        
-                        return new Response(JSON.stringify({ success: true, results }), { status: 200, headers: corsHeaders });
+                        ).bind(activeWorkspace.workspace_id).all().catch(() => ({ results: [] }));
+
+                        const spList = (spResults || []).map(item => ({
+                            ...item,
+                            publish_at: toIsoUtcString(item.publish_at)
+                        }));
+
+                        // Also fetch items from publish_queue + posts table for this workspace
+                        const { results: qResults } = await env.DB.prepare(
+                            `SELECT q.id as queue_id, q.post_id, q.platform, q.scheduled_at, q.status as queue_status, q.attempt_count, q.created_at as queue_created_at, q.updated_at as queue_updated_at,
+                                    p.title, p.caption, p.status as post_status, p.published_at, p.workspace_id,
+                                    sa.id as account_id, sa.account_name
+                             FROM publish_queue q
+                             JOIN posts p ON q.post_id = p.id
+                             LEFT JOIN social_accounts sa ON (sa.workspace_id = p.workspace_id AND LOWER(sa.platform) = LOWER(q.platform) AND sa.status = 'active')
+                             WHERE p.workspace_id = ?`
+                        ).bind(activeWorkspace.workspace_id).all().catch(() => ({ results: [] }));
+
+                        const existingKeys = new Set(spList.map(s => `${(s.platform||'').toLowerCase()}_${(s.content||'').trim().substring(0, 40)}`));
+
+                        const queueList = [];
+                        for (const q of (qResults || [])) {
+                            const content = q.caption || q.title || '';
+                            const key = `${(q.platform||'').toLowerCase()}_${content.trim().substring(0, 40)}`;
+                            if (!existingKeys.has(key)) {
+                                existingKeys.add(key);
+                                const rawTime = q.published_at || q.scheduled_at || q.queue_created_at;
+                                const status = (q.queue_status === 'published' || q.post_status === 'published') ? 'published' : (q.queue_status || 'scheduled');
+                                queueList.push({
+                                    id: 9000000 + q.queue_id,
+                                    user_id: user.id,
+                                    workspace_id: q.workspace_id,
+                                    account_id: q.account_id || null,
+                                    account_name: q.account_name || null,
+                                    platform: q.platform,
+                                    content: content,
+                                    media_urls: '[]',
+                                    status: status,
+                                    publish_at: toIsoUtcString(rawTime),
+                                    published_at: q.published_at ? toIsoUtcString(q.published_at) : null,
+                                    timezone: 'UTC',
+                                    retry_count: q.attempt_count || 0,
+                                    created_at: toIsoUtcString(q.queue_created_at),
+                                    updated_at: toIsoUtcString(q.queue_updated_at)
+                                });
+                            }
+                        }
+
+                        const combinedResults = [...spList, ...queueList].sort((a, b) => new Date(a.publish_at) - new Date(b.publish_at));
+                        return new Response(JSON.stringify({ success: true, results: combinedResults }), { status: 200, headers: corsHeaders });
                     }
 
                     if (request.method === 'POST') {

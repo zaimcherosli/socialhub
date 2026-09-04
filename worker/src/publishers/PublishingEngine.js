@@ -187,6 +187,28 @@ export const PublishingEngine = {
                  VALUES (?, ?, 'success', NULL, ?, ?, ?)`
             ).bind(queueId, socialAccount.id, result.provider_post_id, JSON.stringify(result), nowStr).run();
 
+            // Sync to scheduled_posts for unified calendar timeline
+            try {
+                await db.prepare(
+                    `INSERT INTO scheduled_posts (user_id, workspace_id, account_id, platform, content, media_urls, status, publish_at, published_at, external_post_id, created_at, updated_at)
+                     VALUES (?, ?, ?, ?, ?, ?, 'published', ?, ?, ?, ?, ?)`
+                ).bind(
+                    userId,
+                    queueItem.workspace_id,
+                    socialAccount.id,
+                    queueItem.platform,
+                    queueItem.caption || queueItem.title || '',
+                    JSON.stringify([]),
+                    nowStr,
+                    nowStr,
+                    result.provider_post_id || null,
+                    nowStr,
+                    nowStr
+                ).run();
+            } catch (syncErr) {
+                console.warn('[PublishingEngine] Sync to scheduled_posts notice:', syncErr.message);
+            }
+
             this.emit('onPublishSuccess', { queueId, provider_post_id: result.provider_post_id });
         } else {
             // FAILURE FLOW

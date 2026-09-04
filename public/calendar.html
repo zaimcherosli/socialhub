@@ -939,6 +939,18 @@
             }
         }
 
+        function parsePostDate(val) {
+            if (!val) return new Date();
+            const s = String(val).trim();
+            if (s.endsWith('Z') || s.includes('+') || (s.includes('-') && s.length > 19)) {
+                return new Date(s);
+            }
+            if (s.includes(' ') && !s.includes('T')) {
+                return new Date(s.replace(' ', 'T') + 'Z');
+            }
+            return new Date(s);
+        }
+
         const platformIconMap = {
             threads: './assets/icons/threads.png',
             facebook: './assets/icons/facebook.png',
@@ -1154,7 +1166,7 @@
                 container.className = 'cell-schedules-container';
 
                 const daySchedules = filteredSchedules.filter(item => {
-                    const postDate = new Date(item.publish_at);
+                    const postDate = parsePostDate(item.publish_at);
                     const pyyyy = postDate.getFullYear();
                     const pmm = String(postDate.getMonth() + 1).padStart(2, '0');
                     const pdd = String(postDate.getDate()).padStart(2, '0');
@@ -1167,7 +1179,7 @@
                     badge.draggable = true;
                     badge.dataset.id = item.id;
                     
-                    const timeLabel = new Date(item.publish_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: false });
+                    const timeLabel = parsePostDate(item.publish_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: false });
                     const safeContent = item.content || '(Tiada Teks)';
                     badge.innerHTML = `<span>💬</span> <span>${timeLabel}</span> <span>${safeContent.substring(0, 8)}...</span>`;                    
                     badge.addEventListener('dragstart', (e) => {
@@ -1252,7 +1264,7 @@
                 container.style.maxHeight = '180px';
 
                 const daySchedules = filteredSchedules.filter(item => {
-                    const postDate = new Date(item.publish_at);
+                    const postDate = parsePostDate(item.publish_at);
                     return `${postDate.getFullYear()}-${String(postDate.getMonth()+1).padStart(2, '0')}-${String(postDate.getDate()).padStart(2, '0')}` === dateKey;
                 });
 
@@ -1261,7 +1273,7 @@
                     badge.className = `tiny-schedule-badge ${item.platform} ${item.status}`;
                     badge.draggable = true;
                     
-                    const timeLabel = new Date(item.publish_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: false });
+                    const timeLabel = parsePostDate(item.publish_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: false });
                     const safeContent = item.content || '(Tiada Teks)';
                     badge.innerHTML = `<span>💬</span> <span>${timeLabel}</span> <span>${safeContent.substring(0, 15)}...</span>`;
                     
@@ -1303,7 +1315,7 @@
             
             // Filter day's schedules
             const daySchedules = filteredSchedules.filter(item => {
-                const postDate = new Date(item.publish_at);
+                const postDate = parsePostDate(item.publish_at);
                 return `${postDate.getFullYear()}-${String(postDate.getMonth()+1).padStart(2, '0')}-${String(postDate.getDate()).padStart(2, '0')}` === dateKey;
             });
             
@@ -1329,7 +1341,7 @@
             const extraHours = new Set();
             
             daySchedules.forEach(item => {
-                const hr = new Date(item.publish_at).getHours();
+                const hr = parsePostDate(item.publish_at).getHours();
                 if (!defaultHours.includes(hr)) {
                     extraHours.add(hr);
                 }
@@ -1357,7 +1369,7 @@
                 
                 // Find posts in this hour
                 const hourPosts = daySchedules.filter(item => {
-                    return new Date(item.publish_at).getHours() === hour;
+                    return parsePostDate(item.publish_at).getHours() === hour;
                 });
                 
                 if (hourPosts.length > 0) {
@@ -1395,7 +1407,7 @@
                         const pIcon = getPlatformIconHtml(item.platform);
                         const pName = item.platform ? (item.platform.charAt(0).toUpperCase() + item.platform.slice(1)) : 'Social';
 
-                        const timeLabel = new Date(item.publish_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: true });
+                        const timeLabel = parsePostDate(item.publish_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: true });
                         card.innerHTML = `
                             <div style="display:flex; align-items:center; gap:0.4rem; flex-wrap:wrap;">
                                 <span style="font-weight:700; font-size:0.75rem; color:var(--color-primary); display:inline-flex; align-items:center; gap:0.35rem;">${pIcon} ${pName}</span>
@@ -1529,7 +1541,7 @@
                 tr.style.borderBottom = '1px solid var(--color-border)';
 
                 // Format date compactly: "1 Jul 2026" + "4:22 PM GMT+8" on separate lines
-                const publishDate = new Date(item.publish_at);
+                const publishDate = parsePostDate(item.publish_at);
                 const dateStr = publishDate.toLocaleDateString([], { day: 'numeric', month: 'short', year: 'numeric' });
                 const timeStr = publishDate.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', timeZoneName: 'short' });
 

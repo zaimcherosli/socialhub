@@ -161,7 +161,46 @@ export class SlotManager {
 
         const MAX_DAYS = 30;
         for (let dayOffset = 0; dayOffset < MAX_DAYS; dayOffset++) {
-            for (const slotHour of candidateSlots) {
+            const currDateStr = `${localYear}-${String(localMonth + 1).padStart(2, '0')}-${String(localDay + dayOffset).padStart(2, '0')}`;
+
+            // Check how many posts from this in-memory batch are ALREADY assigned to this day for this account/platform
+            const batchPostsOnThisDay = existingBookedSlots.filter(b => {
+                const bookedTimeMs = b.slotDate instanceof Date ? b.slotDate.getTime() : new Date(b.slotDate || b.publishAt).getTime();
+                const bLocalMs = bookedTimeMs + offsetHours * 60 * 60 * 1000;
+                const bDateObj = new Date(bLocalMs);
+                const bDateStr = `${bDateObj.getUTCFullYear()}-${String(bDateObj.getUTCMonth() + 1).padStart(2, '0')}-${String(bDateObj.getUTCDate()).padStart(2, '0')}`;
+                
+                const sameAccount = (accountId && b.accountId)
+                    ? String(b.accountId) === String(accountId)
+                    : (platform && b.platform ? b.platform.toLowerCase() === platform.toLowerCase() : true);
+
+                return sameAccount && bDateStr === currDateStr;
+            }).length;
+
+            // If allowedSlots has a specific limit (e.g. 1 post/day or 3 posts/day),
+            // and this day has already received its batch quota, advance to the next day!
+            if (Array.isArray(allowedSlots) && allowedSlots.length > 0 && batchPostsOnThisDay >= allowedSlots.length) {
+                continue;
+            }
+
+            // Determine candidate slots for this day:
+            // If today (dayOffset === 0) has NO remaining future unoccupied candidate slots
+            // (e.g. candidate was [9] but 9am already passed, or [9, 12, 15] but all are taken/passed),
+            // but STANDARD_SLOTS still has valid unoccupied future slots today (e.g. 18:00, 21:00),
+            // fallback to STANDARD_SLOTS so today's unfilled slots are utilized before jumping to tomorrow!
+            let activeSlots = candidateSlots;
+            if (dayOffset === 0 && Array.isArray(allowedSlots) && allowedSlots.length > 0) {
+                const hasValidFutureCandidate = candidateSlots.some(slotHour => {
+                    const slotUtcMs = Date.UTC(localYear, localMonth, localDay, slotHour - offsetHours, 0, 0, 0);
+                    return slotUtcMs > minTimeMs && !isSlotOccupied(slotUtcMs);
+                });
+
+                if (!hasValidFutureCandidate) {
+                    activeSlots = STANDARD_SLOTS;
+                }
+            }
+
+            for (const slotHour of activeSlots) {
                 // Construct slot in UTC
                 const slotUtcMs = Date.UTC(localYear, localMonth, localDay + dayOffset, slotHour - offsetHours, 0, 0, 0);
 

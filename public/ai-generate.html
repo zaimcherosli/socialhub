@@ -427,10 +427,10 @@
                         <div class="form-group" style="margin-bottom: 1rem;">
                             <label class="form-label" for="autoFrequency">Kekerapan Harian (Daily Frequency)</label>
                             <select id="autoFrequency" class="form-select" style="width: 100%;">
-                                <option value="1">1 Post Sehari (Pagi - 9 AM)</option>
-                                <option value="2">2 Post Sehari (Pagi - 9 AM, Petang - 3 PM)</option>
-                                <option value="3" selected>3 Post Sehari (Pagi - 9 AM, Tengahari - 12 PM, Petang - 3 PM)</option>
-                                <option value="5">5 Post Sehari (Slot Penuh: 9 AM, 12 PM, 3 PM, 6 PM, 9 PM)</option>
+                                <option value="1">1 Post Sehari (Utamakan Slot Terdekat / 9 AM)</option>
+                                <option value="2">2 Post Sehari (Pagi 9 AM & Petang 3 PM)</option>
+                                <option value="3" selected>3 Post Sehari (Pagi 9 AM, Tengahari 12 PM, Petang 3 PM)</option>
+                                <option value="5">5 Post Sehari (Semua Slot Penuh: 9 AM, 12 PM, 3 PM, 6 PM, 9 PM)</option>
                             </select>
                         </div>
 
@@ -446,8 +446,11 @@
                         </div>
 
                         <!-- Realtime Sync Summary Indicator -->
-                        <div id="campaignSyncBadge" style="font-size: 0.76rem; color: #4338ca; background: #eef2ff; border: 1px solid #c7d2fe; border-radius: 6px; padding: 0.45rem 0.75rem; margin-bottom: 1.25rem; display: flex; align-items: center; gap: 0.45rem;">
+                        <div id="campaignSyncBadge" style="font-size: 0.76rem; color: #4338ca; background: #eef2ff; border: 1px solid #c7d2fe; border-radius: 6px; padding: 0.45rem 0.75rem; margin-bottom: 0.5rem; display: flex; align-items: center; gap: 0.45rem;">
                             <span>⚡</span> <span id="campaignSyncSummaryText"><strong>3 Post Sehari</strong> × <strong>2 Hari</strong> = <strong>Jumlah 6 Post Dijana</strong></span>
+                        </div>
+                        <div style="font-size: 0.73rem; color: #64748b; margin-bottom: 1.25rem; display: flex; align-items: center; gap: 0.35rem;">
+                            <span>💡</span> <span>Slot kosong hari ini (seperti 9:00 PM) akan dipenuhi dahulu sebelum baki dijadualkan ke hari esok.</span>
                         </div>
 
                         <div class="form-group" style="margin-bottom: 1.5rem;">

@@ -230,3 +230,86 @@ test('SlotManager - allowedSlots restricts candidates (e.g. 1 post/day restricts
     assert.equal(post2.localDateStr, '2026-09-06');
 });
 
+test('SlotManager - fills remaining open standard slot today (21:00 PM) when candidate slots passed/occupied', async () => {
+    // Scenario matching user's Saturday Sept 5 state:
+    // Posts already booked at 12:00 PM, 3:00 PM, 6:00 PM
+    const existingPosts = [
+        { id: 1, account_id: 'acc-1', platform: 'threads', publish_at: '2026-09-05T04:00:00.000Z', status: 'scheduled' }, // 12:00 PM MYT
+        { id: 2, account_id: 'acc-1', platform: 'threads', publish_at: '2026-09-05T07:00:00.000Z', status: 'scheduled' }, // 03:00 PM MYT
+        { id: 3, account_id: 'acc-1', platform: 'threads', publish_at: '2026-09-05T10:00:00.000Z', status: 'scheduled' }  // 06:00 PM MYT
+    ];
+
+    const mockDb = createMockDb(existingPosts);
+    // Simulating user at 11:53 AM MYT (03:53 UTC) on 2026-09-05
+    const simDate = new Date('2026-09-05T03:53:00.000Z');
+
+    // Generated with allowedSlots = [9] (1 Post/day)
+    const result1Post = await SlotManager.findNextAvailableSlot(mockDb, {
+        workspaceId: 'ws-123',
+        accountId: 'acc-1',
+        platform: 'threads',
+        startDate: simDate,
+        allowedSlots: [9]
+    });
+
+    // 09:00 AM passed, 12, 15, 18 occupied -> MUST fill 21:00 (9:00 PM) TODAY!
+    assert.equal(result1Post.slotHour, 21);
+    assert.equal(result1Post.localDateStr, '2026-09-05');
+    assert.equal(result1Post.publishAt, '2026-09-05T13:00:00.000Z'); // 21:00 MYT is 13:00 UTC
+
+    // Also verify with allowedSlots = [9, 12, 15] (3 Posts/day)
+    const result3Post = await SlotManager.findNextAvailableSlot(mockDb, {
+        workspaceId: 'ws-123',
+        accountId: 'acc-1',
+        platform: 'threads',
+        startDate: simDate,
+        allowedSlots: [9, 12, 15]
+    });
+
+    assert.equal(result3Post.slotHour, 21);
+    assert.equal(result3Post.localDateStr, '2026-09-05');
+    assert.equal(result3Post.publishAt, '2026-09-05T13:00:00.000Z');
+});
+
+test('SlotManager - Multi-post batch: Post 1 fills today 21:00 PM, Post 2 takes tomorrow 09:00 AM', async () => {
+    const existingPosts = [
+        { id: 1, account_id: 'acc-1', platform: 'threads', publish_at: '2026-09-05T04:00:00.000Z', status: 'scheduled' }, // 12:00 PM MYT
+        { id: 2, account_id: 'acc-1', platform: 'threads', publish_at: '2026-09-05T07:00:00.000Z', status: 'scheduled' }, // 03:00 PM MYT
+        { id: 3, account_id: 'acc-1', platform: 'threads', publish_at: '2026-09-05T10:00:00.000Z', status: 'scheduled' }  // 06:00 PM MYT
+    ];
+
+    const mockDb = createMockDb(existingPosts);
+    const simDate = new Date('2026-09-05T03:53:00.000Z'); // 11:53 AM MYT
+    const existingBookedSlots = [];
+
+    // Post 1 with allowedSlots = [9]
+    const post1 = await SlotManager.findNextAvailableSlot(mockDb, {
+        workspaceId: 'ws-123',
+        accountId: 'acc-1',
+        platform: 'threads',
+        startDate: simDate,
+        existingBookedSlots,
+        allowedSlots: [9]
+    });
+    existingBookedSlots.push({ accountId: 'acc-1', platform: 'threads', slotDate: post1.nominalSlotAt });
+
+    // Post 2 in the same batch
+    const post2 = await SlotManager.findNextAvailableSlot(mockDb, {
+        workspaceId: 'ws-123',
+        accountId: 'acc-1',
+        platform: 'threads',
+        startDate: simDate,
+        existingBookedSlots,
+        allowedSlots: [9]
+    });
+
+    // Post 1 should fill 21:00 PM today
+    assert.equal(post1.slotHour, 21);
+    assert.equal(post1.localDateStr, '2026-09-05');
+
+    // Post 2 should roll over to TOMORROW 09:00 AM
+    assert.equal(post2.slotHour, 9);
+    assert.equal(post2.localDateStr, '2026-09-06');
+});
+
+

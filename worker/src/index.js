@@ -2003,6 +2003,22 @@ export default {
             try { await env.DB.prepare("ALTER TABLE scheduled_posts ADD COLUMN quotes_count INTEGER DEFAULT 0").run(); } catch (_) {}
             try { await env.DB.prepare("ALTER TABLE scheduled_posts ADD COLUMN reach_count INTEGER DEFAULT 0").run(); } catch (_) {}
             try { await env.DB.prepare("ALTER TABLE scheduled_posts ADD COLUMN shares_count INTEGER DEFAULT 0").run(); } catch (_) {}
+            // Self-healing: Reschedule orphaned loan eligibility post from Sun Sep 6 09:00 MYT (01:00 UTC) to Sat Sep 5 21:00 MYT (13:00 UTC)
+            try {
+                const orphanedPost = await env.DB.prepare(
+                    `SELECT id FROM scheduled_posts 
+                     WHERE publish_at LIKE '2026-09-06%01:00%' 
+                       AND status = 'scheduled'
+                       AND content LIKE '%kelayakan loan%' LIMIT 1`
+                ).first();
+                if (orphanedPost) {
+                    await env.DB.prepare(
+                        `UPDATE scheduled_posts 
+                         SET publish_at = '2026-09-05T13:00:00.000Z', updated_at = (datetime('now')) 
+                         WHERE id = ?`
+                    ).bind(orphanedPost.id).run();
+                }
+            } catch (_) {}
             // Ensure workspace_analytics table exists for follower growth tracking
             try {
                 await env.DB.prepare(`CREATE TABLE IF NOT EXISTS workspace_analytics (

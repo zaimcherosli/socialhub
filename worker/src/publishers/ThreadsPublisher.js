@@ -132,12 +132,31 @@ export class ThreadsPublisher extends PublisherInterface {
                 let imageUrl = hasImage ? imgUrlMatch[1].trim() : null;
 
                 // Support image on Slide 1 (i === 0) if post has media attached
-                if (!hasImage && i === 0 && post.media && post.media.length > 0 && post.media[0].url) {
-                    const candidateUrl = post.media[0].url.trim();
-                    if (candidateUrl.startsWith('http://') || candidateUrl.startsWith('https://')) {
-                        hasImage = true;
-                        imageUrl = candidateUrl;
+                if (!hasImage && i === 0 && post.media && post.media.length > 0) {
+                    const firstMedia = post.media[0];
+                    let candidateUrl = typeof firstMedia === 'string' 
+                        ? firstMedia.trim() 
+                        : (firstMedia.url || firstMedia.storage_key || firstMedia.public_url || null);
+                    
+                    if (!candidateUrl && firstMedia.id) {
+                        candidateUrl = `https://api.socialhub.kwikezee.my/api/media/file?id=${firstMedia.id}`;
                     }
+
+                    if (candidateUrl && typeof candidateUrl === 'string') {
+                        candidateUrl = candidateUrl.trim();
+                        // Normalize legacy/broken worker domains to the active public API domain
+                        if (candidateUrl.includes('socialhub-api.huzaimrosli.workers.dev')) {
+                            candidateUrl = candidateUrl.replace(/https?:\/\/socialhub-api\.huzaimrosli\.workers\.dev/g, 'https://api.socialhub.kwikezee.my');
+                        }
+                        if (candidateUrl.startsWith('http://') || candidateUrl.startsWith('https://')) {
+                            hasImage = true;
+                            imageUrl = candidateUrl;
+                        }
+                    }
+                }
+
+                if (imageUrl && imageUrl.includes('socialhub-api.huzaimrosli.workers.dev')) {
+                    imageUrl = imageUrl.replace(/https?:\/\/socialhub-api\.huzaimrosli\.workers\.dev/g, 'https://api.socialhub.kwikezee.my');
                 }
 
                 const cleanedText = hasImage && imgUrlMatch ? chunkText.replace(/📷\s*https?:\/\/\S+/gi, '').trim() : chunkText;
@@ -208,7 +227,7 @@ export class ThreadsPublisher extends PublisherInterface {
                 }
                 
                 let attempts = 0;
-                while (!isReady && attempts < 15) {
+                while (!isReady && attempts < 20) {
                     attempts++;
                     const statusRes = await fetch(`https://graph.threads.net/v1.0/${containerId}?fields=status,error_message&access_token=${accessToken}`, {
                         signal: AbortSignal.timeout(10000)
@@ -219,7 +238,7 @@ export class ThreadsPublisher extends PublisherInterface {
                         isReady = true;
                         break;
                     } else if (statusData.status === 'ERROR') {
-                        console.error(`[ThreadsPublisher] Container failed processing: ${statusData.error_message}`);
+                        console.error(`[ThreadsPublisher] Container failed processing for part ${i + 1}: ${statusData.error_message} (imageUrl: ${imageUrl})`);
                         return {
                             success: false,
                             provider: 'threads',
@@ -231,7 +250,7 @@ export class ThreadsPublisher extends PublisherInterface {
                         };
                     }
                     
-                    await new Promise(resolve => setTimeout(resolve, 1000));
+                    await new Promise(resolve => setTimeout(resolve, 1500));
                 }
 
                 if (!isReady) {
@@ -241,7 +260,7 @@ export class ThreadsPublisher extends PublisherInterface {
                         provider_post_id: null,
                         published_at: null,
                         error_code: 'TIMEOUT',
-                        error_message: `Container for part ${i + 1} remained unfinished after 15 seconds.`,
+                        error_message: `Container for part ${i + 1} remained unfinished after 30 seconds.`,
                         retryable: true
                     };
                 }

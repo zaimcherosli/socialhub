@@ -1267,11 +1267,15 @@ async function resolvePostMedia(db, post) {
             const parsed = typeof post.media_urls === 'string' ? JSON.parse(post.media_urls) : post.media_urls;
             if (Array.isArray(parsed) && parsed.length > 0) {
                 mediaList = parsed.map(item => {
-                    if (typeof item === 'string') return { url: item };
-                    return {
-                        ...item,
-                        url: item.url || item.storage_key || null
-                    };
+                    let u = typeof item === 'string' ? item : (item.url || item.storage_key || item.public_url || null);
+                    if (!u && item.id) {
+                        u = `https://api.socialhub.kwikezee.my/api/media/file?id=${item.id}`;
+                    }
+                    if (u && typeof u === 'string') {
+                        // CRITICAL: Normalize any legacy or misconfigured worker domains to the active public API domain
+                        u = u.replace(/https?:\/\/socialhub-api\.huzaimrosli\.workers\.dev/g, 'https://api.socialhub.kwikezee.my');
+                    }
+                    return { url: u };
                 }).filter(m => m.url);
             }
         } catch (_) {}
@@ -1283,7 +1287,13 @@ async function resolvePostMedia(db, post) {
                 "SELECT m.* FROM media m JOIN post_media pm ON m.id = pm.media_id WHERE pm.post_id = ?"
             ).bind(post.id).all();
             if (results && results.length > 0) {
-                mediaList = results.map(m => ({ ...m, url: m.url || m.storage_key }));
+                mediaList = results.map(m => {
+                    let u = m.url || m.storage_key || (m.id ? `https://api.socialhub.kwikezee.my/api/media/file?id=${m.id}` : null);
+                    if (u && typeof u === 'string') {
+                        u = u.replace(/https?:\/\/socialhub-api\.huzaimrosli\.workers\.dev/g, 'https://api.socialhub.kwikezee.my');
+                    }
+                    return { ...m, url: u };
+                });
             }
         } catch (_) {}
     }
@@ -1294,12 +1304,20 @@ async function resolvePostMedia(db, post) {
         const imgMatches = [...text.matchAll(/📷\s*(\S+)/gi)];
         if (imgMatches && imgMatches.length > 0) {
             for (const m of imgMatches) {
-                if (m[1]) mediaList.push({ url: m[1].trim() });
+                let u = m[1] ? m[1].trim() : null;
+                if (u) {
+                    u = u.replace(/https?:\/\/socialhub-api\.huzaimrosli\.workers\.dev/g, 'https://api.socialhub.kwikezee.my');
+                    mediaList.push({ url: u });
+                }
             }
         } else {
             const urlMatches = [...text.matchAll(/(https?:\/\/\S+\.(?:jpg|jpeg|png|webp|gif)(?:\?\S*)?)/gi)];
             for (const m of urlMatches) {
-                if (m[1]) mediaList.push({ url: m[1].trim() });
+                let u = m[1] ? m[1].trim() : null;
+                if (u) {
+                    u = u.replace(/https?:\/\/socialhub-api\.huzaimrosli\.workers\.dev/g, 'https://api.socialhub.kwikezee.my');
+                    mediaList.push({ url: u });
+                }
             }
         }
     }
@@ -1321,7 +1339,11 @@ async function sanitizeAndStoreMediaUrls(db, userId, workspaceId, rawMediaUrls) 
     const sanitized = [];
 
     for (const item of list) {
-        const urlStr = typeof item === 'string' ? item : (item.url || '');
+        let urlStr = typeof item === 'string' ? item : (item.url || '');
+        if (urlStr && urlStr.includes('socialhub-api.huzaimrosli.workers.dev')) {
+            urlStr = urlStr.replace(/https?:\/\/socialhub-api\.huzaimrosli\.workers\.dev/g, 'https://api.socialhub.kwikezee.my');
+        }
+
         if (urlStr && urlStr.startsWith('data:image/')) {
             try {
                 const mimeMatch = urlStr.match(/^data:(image\/\w+);base64,/);
@@ -1335,7 +1357,7 @@ async function sanitizeAndStoreMediaUrls(db, userId, workspaceId, rawMediaUrls) 
                 ).bind(userId, workspaceId, filename, filename, mimeType, urlStr.length, urlStr).run();
 
                 const newMediaId = result.meta.last_row_id;
-                sanitized.push(`https://socialhub-api.huzaimrosli.workers.dev/api/media/file?id=${newMediaId}`);
+                sanitized.push(`https://api.socialhub.kwikezee.my/api/media/file?id=${newMediaId}`);
             } catch (err) {
                 console.error("[Base64 Auto-Store D1 Error]:", err);
                 // If base64 string is too large for D1 SQL parameter, store a truncated fallback or public placeholder so D1 insert NEVER fails 500!
@@ -2948,22 +2970,35 @@ export default {
                         for (let i = 0; i < binary.length; i++) {
                             array[i] = binary.charCodeAt(i);
                         }
-                        return new Response(array, {
-                            headers: {
-                                'Content-Type': mime,
-                                'Cache-Control': 'public, max-age=31536000, immutable',
-                                'Access-Control-Allow-Origin': '*'
-                            }
-                        });
+
+                        const headers = {
+                            'Content-Type': mime,
+                            'Content-Length': array.length.toString(),
+                            'Cache-Control': 'public, max-age=31536000, immutable',
+                            'Access-Control-Allow-Origin': '*'
+                        };
+
+                        if (request.method === 'HEAD') {
+                            return new Response(null, { headers });
+                        }
+
+                        return new Response(array, { headers });
                     } else if (dataUrl.startsWith('http')) {
                         const res = await fetch(dataUrl);
-                        return new Response(res.body, {
-                            headers: {
-                                'Content-Type': res.headers.get('Content-Type') || 'image/jpeg',
-                                'Cache-Control': 'public, max-age=31536000, immutable',
-                                'Access-Control-Allow-Origin': '*'
-                            }
-                        });
+                        const mime = res.headers.get('Content-Type') || 'image/jpeg';
+                        const len = res.headers.get('Content-Length');
+                        const headers = {
+                            'Content-Type': mime,
+                            'Cache-Control': 'public, max-age=31536000, immutable',
+                            'Access-Control-Allow-Origin': '*'
+                        };
+                        if (len) headers['Content-Length'] = len;
+
+                        if (request.method === 'HEAD') {
+                            return new Response(null, { headers });
+                        }
+
+                        return new Response(res.body, { headers });
                     }
 
                     return new Response('Invalid media format', { status: 400 });
@@ -5279,7 +5314,7 @@ LAYOUT & DESIGN RULES:
                             resolvedAccounts = allAccounts.results || [];
                         }
 
-                        const shouldIncludeThreadsImage = (include_threads_image === true || include_threads_image === 'true');
+                        const shouldIncludeThreadsImage = (include_threads_image !== false && include_threads_image !== 'false');
                         const dbInsert = env.DB.prepare(
                             `INSERT INTO scheduled_posts (user_id, workspace_id, account_id, platform, content, media_urls, status, publish_at, created_at, updated_at)
                              VALUES (?, ?, ?, ?, ?, ?, ?, ?, (datetime('now')), (datetime('now')))`
@@ -7124,7 +7159,7 @@ LAYOUT & DESIGN RULES:
                         }
 
                         const newMediaId = result.meta.last_row_id;
-                        const baseUrl = (url.origin && !url.origin.includes('undefined')) ? url.origin : 'https://socialhub-api.huzaimrosli.workers.dev';
+                        const baseUrl = (url.origin && !url.origin.includes('undefined')) ? url.origin : 'https://api.socialhub.kwikezee.my';
                         const publicUrl = `${baseUrl}/api/media/file?id=${newMediaId}`;
                         const uploadedRecord = await env.DB.prepare("SELECT * FROM media WHERE id = ?").bind(newMediaId).first();
                         if (uploadedRecord) {

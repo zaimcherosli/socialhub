@@ -218,7 +218,7 @@ export class SharedImageGenerationService {
                 ).bind(userId, workspaceId, filename, filename, mime, imageUrl).run();
 
                 const newMediaId = result.meta.last_row_id;
-                const baseUrl = requestOrigin ? requestOrigin.replace(/\/$/, '') : 'https://socialhub-api.huzaimrosli.workers.dev';
+                const baseUrl = requestOrigin ? requestOrigin.replace(/\/$/, '') : 'https://api.socialhub.kwikezee.my';
                 publicUrl = `${baseUrl}/api/media/file?id=${newMediaId}`;
             } catch (saveErr) {
                 console.error('[Media Save Error]:', saveErr);

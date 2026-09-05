@@ -1631,6 +1631,9 @@
                             const u = typeof p === 'string' ? p : (p?.storage_key || p?.url || null);
                             if (u && typeof u === 'string' && u.trim().length > 0) {
                                 attachedMediaUrl = u.trim();
+                                if (attachedMediaUrl.includes('socialhub-api.huzaimrosli.workers.dev')) {
+                                    attachedMediaUrl = attachedMediaUrl.replace(/https?:\/\/socialhub-api\.huzaimrosli\.workers\.dev/g, 'https://api.socialhub.kwikezee.my');
+                                }
                                 break;
                             }
                         }

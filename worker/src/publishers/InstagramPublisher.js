@@ -116,13 +116,18 @@ export class InstagramPublisher extends PublisherInterface {
         if (post.media && Array.isArray(post.media) && post.media.length > 0) {
             for (const item of post.media) {
                 if (typeof item === 'object' && item.id) {
-                    imageUrl = `https://socialhub-api.huzaimrosli.workers.dev/api/media/file?id=${item.id}`;
+                    imageUrl = `https://api.socialhub.kwikezee.my/api/media/file?id=${item.id}`;
                     break;
                 }
-                const urlCandidate = typeof item === 'string' ? item : (item.public_url || item.url || item.file_path || item.src);
-                if (urlCandidate && typeof urlCandidate === 'string' && urlCandidate.startsWith('http')) {
-                    imageUrl = urlCandidate;
-                    break;
+                let urlCandidate = typeof item === 'string' ? item : (item.public_url || item.url || item.storage_key || item.file_path || item.src);
+                if (urlCandidate && typeof urlCandidate === 'string') {
+                    if (urlCandidate.includes('socialhub-api.huzaimrosli.workers.dev')) {
+                        urlCandidate = urlCandidate.replace(/https?:\/\/socialhub-api\.huzaimrosli\.workers\.dev/g, 'https://api.socialhub.kwikezee.my');
+                    }
+                    if (urlCandidate.startsWith('http')) {
+                        imageUrl = urlCandidate;
+                        break;
+                    }
                 }
             }
         }

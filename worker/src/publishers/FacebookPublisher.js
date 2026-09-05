@@ -165,7 +165,10 @@ export class FacebookPublisher extends PublisherInterface {
 
         // Check if media is attached
         if (post.media && post.media.length > 0 && post.media[0].url) {
-            const mediaUrl = post.media[0].url.trim();
+            let mediaUrl = post.media[0].url.trim();
+            if (mediaUrl.includes('socialhub-api.huzaimrosli.workers.dev')) {
+                mediaUrl = mediaUrl.replace(/https?:\/\/socialhub-api\.huzaimrosli\.workers\.dev/g, 'https://api.socialhub.kwikezee.my');
+            }
 
             if (mediaUrl.startsWith('data:image/')) {
                 // Upload binary blob directly via FormData to prevent Facebook URL fetch failures

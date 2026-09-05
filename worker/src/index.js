@@ -3729,10 +3729,11 @@ LAYOUT & DESIGN RULES:
                             if (!productContext) productContext = "produk Malaysia";
                         }
 
-                        // Determine default schedule time using Smart Slot-Filling Engine
-                        const defaultSlotRes = await SlotManager.findNextAvailableSlot(env.DB, {
+                        // Determine default schedule time using 30-Minute Interval Engine (URL Auto-Poster)
+                        const defaultSlotRes = await SlotManager.findNextAvailableIntervalSlot(env.DB, {
                             workspaceId: activeWorkspace.workspace_id,
-                            timezone: 'Asia/Kuala_Lumpur'
+                            timezone: 'Asia/Kuala_Lumpur',
+                            intervalMinutes: 30
                         });
                         let publishAt = defaultSlotRes.publishAt;
 
@@ -4336,14 +4337,16 @@ CRITICAL TONE RULES:
 
                         for (let accIdx = 0; accIdx < connectedAccounts.length; accIdx++) {
                             const acc = connectedAccounts[accIdx];
-                            const accSlotRes = await SlotManager.findNextAvailableSlot(env.DB, {
+                            const accSlotRes = await SlotManager.findNextAvailableIntervalSlot(env.DB, {
                                 workspaceId: activeWorkspace.workspace_id,
                                 accountId: acc.id,
                                 platform: acc.platform,
                                 timezone: 'Asia/Kuala_Lumpur',
-                                staggerMinutes: accIdx
+                                staggerMinutes: accIdx,
+                                intervalMinutes: 30
                             });
                             const accountPublishAt = accSlotRes.publishAt;
+                            if (accIdx === 0) publishAt = accountPublishAt;
                             const isThreads = acc.platform === 'threads';
                             const isInstagram = acc.platform === 'instagram';
                             

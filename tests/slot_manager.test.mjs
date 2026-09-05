@@ -312,4 +312,93 @@ test('SlotManager - Multi-post batch: Post 1 fills today 21:00 PM, Post 2 takes 
     assert.equal(post2.localDateStr, '2026-09-06');
 });
 
+test('SlotManager - findNextAvailableIntervalSlot schedules consecutive posts every 30 minutes', async () => {
+    const mockDb = createMockDb([]);
+    // Simulating 12:10 PM MYT (04:10 UTC)
+    const simDate = new Date('2026-09-05T04:10:00.000Z');
+    const existingBookedSlots = [];
+
+    // URL Post 1
+    const post1 = await SlotManager.findNextAvailableIntervalSlot(mockDb, {
+        workspaceId: 'ws-123',
+        accountId: 'acc-1',
+        platform: 'threads',
+        startDate: simDate,
+        existingBookedSlots
+    });
+    existingBookedSlots.push({ accountId: 'acc-1', platform: 'threads', slotDate: post1.nominalSlotAt });
+
+    // URL Post 2
+    const post2 = await SlotManager.findNextAvailableIntervalSlot(mockDb, {
+        workspaceId: 'ws-123',
+        accountId: 'acc-1',
+        platform: 'threads',
+        startDate: simDate,
+        existingBookedSlots
+    });
+    existingBookedSlots.push({ accountId: 'acc-1', platform: 'threads', slotDate: post2.nominalSlotAt });
+
+    // URL Post 3
+    const post3 = await SlotManager.findNextAvailableIntervalSlot(mockDb, {
+        workspaceId: 'ws-123',
+        accountId: 'acc-1',
+        platform: 'threads',
+        startDate: simDate,
+        existingBookedSlots
+    });
+
+    // 12:10 PM + 15m minLead = 12:25 PM -> rounded up to next 30m = 12:30 PM MYT (04:30 UTC)
+    assert.equal(post1.slotHour, 12);
+    assert.equal(post1.slotMinute, 30);
+    assert.equal(post1.publishAt, '2026-09-05T04:30:00.000Z');
+
+    // Post 2 = +30m = 01:00 PM MYT (05:00 UTC)
+    assert.equal(post2.slotHour, 13);
+    assert.equal(post2.slotMinute, 0);
+    assert.equal(post2.publishAt, '2026-09-05T05:00:00.000Z');
+
+    // Post 3 = +30m = 01:30 PM MYT (05:30 UTC)
+    assert.equal(post3.slotHour, 13);
+    assert.equal(post3.slotMinute, 30);
+    assert.equal(post3.publishAt, '2026-09-05T05:30:00.000Z');
+});
+
+test('SlotManager - findNextAvailableIntervalSlot avoids existing DB posts and respects quiet hours', async () => {
+    // Existing post at 01:00 PM MYT (05:00 UTC)
+    const existingPosts = [
+        { id: 1, account_id: 'acc-1', platform: 'threads', publish_at: '2026-09-05T05:00:00.000Z', status: 'scheduled' }
+    ];
+    const mockDb = createMockDb(existingPosts);
+    // Simulating 12:40 PM MYT (04:40 UTC)
+    const simDate = new Date('2026-09-05T04:40:00.000Z');
+
+    const post = await SlotManager.findNextAvailableIntervalSlot(mockDb, {
+        workspaceId: 'ws-123',
+        accountId: 'acc-1',
+        platform: 'threads',
+        startDate: simDate
+    });
+
+    // 12:40 + 15m = 12:55 -> 01:00 PM is occupied -> so it advances to 01:30 PM MYT (05:30 UTC)!
+    assert.equal(post.slotHour, 13);
+    assert.equal(post.slotMinute, 30);
+    assert.equal(post.publishAt, '2026-09-05T05:30:00.000Z');
+
+    // Test Quiet Hours: Simulating 11:45 PM MYT (15:45 UTC)
+    const nightDate = new Date('2026-09-05T15:45:00.000Z');
+    const nightPost = await SlotManager.findNextAvailableIntervalSlot(mockDb, {
+        workspaceId: 'ws-123',
+        accountId: 'acc-1',
+        platform: 'threads',
+        startDate: nightDate
+    });
+
+    // 11:45 PM + 15m is 12:00 AM midnight (quiet hours 00:00 - 08:00) -> jumps to 08:00 AM next morning!
+    assert.equal(nightPost.slotHour, 8);
+    assert.equal(nightPost.slotMinute, 0);
+    assert.equal(nightPost.localDateStr, '2026-09-06');
+    assert.equal(nightPost.publishAt, '2026-09-06T00:00:00.000Z'); // 08:00 AM MYT is 00:00 UTC
+});
+
+
 

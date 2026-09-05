@@ -237,4 +237,144 @@ export class SlotManager {
             dayOffset: 1
         };
     }
+
+    /**
+     * Finds the next available interval slot (default 30 minutes) for rapid posting / URL autoposting.
+     * Automatically avoids collisions with existing scheduled posts and skips quiet hours (12:00 AM - 08:00 AM MYT).
+     *
+     * @param {Object} db - Cloudflare D1 database or mock DB
+     * @param {Object} params
+     * @param {string|number} params.workspaceId - Active workspace ID
+     * @param {string|number|null} [params.accountId] - Target social account ID
+     * @param {string} [params.platform] - Target platform (e.g. 'threads', 'facebook')
+     * @param {Date} [params.startDate] - Earliest date to look from (defaults to now)
+     * @param {number|string} [params.timezone] - Timezone or offset (default +8)
+     * @param {Array<Object>} [params.existingBookedSlots] - In-memory list of already booked slots in batch
+     * @param {number} [params.staggerMinutes] - Stagger offset (+1 min for 2nd channel)
+     * @param {number} [params.intervalMinutes] - Interval spacing (default 30 minutes)
+     * @param {number} [params.minLeadMinutes] - Minimum minutes in the future (default 15 minutes)
+     * @returns {Promise<{ publishAt: string, nominalSlotAt: string, localDateStr: string, slotHour: number, slotMinute: number }>}
+     */
+    static async findNextAvailableIntervalSlot(db, {
+        workspaceId,
+        accountId = null,
+        platform = null,
+        startDate = new Date(),
+        timezone = DEFAULT_OFFSET_HOURS,
+        existingBookedSlots = [],
+        staggerMinutes = 0,
+        intervalMinutes = 30,
+        minLeadMinutes = 15
+    }) {
+        const offsetHours = this.resolveOffsetHours(timezone);
+        const now = startDate instanceof Date ? startDate : new Date(startDate);
+        const intervalMs = intervalMinutes * 60 * 1000;
+        const minLeadMs = minLeadMinutes * 60 * 1000;
+        const minTimeMs = now.getTime() + minLeadMs;
+
+        // 1. Fetch upcoming scheduled posts from DB
+        let dbPosts = [];
+        if (db && typeof db.prepare === 'function') {
+            try {
+                const query = `
+                    SELECT id, account_id, platform, publish_at, status 
+                    FROM scheduled_posts 
+                    WHERE workspace_id = ? 
+                      AND status IN ('scheduled', 'draft', 'publishing')
+                      AND publish_at >= ?
+                `;
+                const binds = [workspaceId, new Date(now.getTime() - 2 * 60 * 60 * 1000).toISOString()];
+                const res = await db.prepare(query).bind(...binds).all();
+                dbPosts = res.results || [];
+            } catch (err) {
+                console.error("[SlotManager] Error querying DB posts for interval slot:", err);
+            }
+        }
+
+        const isPostMatchingAccount = (post) => {
+            if (accountId && post.account_id) {
+                return String(post.account_id) === String(accountId);
+            }
+            if (platform && post.platform) {
+                return post.platform.toLowerCase() === platform.toLowerCase();
+            }
+            return true;
+        };
+
+        const relevantDbPosts = dbPosts.filter(isPostMatchingAccount);
+
+        // Collision window: half the interval (e.g. 14 mins for 30-min interval)
+        const OCCUPIED_WINDOW_MS = Math.floor(intervalMs / 2) - 60 * 1000;
+
+        const isSlotOccupied = (slotTimestampMs) => {
+            for (const post of relevantDbPosts) {
+                if (!post.publish_at) continue;
+                const postTimeMs = new Date(post.publish_at).getTime();
+                if (Math.abs(postTimeMs - slotTimestampMs) <= OCCUPIED_WINDOW_MS) {
+                    return true;
+                }
+            }
+
+            for (const booked of existingBookedSlots) {
+                const bookedTimeMs = booked.slotDate instanceof Date 
+                    ? booked.slotDate.getTime() 
+                    : new Date(booked.slotDate || booked.publishAt).getTime();
+
+                const sameAccount = (accountId && booked.accountId)
+                    ? String(booked.accountId) === String(accountId)
+                    : (platform && booked.platform ? booked.platform.toLowerCase() === platform.toLowerCase() : true);
+
+                if (sameAccount && Math.abs(bookedTimeMs - slotTimestampMs) <= OCCUPIED_WINDOW_MS) {
+                    return true;
+                }
+            }
+
+            return false;
+        };
+
+        // Align candidate time to clean boundary (e.g. :00 or :30)
+        let candidateMs = Math.ceil(minTimeMs / intervalMs) * intervalMs;
+
+        const MAX_ITERATIONS = 48 * 14; // check up to 14 days ahead
+        for (let iter = 0; iter < MAX_ITERATIONS; iter++) {
+            // Check quiet hours in local time (12:00 AM - 08:00 AM)
+            const localMs = candidateMs + (offsetHours * 60 * 60 * 1000);
+            const localDate = new Date(localMs);
+            const localHour = localDate.getUTCHours();
+
+            if (localHour >= 0 && localHour < 8) {
+                // Advance to 08:00 AM of that day
+                localDate.setUTCHours(8, 0, 0, 0);
+                candidateMs = localDate.getTime() - (offsetHours * 60 * 60 * 1000);
+            }
+
+            // If not occupied, we found our slot!
+            if (!isSlotOccupied(candidateMs)) {
+                const finalTimestampMs = candidateMs + (staggerMinutes * 60 * 1000);
+                const finalDate = new Date(finalTimestampMs);
+                const finalLocalDate = new Date(finalTimestampMs + (offsetHours * 60 * 60 * 1000));
+                const localDateStr = `${finalLocalDate.getUTCFullYear()}-${String(finalLocalDate.getUTCMonth() + 1).padStart(2, '0')}-${String(finalLocalDate.getUTCDate()).padStart(2, '0')}`;
+
+                return {
+                    publishAt: finalDate.toISOString(),
+                    nominalSlotAt: new Date(candidateMs).toISOString(),
+                    slotHour: finalLocalDate.getUTCHours(),
+                    slotMinute: finalLocalDate.getUTCMinutes(),
+                    localDateStr
+                };
+            }
+
+            candidateMs += intervalMs;
+        }
+
+        // Fallback: 1 hour from now
+        const fallbackDate = new Date(now.getTime() + 60 * 60 * 1000);
+        return {
+            publishAt: fallbackDate.toISOString(),
+            nominalSlotAt: fallbackDate.toISOString(),
+            slotHour: fallbackDate.getUTCHours(),
+            slotMinute: fallbackDate.getUTCMinutes(),
+            localDateStr: fallbackDate.toISOString().slice(0, 10)
+        };
+    }
 }

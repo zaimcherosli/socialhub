@@ -439,7 +439,9 @@
                             <label class="form-label" for="autoFrequency">Kekerapan Harian (Daily Frequency)</label>
                             <select id="autoFrequency" class="form-select" style="width: 100%;">
                                 <option value="1">1 Post Sehari (Pagi - 9 AM)</option>
-                                <option value="3">3 Post Sehari (Pagi - 9 AM, Tengahari - 12 PM, Malam - 6 PM)</option>
+                                <option value="2">2 Post Sehari (Pagi - 9 AM, Petang - 3 PM)</option>
+                                <option value="3" selected>3 Post Sehari (Pagi - 9 AM, Tengahari - 12 PM, Petang - 3 PM)</option>
+                                <option value="5">5 Post Sehari (Slot Penuh: 9 AM, 12 PM, 3 PM, 6 PM, 9 PM)</option>
                             </select>
                         </div>
 
@@ -2287,11 +2289,13 @@
             if (spinnerConfirmAuto) spinnerConfirmAuto.style.display = "inline-block";
 
             try {
+                const frequency = parseInt(document.getElementById('autoFrequency').value, 10);
                 const response = await apiClient.post('/ai/autopilot', {
                     posts: currentAutopilotPosts,
                     targets: targetsInfo.targets,
                     targetPlatforms: targetsInfo.targetPlatforms,
                     include_threads_image: document.getElementById('chkIncludeThreadsImage')?.checked || false,
+                    frequency,
                     preview_only: false
                 });
 

@@ -63,6 +63,7 @@ export class SlotManager {
      * @param {number|string} [params.timezone] - Timezone or offset
      * @param {Array<Object>} [params.existingBookedSlots] - In-memory list of already booked slots in batch: [{ accountId, platform, slotDate }]
      * @param {number} [params.staggerMinutes] - Stagger offset (e.g. +1 min for 2nd platform)
+     * @param {Array<number>} [params.allowedSlots] - Optional subset of hours to choose from (e.g. [9, 12, 15])
      * @returns {Promise<{ publishAt: string, slotHour: number, localDateStr: string }>}
      */
     static async findNextAvailableSlot(db, {
@@ -72,7 +73,8 @@ export class SlotManager {
         startDate = new Date(),
         timezone = DEFAULT_OFFSET_HOURS,
         existingBookedSlots = [],
-        staggerMinutes = 0
+        staggerMinutes = 0,
+        allowedSlots = null
     }) {
         const offsetHours = this.resolveOffsetHours(timezone);
         const now = startDate instanceof Date ? startDate : new Date(startDate);
@@ -153,9 +155,13 @@ export class SlotManager {
         const localMonth = localDateObj.getUTCMonth();
         const localDay = localDateObj.getUTCDate();
 
+        const candidateSlots = (Array.isArray(allowedSlots) && allowedSlots.length > 0)
+            ? allowedSlots
+            : STANDARD_SLOTS;
+
         const MAX_DAYS = 30;
         for (let dayOffset = 0; dayOffset < MAX_DAYS; dayOffset++) {
-            for (const slotHour of STANDARD_SLOTS) {
+            for (const slotHour of candidateSlots) {
                 // Construct slot in UTC
                 const slotUtcMs = Date.UTC(localYear, localMonth, localDay + dayOffset, slotHour - offsetHours, 0, 0, 0);
 

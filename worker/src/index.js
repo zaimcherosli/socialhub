@@ -5216,6 +5216,13 @@ LAYOUT & DESIGN RULES:
                         const insertedPosts = [];
                         const existingBookedSlotsInBatch = [];
 
+                        let targetAllowedSlots = null;
+                        const freqNum = parseInt(frequency, 10);
+                        if (freqNum === 1) targetAllowedSlots = [9];
+                        else if (freqNum === 2) targetAllowedSlots = [9, 15];
+                        else if (freqNum === 3) targetAllowedSlots = [9, 12, 15];
+                        else if (freqNum === 5) targetAllowedSlots = [9, 12, 15, 18, 21];
+
                         for (const post of campaign) {
                             const rawMedia = post.media_urls || (post.media_url ? [post.media_url] : []);
                             const sanitizedUrls = await sanitizeAndStoreMediaUrls(env.DB, user.id, activeWorkspace.workspace_id, rawMedia);
@@ -5230,7 +5237,8 @@ LAYOUT & DESIGN RULES:
                                         platform: acc.platform,
                                         timezone: 'Asia/Kuala_Lumpur',
                                         existingBookedSlots: existingBookedSlotsInBatch,
-                                        staggerMinutes: accIdx
+                                        staggerMinutes: accIdx,
+                                        allowedSlots: targetAllowedSlots
                                     });
                                     const platformPublishAt = slotRes.publishAt;
                                     existingBookedSlotsInBatch.push({
@@ -5280,7 +5288,8 @@ LAYOUT & DESIGN RULES:
                                     workspaceId: activeWorkspace.workspace_id,
                                     platform: platform || 'threads',
                                     timezone: 'Asia/Kuala_Lumpur',
-                                    existingBookedSlots: existingBookedSlotsInBatch
+                                    existingBookedSlots: existingBookedSlotsInBatch,
+                                    allowedSlots: targetAllowedSlots
                                 });
                                 const draftPublishAt = draftSlotRes.publishAt;
                                 existingBookedSlotsInBatch.push({

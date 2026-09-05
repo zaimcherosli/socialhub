@@ -244,22 +244,28 @@ CRITICAL HOOK & CONTENT DIVERSITY RULES (VERY IMPORTANT TO AVOID REPETITION):
         // Slice to requested count just in case
         campaignPosts = campaignPosts.slice(0, count);
 
-        // Optimal hours: 9 AM, 12 PM, 6 PM
-        const optimalHours = [9, 12, 18];
+        // Standard Malaysian slots (9 AM, 12 PM, 3 PM, 6 PM, 9 PM)
         const offset = typeof timezoneOffset === 'number' ? timezoneOffset : -480; // default UTC+8
-        const postsPerDay = parseInt(frequency) || 1;
+        const postsPerDay = parseInt(frequency, 10) || 1;
+
+        let dailySlots = [9];
+        if (postsPerDay === 1) {
+            dailySlots = [9];
+        } else if (postsPerDay === 2) {
+            dailySlots = [9, 15]; // 9 AM, 3 PM
+        } else if (postsPerDay === 3) {
+            dailySlots = [9, 12, 15]; // 9 AM, 12 PM, 3 PM (consecutive)
+        } else if (postsPerDay === 5) {
+            dailySlots = [9, 12, 15, 18, 21]; // Full 5 standard slots
+        } else {
+            const standard = [9, 12, 15, 18, 21];
+            dailySlots = standard.slice(0, Math.min(postsPerDay, standard.length));
+        }
 
         const scheduledCampaign = campaignPosts.map((post, idx) => {
             const daysAhead = Math.floor(idx / postsPerDay) + 1; // Starts tomorrow
             const timeIndex = idx % postsPerDay;
-            
-            let localHour = 9;
-            if (postsPerDay === 1) {
-                const singleOptimalHours = [9, 12, 18, 15, 10];
-                localHour = singleOptimalHours[idx % singleOptimalHours.length];
-            } else {
-                localHour = optimalHours[timeIndex % optimalHours.length];
-            }
+            const localHour = dailySlots[timeIndex % dailySlots.length];
             
             // Calculate UTC timestamp
             const date = new Date();

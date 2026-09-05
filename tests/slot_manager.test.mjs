@@ -196,3 +196,37 @@ test('SlotManager - In-memory batch reservations prevent internal collisions', a
     assert.equal(post2.slotHour, 12);
     assert.equal(post3.slotHour, 15);
 });
+
+test('SlotManager - allowedSlots restricts candidates (e.g. 1 post/day restricts to 09:00 AM only)', async () => {
+    const mockDb = createMockDb([]);
+    const simDate = new Date('2026-09-05T00:00:00.000Z'); // 08:00 AM MYT
+    const existingBookedSlots = [];
+
+    // First post takes 09:00 AM today
+    const post1 = await SlotManager.findNextAvailableSlot(mockDb, {
+        workspaceId: 'ws-123',
+        accountId: 'acc-1',
+        platform: 'threads',
+        startDate: simDate,
+        existingBookedSlots,
+        allowedSlots: [9]
+    });
+    existingBookedSlots.push({ accountId: 'acc-1', platform: 'threads', slotDate: post1.nominalSlotAt });
+
+    // Second post with allowedSlots = [9] must roll over to TOMORROW 09:00 AM (skipping 12pm, 3pm, 6pm, 9pm today!)
+    const post2 = await SlotManager.findNextAvailableSlot(mockDb, {
+        workspaceId: 'ws-123',
+        accountId: 'acc-1',
+        platform: 'threads',
+        startDate: simDate,
+        existingBookedSlots,
+        allowedSlots: [9]
+    });
+
+    assert.equal(post1.slotHour, 9);
+    assert.equal(post1.localDateStr, '2026-09-05');
+
+    assert.equal(post2.slotHour, 9);
+    assert.equal(post2.localDateStr, '2026-09-06');
+});
+

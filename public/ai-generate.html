@@ -425,17 +425,6 @@
                         </div>
 
                         <div class="form-group" style="margin-bottom: 1rem;">
-                            <label class="form-label" for="autoCount">Campaign Length (Total Generated Posts)</label>
-                            <select id="autoCount" class="form-select" style="width: 100%;">
-                                <option value="3">3 Posts</option>
-                                <option value="6" selected>6 Posts</option>
-                                <option value="9">9 Posts</option>
-                                <option value="12">12 Posts</option>
-                                <option value="15">15 Posts</option>
-                            </select>
-                        </div>
-
-                        <div class="form-group" style="margin-bottom: 1rem;">
                             <label class="form-label" for="autoFrequency">Kekerapan Harian (Daily Frequency)</label>
                             <select id="autoFrequency" class="form-select" style="width: 100%;">
                                 <option value="1">1 Post Sehari (Pagi - 9 AM)</option>
@@ -443,6 +432,22 @@
                                 <option value="3" selected>3 Post Sehari (Pagi - 9 AM, Tengahari - 12 PM, Petang - 3 PM)</option>
                                 <option value="5">5 Post Sehari (Slot Penuh: 9 AM, 12 PM, 3 PM, 6 PM, 9 PM)</option>
                             </select>
+                        </div>
+
+                        <div class="form-group" style="margin-bottom: 0.65rem;">
+                            <label class="form-label" for="autoCount">Tempoh Kempen & Jumlah Post (Campaign Length)</label>
+                            <select id="autoCount" class="form-select" style="width: 100%;">
+                                <option value="3">3 Posts (1 Hari)</option>
+                                <option value="6" selected>6 Posts (2 Hari)</option>
+                                <option value="9">9 Posts (3 Hari)</option>
+                                <option value="12">12 Posts (4 Hari)</option>
+                                <option value="15">15 Posts (5 Hari)</option>
+                            </select>
+                        </div>
+
+                        <!-- Realtime Sync Summary Indicator -->
+                        <div id="campaignSyncBadge" style="font-size: 0.76rem; color: #4338ca; background: #eef2ff; border: 1px solid #c7d2fe; border-radius: 6px; padding: 0.45rem 0.75rem; margin-bottom: 1.25rem; display: flex; align-items: center; gap: 0.45rem;">
+                            <span>⚡</span> <span id="campaignSyncSummaryText"><strong>3 Post Sehari</strong> × <strong>2 Hari</strong> = <strong>Jumlah 6 Post Dijana</strong></span>
                         </div>
 
                         <div class="form-group" style="margin-bottom: 1.5rem;">
@@ -2121,6 +2126,91 @@
                 button.innerHTML = origHtml;
             };
         }
+
+        // ── Auto-Sync between Kekerapan Harian (Daily Frequency) & Tempoh Kempen (Campaign Length) ──
+        const selFrequency = document.getElementById('autoFrequency');
+        const selCount = document.getElementById('autoCount');
+        const badgeSummary = document.getElementById('campaignSyncSummaryText');
+
+        const CAMPAIGN_OPTIONS = {
+            1: [
+                { count: 1, days: 1, label: '1 Post (1 Hari)' },
+                { count: 3, days: 3, label: '3 Posts (3 Hari)' },
+                { count: 5, days: 5, label: '5 Posts (5 Hari)' },
+                { count: 7, days: 7, label: '7 Posts (1 Minggu)' },
+                { count: 14, days: 14, label: '14 Posts (2 Minggu)' }
+            ],
+            2: [
+                { count: 2, days: 1, label: '2 Posts (1 Hari)' },
+                { count: 4, days: 2, label: '4 Posts (2 Hari)' },
+                { count: 6, days: 3, label: '6 Posts (3 Hari)' },
+                { count: 10, days: 5, label: '10 Posts (5 Hari)' },
+                { count: 14, days: 7, label: '14 Posts (1 Minggu)' }
+            ],
+            3: [
+                { count: 3, days: 1, label: '3 Posts (1 Hari)' },
+                { count: 6, days: 2, label: '6 Posts (2 Hari)' },
+                { count: 9, days: 3, label: '9 Posts (3 Hari)' },
+                { count: 12, days: 4, label: '12 Posts (4 Hari)' },
+                { count: 15, days: 5, label: '15 Posts (5 Hari)' }
+            ],
+            5: [
+                { count: 5, days: 1, label: '5 Posts (1 Hari - Semua Slot Penuh)' },
+                { count: 10, days: 2, label: '10 Posts (2 Hari - Semua Slot Penuh)' },
+                { count: 15, days: 3, label: '15 Posts (3 Hari - Semua Slot Penuh)' }
+            ]
+        };
+
+        function renderSyncSummaryBadge() {
+            if (!badgeSummary || !selFrequency || !selCount) return;
+            const freq = parseInt(selFrequency.value, 10) || 3;
+            const count = parseInt(selCount.value, 10) || 6;
+            const days = Math.round(count / freq) || 1;
+            const dayText = days === 1 ? '1 Hari' : `${days} Hari`;
+            badgeSummary.innerHTML = `<strong>${freq} Post Sehari</strong> × <strong>${dayText}</strong> = <strong style="color: #4338ca;">Jumlah ${count} Post Dijana</strong>`;
+        }
+
+        function updateCampaignSync(preferredDays = null) {
+            if (!selFrequency || !selCount) return;
+            const freq = parseInt(selFrequency.value, 10) || 3;
+            const options = CAMPAIGN_OPTIONS[freq] || CAMPAIGN_OPTIONS[3];
+
+            let targetDays = preferredDays;
+            if (!targetDays) {
+                const currentCount = parseInt(selCount.value, 10);
+                const allOpts = Object.values(CAMPAIGN_OPTIONS).flat();
+                const prevOpt = allOpts.find(o => o.count === currentCount);
+                targetDays = prevOpt ? prevOpt.days : (freq === 5 ? 1 : 2);
+            }
+
+            selCount.innerHTML = '';
+            let matchedValue = options[0].count;
+            options.forEach(opt => {
+                const el = document.createElement('option');
+                el.value = opt.count;
+                el.textContent = opt.label;
+                if (opt.days === targetDays || (opt.days <= targetDays && opt.count >= matchedValue)) {
+                    matchedValue = opt.count;
+                }
+                selCount.appendChild(el);
+            });
+
+            const exactMatch = options.find(o => o.days === targetDays);
+            selCount.value = exactMatch ? exactMatch.count : matchedValue;
+
+            renderSyncSummaryBadge();
+        }
+
+        selFrequency?.addEventListener('change', () => {
+            updateCampaignSync();
+        });
+
+        selCount?.addEventListener('change', () => {
+            renderSyncSummaryBadge();
+        });
+
+        // Initialize sync on page load
+        updateCampaignSync(2);
 
         // Action 1: Direct Schedule Autopilot (+ Image)
         const btnAIAutopilotSchedule = document.getElementById('btnAIAutopilotSchedule');

@@ -41,8 +41,19 @@ export class AIFactory {
 
         if (isAgentRouterSpecialModel) {
             const cleanModel = activeModel.includes('/') ? activeModel.split('/').pop() : activeModel;
-            const targetKey = workspaceKey || env.OPENAI_API_KEY || env.OPENROUTER_API_KEY || "";
-            return new OpenAIProvider(targetKey, cleanModel, "https://agentrouter.org/v1");
+            if (hasWorkspaceKey && workspaceKey.startsWith("sk-")) {
+                return new OpenAIProvider(workspaceKey, cleanModel, "https://agentrouter.org/v1");
+            }
+            // Without a valid custom BYOK key, safely fall back to healthy system providers
+            if (hasGemini) {
+                return new GeminiProvider(env.GEMINI_API_KEY, "gemini-3.7-flash");
+            }
+            if (hasOpenAI) {
+                return new OpenAIProvider(env.OPENAI_API_KEY, "gpt-4o-mini");
+            }
+            if (env.AI) {
+                return new CloudflareAIProvider(env.AI, "@cf/meta/llama-3.2-3b-instruct");
+            }
         }
 
         // 2. Direct OpenAI Check
@@ -64,7 +75,7 @@ export class AIFactory {
 
             // Use direct GeminiProvider ONLY if we have a direct Gemini API key and workspace is not using OpenRouter
             if (hasGemini && !isWorkspaceOpenRouter) {
-                const apiKey = env.GEMINI_API_KEY || (workspaceKey.startsWith("AIza") ? workspaceKey : "");
+                const apiKey = (workspaceKey && workspaceKey.startsWith("AIza")) ? workspaceKey : env.GEMINI_API_KEY;
                 if (apiKey) {
                     let cleanModel = activeModel;
                     if (cleanModel.includes('/')) {
@@ -81,8 +92,8 @@ export class AIFactory {
                 }
             }
             
-            // Otherwise, route to OpenRouter
-            if (hasOpenRouter || isWorkspaceOpenRouter) {
+            // Otherwise, route to OpenRouter only if a valid OpenRouter key is actually present
+            if (isWorkspaceOpenRouter || (hasOpenRouter && env.OPENROUTER_API_KEY && env.OPENROUTER_API_KEY.trim())) {
                 const apiKey = isWorkspaceOpenRouter ? workspaceKey : env.OPENROUTER_API_KEY;
                 if (apiKey) {
                     return new OpenRouterProvider(apiKey, activeModel);
@@ -94,7 +105,7 @@ export class AIFactory {
                 return new CloudflareAIProvider(env.AI, '@cf/meta/llama-3.2-3b-instruct');
             }
             
-            throw new Error("Missing GEMINI_API_KEY or OPENROUTER_API_KEY configuration for Gemini model.");
+            throw new Error("Missing GEMINI_API_KEY configuration for Gemini model.");
         }
 
         // 4. Cloudflare AI Check
@@ -103,8 +114,7 @@ export class AIFactory {
                              activeModel.toLowerCase().includes("llama-3.1-8b") ||
                              activeModel.toLowerCase().includes("llama-3.2-3b") ||
                              activeModel.startsWith("@cf/") ||
-                             (!hasGemini && !hasOpenRouter && env.AI) ||
-                             (!hasWorkspaceKey && env.AI);
+                             (!hasGemini && !hasOpenRouter && !hasOpenAI && env.AI);
 
         if (isCloudflare && env.AI) {
             const isCfModel = activeModel.startsWith("@cf/") || 
@@ -114,21 +124,36 @@ export class AIFactory {
                              activeModel.toLowerCase().includes("qwen");
             const cleanModel = isCfModel ? activeModel : '@cf/meta/llama-3.2-3b-instruct';
             return new CloudflareAIProvider(env.AI, cleanModel);
-        } else {
-            // If workspace has custom key (e.g. Agent Router sk- key), use OpenAIProvider targeting AgentRouter
-            if (workspaceKey && workspaceKey.startsWith("sk-")) {
-                const cleanModel = activeModel.includes('/') ? activeModel.split('/').pop() : activeModel;
-                return new OpenAIProvider(workspaceKey, cleanModel, "https://agentrouter.org/v1");
-            }
-            // OpenRouter fallback
-            const apiKey = env.OPENROUTER_API_KEY || workspaceKey;
-            if (!apiKey) {
-                if (env.AI) return new CloudflareAIProvider(env.AI);
-                throw new Error("Missing OPENROUTER_API_KEY configuration in environment variables.");
-            }
-            const cleanModel = activeModel || "meta-llama/llama-3.2-3b-instruct:free";
-            return new OpenRouterProvider(apiKey, cleanModel);
         }
+
+        // If workspace has custom key (e.g. Agent Router sk- key), use OpenAIProvider targeting AgentRouter
+        if (hasWorkspaceKey && workspaceKey.startsWith("sk-")) {
+            const cleanModel = activeModel.includes('/') ? activeModel.split('/').pop() : activeModel;
+            return new OpenAIProvider(workspaceKey, cleanModel, "https://agentrouter.org/v1");
+        }
+
+        // If workspace has OpenRouter key
+        if (hasWorkspaceKey && workspaceKey.startsWith("sk-or-")) {
+            return new OpenRouterProvider(workspaceKey, activeModel);
+        }
+
+        // If global OpenRouter key exists
+        if (env.OPENROUTER_API_KEY && env.OPENROUTER_API_KEY.trim()) {
+            return new OpenRouterProvider(env.OPENROUTER_API_KEY, activeModel || "meta-llama/llama-3.2-3b-instruct:free");
+        }
+
+        // Safe system key fallbacks: Gemini > OpenAI > Cloudflare AI
+        if (hasGemini) {
+            return new GeminiProvider(env.GEMINI_API_KEY, "gemini-3.7-flash");
+        }
+        if (hasOpenAI) {
+            return new OpenAIProvider(env.OPENAI_API_KEY, "gpt-4o-mini");
+        }
+        if (env.AI) {
+            return new CloudflareAIProvider(env.AI, "@cf/meta/llama-3.2-3b-instruct");
+        }
+
+        throw new Error("Tiada model AI yang sah dikonfigurasikan.");
     }
 }
 

@@ -27,27 +27,30 @@ export class OpenAIProvider extends AIProvider {
             this.model.includes('glm-5') || 
             this.model.includes('gpt-5.6');
 
-        // Claude models: prefer /messages (native Anthropic format) first
-        // Non-Claude Agent Router models (DeepSeek, GLM, GPT-5.6): prefer /chat/completions first
-        const endpoints = isAgentRouterModel ? (
-            isClaudeModel ? [
+        // Endpoints to attempt based on model and key type
+        const isOpenRouterKey = this.apiKey && this.apiKey.startsWith('sk-or-');
+        let endpoints = [];
+
+        if (isAgentRouterModel) {
+            endpoints = isClaudeModel ? [
                 "https://agentrouter.org/v1/messages",
                 "https://agentrouter.org/v1/chat/completions",
-                "https://api.openai.com/v1/chat/completions",
-                "https://openrouter.ai/api/v1/chat/completions"
+                "https://api.openai.com/v1/chat/completions"
             ] : [
                 "https://agentrouter.org/v1/chat/completions",
                 "https://agentrouter.org/v1/messages",
-                "https://api.openai.com/v1/chat/completions",
-                "https://openrouter.ai/api/v1/chat/completions"
-            ]
-        ) : [
-            this.baseUrl ? `${this.baseUrl}/chat/completions` : "https://api.openai.com/v1/chat/completions",
-            "https://agentrouter.org/v1/messages",
-            "https://agentrouter.org/v1/chat/completions",
-            "https://api.openai.com/v1/chat/completions",
-            "https://openrouter.ai/api/v1/chat/completions"
-        ];
+                "https://api.openai.com/v1/chat/completions"
+            ];
+        } else {
+            endpoints = [
+                this.baseUrl ? `${this.baseUrl}/chat/completions` : "https://api.openai.com/v1/chat/completions",
+                "https://api.openai.com/v1/chat/completions"
+            ];
+        }
+
+        if (isOpenRouterKey) {
+            endpoints.push("https://openrouter.ai/api/v1/chat/completions");
+        }
 
         const uniqueEndpoints = [...new Set(endpoints)];
         let lastErr = null;

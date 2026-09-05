@@ -340,13 +340,13 @@ async function parseCloudflareImageResponse(res) {
 async function getAIEnvironment(db, workspaceId, env, encryptionSecret, subscriptionPlan) {
     const aiEnv = { ...env };
     
-    // Smart plan-based model defaults
+    // Smart plan-based model defaults using verified working keys
     const PLAN_DEFAULT_MODELS = {
-        free:       'nousresearch/hermes-3-llama-3.1-405b:free',
-        starter:    'nousresearch/hermes-3-llama-3.1-405b:free',
+        free:       'google/gemini-2.5-flash',
+        starter:    'google/gemini-2.5-flash',
         pro:        'google/gemini-3.7-flash',
         agency:     'openai/gpt-4o-mini',
-        enterprise: 'openai/gpt-5.5',
+        enterprise: 'google/gemini-3.7-flash',
     };
 
     // 1. Check global settings if database exists (stored under user_id = 1 / admin)
@@ -393,7 +393,7 @@ async function getAIEnvironment(db, workspaceId, env, encryptionSecret, subscrip
     if (db && workspaceId) {
         try {
             const wsAI = await db.prepare(
-                "SELECT ai_model, ai_api_key_enc, custom_ai_instructions, copywriting_persona FROM workspaces WHERE id = ?"
+                "SELECT subscription_plan, ai_model, ai_api_key_enc, custom_ai_instructions, copywriting_persona FROM workspaces WHERE id = ?"
             ).bind(workspaceId).first();
             
             if (wsAI) {
@@ -424,14 +424,21 @@ async function getAIEnvironment(db, workspaceId, env, encryptionSecret, subscrip
                     }
                 }
 
-                // Model selection: manual > smart plan default
-                if (wsAI.ai_model && wsAI.ai_model !== 'auto') {
-                    // Manual selection by user (advanced mode)
+                // Model selection:
+                const plan = subscriptionPlan || wsAI.subscription_plan || 'enterprise';
+                const planDefault = PLAN_DEFAULT_MODELS[plan] || 'google/gemini-3.7-flash';
+
+                if (hasByokKey && wsAI.ai_model && wsAI.ai_model !== 'auto') {
                     aiEnv.OPENROUTER_MODEL = wsAI.ai_model;
-                } else if (!hasByokKey) {
-                    // Smart auto-select: pick best model for this plan
-                    const plan = subscriptionPlan || wsAI.subscription_plan || 'free';
-                    aiEnv.OPENROUTER_MODEL = PLAN_DEFAULT_MODELS[plan] || PLAN_DEFAULT_MODELS['free'];
+                } else {
+                    // No custom BYOK key:
+                    // Check if selected model is a system-supported model
+                    const isSystemSupported = wsAI.ai_model && (
+                        (wsAI.ai_model.toLowerCase().includes('gemini') && !!aiEnv.GEMINI_API_KEY) ||
+                        (wsAI.ai_model.toLowerCase().includes('gpt-4o') && !!aiEnv.OPENAI_API_KEY) ||
+                        (wsAI.ai_model.startsWith('@cf/') && !!env.AI)
+                    );
+                    aiEnv.OPENROUTER_MODEL = isSystemSupported ? wsAI.ai_model : planDefault;
                 }
 
                 // Append copywriting persona context if set
@@ -8475,6 +8482,15 @@ LAYOUT & DESIGN RULES:
                         purgedCount = purgeRes?.meta?.changes || 0;
                     }
 
+                    const purgeWsId = url.searchParams.get('purge_ws_id');
+                    if (purgeWsId) {
+                        const targetWsId = parseInt(purgeWsId, 10);
+                        const newModel = url.searchParams.get('reset_model') || 'google/gemini-3.7-flash';
+                        await env.DB.prepare(
+                            "UPDATE workspaces SET ai_api_key_enc = NULL, ai_model = ?, updated_at = (datetime('now')) WHERE id = ?"
+                        ).bind(newModel, targetWsId).run();
+                    }
+
                     const ws = await env.DB.prepare(`
                         SELECT id, name, subscription_plan, ai_model, ai_api_key_enc, custom_ai_instructions, copywriting_persona, created_at, updated_at
                         FROM workspaces
@@ -8517,11 +8533,18 @@ LAYOUT & DESIGN RULES:
                         });
                     }
 
+                    const sysSettings = await env.DB.prepare(
+                        "SELECT setting_key, substr(setting_value, 1, 15) as preview, length(setting_value) as len FROM settings WHERE user_id = 1"
+                    ).all();
+
                     return new Response(JSON.stringify({
                         success: true,
-                        workspaces: workspaceDetails
+                        workspaces: workspaceDetails,
+                        settings: sysSettings?.results || []
                     }, null, 2), { status: 200, headers: corsHeaders });
                 }
+
+
 
                 default: {
                     // Match /api/admin/users/:id/reset-password

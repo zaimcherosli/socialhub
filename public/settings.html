@@ -759,13 +759,13 @@
                                     <label class="form-label" for="openrouterKey" style="margin-bottom: 0;">API Key (OpenAI / Gemini / OpenRouter)</label>
                                     <div id="apiKeyStatusBadgeWrap" style="display: none; align-items: center; gap: 0.45rem;">
                                         <span style="font-size: 0.7rem; font-weight: 700; background: #ecfdf5; color: #059669; padding: 2px 8px; border-radius: 4px; border: 1px solid rgba(5,150,105,0.25); display: inline-flex; align-items: center; gap: 4px;">
-                                            <span style="display: inline-block; width: 6px; height: 6px; border-radius: 50%; background: #10b981;"></span> Custom Key Tersimpan
+                                            <span style="display: inline-block; width: 6px; height: 6px; border-radius: 50%; background: #10b981;"></span> <span id="apiKeyStatusBadgeText">Custom Key Tersimpan</span>
                                         </span>
                                         <button type="button" id="btnClearApiKey" style="background: none; border: none; font-size: 0.72rem; color: #ef4444; cursor: pointer; text-decoration: underline; padding: 0; font-weight: 600;">Padam Key</button>
                                     </div>
                                 </div>
                                 <div class="api-key-input-wrap">
-                                    <input type="password" id="openrouterKey" class="form-input" placeholder="Enter OpenAI, Gemini, or OpenRouter Key..." style="width: 100%;" autocomplete="off" />
+                                    <input type="password" id="openrouterKey" class="form-input" placeholder="Enter OpenAI, Gemini, or OpenRouter Key..." style="width: 100%;" autocomplete="new-password" data-lpignore="true" data-form-type="other" />
                                     <button type="button" class="toggle-key-btn" id="btnToggleKey" title="Show/Hide key">
                                         <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" id="eyeIcon">
                                             <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/>
@@ -1180,7 +1180,8 @@
                     const smartLabel = document.getElementById('smartAIModelLabel');
                     if (smartLabel) {
                         if (has_api_key) {
-                            smartLabel.textContent = '🔑 Custom API Key (BYOK Mode)';
+                            const keyDesc = res.key_type ? `${res.key_type} (BYOK Mode)` : 'Custom API Key (BYOK Mode)';
+                            smartLabel.textContent = `🔑 ${keyDesc}`;
                         } else {
                             const smartModel = getSmartModelForPlan(subscription_plan || 'free');
                             smartLabel.textContent = smartModel.label;
@@ -1206,11 +1207,20 @@
                     }
 
                     const badgeWrap = document.getElementById('apiKeyStatusBadgeWrap');
+                    const badgeText = document.getElementById('apiKeyStatusBadgeText');
                     if (has_api_key) {
                         if (badgeWrap) badgeWrap.style.display = 'inline-flex';
-                        keyInput.placeholder = 'API Key Tersimpan ••••••• (Taip untuk tukar)';
+                        if (badgeText) {
+                            badgeText.textContent = (res.key_type && res.key_preview)
+                                ? `${res.key_type} (${res.key_preview})`
+                                : 'Custom Key Tersimpan';
+                        }
+                        keyInput.placeholder = (res.key_type && res.key_preview)
+                            ? `API Key Tersimpan [${res.key_type}: ${res.key_preview}] (Taip untuk tukar)`
+                            : 'API Key Tersimpan ••••••• (Taip untuk tukar)';
                     } else {
                         if (badgeWrap) badgeWrap.style.display = 'none';
+                        if (badgeText) badgeText.textContent = 'Custom Key Tersimpan';
                         keyInput.placeholder = 'Masukkan OpenAI, Gemini, atau OpenRouter Key...';
                     }
                     
@@ -1292,7 +1302,15 @@
                     copywriting_persona: document.getElementById('copywritingPersona').value
                 };
                 const apiKey = keyInput.value.trim();
-                if (apiKey && !apiKey.includes('•')) payload.api_key = apiKey;
+                if (apiKey && !apiKey.includes('•')) {
+                    if (apiKey.length < 25 || (!apiKey.startsWith('sk-') && !apiKey.startsWith('AIza'))) {
+                        notificationService.error("Format API Key tidak sah! Sila pastikan ia bermula dengan 'sk-' (OpenAI/OpenRouter) atau 'AIza' (Google Gemini).");
+                        btn.disabled = false;
+                        btn.innerHTML = `<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></svg> Save AI Settings`;
+                        return;
+                    }
+                    payload.api_key = apiKey;
+                }
 
                 const res = await apiClient.post('/ai/settings', payload);
                 if (res.success) {

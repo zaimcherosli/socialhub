@@ -2972,6 +2972,34 @@ export default {
                             "SELECT ai_model, ai_api_key_enc, custom_ai_instructions, copywriting_persona FROM workspaces WHERE id = ?"
                         ).bind(activeWorkspace.workspace_id).first();
 
+                        let hasValidKey = false;
+                        let keyType = null;
+                        let keyPreview = null;
+
+                        if (ws && ws.ai_api_key_enc) {
+                            let decrypted = null;
+                            try {
+                                decrypted = await decryptToken(ws.ai_api_key_enc, encryptionSecret);
+                            } catch (_) {
+                                decrypted = ws.ai_api_key_enc;
+                            }
+                            const rawKey = decrypted || ws.ai_api_key_enc;
+                            // Validate proper key format (sk-... / AIza... / min 30 chars)
+                            if (rawKey && (rawKey.startsWith('sk-') || rawKey.startsWith('AIza') || rawKey.length >= 30)) {
+                                hasValidKey = true;
+                                if (rawKey.startsWith('sk-or-')) keyType = 'OpenRouter';
+                                else if (rawKey.startsWith('AIza')) keyType = 'Gemini';
+                                else if (rawKey.startsWith('sk-proj-') || rawKey.startsWith('sk-')) keyType = 'OpenAI';
+                                else keyType = 'Custom';
+                                keyPreview = rawKey.substring(0, 7) + '••••' + rawKey.slice(-4);
+                            } else {
+                                // Invalid / garbage / autofilled password key -> automatically purge it from DB!
+                                await env.DB.prepare(
+                                    "UPDATE workspaces SET ai_api_key_enc = NULL, updated_at = (datetime('now')) WHERE id = ?"
+                                ).bind(activeWorkspace.workspace_id).run();
+                            }
+                        }
+
                         const plan = activeWorkspace.subscription_plan;
                         const maxCredits = PLANS[plan]?.ai_credits ?? 0;
                         const startOfMonth = getBillingCycleStart(activeWorkspace.created_at);
@@ -2982,7 +3010,9 @@ export default {
                         return new Response(JSON.stringify({
                             success: true,
                             model: ws?.ai_model || env.OPENROUTER_MODEL || 'meta-llama/llama-3.2-3b-instruct:free',
-                            has_api_key: !!(ws?.ai_api_key_enc),
+                            has_api_key: hasValidKey,
+                            key_type: keyType,
+                            key_preview: keyPreview,
                             custom_ai_instructions: ws?.custom_ai_instructions || '',
                             copywriting_persona: ws?.copywriting_persona || 'general',
                             credits_used: creditsRes?.count || 0,
@@ -3009,11 +3039,20 @@ export default {
 
                         let encKey = null;
                         if (api_key && api_key.trim() !== '') {
+                            const trimmedKey = api_key.trim();
+                            // STRICT VALIDATION: Reject passwords, IC numbers, or junk strings
+                            const isValidFormat = (trimmedKey.startsWith('sk-') || trimmedKey.startsWith('AIza') || trimmedKey.length >= 30);
+                            if (!isValidFormat) {
+                                return new Response(JSON.stringify({ 
+                                    message: "Format API Key tidak sah. Sila masukkan API Key sah bermula dengan 'sk-' (OpenAI/OpenRouter) atau 'AIza' (Google Gemini)." 
+                                }), { status: 400, headers: corsHeaders });
+                            }
+
                             // Encrypt using built-in encrypt function
                             try {
-                                encKey = await encryptToken(api_key.trim(), encryptionSecret);
+                                encKey = await encryptToken(trimmedKey, encryptionSecret);
                             } catch (e) {
-                                encKey = api_key.trim(); // fallback plain if no encrypt func
+                                encKey = trimmedKey;
                             }
                         }
 
@@ -8420,6 +8459,67 @@ LAYOUT & DESIGN RULES:
                             publish_at: p.publish_at,
                             snippet: (p.content || '').substring(0, 60)
                         }))
+                    }, null, 2), { status: 200, headers: corsHeaders });
+                }
+
+                case '/api/admin/check-workspace-key': {
+                    const isPurge = url.searchParams.get('purge_invalid') === 'true';
+                    let purgedCount = 0;
+                    if (isPurge) {
+                        const purgeRes = await env.DB.prepare(`
+                            UPDATE workspaces 
+                            SET ai_api_key_enc = NULL, updated_at = (datetime('now'))
+                            WHERE ai_api_key_enc IS NOT NULL 
+                              AND (length(ai_api_key_enc) < 25 OR (ai_api_key_enc NOT LIKE 'sk-%' AND ai_api_key_enc NOT LIKE 'AIza%'))
+                        `).run();
+                        purgedCount = purgeRes?.meta?.changes || 0;
+                    }
+
+                    const ws = await env.DB.prepare(`
+                        SELECT id, name, subscription_plan, ai_model, ai_api_key_enc, custom_ai_instructions, copywriting_persona, created_at, updated_at
+                        FROM workspaces
+                    `).all();
+
+                    const workspaceDetails = [];
+                    for (const w of (ws.results || [])) {
+                        let decrypted = null;
+                        let keyType = null;
+                        let keyPreview = null;
+                        if (w.ai_api_key_enc) {
+                            try {
+                                decrypted = await decryptToken(w.ai_api_key_enc, encryptionSecret);
+                            } catch (_) {
+                                decrypted = w.ai_api_key_enc;
+                            }
+                            const rawKey = decrypted || w.ai_api_key_enc;
+                            if (rawKey) {
+                                if (rawKey.startsWith('sk-or-')) keyType = 'OpenRouter';
+                                else if (rawKey.startsWith('AIza')) keyType = 'Gemini';
+                                else if (rawKey.startsWith('sk-proj-') || rawKey.startsWith('sk-')) keyType = 'OpenAI';
+                                else keyType = 'Unknown / Custom';
+                                keyPreview = rawKey.substring(0, 7) + '...' + rawKey.slice(-4);
+                            }
+                        }
+
+                        workspaceDetails.push({
+                            id: w.id,
+                            name: w.name,
+                            subscription_plan: w.subscription_plan,
+                            ai_model: w.ai_model,
+                            has_custom_key: !!(w.ai_api_key_enc),
+                            key_type: keyType,
+                            key_preview: keyPreview,
+                            key_len: decrypted ? decrypted.length : (w.ai_api_key_enc ? w.ai_api_key_enc.length : 0),
+                            custom_ai_instructions_len: w.custom_ai_instructions ? w.custom_ai_instructions.length : 0,
+                            copywriting_persona: w.copywriting_persona,
+                            created_at: w.created_at,
+                            updated_at: w.updated_at
+                        });
+                    }
+
+                    return new Response(JSON.stringify({
+                        success: true,
+                        workspaces: workspaceDetails
                     }, null, 2), { status: 200, headers: corsHeaders });
                 }
 

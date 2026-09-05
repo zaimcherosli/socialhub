@@ -8255,6 +8255,110 @@ LAYOUT & DESIGN RULES:
                     return new Response(JSON.stringify({ success: true, reports }), { status: 200, headers: corsHeaders });
                 }
 
+                case '/api/admin/shift-sept6-overlaps': {
+                    const isExecute = url.searchParams.get('execute') === 'true';
+
+                    // Fetch all scheduled posts for Sept 6 (MYT: 2026-09-05T16:00:00Z to 2026-09-06T20:00:00Z)
+                    const posts = await env.DB.prepare(`
+                        SELECT id, workspace_id, account_id, platform, content, status, publish_at, parent_post_id
+                        FROM scheduled_posts
+                        WHERE publish_at >= '2026-09-05T16:00:00.000Z' 
+                          AND publish_at <= '2026-09-06T20:00:00.000Z'
+                          AND status IN ('scheduled', 'draft')
+                        ORDER BY publish_at ASC, id ASC
+                    `).all();
+
+                    const allPosts = posts.results || [];
+                    
+                    // Group posts by time window (slot within 45 mins)
+                    const slots = [];
+                    for (const p of allPosts) {
+                        if (p.parent_post_id) continue; // child posts move with parent
+                        const pTime = new Date(p.publish_at).getTime();
+                        let foundSlot = slots.find(s => Math.abs(s.time - pTime) <= 45 * 60 * 1000);
+                        if (!foundSlot) {
+                            foundSlot = { time: pTime, posts: [] };
+                            slots.push(foundSlot);
+                        }
+                        foundSlot.posts.push(p);
+                    }
+
+                    const toShift = [];
+                    const toKeep = [];
+
+                    for (const slot of slots) {
+                        const threadsPosts = slot.posts.filter(p => p.platform === 'threads');
+                        const fbPosts = slot.posts.filter(p => p.platform === 'facebook');
+                        const otherPosts = slot.posts.filter(p => p.platform !== 'threads' && p.platform !== 'facebook');
+
+                        toKeep.push(...otherPosts);
+                        toKeep.push(...fbPosts);
+
+                        if (threadsPosts.length <= 1) {
+                            toKeep.push(...threadsPosts);
+                        } else {
+                            // Multiple threads posts in this slot!
+                            // Check which Threads post matches FB content if FB exists in this slot
+                            let matchingIdx = 0;
+                            if (fbPosts.length > 0) {
+                                const fbWords = (fbPosts[0].content || '').substring(0, 40).toLowerCase().trim();
+                                const match = threadsPosts.findIndex(tp => (tp.content || '').toLowerCase().includes(fbWords));
+                                if (match !== -1) {
+                                    matchingIdx = match;
+                                }
+                            }
+
+                            // The matching Threads post stays on Sept 6
+                            toKeep.push(threadsPosts[matchingIdx]);
+
+                            // The other Threads post(s) are shifted to Sept 8
+                            for (let i = 0; i < threadsPosts.length; i++) {
+                                if (i !== matchingIdx) {
+                                    toShift.push(threadsPosts[i]);
+                                }
+                            }
+                        }
+                    }
+
+                    const shiftedDetails = [];
+                    if (isExecute && toShift.length > 0) {
+                        for (const p of toShift) {
+                            const oldDate = new Date(p.publish_at);
+                            // Shift +2 days (from Sept 6 to Sept 8)
+                            const newDate = new Date(oldDate.getTime() + 2 * 24 * 60 * 60 * 1000);
+                            const newPublishAt = newDate.toISOString();
+
+                            // Update parent post
+                            await env.DB.prepare(
+                                "UPDATE scheduled_posts SET publish_at = ?, updated_at = datetime('now') WHERE id = ?"
+                            ).bind(newPublishAt, p.id).run();
+
+                            // Update any child slides
+                            await env.DB.prepare(
+                                "UPDATE scheduled_posts SET publish_at = ?, updated_at = datetime('now') WHERE parent_post_id = ?"
+                            ).bind(newPublishAt, p.id).run();
+
+                            shiftedDetails.push({
+                                id: p.id,
+                                platform: p.platform,
+                                oldPublishAt: p.publish_at,
+                                newPublishAt,
+                                snippet: (p.content || '').substring(0, 80)
+                            });
+                        }
+                    }
+
+                    return new Response(JSON.stringify({
+                        success: true,
+                        totalFoundOnSept6: allPosts.length,
+                        overlappingThreadsCount: toShift.length,
+                        isExecuted: isExecute,
+                        toKeep: toKeep.map(p => ({ id: p.id, platform: p.platform, publish_at: p.publish_at, snippet: (p.content || '').substring(0, 60) })),
+                        toShift: toShift.map(p => ({ id: p.id, platform: p.platform, publish_at: p.publish_at, snippet: (p.content || '').substring(0, 60) })),
+                        shiftedDetails
+                    }, null, 2), { status: 200, headers: corsHeaders });
+                }
+
                 default: {
                     // Match /api/admin/users/:id/reset-password
                     const adminUserResetPwMatch = url.pathname.match(/^\/api\/admin\/users\/(\d+)\/reset-password$/);

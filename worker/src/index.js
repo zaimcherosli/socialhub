@@ -2994,10 +2994,17 @@ export default {
                             // Validate proper key format (sk-... / AIza... / min 30 chars)
                             if (rawKey && (rawKey.startsWith('sk-') || rawKey.startsWith('AIza') || rawKey.length >= 30)) {
                                 hasValidKey = true;
-                                if (rawKey.startsWith('sk-or-')) keyType = 'OpenRouter';
-                                else if (rawKey.startsWith('AIza')) keyType = 'Gemini';
-                                else if (rawKey.startsWith('sk-proj-') || rawKey.startsWith('sk-')) keyType = 'OpenAI';
-                                else keyType = 'Custom';
+                                if (rawKey.startsWith('sk-or-')) {
+                                    keyType = 'OpenRouter';
+                                } else if (rawKey.startsWith('AIza')) {
+                                    keyType = 'Gemini';
+                                } else if (rawKey.startsWith('sk-proj-')) {
+                                    keyType = 'OpenAI (Direct)';
+                                } else if (ws?.ai_model && (ws.ai_model.includes('gpt-5.6') || ws.ai_model.includes('claude-opus') || ws.ai_model.includes('deepseek-v4') || ws.ai_model.includes('glm-5'))) {
+                                    keyType = 'Agent Router';
+                                } else {
+                                    keyType = 'Agent Router / OpenAI';
+                                }
                                 keyPreview = rawKey.substring(0, 7) + '••••' + rawKey.slice(-4);
                             } else {
                                 // Invalid / garbage / autofilled password key -> automatically purge it from DB!

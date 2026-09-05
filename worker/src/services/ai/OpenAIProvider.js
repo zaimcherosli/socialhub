@@ -7,7 +7,7 @@ export class OpenAIProvider extends AIProvider {
         this.model = model || "gpt-4o-mini";
         this.baseUrl = baseUrl || (
             (this.model.includes('claude-opus') || this.model.includes('deepseek-v4') || this.model.includes('glm-5') || this.model.includes('gpt-5.6') || (this.apiKey && this.apiKey.length > 40 && !this.apiKey.startsWith('sk-proj-')))
-            ? "https://agentrouter.org/v1"
+            ? "https://co.agentrouter.org/v1"
             : "https://api.openai.com/v1"
         );
     }
@@ -33,17 +33,22 @@ export class OpenAIProvider extends AIProvider {
 
         if (isAgentRouterModel) {
             endpoints = isClaudeModel ? [
+                "https://co.agentrouter.org/v1/messages",
+                "https://co.agentrouter.org/v1/chat/completions",
                 "https://agentrouter.org/v1/messages",
                 "https://agentrouter.org/v1/chat/completions",
                 "https://api.openai.com/v1/chat/completions"
             ] : [
+                "https://co.agentrouter.org/v1/chat/completions",
                 "https://agentrouter.org/v1/chat/completions",
+                "https://co.agentrouter.org/v1/messages",
                 "https://agentrouter.org/v1/messages",
                 "https://api.openai.com/v1/chat/completions"
             ];
         } else {
             endpoints = [
                 this.baseUrl ? `${this.baseUrl}/chat/completions` : "https://api.openai.com/v1/chat/completions",
+                "https://co.agentrouter.org/v1/chat/completions",
                 "https://api.openai.com/v1/chat/completions"
             ];
         }

@@ -42,7 +42,7 @@ export class AIFactory {
         if (isAgentRouterSpecialModel) {
             const cleanModel = activeModel.includes('/') ? activeModel.split('/').pop() : activeModel;
             if (hasWorkspaceKey && workspaceKey.startsWith("sk-")) {
-                return new OpenAIProvider(workspaceKey, cleanModel, "https://agentrouter.org/v1");
+                return new OpenAIProvider(workspaceKey, cleanModel, "https://co.agentrouter.org/v1");
             }
             // Without a valid custom BYOK key, safely fall back to healthy system providers
             if (hasGemini) {
@@ -129,7 +129,7 @@ export class AIFactory {
         // If workspace has custom key (e.g. Agent Router sk- key), use OpenAIProvider targeting AgentRouter
         if (hasWorkspaceKey && workspaceKey.startsWith("sk-")) {
             const cleanModel = activeModel.includes('/') ? activeModel.split('/').pop() : activeModel;
-            return new OpenAIProvider(workspaceKey, cleanModel, "https://agentrouter.org/v1");
+            return new OpenAIProvider(workspaceKey, cleanModel, "https://co.agentrouter.org/v1");
         }
 
         // If workspace has OpenRouter key

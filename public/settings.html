@@ -765,7 +765,7 @@
                                     </div>
                                 </div>
                                 <div class="api-key-input-wrap">
-                                    <input type="password" id="openrouterKey" class="form-input" placeholder="Enter OpenAI, Gemini, or OpenRouter Key..." style="width: 100%;" autocomplete="new-password" data-lpignore="true" data-form-type="other" />
+                                    <input type="password" id="openrouterKey" class="form-input" placeholder="Masukkan Agent Router, OpenAI, atau Gemini Key (sk-..., AIza...)" style="width: 100%;" autocomplete="new-password" data-lpignore="true" data-form-type="other" />
                                     <button type="button" class="toggle-key-btn" id="btnToggleKey" title="Show/Hide key">
                                         <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" id="eyeIcon">
                                             <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/>
@@ -806,14 +806,17 @@
                                 </div>
                                 <p style="font-size: 0.72rem; color: var(--color-text-tertiary); margin: 0;">Add your own API key to bypass plan credit limits.</p>
                                 
-                                <div class="api-key-buttons" style="display: flex; gap: 0.35rem; width: 100%; margin-top: 1rem;">
-                                    <a href="https://platform.openai.com/api-keys" target="_blank" class="btn btn-secondary" style="flex: 1; justify-content: center; font-size: 0.7rem; padding: 0.5rem 0.25rem;">
-                                        Get OpenAI Key
+                                <div class="api-key-buttons" style="display: flex; gap: 0.35rem; width: 100%; margin-top: 1rem; flex-wrap: wrap;">
+                                    <a href="https://agentrouter.org/console/token" target="_blank" class="btn btn-secondary" style="flex: 1 1 45%; justify-content: center; font-size: 0.7rem; padding: 0.5rem 0.25rem; background: linear-gradient(135deg, rgba(99,102,241,0.15), rgba(168,85,247,0.15)); border: 1px solid rgba(99,102,241,0.35); color: var(--color-primary); font-weight: 600;">
+                                        ⚡ Get Agent Router Key
                                     </a>
-                                    <a href="https://aistudio.google.com/" target="_blank" class="btn btn-secondary btn-outline" style="flex: 1; justify-content: center; font-size: 0.7rem; padding: 0.5rem 0.25rem; border: 1px solid var(--color-border); background: transparent;">
+                                    <a href="https://aistudio.google.com/" target="_blank" class="btn btn-secondary btn-outline" style="flex: 1 1 45%; justify-content: center; font-size: 0.7rem; padding: 0.5rem 0.25rem; border: 1px solid var(--color-border); background: transparent;">
                                         Get Gemini Key
                                     </a>
-                                    <a href="https://openrouter.ai/keys" target="_blank" class="btn btn-secondary btn-outline" style="flex: 1; justify-content: center; font-size: 0.7rem; padding: 0.5rem 0.25rem; border: 1px solid var(--color-border); background: transparent;">
+                                    <a href="https://platform.openai.com/api-keys" target="_blank" class="btn btn-secondary btn-outline" style="flex: 1 1 45%; justify-content: center; font-size: 0.7rem; padding: 0.5rem 0.25rem; border: 1px solid var(--color-border); background: transparent;">
+                                        Get OpenAI Key
+                                    </a>
+                                    <a href="https://openrouter.ai/keys" target="_blank" class="btn btn-secondary btn-outline" style="flex: 1 1 45%; justify-content: center; font-size: 0.7rem; padding: 0.5rem 0.25rem; border: 1px solid var(--color-border); background: transparent;">
                                         Get OpenRouter Key
                                     </a>
                                 </div>

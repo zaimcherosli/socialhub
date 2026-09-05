@@ -1944,6 +1944,11 @@ export default {
             'Content-Type': 'application/json'
         };
 
+        // Fast-path preflight OPTIONS handler: zero database latency
+        if (request.method === 'OPTIONS') {
+            return new Response(null, { status: 204, headers: corsHeaders });
+        }
+
         const getBillingCycleStart = (createdAtString) => {
             if (!createdAtString) {
                 const d = new Date(new Date().getFullYear(), new Date().getMonth(), 1);
@@ -1978,8 +1983,9 @@ export default {
             return `${cycleStart.getFullYear()}-${pad(cycleStart.getMonth() + 1)}-${pad(cycleStart.getDate())} 00:00:00`;
         };
 
-        // Ensure active_workspace_id column exists in users table (idempotent entrypoint auto-migration)
-        if (env.DB) {
+        // Ensure database schema migrations run at most ONCE per worker isolate lifecycle
+        if (env.DB && !globalThis.__socialhub_db_migrated) {
+            globalThis.__socialhub_db_migrated = true;
             try {
                 await env.DB.prepare("ALTER TABLE users ADD COLUMN active_workspace_id INTEGER REFERENCES workspaces(id) ON DELETE SET NULL").run();
             } catch (_) { /* column already exists */ }
@@ -2112,6 +2118,8 @@ export default {
                     created_at TEXT NOT NULL DEFAULT (datetime('now'))
                 )`).run();
             } catch (_) {}
+        }
+
         if (url.pathname.startsWith('/l/')) {
             const code = url.pathname.substring(3).trim();
             if (!code) {
@@ -2175,11 +2183,6 @@ export default {
                 );
                 return Response.redirect(link.target_url, 302);
             }
-        }
-        }
-
-        if (request.method === 'OPTIONS') {
-            return new Response(null, { status: 204, headers: corsHeaders });
         }
 
         // Shared Auth helper — supports both JWT session tokens AND workspace API keys

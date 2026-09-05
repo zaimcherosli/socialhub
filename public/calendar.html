@@ -891,6 +891,9 @@
             bindBulkActions();
             await loadAccountsDropdown();
 
+            // Render default calendar frame immediately with proper date title
+            applyFiltersAndRender();
+
             // When redirected from AI Generator after scheduling, add a settling delay
             // to let the Cloudflare Workers edge and Service Worker finish propagating
             if (urlParams.get('highlight') === 'new') {
@@ -920,17 +923,18 @@
         async function fetchSchedules(retries = 3) {
             try {
                 const res = await schedulerService.getScheduledPosts();
-                allSchedules = res.results || [];
+                if (res && Array.isArray(res.results)) {
+                    allSchedules = res.results;
+                }
             } catch (err) {
                 if (retries > 0) {
-                    await new Promise(r => setTimeout(r, 1500));
+                    await new Promise(r => setTimeout(r, 1200));
                     return fetchSchedules(retries - 1);
                 }
                 console.error("Failed to load schedules:", err);
                 if (!allSchedules || allSchedules.length === 0) {
                     notificationService.error('Gagal memuat senarai jadual, sila refresh.');
                 }
-                return;
             }
             try {
                 applyFiltersAndRender();
@@ -1822,6 +1826,19 @@
                 });
                 notificationService.success('Reschedule updated successfully!');
                 detailModal.style.display = 'none';
+
+                // Optimistically update memory so view updates immediately without flicker
+                if (selectedSchedule) {
+                    selectedSchedule.publish_at = utcVal;
+                    selectedSchedule.status = 'scheduled';
+                    const targetIdx = allSchedules.findIndex(p => String(p.id) === String(selectedSchedule.id));
+                    if (targetIdx !== -1) {
+                        allSchedules[targetIdx].publish_at = utcVal;
+                        allSchedules[targetIdx].status = 'scheduled';
+                    }
+                    applyFiltersAndRender();
+                }
+
                 fetchSchedules();
             } catch (err) {
                 notificationService.error('Failed to reschedule post.');

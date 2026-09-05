@@ -1882,10 +1882,18 @@
                     ? (isThreadsImgChecked ? '<span style="font-size: 0.68rem; color: #4338ca; background: #e0e7ff; padding: 0.15rem 0.4rem; border-radius: 4px; font-weight: 600;">+ Threads Slide 1</span>' : '<span style="font-size: 0.68rem; color: #64748b; background: #f1f5f9; padding: 0.15rem 0.4rem; border-radius: 4px; font-weight: 500;">Threads: Teks Sahaja</span>')
                     : '';
 
+                const threadRegex = /(?:---thread-separator---|\[THREAD_DELIMITER\]|\r?\n---\r?\n|\r?\n---\s*\r?\n)/gi;
+                const threadSlides = (post.content || '').split(threadRegex).map(s => s.trim()).filter(Boolean);
+                const isThreadPost = threadSlides.length > 1;
+                const threadBadge = isThreadPost
+                    ? `<span style="font-size: 0.72rem; color: #4338ca; background: #e0e7ff; border: 1px solid #c7d2fe; padding: 0.15rem 0.5rem; border-radius: 4px; font-weight: 700;">🧵 Thread Storm (${threadSlides.length} Slaid)</span>`
+                    : '';
+
                 card.innerHTML = `
                     <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid var(--color-border); padding-bottom: 0.5rem;">
                         <div style="display: flex; align-items: center; gap: 0.5rem; flex-wrap: wrap;">
                             <span style="font-weight: 700; font-size: 0.85rem; color: var(--color-primary);">Post #${idx + 1}</span>
+                            ${threadBadge}
                             <span style="font-size: 0.75rem; color: var(--color-text-secondary); background: var(--color-bg-card); padding: 0.15rem 0.5rem; border-radius: 4px; border: 1px solid var(--color-border);">
                                 📅 ${formattedTime}
                             </span>
@@ -1897,7 +1905,10 @@
                     </div>
 
                     <div>
-                        <label style="display: block; font-size: 0.775rem; font-weight: 600; color: var(--color-text-secondary); margin-bottom: 0.35rem;">Kapsyen Post (Boleh Disunting)</label>
+                        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.35rem;">
+                            <label style="display: block; font-size: 0.775rem; font-weight: 600; color: var(--color-text-secondary); margin-bottom: 0;">Kapsyen Post (Boleh Disunting)</label>
+                            ${isThreadPost ? `<span style="font-size: 0.7rem; color: #4338ca; font-weight: 600;">✨ ${threadSlides.length} slaid berangkai (dipisahkan oleh <code>---thread-separator---</code>)</span>` : ''}
+                        </div>
                         <textarea class="form-input auto-post-caption-input" data-idx="${idx}" style="width: 100%; box-sizing: border-box; resize: none; overflow: hidden; min-height: 90px; font-size: 0.85rem; line-height: 1.5; padding: 0.6rem 0.75rem;">${post.content || ''}</textarea>
                     </div>
 

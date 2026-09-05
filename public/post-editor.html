@@ -615,7 +615,7 @@
                 const card = document.createElement('div');
                 card.className = 'attachment-badge-card';
                 
-                const rawUrl = typeof item === 'string' ? item : (item.storage_key || item.url || item.thumbnail || '');
+                const rawUrl = typeof item === 'string' ? item : (item.url || item.public_url || (item.id ? `https://api.socialhub.kwikezee.my/api/media/file?id=${item.id}` : null) || item.storage_key || item.thumbnail || '');
                 const mime = (typeof item === 'object' && item.mime_type) ? item.mime_type : '';
                 const isVideo = mime.startsWith('video/') || rawUrl.match(/\.(mp4|mov|avi|webm)/i);
                 const isImage = !isVideo && (mime.startsWith('image/') || rawUrl.startsWith('data:image') || rawUrl.match(/\.(jpeg|jpg|png|webp|gif)/i) || rawUrl.length > 0);
@@ -640,7 +640,7 @@
                         isDirty = true;
                         
                         // Also clear stale camera tag in caption if it matches
-                        const removedUrl = typeof removed === 'string' ? removed : (removed?.storage_key || removed?.url);
+                        const removedUrl = typeof removed === 'string' ? removed : (removed?.url || removed?.public_url || removed?.storage_key);
                         if (removedUrl) {
                             try {
                                 const escapedUrl = removedUrl.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
@@ -657,13 +657,13 @@
 
             // Display first image attachment in live preview
             const firstImage = attachedMedia.find(m => {
-                const u = typeof m === 'string' ? m : (m.storage_key || m.url || '');
+                const u = typeof m === 'string' ? m : (m.url || m.public_url || (m.id ? `https://api.socialhub.kwikezee.my/api/media/file?id=${m.id}` : null) || m.storage_key || '');
                 const mime = typeof m === 'object' ? (m.mime_type || '') : '';
                 return !mime.startsWith('video/') && (mime.startsWith('image/') || u.startsWith('data:image') || u.match(/\.(jpeg|jpg|png|webp|gif)/i) || u.length > 0);
             });
 
             if (firstImage) {
-                previewImg.src = typeof firstImage === 'string' ? firstImage : (firstImage.storage_key || firstImage.url);
+                previewImg.src = typeof firstImage === 'string' ? firstImage : (firstImage.url || firstImage.public_url || (firstImage.id ? `https://api.socialhub.kwikezee.my/api/media/file?id=${firstImage.id}` : null) || firstImage.storage_key);
                 previewContainer.style.display = 'block';
             } else {
                 previewContainer.style.display = 'none';
@@ -711,6 +711,14 @@
             captionTextarea.value = state.caption || '';
             visibilitySelect.value = state.visibility || 'public';
             statusSelect.value = state.status || 'draft';
+            if (statusSelect.value === 'scheduled') {
+                scheduleTimeGroup.style.display = 'block';
+                if (state.scheduled_at && !txtScheduleTime.value) {
+                    txtScheduleTime.value = timezoneService.utcToLocalInputFormat(state.scheduled_at);
+                }
+            } else {
+                scheduleTimeGroup.style.display = 'none';
+            }
             attachedMedia = state.attachedMedia || [];
             renderAttachedMedia();
             updateEditorStats();
@@ -767,12 +775,18 @@
                         cleanCaption = cleanCaption.replace(/📷\s*https?:\/\/\S+/gi, '').trim();
                     }
 
+                    const cleanMediaList = attachedMedia.map(m => {
+                        if (typeof m === 'string') return m;
+                        const u = m.url || m.public_url || (m.id ? `https://api.socialhub.kwikezee.my/api/media/file?id=${m.id}` : null) || (m.storage_key && m.storage_key.startsWith('http') ? m.storage_key : null);
+                        return { id: m.id, url: u, public_url: u, filename: m.filename, mime_type: m.mime_type };
+                    });
+
                     const updates = {
                         content: cleanCaption,
                         publish_at: state.status === 'scheduled' ? scheduledTimeUtc : undefined,
                         status: state.status,
                         timezone: userTimezone,
-                        media_urls: JSON.stringify(attachedMedia)
+                        media_urls: JSON.stringify(cleanMediaList)
                     };
                     await schedulerService.updateScheduledPost(postId, updates);
 
@@ -874,13 +888,19 @@
                 const nowUtc = new Date().toISOString();
                 
                 if (postType === 'scheduled') {
+                    const cleanMediaList = attachedMedia.map(m => {
+                        if (typeof m === 'string') return m;
+                        const u = m.url || m.public_url || (m.id ? `https://api.socialhub.kwikezee.my/api/media/file?id=${m.id}` : null) || (m.storage_key && m.storage_key.startsWith('http') ? m.storage_key : null);
+                        return { id: m.id, url: u, public_url: u, filename: m.filename, mime_type: m.mime_type };
+                    });
+
                     // Save latest edits to the original scheduled_posts record first
                     const updates = {
                         content: state.caption,
                         publish_at: nowUtc,
                         status: 'scheduled',
                         timezone: userTimezone,
-                        media_urls: JSON.stringify(attachedMedia)
+                        media_urls: JSON.stringify(cleanMediaList)
                     };
                     await schedulerService.updateScheduledPost(postId, updates);
 
@@ -1017,11 +1037,12 @@
                     const cachedStr = sessionStorage.getItem(`socialhub_edit_post_${postId}`);
                     if (cachedStr) {
                         const cached = JSON.parse(cachedStr);
+                        const isScheduledItem = postType === 'scheduled' || !!(cached.publish_at || cached.scheduled_at);
                         initialState = {
                             title: cached.title || '',
                             caption: cached.content || cached.caption || '',
                             visibility: cached.visibility || 'public',
-                            status: cached.status || (postType === 'scheduled' ? 'scheduled' : 'draft'),
+                            status: isScheduledItem ? 'scheduled' : (cached.status || 'draft'),
                             scheduled_at: cached.publish_at || cached.scheduled_at || null,
                             attachedMedia: (() => {
                                 try {
@@ -1100,11 +1121,12 @@
                         } catch (_) {}
                     }
 
+                    const isScheduledItem = postType === 'scheduled' || !!(post.publish_at || post.scheduled_at);
                     initialState = {
                         title: post.title || '',
                         caption: post.content || post.caption || '',
                         visibility: post.visibility || 'public',
-                        status: post.status || (postType === 'scheduled' ? 'scheduled' : 'draft'),
+                        status: isScheduledItem ? 'scheduled' : (post.status || 'draft'),
                         scheduled_at: post.publish_at || post.scheduled_at || null,
                         attachedMedia: mediaList
                     };
@@ -1335,9 +1357,16 @@
                         : `<span style="font-size:1.5rem;">🎥</span>`;
                     
                     card.addEventListener('click', () => {
+                        const cleanItem = {
+                            id: item.id,
+                            url: item.url || item.public_url || `https://api.socialhub.kwikezee.my/api/media/file?id=${item.id}`,
+                            public_url: item.public_url || item.url || `https://api.socialhub.kwikezee.my/api/media/file?id=${item.id}`,
+                            filename: item.filename,
+                            mime_type: item.mime_type
+                        };
                         // Avoid duplicates in attachment lists
                         if (!attachedMedia.some(m => m.id === item.id)) {
-                            attachedMedia.push(item);
+                            attachedMedia.push(cleanItem);
                             isDirty = true;
                             renderAttachedMedia();
                         }
@@ -1381,13 +1410,21 @@
 
                 // XHR upload to D1 storage with auto-compression
                 const response = await uploadService.uploadFile(uploadFileObj, dimensions);
-                if (response.success && response.media) {
+                if (response.success && (response.media || response.url)) {
+                    const cleanMediaItem = {
+                        id: response.media?.id,
+                        url: response.url || response.media?.url || (response.media?.id ? `https://api.socialhub.kwikezee.my/api/media/file?id=${response.media?.id}` : ''),
+                        public_url: response.url || response.media?.public_url || (response.media?.id ? `https://api.socialhub.kwikezee.my/api/media/file?id=${response.media?.id}` : ''),
+                        filename: response.media?.filename || file.name,
+                        mime_type: response.media?.mime_type || file.type
+                    };
+
                     // If there was only 1 existing media item, replace it with the new poster
                     if (attachedMedia.length <= 1) {
-                        attachedMedia = [response.media];
+                        attachedMedia = [cleanMediaItem];
                     } else {
                         // Put new poster as primary at the front
-                        attachedMedia.unshift(response.media);
+                        attachedMedia.unshift(cleanMediaItem);
                     }
                     
                     // Clean stale camera tag from caption text so it doesn't conflict

@@ -134,12 +134,20 @@ export class ThreadsPublisher extends PublisherInterface {
                 // Support image on Slide 1 (i === 0) if post has media attached
                 if (!hasImage && i === 0 && post.media && post.media.length > 0) {
                     const firstMedia = post.media[0];
-                    let candidateUrl = typeof firstMedia === 'string' 
-                        ? firstMedia.trim() 
-                        : (firstMedia.url || firstMedia.storage_key || firstMedia.public_url || null);
-                    
-                    if (!candidateUrl && firstMedia.id) {
-                        candidateUrl = `https://api.socialhub.kwikezee.my/api/media/file?id=${firstMedia.id}`;
+                    let candidateUrl = null;
+                    if (typeof firstMedia === 'string') {
+                        candidateUrl = firstMedia.trim();
+                    } else if (firstMedia && typeof firstMedia === 'object') {
+                        // 1. If media has an ID, always prefer the public media endpoint
+                        if (firstMedia.id) {
+                            candidateUrl = `https://api.socialhub.kwikezee.my/api/media/file?id=${firstMedia.id}`;
+                        } else if (firstMedia.url && typeof firstMedia.url === 'string' && firstMedia.url.startsWith('http')) {
+                            candidateUrl = firstMedia.url.trim();
+                        } else if (firstMedia.public_url && typeof firstMedia.public_url === 'string' && firstMedia.public_url.startsWith('http')) {
+                            candidateUrl = firstMedia.public_url.trim();
+                        } else if (firstMedia.storage_key && typeof firstMedia.storage_key === 'string' && firstMedia.storage_key.startsWith('http')) {
+                            candidateUrl = firstMedia.storage_key.trim();
+                        }
                     }
 
                     if (candidateUrl && typeof candidateUrl === 'string') {

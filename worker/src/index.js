@@ -1266,17 +1266,49 @@ async function resolvePostMedia(db, post) {
         try {
             const parsed = typeof post.media_urls === 'string' ? JSON.parse(post.media_urls) : post.media_urls;
             if (Array.isArray(parsed) && parsed.length > 0) {
-                mediaList = parsed.map(item => {
-                    let u = typeof item === 'string' ? item : (item.url || item.storage_key || item.public_url || null);
-                    if (!u && item.id) {
-                        u = `https://api.socialhub.kwikezee.my/api/media/file?id=${item.id}`;
+                for (const item of parsed) {
+                    let u = null;
+                    if (typeof item === 'string') {
+                        u = item.trim();
+                    } else if (item && typeof item === 'object') {
+                        // 1. If item has an explicit media ID, ALWAYS use the official public media endpoint!
+                        if (item.id) {
+                            u = `https://api.socialhub.kwikezee.my/api/media/file?id=${item.id}`;
+                        } else if (item.url && typeof item.url === 'string' && (item.url.startsWith('http://') || item.url.startsWith('https://'))) {
+                            u = item.url.trim();
+                        } else if (item.public_url && typeof item.public_url === 'string' && (item.public_url.startsWith('http://') || item.public_url.startsWith('https://'))) {
+                            u = item.public_url.trim();
+                        } else if (item.storage_key && typeof item.storage_key === 'string' && (item.storage_key.startsWith('http://') || item.storage_key.startsWith('https://'))) {
+                            u = item.storage_key.trim();
+                        }
                     }
+
+                    // 2. If u is a base64 data:image/ string (or item is a raw data: string), auto-persist to D1 media table
+                    const checkStr = u || (typeof item === 'string' ? item : (item?.storage_key || item?.url));
+                    if ((!u || u.startsWith('data:image/')) && typeof checkStr === 'string' && checkStr.startsWith('data:image/')) {
+                        try {
+                            const mimeMatch = checkStr.match(/^data:(image\/\w+);base64,/);
+                            const mimeType = mimeMatch ? mimeMatch[1] : 'image/jpeg';
+                            const ext = mimeType.includes('png') ? 'png' : 'jpg';
+                            const filename = `upload_${Date.now()}_${Math.random().toString(36).substring(2, 6)}.${ext}`;
+                            const insRes = await db.prepare(
+                                "INSERT INTO media (user_id, workspace_id, filename, original_name, mime_type, file_size, width, height, storage_provider, storage_key, thumbnail) VALUES (?, ?, ?, ?, ?, ?, 1024, 1024, 'local', ?, NULL)"
+                            ).bind(post.user_id || 1, post.workspace_id || 1, filename, filename, mimeType, checkStr.length, checkStr).run();
+                            const newId = insRes.meta.last_row_id;
+                            u = `https://api.socialhub.kwikezee.my/api/media/file?id=${newId}`;
+                        } catch (insErr) {
+                            console.error('[resolvePostMedia] Auto-persist base64 error:', insErr);
+                        }
+                    }
+
                     if (u && typeof u === 'string') {
-                        // CRITICAL: Normalize any legacy or misconfigured worker domains to the active public API domain
                         u = u.replace(/https?:\/\/socialhub-api\.huzaimrosli\.workers\.dev/g, 'https://api.socialhub.kwikezee.my');
                     }
-                    return { url: u };
-                }).filter(m => m.url);
+                    if (u && (u.startsWith('http://') || u.startsWith('https://'))) {
+                        const itemObj = (typeof item === 'object' && item !== null) ? item : {};
+                        mediaList.push({ ...itemObj, url: u });
+                    }
+                }
             }
         } catch (_) {}
     }
@@ -1288,10 +1320,11 @@ async function resolvePostMedia(db, post) {
             ).bind(post.id).all();
             if (results && results.length > 0) {
                 mediaList = results.map(m => {
-                    let u = m.url || m.storage_key || (m.id ? `https://api.socialhub.kwikezee.my/api/media/file?id=${m.id}` : null);
-                    if (u && typeof u === 'string') {
-                        u = u.replace(/https?:\/\/socialhub-api\.huzaimrosli\.workers\.dev/g, 'https://api.socialhub.kwikezee.my');
+                    let u = `https://api.socialhub.kwikezee.my/api/media/file?id=${m.id}`;
+                    if (m.url && typeof m.url === 'string' && (m.url.startsWith('http://') || m.url.startsWith('https://'))) {
+                        u = m.url;
                     }
+                    u = u.replace(/https?:\/\/socialhub-api\.huzaimrosli\.workers\.dev/g, 'https://api.socialhub.kwikezee.my');
                     return { ...m, url: u };
                 });
             }
@@ -7083,7 +7116,16 @@ LAYOUT & DESIGN RULES:
                         const { results } = await env.DB.prepare("SELECT * FROM media WHERE workspace_id = ? ORDER BY created_at DESC")
                             .bind(activeWorkspace.workspace_id)
                             .all();
-                        return new Response(JSON.stringify({ success: true, results }), { status: 200, headers: corsHeaders });
+                        const baseUrl = (url.origin && !url.origin.includes('undefined')) ? url.origin : 'https://api.socialhub.kwikezee.my';
+                        const enriched = (results || []).map(m => {
+                            const publicUrl = `${baseUrl}/api/media/file?id=${m.id}`;
+                            return {
+                                ...m,
+                                url: publicUrl,
+                                public_url: publicUrl
+                            };
+                        });
+                        return new Response(JSON.stringify({ success: true, results: enriched }), { status: 200, headers: corsHeaders });
                     }
 
                     return new Response(JSON.stringify({ error: 'Method not allowed' }), { status: 405, headers: corsHeaders });
@@ -9037,8 +9079,14 @@ LAYOUT & DESIGN RULES:
                                 binds.push(status);
                             }
                             if (publish_at !== undefined) {
+                                let normPublishAt = publish_at;
+                                if (publish_at && typeof publish_at === 'string' && !publish_at.endsWith('Z') && !publish_at.includes('+')) {
+                                    try {
+                                        normPublishAt = new Date(publish_at).toISOString();
+                                    } catch (_) {}
+                                }
                                 fields.push("publish_at = ?");
-                                binds.push(publish_at);
+                                binds.push(normPublishAt);
                             }
                             if (timezone !== undefined) {
                                 fields.push("timezone = ?");
@@ -9049,8 +9097,13 @@ LAYOUT & DESIGN RULES:
                                 binds.push(content);
                             }
                             if (media_urls !== undefined) {
+                                let parsedMedia = media_urls;
+                                if (typeof media_urls === 'string') {
+                                    try { parsedMedia = JSON.parse(media_urls); } catch (_) {}
+                                }
+                                const sanitized = await sanitizeAndStoreMediaUrls(env.DB, user.id, wsId, parsedMedia);
                                 fields.push("media_urls = ?");
-                                binds.push(media_urls);
+                                binds.push(JSON.stringify(sanitized));
                             }
 
                             if (fields.length === 0) {
@@ -9998,7 +10051,8 @@ LAYOUT & DESIGN RULES:
             
             const duePosts = await env.DB.prepare(
                 `SELECT * FROM scheduled_posts 
-                 WHERE status = 'scheduled' AND publish_at <= ? 
+                 WHERE status = 'scheduled' 
+                   AND (publish_at <= ? OR datetime(replace(replace(publish_at, 'T', ' '), 'Z', '')) <= datetime('now'))
                  ORDER BY publish_at ASC 
                  LIMIT 20`
             ).bind(nowStr).all();

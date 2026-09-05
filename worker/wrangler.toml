@@ -2,6 +2,8 @@
 name = "socialhub-api"
 main = "src/index.js"
 compatibility_date = "2026-06-29"
+account_id = "08f4a1647bc1230e867e4818b5aada0a"
+
 
 # Variables/Bindings
 [vars]

@@ -164,8 +164,10 @@ export class FacebookPublisher extends PublisherInterface {
         let response = null;
 
         // Check if media is attached
-        if (post.media && post.media.length > 0 && post.media[0].url) {
-            let mediaUrl = post.media[0].url.trim();
+        const firstMedia = post.media && post.media.length > 0 ? post.media[0] : null;
+        let mediaUrl = firstMedia ? (typeof firstMedia === 'string' ? firstMedia : (firstMedia.url || firstMedia.public_url || (firstMedia.id ? `https://api.socialhub.kwikezee.my/api/media/file?id=${firstMedia.id}` : null))) : null;
+        if (mediaUrl) {
+            mediaUrl = mediaUrl.trim();
             if (mediaUrl.includes('socialhub-api.huzaimrosli.workers.dev')) {
                 mediaUrl = mediaUrl.replace(/https?:\/\/socialhub-api\.huzaimrosli\.workers\.dev/g, 'https://api.socialhub.kwikezee.my');
             }

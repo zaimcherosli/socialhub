@@ -8359,6 +8359,61 @@ LAYOUT & DESIGN RULES:
                     }, null, 2), { status: 200, headers: corsHeaders });
                 }
 
+                case '/api/admin/rebalance-sept8': {
+                    const isExecute = url.searchParams.get('execute') === 'true';
+
+                    // Fetch all scheduled posts for Sept 8
+                    const posts = await env.DB.prepare(`
+                        SELECT id, workspace_id, account_id, platform, content, status, publish_at, parent_post_id
+                        FROM scheduled_posts
+                        WHERE publish_at >= '2026-09-07T16:00:00.000Z' 
+                          AND publish_at <= '2026-09-08T20:00:00.000Z'
+                          AND status IN ('scheduled', 'draft')
+                        ORDER BY publish_at ASC, id ASC
+                    `).all();
+
+                    const allPosts = posts.results || [];
+                    const shifted = [];
+
+                    if (isExecute) {
+                        for (const p of allPosts) {
+                            // If post is at 18:00 (10:00:00Z) or ID 1544, move to 15:00 (07:00:00Z)
+                            if (p.id === 1544 || p.publish_at.includes('T10:00:00') || p.publish_at.includes('T10:01:00')) {
+                                const targetTime = '2026-09-08T07:00:00.000Z';
+                                await env.DB.prepare(
+                                    "UPDATE scheduled_posts SET publish_at = ?, updated_at = datetime('now') WHERE id = ?"
+                                ).bind(targetTime, p.id).run();
+                                await env.DB.prepare(
+                                    "UPDATE scheduled_posts SET publish_at = ?, updated_at = datetime('now') WHERE parent_post_id = ?"
+                                ).bind(targetTime, p.id).run();
+                                shifted.push({ id: p.id, from: p.publish_at, to: targetTime });
+                            }
+                        }
+                    }
+
+                    // Fetch final state
+                    const finalPosts = await env.DB.prepare(`
+                        SELECT id, workspace_id, account_id, platform, content, status, publish_at, parent_post_id
+                        FROM scheduled_posts
+                        WHERE publish_at >= '2026-09-07T16:00:00.000Z' 
+                          AND publish_at <= '2026-09-08T20:00:00.000Z'
+                          AND status IN ('scheduled', 'draft')
+                        ORDER BY publish_at ASC, id ASC
+                    `).all();
+
+                    return new Response(JSON.stringify({
+                        success: true,
+                        isExecuted: isExecute,
+                        shifted,
+                        posts: (finalPosts.results || []).map(p => ({
+                            id: p.id,
+                            platform: p.platform,
+                            publish_at: p.publish_at,
+                            snippet: (p.content || '').substring(0, 60)
+                        }))
+                    }, null, 2), { status: 200, headers: corsHeaders });
+                }
+
                 default: {
                     // Match /api/admin/users/:id/reset-password
                     const adminUserResetPwMatch = url.pathname.match(/^\/api\/admin\/users\/(\d+)\/reset-password$/);

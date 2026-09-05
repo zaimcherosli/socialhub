@@ -14,6 +14,7 @@ import { PosterArchetypeService } from './services/creative/PosterArchetypeServi
 import { CreativeBriefService } from './services/creative/CreativeBriefService.js';
 import { PosterPromptService } from './services/creative/PosterPromptService.js';
 import { SharedImageGenerationService } from './services/creative/SharedImageGenerationService.js';
+import { SlotManager, STANDARD_SLOTS } from './services/scheduler/SlotManager.js';
 
 const encoder = new TextEncoder();
 const decoder = new TextDecoder();
@@ -3659,26 +3660,12 @@ LAYOUT & DESIGN RULES:
                             if (!productContext) productContext = "produk Malaysia";
                         }
 
-                        // Determine schedule time using Queue-Based Auto-Staggering
-                        const idx = parseInt(index) || 0;
-                        const staggerMinutes = 30; // 30 minutes spacing
-
-                        // Find the latest scheduled or draft post for this workspace
-                        const lastPost = await env.DB.prepare(
-                            "SELECT publish_at FROM scheduled_posts WHERE workspace_id = ? AND status IN ('scheduled', 'draft') ORDER BY publish_at DESC LIMIT 1"
-                        ).bind(activeWorkspace.workspace_id).first().catch(() => null);
-
-                        let baseTime = new Date(Date.now() + 15 * 60 * 1000); // default to 15 minutes from now
-                        if (lastPost && lastPost.publish_at) {
-                            const lastTime = new Date(lastPost.publish_at);
-                            if (lastTime.getTime() > Date.now()) {
-                                baseTime = lastTime;
-                            }
-                        }
-
-                        // Add flat stagger spacing (30 minutes after the last post)
-                        const publishAtDate = new Date(baseTime.getTime() + staggerMinutes * 60 * 1000);
-                        const publishAt = publishAtDate.toISOString();
+                        // Determine default schedule time using Smart Slot-Filling Engine
+                        const defaultSlotRes = await SlotManager.findNextAvailableSlot(env.DB, {
+                            workspaceId: activeWorkspace.workspace_id,
+                            timezone: 'Asia/Kuala_Lumpur'
+                        });
+                        let publishAt = defaultSlotRes.publishAt;
 
                         // Resolve social accounts based on targetPlatforms from frontend
                         let connectedAccounts = [];
@@ -4278,7 +4265,16 @@ CRITICAL TONE RULES:
                         const igImageSuffix = (scrapedImage && isValidImageUrl(scrapedImage)) ? `\n\n📷 ${scrapedImage}` : "";
                         const igContent = `${flatContent}\n\n${ctaText}\n\n${hashtagsText}${igImageSuffix}`.trim();
 
-                        for (const acc of connectedAccounts) {
+                        for (let accIdx = 0; accIdx < connectedAccounts.length; accIdx++) {
+                            const acc = connectedAccounts[accIdx];
+                            const accSlotRes = await SlotManager.findNextAvailableSlot(env.DB, {
+                                workspaceId: activeWorkspace.workspace_id,
+                                accountId: acc.id,
+                                platform: acc.platform,
+                                timezone: 'Asia/Kuala_Lumpur',
+                                staggerMinutes: accIdx
+                            });
+                            const accountPublishAt = accSlotRes.publishAt;
                             const isThreads = acc.platform === 'threads';
                             const isInstagram = acc.platform === 'instagram';
                             
@@ -4295,7 +4291,7 @@ CRITICAL TONE RULES:
                                     acc.id,
                                     acc.platform,
                                     parentContent,
-                                    publishAt,
+                                    accountPublishAt,
                                     url
                                 ).run();
                                 
@@ -4326,7 +4322,7 @@ CRITICAL TONE RULES:
                                         acc.id,
                                         acc.platform,
                                         slideText,
-                                        publishAt,
+                                        accountPublishAt,
                                         triggerType,
                                         parseInt(triggerThreshold) || 100,
                                         parentId,
@@ -4349,7 +4345,7 @@ CRITICAL TONE RULES:
                                                 acc.id,
                                                 acc.platform,
                                                 extraSlideContent,
-                                                publishAt,
+                                                accountPublishAt,
                                                 triggerType,
                                                 parseInt(triggerThreshold) || 100,
                                                 parentId,
@@ -4402,7 +4398,7 @@ CRITICAL TONE RULES:
                                     acc.id,
                                     acc.platform,
                                     fullContent,
-                                    publishAt,
+                                    accountPublishAt,
                                     url
                                 ).run();
                             } else if (isInstagram) {
@@ -4416,7 +4412,7 @@ CRITICAL TONE RULES:
                                     acc.id,
                                     acc.platform,
                                     igContent,
-                                    publishAt,
+                                    accountPublishAt,
                                     url
                                 ).run();
                             } else {
@@ -4430,7 +4426,7 @@ CRITICAL TONE RULES:
                                     acc.id,
                                     acc.platform,
                                     fbContent,
-                                    publishAt,
+                                    accountPublishAt,
                                     url
                                 ).run();
                             }
@@ -4757,18 +4753,6 @@ CRITICAL TONE RULES:
                             return new Response(JSON.stringify({ message: 'No active connected social accounts found in this workspace. Please connect Facebook, Instagram, or Threads in Accounts.' }), { status: 400, headers: corsHeaders });
                         }
 
-                        let publishAt = new Date(Date.now() + 10 * 60 * 1000); // 10 minutes from now
-                        const lastPost = await env.DB.prepare(
-                            "SELECT publish_at FROM scheduled_posts WHERE workspace_id = ? AND status = 'scheduled' ORDER BY publish_at DESC LIMIT 1"
-                        ).bind(activeWorkspace.workspace_id).first();
-
-                        if (lastPost && lastPost.publish_at) {
-                            const lastTime = new Date(lastPost.publish_at);
-                            if (lastTime.getTime() > Date.now()) {
-                                publishAt = new Date(lastTime.getTime() + 4 * 60 * 60 * 1000); // stagger by 4 hours
-                            }
-                        }
-
                         let fullContent = data.threads.join('\n\n---thread-separator---\n\n');
                         if (data.cta) {
                             fullContent += `\n\n${data.cta}`;
@@ -4778,11 +4762,22 @@ CRITICAL TONE RULES:
                             fullContent += `\n\n${hashtagsStr}`;
                         }
 
-                        const publishTimeStr = publishAt.toISOString();
                         const mediaUrlsJson = JSON.stringify(scrapedImages && scrapedImages.length > 0 ? scrapedImages : (mediaUrl ? [mediaUrl] : []));
+                        let firstPublishTimeStr = null;
 
                         // Schedule a post for EACH connected social account
-                        for (const acc of connectedAccounts) {
+                        for (let accIdx = 0; accIdx < connectedAccounts.length; accIdx++) {
+                            const acc = connectedAccounts[accIdx];
+                            const accSlotRes = await SlotManager.findNextAvailableSlot(env.DB, {
+                                workspaceId: activeWorkspace.workspace_id,
+                                accountId: acc.id,
+                                platform: acc.platform,
+                                timezone: 'Asia/Kuala_Lumpur',
+                                staggerMinutes: accIdx
+                            });
+                            const publishTimeStr = accSlotRes.publishAt;
+                            if (!firstPublishTimeStr) firstPublishTimeStr = publishTimeStr;
+
                             let platformContent = fullContent;
                             if (acc.platform !== 'threads') {
                                 platformContent = platformContent.replace(/[\n\r]*(?:---thread-separator---|\[THREAD_DELIMITER\])[\n\r]*/g, '\n\n').trim();
@@ -4800,7 +4795,7 @@ CRITICAL TONE RULES:
                         return new Response(JSON.stringify({
                             success: true,
                             message: `Post successfully generated and scheduled across ${connectedAccounts.length} connected platforms!`,
-                            publish_at: publishTimeStr,
+                            publish_at: firstPublishTimeStr,
                             platforms_count: connectedAccounts.length
                         }), { status: 200, headers: corsHeaders });
 
@@ -5219,6 +5214,7 @@ LAYOUT & DESIGN RULES:
                         );
 
                         const insertedPosts = [];
+                        const existingBookedSlotsInBatch = [];
 
                         for (const post of campaign) {
                             const rawMedia = post.media_urls || (post.media_url ? [post.media_url] : []);
@@ -5228,14 +5224,20 @@ LAYOUT & DESIGN RULES:
                             if (resolvedAccounts.length > 0) {
                                 for (let accIdx = 0; accIdx < resolvedAccounts.length; accIdx++) {
                                     const acc = resolvedAccounts[accIdx];
-                                    let platformPublishAt = post.publish_at;
-                                    if (accIdx > 0 && post.publish_at) {
-                                        try {
-                                            const pDate = new Date(post.publish_at);
-                                            pDate.setMinutes(pDate.getMinutes() + accIdx);
-                                            platformPublishAt = pDate.toISOString();
-                                        } catch (_) {}
-                                    }
+                                    const slotRes = await SlotManager.findNextAvailableSlot(env.DB, {
+                                        workspaceId: activeWorkspace.workspace_id,
+                                        accountId: acc.id,
+                                        platform: acc.platform,
+                                        timezone: 'Asia/Kuala_Lumpur',
+                                        existingBookedSlots: existingBookedSlotsInBatch,
+                                        staggerMinutes: accIdx
+                                    });
+                                    const platformPublishAt = slotRes.publishAt;
+                                    existingBookedSlotsInBatch.push({
+                                        accountId: acc.id,
+                                        platform: acc.platform,
+                                        slotDate: slotRes.nominalSlotAt
+                                    });
 
                                     let platformContent = post.content || '';
                                     if (acc.platform !== 'threads') {
@@ -5274,6 +5276,19 @@ LAYOUT & DESIGN RULES:
                                 }
                             } else {
                                 // Save as draft without account
+                                const draftSlotRes = await SlotManager.findNextAvailableSlot(env.DB, {
+                                    workspaceId: activeWorkspace.workspace_id,
+                                    platform: platform || 'threads',
+                                    timezone: 'Asia/Kuala_Lumpur',
+                                    existingBookedSlots: existingBookedSlotsInBatch
+                                });
+                                const draftPublishAt = draftSlotRes.publishAt;
+                                existingBookedSlotsInBatch.push({
+                                    accountId: null,
+                                    platform: platform || 'threads',
+                                    slotDate: draftSlotRes.nominalSlotAt
+                                });
+
                                 const effectiveDraftMediaJson = (platform === 'threads' && !shouldIncludeThreadsImage)
                                     ? JSON.stringify([])
                                     : mediaUrlsJson;
@@ -5289,7 +5304,7 @@ LAYOUT & DESIGN RULES:
                                     post.content,
                                     effectiveDraftMediaJson,
                                     'draft',
-                                    post.publish_at
+                                    draftPublishAt
                                 ).run();
 
                                 insertedPosts.push({
@@ -5297,7 +5312,7 @@ LAYOUT & DESIGN RULES:
                                     platform: platform || 'threads',
                                     content: post.content,
                                     media_urls: effectiveDraftMediaList,
-                                    publish_at: post.publish_at,
+                                    publish_at: draftPublishAt,
                                     status: 'draft'
                                 });
                             }
@@ -6289,23 +6304,6 @@ LAYOUT & DESIGN RULES:
                         const sanitizedMediaList = await sanitizeAndStoreMediaUrls(env.DB, user.id, activeWorkspace.workspace_id, media_urls);
                         const mediaUrlsJson = JSON.stringify(sanitizedMediaList);
 
-                        let finalPublishAt = publish_at;
-                        if (publish_at === 'auto') {
-                            const lastPost = await env.DB.prepare(
-                                "SELECT publish_at FROM scheduled_posts WHERE workspace_id = ? AND status IN ('scheduled', 'draft') ORDER BY publish_at DESC LIMIT 1"
-                            ).bind(activeWorkspace.workspace_id).first().catch(() => null);
-
-                            let baseTime = new Date(Date.now() + 15 * 60 * 1000); // 15 minutes from now
-                            if (lastPost && lastPost.publish_at) {
-                                const lastTime = new Date(lastPost.publish_at);
-                                if (lastTime.getTime() > Date.now()) {
-                                    baseTime = lastTime;
-                                }
-                            }
-                            const publishAtDate = new Date(baseTime.getTime() + 15 * 60 * 1000); // 15 minutes stagger
-                            finalPublishAt = publishAtDate.toISOString();
-                        }
-
                         let finalContent = content;
                         try {
                             finalContent = await autoShortenTextLinks(env.DB, content, user.id, activeWorkspace.workspace_id);
@@ -6315,8 +6313,36 @@ LAYOUT & DESIGN RULES:
 
                         const insertedIds = [];
                         const hasTrigger = triggerType === 'views' || triggerType === 'likes';
+                        const existingBookedSlotsInBatch = [];
                         
-                        for (const target of targets) {
+                        for (let targetIdx = 0; targetIdx < targets.length; targetIdx++) {
+                            const target = targets[targetIdx];
+                            let targetPublishAt = publish_at;
+
+                            if (publish_at === 'auto') {
+                                const slotRes = await SlotManager.findNextAvailableSlot(env.DB, {
+                                    workspaceId: activeWorkspace.workspace_id,
+                                    accountId: target.accountId || null,
+                                    platform: target.platform,
+                                    timezone: timezone || 'Asia/Kuala_Lumpur',
+                                    existingBookedSlots: existingBookedSlotsInBatch,
+                                    staggerMinutes: targetIdx
+                                });
+                                targetPublishAt = slotRes.publishAt;
+                                existingBookedSlotsInBatch.push({
+                                    accountId: target.accountId || null,
+                                    platform: target.platform,
+                                    slotDate: slotRes.nominalSlotAt
+                                });
+                            } else if (targetIdx > 0 && publish_at) {
+                                // Multi-channel 1 min stagger for simultaneous dispatches
+                                try {
+                                    const pDate = new Date(publish_at);
+                                    pDate.setMinutes(pDate.getMinutes() + targetIdx);
+                                    targetPublishAt = pDate.toISOString();
+                                } catch (_) {}
+                            }
+
                             const isThreads = target.platform === 'threads';
                             const cards = (isThreads && hasTrigger && (finalContent.includes('---thread-separator---') || finalContent.includes('[THREAD_DELIMITER]')))
                                 ? finalContent.split(/[\n\r]*(?:---thread-separator---|\[THREAD_DELIMITER\])[\n\r]*/).map(c => c.trim()).filter(Boolean)
@@ -6334,7 +6360,7 @@ LAYOUT & DESIGN RULES:
                                     target.platform, 
                                     cards[0], 
                                     mediaUrlsJson, 
-                                    finalPublishAt, 
+                                    targetPublishAt, 
                                     timezone || 'UTC'
                                 ).run();
                                 
@@ -6353,7 +6379,7 @@ LAYOUT & DESIGN RULES:
                                         target.platform,
                                         cards[i],
                                         JSON.stringify([]),
-                                        finalPublishAt,
+                                        targetPublishAt,
                                         timezone || 'UTC',
                                         triggerType,
                                         parseInt(triggerThreshold) || 100,
@@ -6372,7 +6398,7 @@ LAYOUT & DESIGN RULES:
                                     target.platform, 
                                     finalContent, 
                                     mediaUrlsJson, 
-                                    finalPublishAt, 
+                                    targetPublishAt, 
                                     timezone || 'UTC'
                                 ).run();
                                 
@@ -6390,6 +6416,35 @@ LAYOUT & DESIGN RULES:
                     }
 
                     return new Response(JSON.stringify({ error: 'Method not allowed' }), { status: 405, headers: corsHeaders });
+                }
+
+                case '/api/scheduled-posts/next-slot': {
+                    const user = await getAuthUser();
+                    if (!user) return new Response(JSON.stringify({ message: 'Unauthorized session' }), { status: 401, headers: corsHeaders });
+                    if (!env.DB) return new Response(JSON.stringify({ message: 'Database missing' }), { status: 500, headers: corsHeaders });
+
+                    const activeWorkspace = await getActiveWorkspace(user);
+                    if (!activeWorkspace) return new Response(JSON.stringify({ message: 'No active workspace found' }), { status: 404, headers: corsHeaders });
+
+                    if (request.method !== 'GET') {
+                        return new Response(JSON.stringify({ error: 'Method not allowed' }), { status: 405, headers: corsHeaders });
+                    }
+
+                    const accountId = url.searchParams.get('account_id') || url.searchParams.get('accountId');
+                    const platform = url.searchParams.get('platform');
+                    const timezone = url.searchParams.get('timezone') || 'Asia/Kuala_Lumpur';
+
+                    const slotRes = await SlotManager.findNextAvailableSlot(env.DB, {
+                        workspaceId: activeWorkspace.workspace_id,
+                        accountId: accountId ? parseInt(accountId, 10) : null,
+                        platform: platform || null,
+                        timezone
+                    });
+
+                    return new Response(JSON.stringify({
+                        success: true,
+                        slot: slotRes
+                    }), { status: 200, headers: corsHeaders });
                 }
 
                 case '/api/scheduled-posts/summary': {

@@ -1,3 +1,5 @@
+import { apiClient } from '../utils/api.js';
+
 class ScheduleModal extends HTMLElement {
     connectedCallback() {
         this.render();
@@ -33,7 +35,10 @@ class ScheduleModal extends HTMLElement {
                     <p style="font-size: 0.8125rem; color: var(--color-text-secondary); margin-bottom: 1.25rem;">Select publication date, time, and target timezone.</p>
                     
                     <div class="form-group" style="margin-bottom: 1rem;">
-                        <label class="form-label" for="modalScheduleTime" style="display: block; margin-bottom: 0.35rem; font-size: 0.75rem; font-weight: 600; text-transform: uppercase;">Publish Date & Time</label>
+                        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.35rem;">
+                            <label class="form-label" for="modalScheduleTime" style="font-size: 0.75rem; font-weight: 600; text-transform: uppercase; margin: 0;">Publish Date & Time</label>
+                            <button type="button" class="btn btn-secondary" id="btnAutoNextSlotModal" style="padding: 0.15rem 0.5rem; font-size: 0.7rem; border-radius: 4px;">✨ Auto Next Slot</button>
+                        </div>
                         <input type="datetime-local" id="modalScheduleTime" class="form-input" style="width: 100%;" />
                     </div>
 
@@ -98,16 +103,48 @@ class ScheduleModal extends HTMLElement {
         const timeInput = this.querySelector('#modalScheduleTime');
         const tzSelect = this.querySelector('#modalScheduleTimezone');
 
-        // Set default local time and timezone
+        // Determine default next optimal standard slot (9, 12, 15, 18, 21)
+        const standardHours = [9, 12, 15, 18, 21];
         const now = new Date();
-        now.setMinutes(now.getMinutes() + 15); // Default to 15 min from now
+        const curHour = now.getHours();
+        const curMin = now.getMinutes();
+        let targetHour = standardHours.find(h => h > curHour || (h === curHour && curMin <= 45));
+        const targetDate = new Date(now);
+        if (!targetHour) {
+            targetHour = 9;
+            targetDate.setDate(targetDate.getDate() + 1);
+        }
+        targetDate.setHours(targetHour, 0, 0, 0);
+
         const pad = (n) => String(n).padStart(2, '0');
-        const yyyy = now.getFullYear();
-        const mm = pad(now.getMonth() + 1);
-        const dd = pad(now.getDate());
-        const hh = pad(now.getHours());
-        const min = pad(now.getMinutes());
+        const yyyy = targetDate.getFullYear();
+        const mm = pad(targetDate.getMonth() + 1);
+        const dd = pad(targetDate.getDate());
+        const hh = pad(targetDate.getHours());
+        const min = pad(targetDate.getMinutes());
         timeInput.value = `${yyyy}-${mm}-${dd}T${hh}:${min}`;
+
+        // Auto Next Slot Button listener
+        const autoSlotBtn = this.querySelector('#btnAutoNextSlotModal');
+        if (autoSlotBtn) {
+            autoSlotBtn.addEventListener('click', async () => {
+                autoSlotBtn.disabled = true;
+                autoSlotBtn.textContent = '⏳ Mencari...';
+                try {
+                    const tz = tzSelect.value || 'Asia/Kuala_Lumpur';
+                    const res = await apiClient.get(`/scheduled-posts/next-slot?timezone=${encodeURIComponent(tz)}`);
+                    if (res && res.success && res.slot && res.slot.publishAt) {
+                        const d = new Date(res.slot.publishAt);
+                        timeInput.value = `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
+                    }
+                } catch (err) {
+                    console.error("Auto next slot fetch failed:", err);
+                } finally {
+                    autoSlotBtn.disabled = false;
+                    autoSlotBtn.textContent = '✨ Auto Next Slot';
+                }
+            });
+        }
 
         // Set timezone
         const resolvedTz = Intl.DateTimeFormat().resolvedOptions().timeZone || 'UTC';

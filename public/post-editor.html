@@ -403,7 +403,10 @@
 
                     <!-- Schedule Date & Time -->
                     <div class="form-group" style="margin-top: 1.25rem; display: none;" id="scheduleTimeGroup">
-                        <label class="form-label" for="txtScheduleTime">Publish Date & Time (Local)</label>
+                        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.35rem;">
+                            <label class="form-label" for="txtScheduleTime" style="margin: 0;">Publish Date & Time (Local)</label>
+                            <button type="button" class="btn btn-secondary" id="btnAutoNextSlotEditor" style="padding: 0.2rem 0.6rem; font-size: 0.72rem; border-radius: 4px;">✨ Auto Next Slot</button>
+                        </div>
                         <input type="datetime-local" id="txtScheduleTime" class="form-input" style="width: 100%;" />
                     </div>
 
@@ -1161,11 +1164,42 @@
         });
         titleInput.addEventListener('change', recordState);
         visibilitySelect.addEventListener('change', () => { isDirty = true; recordState(); });
-        statusSelect.addEventListener('change', () => { 
+        async function fetchAndSetNextAvailableSlot() {
+            try {
+                const checked = document.querySelector('.channel-checkbox:checked');
+                const params = new URLSearchParams();
+                if (checked) {
+                    const accId = checked.getAttribute('data-id');
+                    if (accId) params.append('account_id', accId);
+                    params.append('platform', checked.value);
+                }
+                const res = await apiClient.get(`/scheduled-posts/next-slot?${params.toString()}`);
+                if (res && res.success && res.slot && res.slot.publishAt) {
+                    txtScheduleTime.value = timezoneService.utcToLocalInputFormat(res.slot.publishAt);
+                    notificationService.info(`Slot optimum dipilih: ${res.slot.localDateStr} (${res.slot.slotHour}:00 MYT)`);
+                }
+            } catch (err) {
+                console.error("Failed to fetch next slot:", err);
+            }
+        }
+
+        document.getElementById('btnAutoNextSlotEditor')?.addEventListener('click', async () => {
+            const btn = document.getElementById('btnAutoNextSlotEditor');
+            btn.disabled = true;
+            btn.textContent = '⏳ Mencari...';
+            await fetchAndSetNextAvailableSlot();
+            btn.disabled = false;
+            btn.textContent = '✨ Auto Next Slot';
+        });
+
+        statusSelect.addEventListener('change', async () => { 
             isDirty = true; 
             recordState(); 
             if (statusSelect.value === 'scheduled') {
                 scheduleTimeGroup.style.display = 'block';
+                if (!txtScheduleTime.value) {
+                    await fetchAndSetNextAvailableSlot();
+                }
             } else {
                 scheduleTimeGroup.style.display = 'none';
             }

@@ -752,7 +752,10 @@
             <!-- Reschedule Zone -->
             <div id="rescheduleForm" style="display: none; border-top: 1px dashed var(--color-border); padding-top: 1rem; margin-top: 0.5rem;">
                 <div class="form-group">
-                    <label class="form-label" for="rescheduleTimeInput">Choose New Date & Time</label>
+                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.35rem;">
+                        <label class="form-label" for="rescheduleTimeInput" style="margin: 0;">Choose New Date & Time</label>
+                        <button type="button" class="btn btn-secondary" id="btnAutoNextSlotModal" style="padding: 0.2rem 0.55rem; font-size: 0.72rem; border-radius: 4px;">✨ Auto Next Slot</button>
+                    </div>
                     <input type="datetime-local" id="rescheduleTimeInput" class="form-input" style="width: 100%;" />
                 </div>
                 <button class="btn btn-primary" style="width: 100%; margin-top: 0.5rem;" id="btnSubmitReschedule">
@@ -1806,10 +1809,45 @@
             }
         });
 
+        function formatLocalDateForInput(dateOrIso) {
+            if (!dateOrIso) return '';
+            const d = dateOrIso instanceof Date ? dateOrIso : new Date(dateOrIso);
+            const pad = (n) => String(n).padStart(2, '0');
+            const yyyy = d.getFullYear();
+            const mm = pad(d.getMonth() + 1);
+            const dd = pad(d.getDate());
+            const hh = pad(d.getHours());
+            const min = pad(d.getMinutes());
+            return `${yyyy}-${mm}-${dd}T${hh}:${min}`;
+        }
+
         // Reschedule toggler
         document.getElementById('btnShowReschedule').addEventListener('click', () => {
             rescheduleForm.style.display = 'block';
-            rescheduleInput.value = new Date(selectedSchedule.publish_at).toISOString().slice(0, 16);
+            rescheduleInput.value = formatLocalDateForInput(selectedSchedule.publish_at);
+        });
+
+        // Auto Next Slot in Reschedule Modal
+        document.getElementById('btnAutoNextSlotModal')?.addEventListener('click', async () => {
+            if (!selectedSchedule) return;
+            const btn = document.getElementById('btnAutoNextSlotModal');
+            btn.disabled = true;
+            btn.textContent = '⏳ Mencari...';
+            try {
+                const params = new URLSearchParams();
+                if (selectedSchedule.account_id) params.append('account_id', selectedSchedule.account_id);
+                if (selectedSchedule.platform) params.append('platform', selectedSchedule.platform);
+                const res = await apiClient.get(`/scheduled-posts/next-slot?${params.toString()}`);
+                if (res && res.success && res.slot && res.slot.publishAt) {
+                    rescheduleInput.value = formatLocalDateForInput(res.slot.publishAt);
+                    notificationService.info(`Slot optimum dipilih: ${res.slot.localDateStr} (${res.slot.slotHour}:00 MYT)`);
+                }
+            } catch (err) {
+                console.error("Auto next slot fetch failed:", err);
+            } finally {
+                btn.disabled = false;
+                btn.textContent = '✨ Auto Next Slot';
+            }
         });
 
         // Submit reschedule
@@ -2022,7 +2060,7 @@
 
             document.getElementById('btnBulkReschedule').addEventListener('click', () => {
                 bulkResModal.style.display = 'flex';
-                bulkResInput.value = new Date().toISOString().slice(0,16);
+                bulkResInput.value = formatLocalDateForInput(new Date());
             });
 
             document.getElementById('btnCancelBulkReschedule').addEventListener('click', () => {

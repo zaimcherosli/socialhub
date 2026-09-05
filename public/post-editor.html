@@ -1332,16 +1332,21 @@
             if (!file) return;
 
             btnDirectUpload.disabled = true;
-            btnDirectUpload.textContent = 'Uploading...';
+            btnDirectUpload.textContent = 'Memampatkan & Memuat naik...';
 
             try {
-                let dimensions = {};
-                if (file.type.startsWith('image/')) {
-                    dimensions = await imageService.getImageDimensions(file);
+                let uploadFileObj = file;
+                if (file.type && file.type.startsWith('image/')) {
+                    uploadFileObj = await imageService.compressImage(file, 0.82, 1920, 1920);
                 }
 
-                // XHR upload to D1 storage
-                const response = await uploadService.uploadFile(file, dimensions);
+                let dimensions = {};
+                if (uploadFileObj.type && uploadFileObj.type.startsWith('image/')) {
+                    dimensions = await imageService.getImageDimensions(uploadFileObj);
+                }
+
+                // XHR upload to D1 storage with auto-compression
+                const response = await uploadService.uploadFile(uploadFileObj, dimensions);
                 if (response.success && response.media) {
                     // If there was only 1 existing media item, replace it with the new poster
                     if (attachedMedia.length <= 1) {

@@ -113,7 +113,7 @@ export const uploadService = {
 
             // Package file chunk data
             const formData = new FormData();
-            formData.append('file', file);
+            formData.append('file', uploadPayload);
             if (dimensions.width) formData.append('width', dimensions.width);
             if (dimensions.height) formData.append('height', dimensions.height);
             

@@ -1,4 +1,4 @@
-﻿import assert from 'node:assert';
+import assert from 'node:assert';
 import { imageService } from '../public/js/services/imageService.js';
 import { uploadService } from '../public/js/services/uploadService.js';
 
@@ -87,8 +87,8 @@ let passed = 0;
 
 // Test 7: Parameter payload guard prevents multi-megabyte D1 statement explosion
 {
-    const oversizedBytes = 3 * 1024 * 1024; // 3MB
-    const exceedsLimit = oversizedBytes > 2 * 1024 * 1024;
+    const oversizedBytes = 5 * 1024 * 1024; // 5MB
+    const exceedsLimit = oversizedBytes > 4 * 1024 * 1024;
     assert.strictEqual(exceedsLimit, true);
 
     // Verify thumbnail is null for large payloads

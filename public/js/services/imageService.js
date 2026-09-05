@@ -99,8 +99,11 @@ export const imageService = {
                 ctx.drawImage(img, 0, 0, width, height);
 
                 canvas.toBlob((blob) => {
-                    if (!blob || blob.size >= file.size) {
-                        // Fallback to original if compression did not yield size savings
+                    if (!blob) {
+                        return resolve(file);
+                    }
+                    if (blob.size >= file.size && file.size <= 1.5 * 1024 * 1024) {
+                        // Fallback to original only if compression did not yield size savings AND original is safely < 1.5MB
                         return resolve(file);
                     }
 

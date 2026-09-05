@@ -6950,11 +6950,11 @@ LAYOUT & DESIGN RULES:
                             return new Response(JSON.stringify({ success: false, message: "Subscription limit reached: Storage capacity exceeded." }), { status: 403, headers: corsHeaders });
                         }
 
-                        // Guard against raw oversized blobs directly in D1 SQLite
-                        if (fileSize > 2 * 1024 * 1024) {
+                        // Guard against raw oversized blobs directly in D1 SQLite (auto-compressed on frontend)
+                        if (fileSize > 4 * 1024 * 1024) {
                             return new Response(JSON.stringify({ 
                                 success: false, 
-                                message: "Fail melebihi had saiz simpanan langsung (Maksimum 2MB). Sila gunakan gambar yang telah dimampatkan." 
+                                message: "Fail melebihi had saiz simpanan langsung (Maksimum 4MB). Sila gunakan gambar yang telah dimampatkan." 
                             }), { status: 400, headers: corsHeaders });
                         }
 

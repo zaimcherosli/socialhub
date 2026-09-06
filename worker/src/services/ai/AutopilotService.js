@@ -49,18 +49,25 @@ export class AutopilotService {
             normalizedCtaLink = `https://wa.me/${cleanDigits}`;
         }
 
+        // Extract embedded URL if user entered a full custom sentence containing a URL
+        const urlMatch = normalizedCtaLink.match(/https?:\/\/[^\s]+/i);
+        const embeddedUrl = urlMatch ? urlMatch[0] : '';
+        const isWa = normalizedCtaLink.includes('wa.me') || normalizedCtaLink.includes('whatsapp');
+
         let ctaInstructions = "A casual, non-pushy redirect phrase.";
         if (normalizedCtaLink !== '') {
-            const isUrl = normalizedCtaLink.startsWith('http://') || normalizedCtaLink.startsWith('https://') || normalizedCtaLink.includes('wa.me/');
-            if (isUrl) {
-                const isWa = normalizedCtaLink.includes('wa.me') || normalizedCtaLink.includes('whatsapp');
-                if (isWa) {
-                    ctaInstructions = `A natural, friendly, non-pushy Malaysian WhatsApp CTA inviting readers to contact/consult/semak kelayakan with the exact WhatsApp link: ${normalizedCtaLink}. Example: 'Berminat nak semak kelayakan secara percuma? WhatsApp kami slip gaji terus kat sini: ${normalizedCtaLink}', 'Untuk kiraan DSR & semak slip gaji, roger kami di WhatsApp: ${normalizedCtaLink}', or 'Ada sebarang soalan atau nak semak dokumen? Tekan link WhatsApp kami: ${normalizedCtaLink}'. MANDATORY: You MUST include the exact link ${normalizedCtaLink} in the cta output!`;
+            if (embeddedUrl || isWa) {
+                const targetUrl = embeddedUrl || normalizedCtaLink;
+                if (normalizedCtaLink.length > embeddedUrl.length + 5) {
+                    // User provided full custom CTA text with link (e.g. "jom kami bantu semak kelayakan anda dulu, isi borang kat sini: https://forms.gle/...")
+                    ctaInstructions = `MANDATORY USER EXACT CALL-TO-ACTION: The user explicitly provided this custom CTA text and link: "${normalizedCtaLink}". You MUST use this exact custom CTA wording or a very natural close variation, and you MUST strictly include the exact link "${targetUrl}" in the cta output! NEVER change this to a generic DM request or drop the URL!`;
+                } else if (isWa) {
+                    ctaInstructions = `A natural, friendly, non-pushy Malaysian WhatsApp CTA inviting readers to contact/consult/semak kelayakan with the exact WhatsApp link: ${targetUrl}. Example: 'Berminat nak semak kelayakan secara percuma? WhatsApp kami slip gaji terus kat sini: ${targetUrl}', 'Untuk kiraan DSR & semak slip gaji, roger kami di WhatsApp: ${targetUrl}', or 'Ada sebarang soalan atau nak semak dokumen? Tekan link WhatsApp kami: ${targetUrl}'. MANDATORY: You MUST include the exact link ${targetUrl} in the cta output!`;
                 } else {
-                    ctaInstructions = `A very casual, laid-back, and non-pushy Malaysian conversational redirect phrase pointing to the link: ${normalizedCtaLink}. Example: 'Nah link kalau ada yang nak ushar: ${normalizedCtaLink}', 'Korang ushar sendiri kat sini: ${normalizedCtaLink}', or 'Kot lah ada yang nak tengok: ${normalizedCtaLink}'. Do NOT write salesy or pushy calls-to-action like 'Dapatkan sekarang!' or 'Beli hari ini!'.`;
+                    ctaInstructions = `A very casual, laid-back, and non-pushy Malaysian conversational redirect phrase pointing to the link: ${targetUrl}. Example: 'Nah link kalau ada yang nak ushar: ${targetUrl}', 'Korang ushar sendiri kat sini: ${targetUrl}', or 'Kot lah ada yang nak tengok: ${targetUrl}'. Do NOT write salesy or pushy calls-to-action like 'Dapatkan sekarang!' or 'Beli hari ini!'. MANDATORY: You MUST include the exact link ${targetUrl} in the cta output!`;
                 }
             } else {
-                ctaInstructions = `The user specified a direct CTA instruction: "${normalizedCtaLink}". Generate a very natural, conversational Malaysian CTA line using this instruction. For example, if "${normalizedCtaLink}" is "DM" or "DM kami", write "Berminat? Boleh DM terus untuk semakan / maklumat lanjut." or "Korang yang berminat, roger melalui DM sekarang!" or "Drop DM kalau nak tahu details.". Do NOT mention any website links, URLs, or phrases like "Nah link..." or "Kat link ni:".`;
+                ctaInstructions = `The user specified a direct CTA instruction: "${normalizedCtaLink}". Generate a very natural, conversational Malaysian CTA line using this instruction (e.g. "${normalizedCtaLink}"). Do NOT mention any website links, URLs, or phrases like "Nah link..." or "Kat link ni:".`;
             }
         } else {
             ctaInstructions = `A casual, friendly, non-pushy Malaysian engagement or action question (e.g. 'Korang rasa macam mana? Komen kat bawah.', 'Berminat? Boleh DM kami terus untuk info lanjut.'). CRITICAL STRICT MANDATE: You are STRICTLY FORBIDDEN from using the word 'link', 'link ni', 'pautan', 'url', or mentioning any website links because NO URL link is provided by the user. Do NOT write fake link phrases like 'ushar link ni' or 'tengok link kat sini'!`;
@@ -309,28 +316,40 @@ CRITICAL HOOK & CONTENT DIVERSITY RULES (VERY IMPORTANT TO AVOID REPETITION):
                 }
             }
 
-            // GUARANTEED LINK INJECTION: If a valid URL/WhatsApp link was configured, ensure the link is present in the final copy!
+            // GUARANTEED LINK & CUSTOM CTA INJECTION: If user configured a link or custom CTA, ensure it is present in the final copy!
             if (normalizedCtaLink !== '') {
-                const isUrl = normalizedCtaLink.startsWith('http://') || normalizedCtaLink.startsWith('https://') || normalizedCtaLink.includes('wa.me/');
-                if (isUrl) {
+                const urlMatch = normalizedCtaLink.match(/https?:\/\/[^\s]+/i);
+                const embeddedUrl = urlMatch ? urlMatch[0] : '';
+                const isWa = normalizedCtaLink.includes('wa.me') || normalizedCtaLink.includes('whatsapp');
+                const targetLink = embeddedUrl || (isWa ? normalizedCtaLink : '');
+
+                if (targetLink) {
                     const fullTextSoFar = `${caption} ${cta}`;
-                    if (!fullTextSoFar.includes(normalizedCtaLink)) {
-                        const isWa = normalizedCtaLink.includes('wa.me') || normalizedCtaLink.includes('whatsapp');
-                        if (isWa) {
+                    if (!fullTextSoFar.includes(targetLink)) {
+                        if (normalizedCtaLink.length > embeddedUrl.length + 5) {
+                            // User provided custom wording + URL -> strictly adopt user's custom CTA!
+                            cta = normalizedCtaLink;
+                        } else if (isWa) {
                             if (cta && /whatsapp/i.test(cta)) {
-                                cta = `${cta} 👉 ${normalizedCtaLink}`;
+                                cta = `${cta} 👉 ${targetLink}`;
                             } else if (cta) {
-                                cta = `${cta}\n\n👉 WhatsApp kami: ${normalizedCtaLink}`;
+                                cta = `${cta}\n\n👉 WhatsApp kami: ${targetLink}`;
                             } else {
-                                cta = `Berminat untuk maklumat lanjut / semak kelayakan? WhatsApp kami di: ${normalizedCtaLink}`;
+                                cta = `Berminat untuk maklumat lanjut / semak kelayakan? WhatsApp kami di: ${targetLink}`;
                             }
                         } else {
                             if (cta) {
-                                cta = `${cta} 👉 ${normalizedCtaLink}`;
+                                cta = `${cta} 👉 ${targetLink}`;
                             } else {
-                                cta = `Info lanjut kat sini: ${normalizedCtaLink}`;
+                                cta = `Info lanjut kat sini: ${targetLink}`;
                             }
                         }
+                    }
+                } else if (normalizedCtaLink.length > 2) {
+                    // Custom non-link CTA instruction (e.g. "DM kami", "Komen kat bawah")
+                    const fullTextSoFar = `${caption} ${cta}`;
+                    if (!fullTextSoFar.toLowerCase().includes(normalizedCtaLink.toLowerCase())) {
+                        cta = normalizedCtaLink;
                     }
                 }
             }

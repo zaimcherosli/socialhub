@@ -1993,6 +1993,24 @@ CRITICAL LANGUAGE / SPEECH RULES:
     }
 }
 
+let optimizationIndexesEnsured = false;
+async function ensureOptimizationIndexes(db) {
+    if (optimizationIndexesEnsured || !db) return;
+    try {
+        await db.batch([
+            db.prepare("CREATE INDEX IF NOT EXISTS idx_sp_status_publish ON scheduled_posts(status, publish_at)"),
+            db.prepare("CREATE INDEX IF NOT EXISTS idx_sp_insights_sync ON scheduled_posts(status, platform, last_insights_sync)"),
+            db.prepare("CREATE INDEX IF NOT EXISTS idx_sp_publishing_stuck ON scheduled_posts(status, updated_at)"),
+            db.prepare("CREATE INDEX IF NOT EXISTS idx_pub_queue_status_sched ON publish_queue(status, scheduled_at)"),
+            db.prepare("CREATE INDEX IF NOT EXISTS idx_workspaces_sub_expire ON workspaces(subscription_plan, subscription_expires_at)")
+        ]);
+        optimizationIndexesEnsured = true;
+        console.log('[DB] Optimization indexes verified & active.');
+    } catch (e) {
+        console.warn('[DB Index Init Notice]', e.message);
+    }
+}
+
 export default {
     async fetch(request, env, ctx) {
         const url = new URL(request.url);
@@ -9970,58 +9988,65 @@ LAYOUT & DESIGN RULES:
             console.error("D1 database binding missing in Cron Trigger");
             return;
         }
+
+        await ensureOptimizationIndexes(env.DB);
         
-        const nowStr = new Date().toISOString();
+        const now = new Date();
+        const nowStr = now.toISOString();
+        const currentMinute = now.getUTCMinutes();
+        const currentHour = now.getUTCHours();
 
-        // 0. Recover stuck 'publishing' posts (timeout/aborted connection recovery)
-        try {
-            const tenMinsAgo = new Date(Date.now() - 10 * 60 * 1000).toISOString();
-            const stuckPosts = await env.DB.prepare(
-                `SELECT * FROM scheduled_posts 
-                 WHERE status = 'publishing' 
-                 AND (updated_at <= ? OR (updated_at IS NULL AND publish_at <= ?))`
-            ).bind(tenMinsAgo, tenMinsAgo).all();
+        // 0. Recover stuck 'publishing' posts (Throttled to every 15 mins to save D1 rows_read)
+        if (currentMinute % 15 === 0) {
+            try {
+                const tenMinsAgo = new Date(Date.now() - 10 * 60 * 1000).toISOString();
+                const stuckPosts = await env.DB.prepare(
+                    `SELECT * FROM scheduled_posts 
+                     WHERE status = 'publishing' 
+                     AND (updated_at <= ? OR (updated_at IS NULL AND publish_at <= ?))`
+                ).bind(tenMinsAgo, tenMinsAgo).all();
 
-            if (stuckPosts.results && stuckPosts.results.length > 0) {
-                console.log(`[Cron] Found ${stuckPosts.results.length} posts stuck in publishing status. Recovering...`);
-                for (const post of stuckPosts.results) {
-                    const successLog = await env.DB.prepare(
-                        `SELECT * FROM publish_logs 
-                         WHERE schedule_id = ? AND status = 'success' 
-                         ORDER BY id DESC LIMIT 1`
-                    ).bind(post.id).first().catch(() => null);
+                if (stuckPosts.results && stuckPosts.results.length > 0) {
+                    console.log(`[Cron] Found ${stuckPosts.results.length} posts stuck in publishing status. Recovering...`);
+                    for (const post of stuckPosts.results) {
+                        const successLog = await env.DB.prepare(
+                            `SELECT * FROM publish_logs 
+                             WHERE schedule_id = ? AND status = 'success' 
+                             ORDER BY id DESC LIMIT 1`
+                        ).bind(post.id).first().catch(() => null);
 
-                    if (successLog) {
-                        console.log(`[Cron] Post ID: ${post.id} was actually published successfully (Log ID: ${successLog.id}). Updating status...`);
-                        await env.DB.prepare(
-                            `UPDATE scheduled_posts 
-                             SET status = 'published', published_at = ?, external_post_id = ?, error_message = NULL, updated_at = (datetime('now'))
-                             WHERE id = ?`
-                        ).bind(successLog.published_at, successLog.external_post_id, post.id).run();
-                    } else {
-                        const currentRetries = (post.retry_count || 0) + 1;
-                        if (currentRetries < 3) {
-                            console.log(`[Cron] Post ID: ${post.id} timed out / interrupted. Auto-rescheduling retry ${currentRetries}/3...`);
+                        if (successLog) {
+                            console.log(`[Cron] Post ID: ${post.id} was actually published successfully (Log ID: ${successLog.id}). Updating status...`);
                             await env.DB.prepare(
                                 `UPDATE scheduled_posts 
-                                 SET status = 'scheduled', retry_count = ?, publish_at = (datetime('now', '+2 minutes')), 
-                                     error_message = 'Publishing took too long or worker was restarted. Auto-retrying...', 
-                                     updated_at = (datetime('now'))
+                                 SET status = 'published', published_at = ?, external_post_id = ?, error_message = NULL, updated_at = (datetime('now'))
                                  WHERE id = ?`
-                            ).bind(currentRetries, post.id).run();
+                            ).bind(successLog.published_at, successLog.external_post_id, post.id).run();
                         } else {
-                            console.log(`[Cron] Post ID: ${post.id} failed/timed out after 3 attempts. Marking as failed.`);
-                            await env.DB.prepare(
-                                `UPDATE scheduled_posts 
-                                 SET status = 'failed', retry_count = 3, error_message = 'Publishing timed out or worker execution was aborted.', updated_at = (datetime('now'))
-                                 WHERE id = ?`
-                            ).bind(post.id).run();
+                            const currentRetries = (post.retry_count || 0) + 1;
+                            if (currentRetries < 3) {
+                                console.log(`[Cron] Post ID: ${post.id} timed out / interrupted. Auto-rescheduling retry ${currentRetries}/3...`);
+                                await env.DB.prepare(
+                                    `UPDATE scheduled_posts 
+                                     SET status = 'scheduled', retry_count = ?, publish_at = (datetime('now', '+2 minutes')), 
+                                         error_message = 'Publishing took too long or worker was restarted. Auto-retrying...', 
+                                         updated_at = (datetime('now'))
+                                     WHERE id = ?`
+                                ).bind(currentRetries, post.id).run();
+                            } else {
+                                console.log(`[Cron] Post ID: ${post.id} failed/timed out after 3 attempts. Marking as failed.`);
+                                await env.DB.prepare(
+                                    `UPDATE scheduled_posts 
+                                     SET status = 'failed', retry_count = 3, error_message = 'Publishing timed out or worker execution was aborted.', updated_at = (datetime('now'))
+                                     WHERE id = ?`
+                                ).bind(post.id).run();
+                            }
                         }
                     }
                 }
+            } catch (recoverErr) {
+                console.error("[Cron] Stuck posts recovery error:", recoverErr.message);
             }
-        } catch (recoverErr) {
-            console.error("[Cron] Stuck posts recovery error:", recoverErr.message);
         }
 
         // 1. Process legacy publish_queue (if any exist)
@@ -10045,14 +10070,12 @@ LAYOUT & DESIGN RULES:
             console.error("Failed to run legacy publish queue runner:", err.message);
         }
 
-        // 2. Process new scheduled_posts table
+        // 2. Process new scheduled_posts table (Fast index seek on status + publish_at)
         try {
-            console.log("[Cron] Running Scheduled Posts Queue Check...");
-            
             const duePosts = await env.DB.prepare(
                 `SELECT * FROM scheduled_posts 
                  WHERE status = 'scheduled' 
-                   AND (publish_at <= ? OR datetime(replace(replace(publish_at, 'T', ' '), 'Z', '')) <= datetime('now'))
+                   AND publish_at <= ?
                  ORDER BY publish_at ASC 
                  LIMIT 20`
             ).bind(nowStr).all();
@@ -10263,163 +10286,170 @@ LAYOUT & DESIGN RULES:
             console.error("Failed to run scheduled posts automation engine:", err.message);
         }
 
-        // ==================== METRICS INSIGHTS SYNC (scheduled handler) ====================
-        try {
-            const publishedPosts = await env.DB.prepare(
-                `SELECT sp.id, sp.external_post_id, sp.views_count, sp.likes_count,
-                        sa.access_token as sa_access_token, sa.account_id as sa_account_id
-                 FROM scheduled_posts sp
-                 JOIN social_accounts sa ON sp.account_id = sa.id
-                 WHERE sp.status = 'published' AND sp.platform = 'threads' AND sp.external_post_id IS NOT NULL
-                 AND (sp.last_insights_sync IS NULL OR sp.last_insights_sync <= ?)
-                 ORDER BY sp.published_at DESC
-                 LIMIT 10`
-            ).bind(new Date(Date.now() - 4 * 60 * 60 * 1000).toISOString()).all();
+        // ==================== METRICS INSIGHTS SYNC (scheduled handler - every 30 mins) ====================
+        if (currentMinute % 30 === 0) {
+            try {
+                const publishedPosts = await env.DB.prepare(
+                    `SELECT sp.id, sp.external_post_id, sp.views_count, sp.likes_count,
+                            sa.access_token as sa_access_token, sa.account_id as sa_account_id
+                     FROM scheduled_posts sp
+                     JOIN social_accounts sa ON sp.account_id = sa.id
+                     WHERE sp.status = 'published' AND sp.platform = 'threads' AND sp.external_post_id IS NOT NULL
+                     AND (sp.last_insights_sync IS NULL OR sp.last_insights_sync <= ?)
+                     ORDER BY sp.published_at DESC
+                     LIMIT 10`
+                ).bind(new Date(Date.now() - 4 * 60 * 60 * 1000).toISOString()).all();
 
-            if (publishedPosts.results && publishedPosts.results.length > 0) {
-                console.log(`[CronSync] Syncing insights for ${publishedPosts.results.length} posts...`);
-                for (const post of publishedPosts.results) {
-                    try {
-                        const decryptedAccessToken = await decryptToken(post.sa_access_token, encryptionSecret);
-                        let views = 0, likes = 0, replies = 0, reposts = 0, quotes = 0;
+                if (publishedPosts.results && publishedPosts.results.length > 0) {
+                    console.log(`[CronSync] Syncing insights for ${publishedPosts.results.length} posts...`);
+                    for (const post of publishedPosts.results) {
+                        try {
+                            const decryptedAccessToken = await decryptToken(post.sa_access_token, encryptionSecret);
+                            let views = 0, likes = 0, replies = 0, reposts = 0, quotes = 0;
 
-                        // Only real Threads API — no mock in scheduled handler
-                        // Proven metrics only: views, likes, replies, reposts, quotes
-                        const insightsUrl = `https://graph.threads.net/v1.0/${post.external_post_id}/insights?metric=views,likes,replies,reposts,quotes&access_token=${decryptedAccessToken}`;
-                        const insightsRes = await fetch(insightsUrl);
+                            // Only real Threads API — no mock in scheduled handler
+                            // Proven metrics only: views, likes, replies, reposts, quotes
+                            const insightsUrl = `https://graph.threads.net/v1.0/${post.external_post_id}/insights?metric=views,likes,replies,reposts,quotes&access_token=${decryptedAccessToken}`;
+                            const insightsRes = await fetch(insightsUrl);
 
-                        if (insightsRes.ok) {
-                            const data = await insightsRes.json();
-                            if (data && Array.isArray(data.data)) {
-                                views   = data.data.find(m => m.name === 'views')?.values?.[0]?.value   || 0;
-                                likes   = data.data.find(m => m.name === 'likes')?.values?.[0]?.value   || 0;
-                                replies = data.data.find(m => m.name === 'replies')?.values?.[0]?.value || 0;
-                                reposts = data.data.find(m => m.name === 'reposts')?.values?.[0]?.value || 0;
-                                quotes  = data.data.find(m => m.name === 'quotes')?.values?.[0]?.value  || 0;
-                            }
-                        } else {
-                            // API failed — log error but SKIP DB update to preserve existing data
-                            const errBody = await insightsRes.text().catch(() => '');
-                            console.error(`[CronSync] Threads API ${insightsRes.status} for post ${post.id}: ${errBody.substring(0, 200)}`);
-                            continue;
-                        }
-
-                        await env.DB.prepare(
-                            `UPDATE scheduled_posts
-                             SET views_count = ?, likes_count = ?, replies_count = ?, reposts_count = ?, quotes_count = ?,
-                                 last_insights_sync = ?, updated_at = (datetime('now'))
-                             WHERE id = ?`
-                        ).bind(views, likes, replies, reposts, quotes, new Date().toISOString(), post.id).run();
-
-                        console.log(`[CronSync] Post ${post.id}: views=${views}, likes=${likes}, replies=${replies}, reposts=${reposts}, quotes=${quotes}`);
-
-                        // Trigger child posts if threshold met
-                        const nextChild = await env.DB.prepare(
-                            `SELECT * FROM scheduled_posts WHERE parent_post_id = ? AND status IN ('draft', 'waiting_trigger') AND trigger_type IS NOT NULL ORDER BY id ASC LIMIT 1`
-                        ).bind(post.id).first().catch(() => null);
-
-                        if (nextChild) {
-                            const threshold = nextChild.trigger_threshold || 100;
-                            let isTriggered = false;
-                            if (nextChild.trigger_type === 'views' && views >= threshold) isTriggered = true;
-                            else if (nextChild.trigger_type === 'likes' && likes >= threshold) isTriggered = true;
-                            if (isTriggered) {
-                                await env.DB.prepare(
-                                    `UPDATE scheduled_posts SET status = 'scheduled', publish_at = ?, reply_to_external_id = ?, updated_at = (datetime('now')) WHERE id = ?`
-                                ).bind(new Date().toISOString(), post.external_post_id, nextChild.id).run();
-                                console.log(`[CronSync] Trigger met! Released child post ${nextChild.id}`);
-                            }
-                        }
-                    } catch (insightErr) {
-                        console.error(`[CronSync] Error syncing post ${post.id}: ${insightErr.message}`);
-                    }
-                }
-            }
-        } catch (insightsSyncErr) {
-            console.error('[CronSync] Insights sync block error:', insightsSyncErr.message);
-        }
-
-        // ==================== FOLLOWER COUNT SYNC (scheduled handler) ====================
-        try {
-            const threadAccounts = await env.DB.prepare(
-                `SELECT DISTINCT sa.id as account_id, sa.access_token, sa.account_id as threads_user_id, sa.workspace_id
-                 FROM social_accounts sa
-                 WHERE sa.platform = 'threads' AND sa.access_token IS NOT NULL`
-            ).all();
- 
-            if (threadAccounts.results && threadAccounts.results.length > 0) {
-                for (const acct of threadAccounts.results) {
-                    try {
-                        const decryptedToken = await decryptToken(acct.access_token, encryptionSecret);
-                        // Fetch real-time followers_count from Insights endpoint
-                        const insightsUrl = `https://graph.threads.net/v1.0/${acct.threads_user_id}/threads_insights?metric=followers_count&access_token=${decryptedToken}`;
-                        const insightsRes = await fetch(insightsUrl);
-                        if (insightsRes.ok) {
-                            const insightsData = await insightsRes.json();
-                            if (insightsData.error) {
-                                console.log(`[CronSync] followers_count not available for account ${acct.account_id}: ${insightsData.error.message}`);
-                            } else if (insightsData.data && Array.isArray(insightsData.data)) {
-                                const followersCount = insightsData.data[0]?.total_value?.value || 0;
-                                await env.DB.prepare(
-                                    `INSERT INTO workspace_analytics (workspace_id, account_id, platform, followers_count, recorded_at)
-                                     VALUES (?, ?, 'threads', ?, datetime('now'))`
-                                ).bind(acct.workspace_id, acct.account_id, followersCount).run();
-                                console.log(`[CronSync] Real-time followers count account ${acct.account_id}: ${followersCount}`);
+                            if (insightsRes.ok) {
+                                const data = await insightsRes.json();
+                                if (data && Array.isArray(data.data)) {
+                                    views   = data.data.find(m => m.name === 'views')?.values?.[0]?.value   || 0;
+                                    likes   = data.data.find(m => m.name === 'likes')?.values?.[0]?.value   || 0;
+                                    replies = data.data.find(m => m.name === 'replies')?.values?.[0]?.value || 0;
+                                    reposts = data.data.find(m => m.name === 'reposts')?.values?.[0]?.value || 0;
+                                    quotes  = data.data.find(m => m.name === 'quotes')?.values?.[0]?.value  || 0;
+                                }
                             } else {
-                                console.log(`[CronSync] followers_count field not returned for account ${acct.account_id}, skipping.`);
+                                // API failed — log error but SKIP DB update to preserve existing data
+                                const errBody = await insightsRes.text().catch(() => '');
+                                console.error(`[CronSync] Threads API ${insightsRes.status} for post ${post.id}: ${errBody.substring(0, 200)}`);
+                                continue;
                             }
-                        } else {
-                            const errBody = await insightsRes.text().catch(() => '');
-                            console.log(`[CronSync] Follower API ${insightsRes.status} for account ${acct.account_id}: ${errBody.substring(0, 100)}`);
+
+                            await env.DB.prepare(
+                                `UPDATE scheduled_posts
+                                 SET views_count = ?, likes_count = ?, replies_count = ?, reposts_count = ?, quotes_count = ?,
+                                     last_insights_sync = ?, updated_at = (datetime('now'))
+                                 WHERE id = ?`
+                            ).bind(views, likes, replies, reposts, quotes, new Date().toISOString(), post.id).run();
+
+                            console.log(`[CronSync] Post ${post.id}: views=${views}, likes=${likes}, replies=${replies}, reposts=${reposts}, quotes=${quotes}`);
+
+                            // Trigger child posts if threshold met
+                            const nextChild = await env.DB.prepare(
+                                `SELECT * FROM scheduled_posts WHERE parent_post_id = ? AND status IN ('draft', 'waiting_trigger') AND trigger_type IS NOT NULL ORDER BY id ASC LIMIT 1`
+                            ).bind(post.id).first().catch(() => null);
+
+                            if (nextChild) {
+                                const threshold = nextChild.trigger_threshold || 100;
+                                let isTriggered = false;
+                                if (nextChild.trigger_type === 'views' && views >= threshold) isTriggered = true;
+                                else if (nextChild.trigger_type === 'likes' && likes >= threshold) isTriggered = true;
+                                if (isTriggered) {
+                                    await env.DB.prepare(
+                                        `UPDATE scheduled_posts SET status = 'scheduled', publish_at = ?, reply_to_external_id = ?, updated_at = (datetime('now')) WHERE id = ?`
+                                    ).bind(new Date().toISOString(), post.external_post_id, nextChild.id).run();
+                                    console.log(`[CronSync] Trigger met! Released child post ${nextChild.id}`);
+                                }
+                            }
+                        } catch (insightErr) {
+                            console.error(`[CronSync] Error syncing post ${post.id}: ${insightErr.message}`);
                         }
-                    } catch (followerErr) {
-                        console.error(`[CronSync] Follower error account ${acct.account_id}: ${followerErr.message}`);
                     }
                 }
+            } catch (insightsSyncErr) {
+                console.error('[CronSync] Insights sync block error:', insightsSyncErr.message);
             }
-        } catch (followerSyncErr) {
-            console.error('[CronSync] Follower sync block error:', followerSyncErr.message);
         }
-        // ==================== AUTO-DOWNGRADE EXPIRED WORKSPACES (scheduled handler) ====================
-        try {
-            const expiredWorkspaces = await env.DB.prepare(
-                `SELECT id, name, subscription_plan, subscription_expires_at 
-                 FROM workspaces 
-                 WHERE subscription_plan != 'free' 
-                 AND subscription_expires_at IS NOT NULL 
-                 AND subscription_expires_at <= datetime('now')`
-            ).all();
 
-            if (expiredWorkspaces.results && expiredWorkspaces.results.length > 0) {
-                for (const ws of expiredWorkspaces.results) {
-                    await env.DB.prepare(
-                        `UPDATE workspaces 
-                         SET subscription_plan = 'free', subscription_status = 'expired', updated_at = (datetime('now')) 
-                         WHERE id = ?`
-                    ).bind(ws.id).run();
-
-                    const owner = await env.DB.prepare(
-                        `SELECT user_id FROM workspace_members WHERE workspace_id = ? AND role = 'owner' LIMIT 1`
-                    ).bind(ws.id).first().catch(() => null);
-
-                    if (owner && owner.user_id) {
-                        await createNotification(
-                            env.DB,
-                            ws.id,
-                            owner.user_id,
-                            "⚠️ Langganan Pakej Telah Tamat",
-                            `Langganan pakej ${ws.subscription_plan.toUpperCase()} bagi workspace "${ws.name}" telah tamat tempoh pada ${new Date(ws.subscription_expires_at).toLocaleDateString()} dan telah ditukar kepada pelan FREE. Sila hubungi admin untuk memperbaharui langganan.`,
-                            "warning",
-                            "/settings.html"
-                        );
+        // ==================== FOLLOWER COUNT SYNC (scheduled handler - every 6 hours) ====================
+        if (currentMinute === 0 && currentHour % 6 === 0) {
+            try {
+                const threadAccounts = await env.DB.prepare(
+                    `SELECT DISTINCT sa.id as account_id, sa.access_token, sa.account_id as threads_user_id, sa.workspace_id
+                     FROM social_accounts sa
+                     WHERE sa.platform = 'threads' AND sa.access_token IS NOT NULL`
+                ).all();
+     
+                if (threadAccounts.results && threadAccounts.results.length > 0) {
+                    for (const acct of threadAccounts.results) {
+                        try {
+                            const decryptedToken = await decryptToken(acct.access_token, encryptionSecret);
+                            // Fetch real-time followers_count from Insights endpoint
+                            const insightsUrl = `https://graph.threads.net/v1.0/${acct.threads_user_id}/threads_insights?metric=followers_count&access_token=${decryptedToken}`;
+                            const insightsRes = await fetch(insightsUrl);
+                            if (insightsRes.ok) {
+                                const insightsData = await insightsRes.json();
+                                if (insightsData.error) {
+                                    console.log(`[CronSync] followers_count not available for account ${acct.account_id}: ${insightsData.error.message}`);
+                                } else if (insightsData.data && Array.isArray(insightsData.data)) {
+                                    const followersCount = insightsData.data[0]?.total_value?.value || 0;
+                                    await env.DB.prepare(
+                                        `INSERT INTO workspace_analytics (workspace_id, account_id, platform, followers_count, recorded_at)
+                                         VALUES (?, ?, 'threads', ?, datetime('now'))`
+                                    ).bind(acct.workspace_id, acct.account_id, followersCount).run();
+                                    console.log(`[CronSync] Real-time followers count account ${acct.account_id}: ${followersCount}`);
+                                } else {
+                                    console.log(`[CronSync] followers_count field not returned for account ${acct.account_id}, skipping.`);
+                                }
+                            } else {
+                                const errBody = await insightsRes.text().catch(() => '');
+                                console.log(`[CronSync] Follower API ${insightsRes.status} for account ${acct.account_id}: ${errBody.substring(0, 100)}`);
+                            }
+                        } catch (followerErr) {
+                            console.error(`[CronSync] Follower error account ${acct.account_id}: ${followerErr.message}`);
+                        }
                     }
-
-                    await logActivity(ws.id, null, 'subscription_auto_downgrade', `Subscription expired on ${ws.subscription_expires_at}. Auto-downgraded from ${ws.subscription_plan} to free.`);
-                    console.log(`[CronSync] Workspace ID ${ws.id} (${ws.name}) expired and auto-downgraded to FREE.`);
                 }
+            } catch (followerSyncErr) {
+                console.error('[CronSync] Follower sync block error:', followerSyncErr.message);
             }
-        } catch (expireErr) {
-            console.error('[CronSync] Workspace expiration check error:', expireErr.message);
+        }
+
+        // ==================== AUTO-DOWNGRADE EXPIRED WORKSPACES (scheduled handler - every 6 hours) ====================
+        if (currentMinute === 0 && currentHour % 6 === 0) {
+            try {
+                const expiredWorkspaces = await env.DB.prepare(
+                    `SELECT id, name, subscription_plan, subscription_expires_at 
+                     FROM workspaces 
+                     WHERE subscription_plan != 'free' 
+                     AND subscription_expires_at IS NOT NULL 
+                     AND subscription_expires_at <= datetime('now')`
+                ).all();
+
+                if (expiredWorkspaces.results && expiredWorkspaces.results.length > 0) {
+                    for (const ws of expiredWorkspaces.results) {
+                        await env.DB.prepare(
+                            `UPDATE workspaces 
+                             SET subscription_plan = 'free', subscription_status = 'expired', updated_at = (datetime('now')) 
+                             WHERE id = ?`
+                        ).bind(ws.id).run();
+
+                        const owner = await env.DB.prepare(
+                            `SELECT user_id FROM workspace_members WHERE workspace_id = ? AND role = 'owner' LIMIT 1`
+                        ).bind(ws.id).first().catch(() => null);
+
+                        if (owner && owner.user_id) {
+                            await createNotification(
+                                env.DB,
+                                ws.id,
+                                owner.user_id,
+                                "⚠️ Langganan Pakej Telah Tamat",
+                                `Langganan pakej ${ws.subscription_plan.toUpperCase()} bagi workspace "${ws.name}" telah tamat tempoh pada ${new Date(ws.subscription_expires_at).toLocaleDateString()} dan telah ditukar kepada pelan FREE. Sila hubungi admin untuk memperbaharui langganan.`,
+                                "warning",
+                                "/settings.html"
+                            );
+                        }
+
+                        await logActivity(ws.id, null, 'subscription_auto_downgrade', `Subscription expired on ${ws.subscription_expires_at}. Auto-downgraded from ${ws.subscription_plan} to free.`);
+                        console.log(`[CronSync] Workspace ID ${ws.id} (${ws.name}) expired and auto-downgraded to FREE.`);
+                    }
+                }
+            } catch (expireErr) {
+                console.error('[CronSync] Workspace expiration check error:', expireErr.message);
+            }
         }
     }
 };

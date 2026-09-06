@@ -10059,8 +10059,13 @@ LAYOUT & DESIGN RULES:
 
             if (duePosts.results && duePosts.results.length > 0) {
                 console.log(`[Cron] Found ${duePosts.results.length} due scheduled posts.`);
+                const cronBatchStartTime = Date.now();
                 
                 for (const post of duePosts.results) {
+                    if (Date.now() - cronBatchStartTime > 20000) {
+                        console.warn(`[Cron] 20s execution threshold reached. Yielding remaining posts to next minute cron cycle.`);
+                        break;
+                    }
                     const startTime = Date.now();
                     console.log(`[Cron] Attempting to publish scheduled post ID: ${post.id}`);
 

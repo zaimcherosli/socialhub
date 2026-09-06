@@ -123,7 +123,7 @@ export class ThreadsPublisher extends PublisherInterface {
                 let containerData = null;
                 let containerRes = null;
                 let containerCreated = false;
-                let retryDelay = 5000;
+                let retryDelay = 1000;
 
                 // Retry loop for container creation to handle Meta/Threads propagation delay
                 // Check if the chunkText contains an image URL (camera emoji + url pattern) or if post.media has an image for Slide 1
@@ -169,7 +169,7 @@ export class ThreadsPublisher extends PublisherInterface {
 
                 const cleanedText = hasImage && imgUrlMatch ? chunkText.replace(/📷\s*https?:\/\/\S+/gi, '').trim() : chunkText;
 
-                for (let attempt = 1; attempt <= 4; attempt++) {
+                for (let attempt = 1; attempt <= 2; attempt++) {
                     const containerUrl = new URL(`https://graph.threads.net/v1.0/${threadsAccountId}/threads`);
                     if (hasImage && imageUrl) {
                         containerUrl.searchParams.set('media_type', 'IMAGE');
@@ -190,7 +190,7 @@ export class ThreadsPublisher extends PublisherInterface {
                     try {
                         containerRes = await fetch(containerUrl.toString(), { 
                             method: 'POST',
-                            signal: AbortSignal.timeout(15000)
+                            signal: AbortSignal.timeout(10000)
                         });
                         containerData = await containerRes.json().catch(() => ({}));
                         
@@ -205,10 +205,9 @@ export class ThreadsPublisher extends PublisherInterface {
                     const errMsg = containerData?.error?.message || 'Unknown error';
                     console.warn(`[ThreadsPublisher] Container creation attempt ${attempt} failed for part ${i + 1}: ${errMsg}.`);
                     
-                    if (attempt < 4) {
-                        console.log(`[ThreadsPublisher] Waiting ${retryDelay / 1000}s before retry...`);
-                        await new Promise(resolve => setTimeout(resolve, retryDelay));
-                        retryDelay += 5000; // Incremental backoff
+                    if (attempt < 2) {
+                        console.log(`[ThreadsPublisher] Waiting 1s before retry...`);
+                        await new Promise(resolve => setTimeout(resolve, 1000));
                     }
                 }
 
@@ -235,10 +234,10 @@ export class ThreadsPublisher extends PublisherInterface {
                 }
                 
                 let attempts = 0;
-                while (!isReady && attempts < 20) {
+                while (!isReady && attempts < 10) {
                     attempts++;
                     const statusRes = await fetch(`https://graph.threads.net/v1.0/${containerId}?fields=status,error_message&access_token=${accessToken}`, {
-                        signal: AbortSignal.timeout(10000)
+                        signal: AbortSignal.timeout(8000)
                     });
                     const statusData = await statusRes.json().catch(() => ({}));
                     
@@ -258,7 +257,7 @@ export class ThreadsPublisher extends PublisherInterface {
                         };
                     }
                     
-                    await new Promise(resolve => setTimeout(resolve, 1500));
+                    await new Promise(resolve => setTimeout(resolve, 800));
                 }
 
                 if (!isReady) {
@@ -268,7 +267,7 @@ export class ThreadsPublisher extends PublisherInterface {
                         provider_post_id: null,
                         published_at: null,
                         error_code: 'TIMEOUT',
-                        error_message: `Container for part ${i + 1} remained unfinished after 30 seconds.`,
+                        error_message: `Container for part ${i + 1} remained unfinished after 10 seconds.`,
                         retryable: true
                     };
                 }
@@ -276,10 +275,9 @@ export class ThreadsPublisher extends PublisherInterface {
                 let publishData = null;
                 let publishRes = null;
                 let publishSuccess = false;
-                let pubRetryDelay = 3000;
 
                 // Retry loop for publication to handle transient Graph API publish timeouts/errors
-                for (let attempt = 1; attempt <= 3; attempt++) {
+                for (let attempt = 1; attempt <= 2; attempt++) {
                     const publishUrl = new URL(`https://graph.threads.net/v1.0/${threadsAccountId}/threads_publish`);
                     publishUrl.searchParams.set('creation_id', containerId);
                     publishUrl.searchParams.set('access_token', accessToken);
@@ -287,7 +285,7 @@ export class ThreadsPublisher extends PublisherInterface {
                     try {
                         publishRes = await fetch(publishUrl.toString(), { 
                             method: 'POST',
-                            signal: AbortSignal.timeout(15000)
+                            signal: AbortSignal.timeout(10000)
                         });
                         publishData = await publishRes.json().catch(() => ({}));
 
@@ -302,10 +300,9 @@ export class ThreadsPublisher extends PublisherInterface {
                     const errMsg = publishData?.error?.message || 'Unknown error';
                     console.warn(`[ThreadsPublisher] Publication attempt ${attempt} failed for part ${i + 1}: ${errMsg}.`);
                     
-                    if (attempt < 3) {
-                        console.log(`[ThreadsPublisher] Waiting ${pubRetryDelay / 1000}s before retry...`);
-                        await new Promise(resolve => setTimeout(resolve, pubRetryDelay));
-                        pubRetryDelay += 3000;
+                    if (attempt < 2) {
+                        console.log(`[ThreadsPublisher] Waiting 1s before retry...`);
+                        await new Promise(resolve => setTimeout(resolve, 1000));
                     }
                 }
 
@@ -328,9 +325,9 @@ export class ThreadsPublisher extends PublisherInterface {
                 }
 
                 // Add a small delay between publications to maintain order on the Threads timeline
-                // Reduced from 5 seconds to 1.5 seconds to prevent Cloudflare Worker request timeouts
+                // Reduced from 1.5s to 300ms to allow multi-slide threads to publish within seconds
                 if (i < chunks.length - 1) {
-                    await new Promise(resolve => setTimeout(resolve, 1500));
+                    await new Promise(resolve => setTimeout(resolve, 300));
                 }
             }
 

@@ -16,25 +16,25 @@ export class AutopilotService {
         if (postFormat === 'mega_thread') {
             formatInstructions = `
 - Each post in the calendar MUST be an epic Mega Thread Storm (bebenang panjang / berangkai mendalam) consisting of strictly 7 to 10 thread posts/slides.
-- Split the slides of each thread storm using the exact separator string '---thread-separator---'. For example: 'Slide 1 content\\n---thread-separator---\\nSlide 2 content\\n---thread-separator---\\nSlide 3 content\\n---thread-separator---\\nSlide 4 content\\n---thread-separator---\\nSlide 5 content\\n---thread-separator---\\nSlide 6 content\\n---thread-separator---\\nSlide 7 content\\n---thread-separator---\\nSlide 8 content'.
-- Each individual slide/card in the thread storm must be around 280 to 420 characters (providing 3 to 4 substantial lines/sentences of engaging, insightful storytelling progression while staying safely under the 500-character Threads limit).
+- The "caption" key in the JSON output MUST be a JSON ARRAY of strings (NOT a single string!). Each element in the array represents one thread slide. Example: "caption": ["Slide 1 text...", "Slide 2 text...", "Slide 3 text...", "Slide 4 text...", "Slide 5 text...", "Slide 6 text...", "Slide 7 text..."]
+- Each individual slide string in the array must be around 280 to 420 characters (providing 3 to 4 substantial lines/sentences of engaging, insightful storytelling progression while staying safely under the 500-character Threads limit).
 - STRUCTURE OF EACH MEGA THREAD (7 to 10 SLIDES):
   * Slide 1: High-impact intrigue/problem hook that immediately stops readers from scrolling.
   * Slides 2 to 6: In-depth breakdown, step-by-step points, real comparisons, hidden pitfalls, or insider secrets.
   * Slides 7 to 8 (or 9-10): Climax, summary takeaways, and natural progression leading to the conclusion.
-- CRITICAL: You MUST include the exact delimiter '---thread-separator---' between every single slide! Do not combine slides into one.${lineSpacingRule}`;
+- CRITICAL: The "caption" value MUST be a JSON array with 7 to 10 elements! Do NOT output a single string for thread posts!${lineSpacingRule}`;
         } else if (postFormat === 'deep_thread') {
             formatInstructions = `
 - Each post in the calendar MUST be a deep-dive Thread Storm (berangkai) consisting of exactly 3 to 5 thread posts/slides.
-- Split the slides of each thread storm using the exact separator string '---thread-separator---'. For example: 'Slide 1 content\\n---thread-separator---\\nSlide 2 content\\n---thread-separator---\\nSlide 3 content\\n---thread-separator---\\nSlide 4 content'.
-- Each individual slide/card in the thread storm must be around 350 to 450 characters (providing 3 to 4 substantial lines/sentences of rich explanation while staying safely under the 500-character Threads limit).
-- CRITICAL: You MUST include the exact delimiter '---thread-separator---' between every single slide! Do not combine slides into one.${lineSpacingRule}`;
+- The "caption" key in the JSON output MUST be a JSON ARRAY of strings (NOT a single string!). Each element in the array represents one thread slide. Example: "caption": ["Slide 1 text here...", "Slide 2 text here...", "Slide 3 text here...", "Slide 4 text here..."]
+- Each individual slide string in the array must be around 350 to 450 characters (providing 3 to 4 substantial lines/sentences of rich explanation while staying safely under the 500-character Threads limit).
+- CRITICAL: The "caption" value MUST be an array with 3 to 5 elements! Do NOT output a single string for thread posts!${lineSpacingRule}`;
         } else if (postFormat === 'short_thread') {
             formatInstructions = `
 - Each post in the calendar MUST be a Thread Storm (berangkai) consisting of exactly 2 to 3 thread posts/slides.
-- Split the slides of each thread storm using the exact separator string '---thread-separator---'. For example: 'Slide 1 content\\n---thread-separator---\\nSlide 2 content\\n---thread-separator---\\nSlide 3 content'.
-- Each individual slide/card in the thread storm must be around 350 to 450 characters (providing 3 to 4 substantial lines/sentences of rich explanation while staying safely under the 500-character Threads limit).
-- CRITICAL: You MUST include the exact delimiter '---thread-separator---' between every single slide! Do not combine slides into one.${lineSpacingRule}`;
+- The "caption" key in the JSON output MUST be a JSON ARRAY of strings (NOT a single string!). Each element in the array represents one thread slide. Example: "caption": ["Slide 1 text here...", "Slide 2 text here...", "Slide 3 text here..."]
+- Each individual slide string in the array must be around 350 to 450 characters (providing 3 to 4 substantial lines/sentences of rich explanation while staying safely under the 500-character Threads limit).
+- CRITICAL: The "caption" value MUST be an array with 2 to 3 elements! Do NOT output a single string for thread posts!${lineSpacingRule}`;
         } else {
             formatInstructions = `
 - Each post in the calendar must be a single post.
@@ -140,7 +140,17 @@ ${nicheRulesPromptBlock}${exampleGuide}
 Return the output strictly in a JSON array format. Do not return any explanation or other text.
 IMPORTANT: The JSON array MUST contain exactly ${batchCount} objects using curly braces '{}' for each object (do NOT use square brackets '[]' for objects!).
 Example valid format:
-[
+${isThreadFormat ? `[
+  {
+    "caption": [
+      "Slide 1 (Hook / Intrigue statement)...",
+      "Slide 2 (Insight / Point breakdown)...",
+      "Slide 3 (Takeaway / Transition)..."
+    ],
+    "cta": "Berminat? Boleh DM kami terus!",
+    "hashtags": ["#tag1", "#tag2", "#tag3"]
+  }
+]` : `[
   {
     "caption": "Post 1 caption text here...",
     "cta": "Click here to buy!",
@@ -151,10 +161,10 @@ Example valid format:
     "cta": "Join us today!",
     "hashtags": ["#tag4", "#tag5", "#tag6"]
   }
-]
+]`}
 
 Each object in the JSON array must contain exactly these keys:
-- caption: The caption text for the post (${langStyle} ${formatInstructions}).
+- caption: ${isThreadFormat ? `MUST be a JSON ARRAY of strings containing multiple slides for this thread storm (${langStyle} ${formatInstructions})` : `The caption text for the post (${langStyle} ${formatInstructions})`}.
 - cta: ${ctaInstructions}
 - hashtags: An array of 3 relevant hashtags.
 
@@ -178,7 +188,7 @@ CRITICAL HOOK & CONTENT DIVERSITY RULES (VERY IMPORTANT TO AVOID REPETITION):
         let allPosts = [];
         if (batches.length === 1) {
             const prompt = buildPromptForBatch(batches[0], 0);
-            allPosts = await this._callAI(prompt, maxTokens);
+            allPosts = await this._callAI(prompt, maxTokens, isThreadFormat);
         } else {
             // Concurrency limit of 2 to balance speed and provider rate limits
             const results = new Array(batches.length);
@@ -189,7 +199,7 @@ CRITICAL HOOK & CONTENT DIVERSITY RULES (VERY IMPORTANT TO AVOID REPETITION):
                     const currentIdx = nextIndex++;
                     const prompt = buildPromptForBatch(batches[currentIdx], currentIdx);
                     try {
-                        results[currentIdx] = await this._callAI(prompt, maxTokens);
+                        results[currentIdx] = await this._callAI(prompt, maxTokens, isThreadFormat);
                     } catch (err) {
                         console.error(`[AutopilotService] Batch ${currentIdx + 1} failed:`, err);
                         throw err;
@@ -256,6 +266,33 @@ CRITICAL HOOK & CONTENT DIVERSITY RULES (VERY IMPORTANT TO AVOID REPETITION):
                     if (parts.length > 1) {
                         caption = parts.join('\n\n---thread-separator---\n\n');
                     }
+                } else {
+                    // Check if caption has multiple paragraphs
+                    const paragraphs = caption.split(/\n\s*\n/).map(p => p.trim()).filter(Boolean);
+                    if (paragraphs.length >= 2) {
+                        const targetSlideCount = isShortThread ? 2 : (isDeepThread ? 3 : 4);
+                        if (paragraphs.length <= targetSlideCount) {
+                            caption = paragraphs.join('\n\n---thread-separator---\n\n');
+                        } else {
+                            const slides = [];
+                            const chunkSize = Math.ceil(paragraphs.length / targetSlideCount);
+                            for (let i = 0; i < paragraphs.length; i += chunkSize) {
+                                slides.push(paragraphs.slice(i, i + chunkSize).join('\n\n'));
+                            }
+                            caption = slides.join('\n\n---thread-separator---\n\n');
+                        }
+                    } else if (caption.length > 100) {
+                        // Single paragraph: split by sentences to form 2 slides
+                        const sentences = caption.match(/[^.!?]+[.!?]+(?:\s|$)|[^.!?]+$/g) || [];
+                        if (sentences.length >= 2) {
+                            const mid = Math.ceil(sentences.length / 2);
+                            const slide1 = sentences.slice(0, mid).join('').trim();
+                            const slide2 = sentences.slice(mid).join('').trim();
+                            if (slide1 && slide2) {
+                                caption = `${slide1}\n\n---thread-separator---\n\n${slide2}`;
+                            }
+                        }
+                    }
                 }
             }
 
@@ -300,20 +337,30 @@ CRITICAL HOOK & CONTENT DIVERSITY RULES (VERY IMPORTANT TO AVOID REPETITION):
 
             // Build full content
             let fullContent = '';
-            if (isThreadFormat && caption.includes('---thread-separator---')) {
-                // Thread format: append CTA and hashtags cleanly to the final slide, or create a closing slide if needed
-                const existingSlides = caption.split('---thread-separator---').map(s => s.trim()).filter(Boolean);
-                const lastSlide = existingSlides[existingSlides.length - 1] || '';
-                const closingAdditions = [cta, hashtagsText].filter(Boolean).join('\n\n');
-                if (closingAdditions) {
-                    if (lastSlide.length + closingAdditions.length > 450) {
-                        // Append as an additional dedicated conclusion slide
+            if (isThreadFormat) {
+                if (!caption.includes('---thread-separator---')) {
+                    // Guaranteed fallback: make CTA & hashtags the closing slide
+                    const closingAdditions = [cta, hashtagsText].filter(Boolean).join('\n\n');
+                    if (closingAdditions) {
                         fullContent = `${caption}\n\n---thread-separator---\n\n${closingAdditions}`;
                     } else {
-                        fullContent = `${caption}\n\n${closingAdditions}`;
+                        fullContent = caption;
                     }
                 } else {
-                    fullContent = caption;
+                    // Thread format: append CTA and hashtags cleanly to the final slide, or create a closing slide if needed
+                    const existingSlides = caption.split('---thread-separator---').map(s => s.trim()).filter(Boolean);
+                    const lastSlide = existingSlides[existingSlides.length - 1] || '';
+                    const closingAdditions = [cta, hashtagsText].filter(Boolean).join('\n\n');
+                    if (closingAdditions) {
+                        if (lastSlide.length + closingAdditions.length > 450) {
+                            // Append as an additional dedicated conclusion slide
+                            fullContent = `${caption}\n\n---thread-separator---\n\n${closingAdditions}`;
+                        } else {
+                            fullContent = `${caption}\n\n${closingAdditions}`;
+                        }
+                    } else {
+                        fullContent = caption;
+                    }
                 }
             } else {
                 const parts = [caption, cta, hashtagsText].filter(p => p && p.trim() !== '');
@@ -341,7 +388,7 @@ CRITICAL HOOK & CONTENT DIVERSITY RULES (VERY IMPORTANT TO AVOID REPETITION):
         return scheduledCampaign;
     }
 
-    async _callAI(prompt, maxTokens = 8192) {
+    async _callAI(prompt, maxTokens = 8192, isThreadFormat = false) {
         const candidateProviders = [];
 
         if (this.provider) {
@@ -372,7 +419,7 @@ CRITICAL HOOK & CONTENT DIVERSITY RULES (VERY IMPORTANT TO AVOID REPETITION):
 
             try {
                 console.log(`[AutopilotService] Executing campaign generation batch with: ${pName} (${pModel})`);
-                const responseText = await this._callSingleProvider(p, prompt, maxTokens);
+                const responseText = await this._callSingleProvider(p, prompt, maxTokens, isThreadFormat);
                 if (responseText) {
                     const parsed = this._parseJsonArray(responseText);
                     if (parsed && Array.isArray(parsed) && parsed.length > 0) {
@@ -391,7 +438,7 @@ CRITICAL HOOK & CONTENT DIVERSITY RULES (VERY IMPORTANT TO AVOID REPETITION):
         throw lastErr || new Error("Failed to communicate with any AI provider.");
     }
 
-    async _callSingleProvider(provider, prompt, maxTokens) {
+    async _callSingleProvider(provider, prompt, maxTokens, isThreadFormat = false) {
         let responseText = "";
         const providerName = provider.constructor?.name || '';
 
@@ -430,10 +477,14 @@ CRITICAL HOOK & CONTENT DIVERSITY RULES (VERY IMPORTANT TO AVOID REPETITION):
             const data = await res.json();
             responseText = data.candidates?.[0]?.content?.parts?.[0]?.text || "";
         } else if (providerName === 'OpenAIProvider') {
+            const sysMsg = isThreadFormat
+                ? "You are a professional social media marketing expert. You must output strictly a valid JSON array of post objects. For thread storm posts, the 'caption' key MUST be a JSON array of strings containing multiple connected slides (e.g. ['Slide 1...', 'Slide 2...']). Do NOT output a single string for thread captions."
+                : "You are a professional social media marketing expert. You must output strictly a valid JSON array of post objects, each with keys: caption, cta, hashtags. Do not wrap in any object.";
+
             const data = await provider._fetchChatCompletions({
                 model: provider.model || "gpt-4o-mini",
                 messages: [
-                    { role: "system", content: "You are a professional social media marketing expert. You must output strictly a valid JSON array of post objects, each with keys: caption, cta, hashtags. Do not wrap in any object." },
+                    { role: "system", content: sysMsg },
                     { role: "user", content: prompt }
                 ],
                 max_tokens: maxTokens,

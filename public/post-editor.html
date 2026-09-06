@@ -512,7 +512,7 @@
 
         const urlParams = new URLSearchParams(window.location.search);
         const postId = urlParams.get('id') || 'new';
-        const postType = urlParams.get('type') || 'draft';
+        let postType = urlParams.get('type') || 'draft';
 
         // Immediate UI update if editing existing post
         if (postId !== 'new') {
@@ -768,18 +768,18 @@
                     state.scheduled_at = scheduledTimeUtc;
                 }
                 
+                const cleanMediaList = attachedMedia.map(m => {
+                    if (typeof m === 'string') return m;
+                    const u = m.url || m.public_url || (m.id ? `https://api.socialhub.kwikezee.my/api/media/file?id=${m.id}` : null) || (m.storage_key && m.storage_key.startsWith('http') ? m.storage_key : null);
+                    return { id: m.id, url: u, public_url: u, filename: m.filename, mime_type: m.mime_type };
+                });
+
                 if (postType === 'scheduled') {
                     // Clean stale camera tags if attachedMedia has items
                     let cleanCaption = state.caption;
                     if (attachedMedia.length > 0) {
                         cleanCaption = cleanCaption.replace(/📷\s*https?:\/\/\S+/gi, '').trim();
                     }
-
-                    const cleanMediaList = attachedMedia.map(m => {
-                        if (typeof m === 'string') return m;
-                        const u = m.url || m.public_url || (m.id ? `https://api.socialhub.kwikezee.my/api/media/file?id=${m.id}` : null) || (m.storage_key && m.storage_key.startsWith('http') ? m.storage_key : null);
-                        return { id: m.id, url: u, public_url: u, filename: m.filename, mime_type: m.mime_type };
-                    });
 
                     const updates = {
                         content: cleanCaption,
@@ -846,7 +846,8 @@
                                 content: state.caption || state.title,
                                 targets: [{ platform, accountId: accountId ? parseInt(accountId) : null }],
                                 publish_at: scheduledTimeUtc,
-                                timezone: userTimezone
+                                timezone: userTimezone,
+                                media_urls: JSON.stringify(cleanMediaList)
                             });
                         } catch (_) {}
                         await scheduleService.createSchedule(targetId, platform, scheduledTimeUtc, userTimezone);
@@ -887,13 +888,13 @@
             try {
                 const nowUtc = new Date().toISOString();
                 
-                if (postType === 'scheduled') {
-                    const cleanMediaList = attachedMedia.map(m => {
-                        if (typeof m === 'string') return m;
-                        const u = m.url || m.public_url || (m.id ? `https://api.socialhub.kwikezee.my/api/media/file?id=${m.id}` : null) || (m.storage_key && m.storage_key.startsWith('http') ? m.storage_key : null);
-                        return { id: m.id, url: u, public_url: u, filename: m.filename, mime_type: m.mime_type };
-                    });
+                const cleanMediaList = attachedMedia.map(m => {
+                    if (typeof m === 'string') return m;
+                    const u = m.url || m.public_url || (m.id ? `https://api.socialhub.kwikezee.my/api/media/file?id=${m.id}` : null) || (m.storage_key && m.storage_key.startsWith('http') ? m.storage_key : null);
+                    return { id: m.id, url: u, public_url: u, filename: m.filename, mime_type: m.mime_type };
+                });
 
+                if (postType === 'scheduled') {
                     // Save latest edits to the original scheduled_posts record first
                     const updates = {
                         content: state.caption,
@@ -927,7 +928,8 @@
                                     content: state.caption,
                                     targets: [{ platform, accountId: parseInt(accountId) }],
                                     publish_at: nowUtc,
-                                    timezone: userTimezone
+                                    timezone: userTimezone,
+                                    media_urls: JSON.stringify(cleanMediaList)
                                 });
                                 targetSpId = newPost?.ids?.[0];
                             }
@@ -994,7 +996,8 @@
                             content: state.caption || state.title,
                             targets: [{ platform, accountId: accountId ? parseInt(accountId) : null }],
                             publish_at: nowUtc,
-                            timezone: userTimezone
+                            timezone: userTimezone,
+                            media_urls: JSON.stringify(cleanMediaList)
                         });
                         if (newSp && newSp.ids && newSp.ids[0]) {
                             await publishService.publishImmediately(newSp.ids[0]);
@@ -1038,6 +1041,7 @@
                     if (cachedStr) {
                         const cached = JSON.parse(cachedStr);
                         const isScheduledItem = postType === 'scheduled' || !!(cached.publish_at || cached.scheduled_at);
+                        if (isScheduledItem) postType = 'scheduled';
                         initialState = {
                             title: cached.title || '',
                             caption: cached.content || cached.caption || '',
@@ -1122,6 +1126,7 @@
                     }
 
                     const isScheduledItem = postType === 'scheduled' || !!(post.publish_at || post.scheduled_at);
+                    if (isScheduledItem) postType = 'scheduled';
                     initialState = {
                         title: post.title || '',
                         caption: post.content || post.caption || '',

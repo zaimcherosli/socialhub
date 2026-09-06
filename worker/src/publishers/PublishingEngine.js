@@ -93,6 +93,25 @@ export const PublishingEngine = {
             throw new Error(`Schedule item ${queueId} not found or unauthorized.`);
         }
 
+        // Fetch associated media for post
+        let mediaList = [];
+        try {
+            const { results } = await db.prepare(
+                "SELECT m.* FROM media m JOIN post_media pm ON m.id = pm.media_id WHERE pm.post_id = ?"
+            ).bind(queueItem.post_id).all();
+            if (results && results.length > 0) {
+                mediaList = results.map(m => {
+                    let u = `https://api.socialhub.kwikezee.my/api/media/file?id=${m.id}`;
+                    if (m.url && typeof m.url === 'string' && (m.url.startsWith('http://') || m.url.startsWith('https://'))) {
+                        u = m.url;
+                    }
+                    return { ...m, url: u };
+                });
+            }
+        } catch (_) {}
+        queueItem.media = mediaList;
+        queueItem.media_urls = JSON.stringify(mediaList.map(m => m.url));
+
         // 2. Lock Queue Item to prevent race conditions
         const workerLockId = `worker-lock-${crypto.randomUUID()}`;
         await db.prepare("UPDATE publish_queue SET status = 'publishing', worker_id = ?, updated_at = ? WHERE id = ?")
@@ -198,7 +217,7 @@ export const PublishingEngine = {
                     socialAccount.id,
                     queueItem.platform,
                     queueItem.caption || queueItem.title || '',
-                    JSON.stringify([]),
+                    JSON.stringify(mediaList.map(m => m.url)),
                     nowStr,
                     nowStr,
                     result.provider_post_id || null,

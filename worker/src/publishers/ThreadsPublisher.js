@@ -132,8 +132,21 @@ export class ThreadsPublisher extends PublisherInterface {
                 let imageUrl = hasImage ? imgUrlMatch[1].trim() : null;
 
                 // Support image on Slide 1 (i === 0) if post has media attached
-                if (!hasImage && i === 0 && post.media && post.media.length > 0) {
-                    const firstMedia = post.media[0];
+                let mediaArray = Array.isArray(post.media) && post.media.length > 0 ? post.media : null;
+                if (!mediaArray && post.media_urls) {
+                    try {
+                        const parsed = typeof post.media_urls === 'string' ? JSON.parse(post.media_urls) : post.media_urls;
+                        if (Array.isArray(parsed) && parsed.length > 0) {
+                            mediaArray = parsed;
+                        }
+                    } catch (_) {}
+                }
+                if (!mediaArray && post.media_url) {
+                    mediaArray = [post.media_url];
+                }
+
+                if (!hasImage && i === 0 && mediaArray && mediaArray.length > 0) {
+                    const firstMedia = mediaArray[0];
                     let candidateUrl = null;
                     if (typeof firstMedia === 'string') {
                         candidateUrl = firstMedia.trim();

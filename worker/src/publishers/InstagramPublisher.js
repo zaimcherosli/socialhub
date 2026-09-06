@@ -111,11 +111,20 @@ export class InstagramPublisher extends PublisherInterface {
 
         const caption = post.caption || post.content || '';
 
-        // Extract image URL from post.media, caption regex, or fallback
+        // Extract image URL from post.media, post.media_urls, caption regex, or fallback
         let imageUrl = null;
-        if (post.media && Array.isArray(post.media) && post.media.length > 0) {
-            for (const item of post.media) {
-                if (typeof item === 'object' && item.id) {
+        let mediaArray = Array.isArray(post.media) && post.media.length > 0 ? post.media : null;
+        if (!mediaArray && post.media_urls) {
+            try {
+                const parsed = typeof post.media_urls === 'string' ? JSON.parse(post.media_urls) : post.media_urls;
+                if (Array.isArray(parsed) && parsed.length > 0) mediaArray = parsed;
+            } catch (_) {}
+        }
+        if (!mediaArray && post.media_url) mediaArray = [post.media_url];
+
+        if (mediaArray && Array.isArray(mediaArray) && mediaArray.length > 0) {
+            for (const item of mediaArray) {
+                if (typeof item === 'object' && item && item.id) {
                     imageUrl = `https://api.socialhub.kwikezee.my/api/media/file?id=${item.id}`;
                     break;
                 }

@@ -455,7 +455,8 @@
             const createdDate = new Date(post.created_at).toLocaleDateString(undefined, { year: 'numeric', month: 'short', day: 'numeric' });
             
             const displayTitle = post.title || 'Untitled Draft';
-            const displayCaption = post.caption || '<span style="color: var(--color-text-tertiary); font-style: italic;">No caption provided.</span>';
+            const isScheduled = post.status === 'scheduled' || !!(post.scheduled_at || post.publish_at);
+            const editUrl = `post-editor.html?id=${post.id}${isScheduled ? '&type=scheduled' : ''}`;
 
             if (viewMode === 'grid' || window.innerWidth <= 768) {
                 card.innerHTML = `
@@ -472,7 +473,7 @@
                         </div>
                     </div>
                     <div class="post-card-actions" style="margin-top: 0.75rem; display: flex; gap: 0.5rem; justify-content: flex-end;">
-                        <a href="post-editor.html?id=${post.id}" class="btn btn-secondary" style="padding: 0.35rem 0.65rem; font-size: 0.75rem;">Edit</a>
+                        <a href="${editUrl}" class="btn btn-secondary" style="padding: 0.35rem 0.65rem; font-size: 0.75rem;">Edit</a>
                         <button class="btn btn-secondary btnDuplicate" data-id="${post.id}" style="padding: 0.35rem 0.65rem; font-size: 0.75rem;">Copy</button>
                         <button class="btn btn-danger btn-icon btnDelete" data-id="${post.id}" style="padding: 0.35rem;" title="Delete Post">
                             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
@@ -494,7 +495,7 @@
                         <div>${badge}</div>
                     </div>
                     <div class="post-card-actions">
-                        <a href="post-editor.html?id=${post.id}" class="btn btn-secondary" style="padding: 0.4rem 0.75rem; font-size: 0.75rem;">Edit</a>
+                        <a href="${editUrl}" class="btn btn-secondary" style="padding: 0.4rem 0.75rem; font-size: 0.75rem;">Edit</a>
                         <button class="btn btn-secondary btnDuplicate" data-id="${post.id}" style="padding: 0.4rem 0.75rem; font-size: 0.75rem;">Copy</button>
                         <button class="btn btn-danger btn-icon btnDelete" data-id="${post.id}" style="padding: 0.4rem;" title="Delete Post">
                             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">

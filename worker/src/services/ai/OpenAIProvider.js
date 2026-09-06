@@ -5,10 +5,23 @@ export class OpenAIProvider extends AIProvider {
         super();
         this.apiKey = apiKey ? apiKey.replace(/^["']|["']$/g, '') : '';
         this.model = model || "gpt-4o-mini";
+
+        const isOfficialOpenAIKey = this.apiKey.startsWith('sk-proj-') || this.apiKey.startsWith('sk-admin-');
+        const isAgentRouterKey = (this.apiKey.startsWith('sk-') && !isOfficialOpenAIKey && !this.apiKey.startsWith('sk-or-')) || (baseUrl && baseUrl.includes('agentrouter.org'));
+        
+        this.isAgentRouter = !!(
+            isAgentRouterKey || 
+            (baseUrl && baseUrl.includes('agentrouter.org')) || 
+            this.model.includes('claude') || 
+            this.model.includes('deepseek') || 
+            this.model.includes('glm') || 
+            this.model.includes('gpt-5.6')
+        );
+
         this.baseUrl = baseUrl || (
-            (this.model.includes('claude-opus') || this.model.includes('deepseek-v4') || this.model.includes('glm-5') || this.model.includes('gpt-5.6') || (this.apiKey && this.apiKey.length > 40 && !this.apiKey.startsWith('sk-proj-')))
-            ? "https://co.agentrouter.org/v1"
-            : "https://api.openai.com/v1"
+            this.isAgentRouter 
+                ? "https://agentrouter.org/v1" 
+                : "https://api.openai.com/v1"
         );
     }
 
@@ -22,6 +35,7 @@ export class OpenAIProvider extends AIProvider {
     async _fetchChatCompletions(payload) {
         const isClaudeModel = this.model.includes('claude-opus') || this.model.includes('claude-');
         const isAgentRouterModel = 
+            this.isAgentRouter ||
             this.model.includes('claude-opus') || 
             this.model.includes('deepseek-v4') || 
             this.model.includes('glm-5') || 
@@ -31,30 +45,26 @@ export class OpenAIProvider extends AIProvider {
         const isOpenRouterKey = this.apiKey && this.apiKey.startsWith('sk-or-');
         let endpoints = [];
 
-        if (isAgentRouterModel) {
+        if (isOpenRouterKey) {
+            endpoints = ["https://openrouter.ai/api/v1/chat/completions"];
+        } else if (isAgentRouterModel || this.baseUrl.includes('agentrouter.org')) {
+            // Agent Router endpoints — strictly NEVER fallback to api.openai.com (prevents 401 on foreign keys)
             endpoints = isClaudeModel ? [
-                "https://co.agentrouter.org/v1/messages",
-                "https://co.agentrouter.org/v1/chat/completions",
                 "https://agentrouter.org/v1/messages",
+                "https://co.agentrouter.org/v1/messages",
                 "https://agentrouter.org/v1/chat/completions",
-                "https://api.openai.com/v1/chat/completions"
+                "https://co.agentrouter.org/v1/chat/completions"
             ] : [
-                "https://co.agentrouter.org/v1/chat/completions",
                 "https://agentrouter.org/v1/chat/completions",
-                "https://co.agentrouter.org/v1/messages",
+                "https://co.agentrouter.org/v1/chat/completions",
                 "https://agentrouter.org/v1/messages",
-                "https://api.openai.com/v1/chat/completions"
+                "https://co.agentrouter.org/v1/messages"
             ];
         } else {
+            // Direct Official OpenAI platform key
             endpoints = [
-                this.baseUrl ? `${this.baseUrl}/chat/completions` : "https://api.openai.com/v1/chat/completions",
-                "https://co.agentrouter.org/v1/chat/completions",
-                "https://api.openai.com/v1/chat/completions"
+                this.baseUrl ? `${this.baseUrl}/chat/completions` : "https://api.openai.com/v1/chat/completions"
             ];
-        }
-
-        if (isOpenRouterKey) {
-            endpoints.push("https://openrouter.ai/api/v1/chat/completions");
         }
 
         const uniqueEndpoints = [...new Set(endpoints)];

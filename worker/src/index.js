@@ -406,15 +406,22 @@ async function getAIEnvironment(db, workspaceId, env, encryptionSecret, subscrip
                     if (isValidKey) {
                         // Only assign the workspace key to its matching provider slot
                         // Do NOT overwrite other providers' global keys with a foreign key type
+                        const isOfficialOpenAI = resolvedKey.startsWith('sk-proj-') || resolvedKey.startsWith('sk-admin-');
                         if (resolvedKey.startsWith('AIza')) {
                             // Gemini key — only override Gemini slot
                             aiEnv.GEMINI_API_KEY = resolvedKey;
                         } else if (resolvedKey.startsWith('sk-or-')) {
                             // OpenRouter key — only override OpenRouter slot
                             aiEnv.OPENROUTER_API_KEY = resolvedKey;
-                        } else if (resolvedKey.startsWith('sk-')) {
-                            // OpenAI key — only override OpenAI slot
+                        } else if (isOfficialOpenAI) {
+                            // Official direct OpenAI key
                             aiEnv.OPENAI_API_KEY = resolvedKey;
+                            aiEnv._isOfficialOpenAI = true;
+                        } else if (resolvedKey.startsWith('sk-')) {
+                            // Agent Router / third-party gateway key
+                            aiEnv.OPENAI_API_KEY = resolvedKey;
+                            aiEnv.AGENTROUTER_API_KEY = resolvedKey;
+                            aiEnv._isAgentRouterKey = true;
                         } else {
                             // Unknown key type — treat as OpenRouter fallback
                             aiEnv.OPENROUTER_API_KEY = resolvedKey;
@@ -4107,15 +4114,20 @@ CRITICAL TONE RULES:
                                 }
                             } else {
                                 // OpenAI or OpenRouter
+                                const isAgentRouter = provider.isAgentRouter || (provider.baseUrl && provider.baseUrl.includes('agentrouter.org')) || (!provider.apiKey?.startsWith('sk-proj-') && !provider.apiKey?.startsWith('sk-admin-'));
                                 const endpoint = provider.constructor?.name === 'OpenAIProvider' 
-                                    ? "https://api.openai.com/v1/chat/completions" 
+                                    ? (provider.baseUrl ? `${provider.baseUrl}/chat/completions` : (isAgentRouter ? "https://agentrouter.org/v1/chat/completions" : "https://api.openai.com/v1/chat/completions"))
                                     : "https://openrouter.ai/api/v1/chat/completions";
                                 const headers = {
                                     "Authorization": `Bearer ${provider.apiKey}`,
                                     "Content-Type": "application/json"
                                 };
+                                if (endpoint.includes('agentrouter.org')) {
+                                    headers["User-Agent"] = "claude-cli/2.1.158 (external, sdk-cli)";
+                                    headers["x-app"] = "cli";
+                                }
                                 if (provider.constructor?.name === 'OpenRouterProvider') {
-                    headers["HTTP-Referer"] = "https://socialhub.kwikezee.my";
+                                    headers["HTTP-Referer"] = "https://socialhub.kwikezee.my";
                                     headers["X-Title"] = "SocialHub Autoposter";
                                 }
                                 const isReasoning = provider.model && (
@@ -5093,7 +5105,7 @@ CRITICAL LANGUAGE / SPEECH RULES:
                             campaign = passedPosts;
                         } else {
                             const provider = AIFactory.getProvider(aiEnv);
-                            const autopilotService = new AutopilotService(provider);
+                            const autopilotService = new AutopilotService(provider, aiEnv);
                             const nicheData = await getNicheInstructions(env.DB, niche, 'autopilot');
                             const performanceFeedback = await getPerformanceFeedback(env.DB, activeWorkspace.workspace_id, nicheData ? nicheData.niche_key : null);
                             

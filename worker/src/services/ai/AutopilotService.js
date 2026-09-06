@@ -1,6 +1,10 @@
+import { GeminiProvider } from './GeminiProvider.js';
+import { CloudflareAIProvider } from './CloudflareAIProvider.js';
+
 export class AutopilotService {
-    constructor(provider) {
+    constructor(provider, env = null) {
         this.provider = provider;
+        this.env = env;
     }
 
     async generateAutopilotCampaign({ niche, targetAudience, platform, count, language, timezoneOffset, frequency, ctaLink, postFormat, nicheRules, nicheKey, nicheName, exampleOutput }) {
@@ -338,12 +342,61 @@ CRITICAL HOOK & CONTENT DIVERSITY RULES (VERY IMPORTANT TO AVOID REPETITION):
     }
 
     async _callAI(prompt, maxTokens = 8192) {
-        let responseText = "";
-        const providerName = this.provider.constructor?.name || '';
-        console.log(`[AutopilotService] Calling AI provider: ${providerName}, model: ${this.provider.model}`);
+        const candidateProviders = [];
 
-        if (providerName === 'CloudflareAIProvider' || typeof this.provider.ai?.run === 'function') {
-            const res = await this.provider.ai.run(this.provider.model || '@cf/meta/llama-3.2-3b-instruct', {
+        if (this.provider) {
+            if (this.provider.constructor?.name === 'ResilientAIProvider') {
+                candidateProviders.push(this.provider.primary, ...(this.provider.fallbacks || []));
+            } else {
+                candidateProviders.push(this.provider);
+            }
+        }
+
+        // Add Gemini fallback from env if available and not already present
+        const hasGemini = candidateProviders.some(p => p.constructor?.name === 'GeminiProvider');
+        if (!hasGemini && this.env?.GEMINI_API_KEY) {
+            candidateProviders.push(new GeminiProvider(this.env.GEMINI_API_KEY, 'gemini-2.5-flash'));
+        }
+
+        // Add Cloudflare AI fallback from env if available and not already present
+        const hasCf = candidateProviders.some(p => p.constructor?.name === 'CloudflareAIProvider');
+        if (!hasCf && this.env?.AI) {
+            candidateProviders.push(new CloudflareAIProvider(this.env.AI, '@cf/meta/llama-3.2-3b-instruct'));
+        }
+
+        let lastErr = null;
+        for (let i = 0; i < candidateProviders.length; i++) {
+            const p = candidateProviders[i];
+            const pName = p.constructor?.name || 'UnknownProvider';
+            const pModel = p.model || '';
+
+            try {
+                console.log(`[AutopilotService] Executing campaign generation batch with: ${pName} (${pModel})`);
+                const responseText = await this._callSingleProvider(p, prompt, maxTokens);
+                if (responseText) {
+                    const parsed = this._parseJsonArray(responseText);
+                    if (parsed && Array.isArray(parsed) && parsed.length > 0) {
+                        return parsed;
+                    }
+                }
+            } catch (err) {
+                lastErr = err;
+                console.warn(`[AutopilotService] Provider ${pName} (${pModel}) failed: ${err.message}.`);
+                if (i < candidateProviders.length - 1) {
+                    console.log(`[AutopilotService] Engaging fallback provider: ${candidateProviders[i + 1].constructor?.name}...`);
+                }
+            }
+        }
+
+        throw lastErr || new Error("Failed to communicate with any AI provider.");
+    }
+
+    async _callSingleProvider(provider, prompt, maxTokens) {
+        let responseText = "";
+        const providerName = provider.constructor?.name || '';
+
+        if (providerName === 'CloudflareAIProvider' || typeof provider.ai?.run === 'function') {
+            const res = await provider.ai.run(provider.model || '@cf/meta/llama-3.2-3b-instruct', {
                 messages: [
                     { role: "system", content: "You are a professional social media marketing expert. You must output strictly a JSON array." },
                     { role: "user", content: prompt }
@@ -358,7 +411,7 @@ CRITICAL HOOK & CONTENT DIVERSITY RULES (VERY IMPORTANT TO AVOID REPETITION):
                 responseText = res.response || JSON.stringify(res);
             }
         } else if (providerName === 'GeminiProvider') {
-            const url = `https://generativelanguage.googleapis.com/v1beta/models/${this.provider.model}:generateContent?key=${this.provider.apiKey}`;
+            const url = `https://generativelanguage.googleapis.com/v1beta/models/${provider.model || 'gemini-2.5-flash'}:generateContent?key=${provider.apiKey}`;
             const res = await fetch(url, {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
@@ -366,7 +419,7 @@ CRITICAL HOOK & CONTENT DIVERSITY RULES (VERY IMPORTANT TO AVOID REPETITION):
                     contents: [{ parts: [{ text: prompt }] }],
                     generationConfig: {
                         responseMimeType: "application/json",
-                        maxOutputTokens: maxTokens
+                        maxOutputTokens: Math.min(maxTokens, 8192)
                     }
                 })
             });
@@ -377,27 +430,27 @@ CRITICAL HOOK & CONTENT DIVERSITY RULES (VERY IMPORTANT TO AVOID REPETITION):
             const data = await res.json();
             responseText = data.candidates?.[0]?.content?.parts?.[0]?.text || "";
         } else if (providerName === 'OpenAIProvider') {
-            const data = await this.provider._fetchChatCompletions({
-                model: this.provider.model || "gpt-4o-mini",
+            const data = await provider._fetchChatCompletions({
+                model: provider.model || "gpt-4o-mini",
                 messages: [
                     { role: "system", content: "You are a professional social media marketing expert. You must output strictly a valid JSON array of post objects, each with keys: caption, cta, hashtags. Do not wrap in any object." },
                     { role: "user", content: prompt }
                 ],
                 max_tokens: maxTokens,
-                ...(this.provider.isReasoningModel && this.provider.isReasoningModel() ? {} : { temperature: 0.7 })
+                ...(provider.isReasoningModel && provider.isReasoningModel() ? {} : { temperature: 0.7 })
             });
             responseText = data.choices?.[0]?.message?.content || "";
         } else if (providerName === 'OpenRouterProvider') {
             const res = await fetch("https://openrouter.ai/api/v1/chat/completions", {
                 method: "POST",
                 headers: {
-                    "Authorization": `Bearer ${this.provider.apiKey}`,
+                    "Authorization": `Bearer ${provider.apiKey}`,
                     "Content-Type": "application/json",
-                    "HTTP-Referer": "https://socialhub.zaimrosli.my",
+                    "HTTP-Referer": "https://socialhub.kwikezee.my",
                     "X-Title": "SocialHub Autopilot"
                 },
                 body: JSON.stringify({
-                    model: this.provider.model || "meta-llama/llama-3.2-3b-instruct:free",
+                    model: provider.model || "meta-llama/llama-3.2-3b-instruct:free",
                     messages: [
                         { role: "system", content: "You are a professional social media marketing expert. You must output strictly a JSON array." },
                         { role: "user", content: prompt }
@@ -413,14 +466,22 @@ CRITICAL HOOK & CONTENT DIVERSITY RULES (VERY IMPORTANT TO AVOID REPETITION):
             const data = await res.json();
             responseText = data.choices?.[0]?.message?.content || "";
         } else {
-            throw new Error(`Unsupported AI provider type: ${providerName}. Please configure a valid API key in Settings.`);
+            // Generic provider with generateChatResponse
+            if (typeof provider.generateChatResponse === 'function') {
+                responseText = await provider.generateChatResponse([
+                    { role: "system", content: "You are a professional social media marketing expert. You must output strictly a valid JSON array of post objects, each with keys: caption, cta, hashtags. Do not wrap in any object." },
+                    { role: "user", content: prompt }
+                ]);
+            } else {
+                throw new Error(`Unsupported AI provider type: ${providerName}.`);
+            }
         }
 
         if (!responseText) {
             throw new Error("AI provider returned an empty response.");
         }
 
-        return this._parseJsonArray(responseText);
+        return responseText;
     }
 
     _parseJsonArray(responseText) {

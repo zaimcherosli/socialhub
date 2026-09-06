@@ -455,6 +455,7 @@
             const createdDate = new Date(post.created_at).toLocaleDateString(undefined, { year: 'numeric', month: 'short', day: 'numeric' });
             
             const displayTitle = post.title || 'Untitled Draft';
+            const displayCaption = post.caption || post.content || '';
             const isScheduled = post.status === 'scheduled' || !!(post.scheduled_at || post.publish_at);
             const editUrl = `post-editor.html?id=${post.id}${isScheduled ? '&type=scheduled' : ''}`;
 

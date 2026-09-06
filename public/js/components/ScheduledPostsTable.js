@@ -4,8 +4,16 @@ import { timezoneService } from '../services/timezoneService.js';
 import { notificationService } from '../services/notificationService.js';
 
 class ScheduledPostsTable extends HTMLElement {
+    constructor() {
+        super();
+        this.allPosts = [];
+        this.activeFilter = 'all';
+        this.displayLimit = 15;
+    }
+
     connectedCallback() {
         this.renderContainer();
+        this.bindTabEvents();
         this.loadData();
         this.initDragToScroll();
     }
@@ -13,12 +21,29 @@ class ScheduledPostsTable extends HTMLElement {
     renderContainer() {
         this.innerHTML = `
             <div class="card" style="width: 100%; padding: 0; overflow: hidden; position: relative;">
-                <div style="display: flex; justify-content: space-between; align-items: center; padding: 1.25rem 1.25rem 0.75rem 1.25rem;">
+                <div style="display: flex; justify-content: space-between; align-items: center; padding: 1.25rem 1.25rem 0.75rem 1.25rem; flex-wrap: wrap; gap: 0.75rem;">
                     <div style="display: flex; align-items: center; gap: 0.5rem;">
-                        <h3 class="card-title" style="margin: 0; font-size: 1rem; font-weight: 600;">Scheduled Publications</h3>
+                        <h3 class="card-title" style="margin: 0; font-size: 1rem; font-weight: 600;">Jadual & Penerbitan Post</h3>
                         <span style="font-size: 0.7rem; color: var(--color-text-tertiary); font-weight: 500;">(Boleh klik & tarik / skrol tetikus)</span>
                     </div>
+
+                    <!-- Filter Tabs -->
+                    <div class="spt-filter-tabs" style="display: flex; gap: 0.35rem; background: var(--color-bg-accent); padding: 0.2rem; border-radius: var(--radius-xs); font-size: 0.75rem; flex-wrap: wrap;">
+                        <button type="button" class="spt-tab-btn active" data-filter="all" style="padding: 0.25rem 0.6rem; border-radius: 4px; border: none; background: var(--color-bg-card); color: var(--color-primary); font-weight: 600; cursor: pointer; transition: all 0.2s ease;">
+                            Semua (<span id="sptCountAll">0</span>)
+                        </button>
+                        <button type="button" class="spt-tab-btn" data-filter="scheduled" style="padding: 0.25rem 0.6rem; border-radius: 4px; border: none; background: transparent; color: var(--color-text-secondary); font-weight: 500; cursor: pointer; transition: all 0.2s ease;">
+                            📅 Dijadualkan (<span id="sptCountScheduled">0</span>)
+                        </button>
+                        <button type="button" class="spt-tab-btn" data-filter="published" style="padding: 0.25rem 0.6rem; border-radius: 4px; border: none; background: transparent; color: var(--color-text-secondary); font-weight: 500; cursor: pointer; transition: all 0.2s ease;">
+                            ✅ Telah Diterbitkan (<span id="sptCountPublished">0</span>)
+                        </button>
+                        <button type="button" class="spt-tab-btn" data-filter="failed" style="padding: 0.25rem 0.6rem; border-radius: 4px; border: none; background: transparent; color: var(--color-text-secondary); font-weight: 500; cursor: pointer; transition: all 0.2s ease;">
+                            ⚠️ Gagal (<span id="sptCountFailed">0</span>)
+                        </button>
+                    </div>
                 </div>
+
                 <div class="table-responsive spt-table-responsive" style="width: 100%; overflow-x: auto; -webkit-overflow-scrolling: touch; cursor: grab; user-select: none;">
                     <table class="spt-table" style="width: 100%; min-width: 950px; border-collapse: collapse; text-align: left; font-size: 0.85rem;">
                         <thead>
@@ -32,18 +57,27 @@ class ScheduledPostsTable extends HTMLElement {
                         </thead>
                         <tbody id="scheduledTableBody">
                             <tr>
-                                <td colspan="5" style="text-align: center; padding: 2rem; color: var(--color-text-tertiary);">Loading schedules...</td>
+                                <td colspan="5" style="text-align: center; padding: 2rem; color: var(--color-text-tertiary);">Memuatkan jadual & post...</td>
                             </tr>
                         </tbody>
                     </table>
+                </div>
+
+                <!-- Pagination Footer -->
+                <div id="sptPagination" style="display: flex; justify-content: space-between; align-items: center; padding: 0.75rem 1.25rem; border-top: 1px solid var(--color-border); font-size: 0.78rem; color: var(--color-text-secondary); flex-wrap: wrap; gap: 0.5rem;">
+                    <span id="sptShowingText">Menunjukkan 0 post</span>
+                    <div style="display: flex; gap: 0.5rem; align-items: center;">
+                        <button type="button" id="btnSptLoadMore" class="btn btn-secondary btn-sm" style="font-size: 0.75rem; padding: 0.25rem 0.65rem; cursor: pointer;">Papar Lagi (+15)</button>
+                        <button type="button" id="btnSptShowAll" class="btn btn-secondary btn-sm" style="font-size: 0.75rem; padding: 0.25rem 0.65rem; cursor: pointer;">Papar Semua</button>
+                    </div>
                 </div>
             </div>
 
             <!-- View Post Modal Component -->
             <div class="modal-backdrop" id="viewPostModal" style="display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.55); z-index: 9999; align-items: center; justify-content: center; backdrop-filter: blur(4px);">
-                <div class="card" style="width: 100%; max-width: 450px; padding: 1.5rem; margin: 1rem; border-radius: var(--radius-md); box-shadow: var(--shadow-lg); background: var(--color-bg-card, #ffffff); border: 1px solid var(--color-border);">
+                <div class="card" style="width: 100%; max-width: 480px; padding: 1.5rem; margin: 1rem; border-radius: var(--radius-md); box-shadow: var(--shadow-lg); background: var(--color-bg-card, #ffffff); border: 1px solid var(--color-border);">
                     <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.25rem;">
-                        <h3 style="font-size: 1.15rem; font-weight: 700; color: var(--color-text-primary); margin: 0;">Scheduled Post Details</h3>
+                        <h3 style="font-size: 1.15rem; font-weight: 700; color: var(--color-text-primary); margin: 0;">Butiran Post</h3>
                         <button id="closeViewPostModal" style="background: none; border: none; cursor: pointer; color: var(--color-text-tertiary); display: flex; align-items: center; justify-content: center; padding: 0.25rem;">
                             <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                                 <line x1="18" y1="6" x2="6" y2="18"></line>
@@ -52,186 +86,283 @@ class ScheduledPostsTable extends HTMLElement {
                         </button>
                     </div>
                     <div style="display: flex; flex-direction: column; gap: 1rem;">
-                        <div>
-                            <span style="font-size: 0.75rem; font-weight: 600; color: var(--color-text-tertiary); text-transform: uppercase;">Platform</span>
-                            <div id="viewPostPlatform" style="margin-top: 0.25rem; font-weight: 500; font-size: 0.9rem; display: flex; align-items: center; gap: 0.5rem;"></div>
+                        <div style="display: flex; justify-content: space-between; align-items: center;">
+                            <div>
+                                <span style="font-size: 0.75rem; font-weight: 600; color: var(--color-text-tertiary); text-transform: uppercase;">Platform</span>
+                                <div id="viewPostPlatform" style="margin-top: 0.25rem; font-weight: 500; font-size: 0.9rem; display: flex; align-items: center; gap: 0.5rem;"></div>
+                            </div>
+                            <div id="viewPostStatusBadge"></div>
                         </div>
                         <div>
-                            <span style="font-size: 0.75rem; font-weight: 600; color: var(--color-text-tertiary); text-transform: uppercase;">Publish At</span>
+                            <span style="font-size: 0.75rem; font-weight: 600; color: var(--color-text-tertiary); text-transform: uppercase;">Masa Penerbitan / Publish At</span>
                             <div id="viewPostTime" style="margin-top: 0.25rem; color: var(--color-text-secondary); font-size: 0.9rem;"></div>
                         </div>
                         <div>
-                            <span style="font-size: 0.75rem; font-weight: 600; color: var(--color-text-tertiary); text-transform: uppercase;">Content</span>
-                            <div id="viewPostContent" style="margin-top: 0.5rem; padding: 1rem; background: var(--color-bg-base, #f3f4f6); border: 1px solid var(--color-border); border-radius: var(--radius-sm); font-size: 0.9rem; color: var(--color-text-primary); white-space: pre-wrap; word-break: break-word; max-height: 200px; overflow-y: auto;"></div>
+                            <span style="font-size: 0.75rem; font-weight: 600; color: var(--color-text-tertiary); text-transform: uppercase;">Kandungan / Content</span>
+                            <div id="viewPostContent" style="margin-top: 0.5rem; padding: 1rem; background: var(--color-bg-base, #f3f4f6); border: 1px solid var(--color-border); border-radius: var(--radius-sm); font-size: 0.9rem; color: var(--color-text-primary); white-space: pre-wrap; word-break: break-word; max-height: 250px; overflow-y: auto;"></div>
                         </div>
                     </div>
                     <div style="margin-top: 1.5rem; display: flex; justify-content: flex-end;">
-                        <button id="btnCancelViewPost" class="btn btn-secondary" style="cursor: pointer;">Close</button>
+                        <button id="btnCancelViewPost" class="btn btn-secondary" style="cursor: pointer;">Tutup</button>
                     </div>
                 </div>
             </div>
         `;
     }
 
+    bindTabEvents() {
+        const tabBtns = this.querySelectorAll('.spt-tab-btn');
+        tabBtns.forEach(btn => {
+            btn.addEventListener('click', (e) => {
+                const targetBtn = e.currentTarget;
+                tabBtns.forEach(b => {
+                    b.classList.remove('active');
+                    b.style.background = 'transparent';
+                    b.style.color = 'var(--color-text-secondary)';
+                    b.style.fontWeight = '500';
+                });
+                targetBtn.classList.add('active');
+                targetBtn.style.background = 'var(--color-bg-card)';
+                targetBtn.style.color = 'var(--color-primary)';
+                targetBtn.style.fontWeight = '600';
+
+                this.activeFilter = targetBtn.dataset.filter;
+                this.displayLimit = 15; // Reset to 15 on filter switch
+                this.renderTableBody();
+            });
+        });
+
+        const btnLoadMore = this.querySelector('#btnSptLoadMore');
+        btnLoadMore?.addEventListener('click', () => {
+            this.displayLimit += 15;
+            this.renderTableBody();
+        });
+
+        const btnShowAll = this.querySelector('#btnSptShowAll');
+        btnShowAll?.addEventListener('click', () => {
+            this.displayLimit = 99999;
+            this.renderTableBody();
+        });
+    }
+
     async loadData() {
         const tbody = this.querySelector('#scheduledTableBody');
         try {
             const res = await schedulerService.getScheduledPosts();
-            let posts = res.results || [];
-            tbody.innerHTML = '';
+            this.allPosts = res.results || [];
 
-            if (posts.length === 0) {
-                tbody.innerHTML = `
-                    <tr>
-                        <td colspan="5" style="text-align: center; padding: 3rem; color: var(--color-text-tertiary); font-style: italic;">
-                            No publications scheduled yet.
-                        </td>
-                    </tr>
-                `;
-                return;
-            }
+            // Update tab counters
+            const countAll = this.allPosts.length;
+            const countScheduled = this.allPosts.filter(p => p.status === 'scheduled').length;
+            const countPublished = this.allPosts.filter(p => p.status === 'published').length;
+            const countFailed = this.allPosts.filter(p => p.status === 'failed').length;
 
-            // Sort: scheduled (1), draft (2), failed (3), published (4)
-            posts.sort((a, b) => {
-                const statusPriority = { scheduled: 1, draft: 2, failed: 3, published: 4 };
-                const pA = statusPriority[a.status] || 99;
-                const pB = statusPriority[b.status] || 99;
-                if (pA !== pB) return pA - pB;
-                // If status is same, sort by date (newest first for published, earliest first for scheduled)
-                if (a.status === 'published') {
-                    return new Date(b.publish_at) - new Date(a.publish_at);
-                }
-                return new Date(a.publish_at) - new Date(b.publish_at);
-            });
+            const elAll = this.querySelector('#sptCountAll');
+            const elSched = this.querySelector('#sptCountScheduled');
+            const elPub = this.querySelector('#sptCountPublished');
+            const elFailed = this.querySelector('#sptCountFailed');
 
-            // Limit to max 10 posts to keep the page clean and prevent extreme scrolling
-            posts = posts.slice(0, 10);
+            if (elAll) elAll.textContent = countAll;
+            if (elSched) elSched.textContent = countScheduled;
+            if (elPub) elPub.textContent = countPublished;
+            if (elFailed) elFailed.textContent = countFailed;
 
-            posts.forEach(post => {
-                const tr = document.createElement('tr');
-                tr.style.borderBottom = '1px solid var(--color-border)';
-                
-                const timeString = timezoneService.formatUtcToLocal(post.publish_at, { timeZoneName: undefined });
-                
-                // Simple platform label without logo/icons
-                const platformHtml = `<span style="text-transform: capitalize; font-weight: 600;">${post.platform}</span>`;
-                
-                const truncatedContent = post.content 
-                    ? (post.content.length > 60 ? post.content.substring(0, 60) + '...' : post.content)
-                    : '<em style="color:var(--color-text-tertiary);">No content</em>';
-
-                tr.innerHTML = `
-                    <td data-label="Platform" style="padding: 0.75rem 1rem; vertical-align: middle; white-space: nowrap;">
-                        ${platformHtml}
-                    </td>
-                    <td data-label="Content" style="padding: 0.75rem 1rem; vertical-align: middle;">
-                        <span class="cell-truncate-text" style="display: block; max-width: 100%; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; text-align: left; vertical-align: middle;">${truncatedContent}</span>
-                    </td>
-                    <td data-label="Publish At" style="padding: 0.75rem 1rem; color: var(--color-text-secondary); font-size: 0.8125rem; white-space: nowrap; vertical-align: middle;">
-                        ${timeString}
-                    </td>
-                    <td data-label="Status" style="padding: 0.75rem 0.75rem; vertical-align: middle; white-space: nowrap; text-align: center;">
-                        <publish-status-badge status="${post.status}"></publish-status-badge>
-                    </td>
-                    <td data-label="Actions" style="padding: 0.75rem 1rem; text-align: right; vertical-align: middle; white-space: nowrap;">
-                        <div style="display: inline-flex; gap: 0.35rem; justify-content: flex-end; align-items: center; flex-wrap: nowrap; white-space: nowrap;">
-                            <button class="btn btn-secondary btn-sm btn-view-post" data-id="${post.id}" style="padding: 0.25rem 0.5rem; font-size: 0.75rem; font-weight: 500; height: 28px; line-height: 1;">View</button>
-                            ${post.status === 'scheduled' || post.status === 'failed' ? `
-                                <a href="post-editor.html?id=${post.id}&type=scheduled" class="btn btn-secondary btn-sm btn-edit-post" data-id="${post.id}" style="padding: 0.25rem 0.5rem; font-size: 0.75rem; font-weight: 500; height: 28px; line-height: 1; text-decoration: none; display: inline-flex; align-items: center;">Edit</a>
-                                <button class="btn btn-secondary btn-sm btn-publish-now" data-id="${post.id}" style="padding: 0.25rem 0.5rem; font-size: 0.75rem; font-weight: 600; height: 28px; line-height: 1; color: #d97706; border-color: rgba(217, 119, 6, 0.3);">⚡ Now</button>
-                                <button class="btn btn-danger btn-sm btn-cancel-post" data-id="${post.id}" style="padding: 0.25rem 0.5rem; font-size: 0.75rem; font-weight: 500; height: 28px; line-height: 1;">Cancel</button>
-                            ` : ''}
-                        </div>
-                    </td>
-                `;
-
-                const editLink = tr.querySelector('.btn-edit-post');
-                if (editLink) {
-                    editLink.addEventListener('click', () => {
-                        try { sessionStorage.setItem(`socialhub_edit_post_${post.id}`, JSON.stringify(post)); } catch (_) {}
-                    });
-                }
-
-                tbody.appendChild(tr);
-            });
-
-            // Bind Modal View actions
-            const modal = this.querySelector('#viewPostModal');
-            const closeBtn = this.querySelector('#closeViewPostModal');
-            const cancelBtn = this.querySelector('#btnCancelViewPost');
-            const viewPlatform = this.querySelector('#viewPostPlatform');
-            const viewTime = this.querySelector('#viewPostTime');
-            const viewContent = this.querySelector('#viewPostContent');
-
-            const hideModal = () => {
-                modal.style.display = 'none';
-            };
-            closeBtn.addEventListener('click', hideModal);
-            cancelBtn.addEventListener('click', hideModal);
-
-            tbody.querySelectorAll('.btn-view-post').forEach(btn => {
-                btn.addEventListener('click', (e) => {
-                    const id = e.target.dataset.id;
-                    const post = posts.find(p => String(p.id) === String(id));
-                    if (!post) return;
-
-                    viewPlatform.innerHTML = post.platform === 'threads' 
-                        ? `<svg width="20" height="20" viewBox="0 0 192 192" fill="currentColor" style="color: var(--color-text-primary); vertical-align: middle; display: inline-block;">
-                               <path d="M141.537 88.9883C140.71 88.5919 139.87 88.2104 139.019 87.8451C137.537 60.5382 122.616 44.905 97.5619 44.745C97.4484 44.7443 97.3355 44.7443 97.222 44.7443C82.2364 44.7443 69.7731 51.1409 62.102 62.7807L75.881 72.2328C81.6116 63.5383 90.6052 61.6848 97.2286 61.6848C97.3051 61.6848 97.3819 61.6848 97.4576 61.6855C105.707 61.7381 111.932 64.1366 115.961 68.814C118.893 72.2193 120.854 76.925 121.825 82.8638C114.511 81.6207 106.601 81.2385 98.145 81.7233C74.3247 83.0954 59.0111 96.9879 60.0396 116.292C60.5615 126.084 65.4397 134.508 73.775 140.011C80.8224 144.663 89.899 146.938 99.3323 146.423C111.79 145.74 121.563 140.987 128.381 132.296C133.559 125.696 136.834 117.143 138.28 106.366C144.217 109.949 148.617 114.664 151.047 120.332C155.179 129.967 155.42 145.8 142.501 158.708C131.182 170.016 117.576 174.908 97.0135 175.059C74.2042 174.89 56.9538 167.575 45.7381 153.317C35.2355 139.966 29.8077 120.682 29.6052 96C29.8077 71.3178 35.2355 52.0336 45.7381 38.6827C56.9538 24.4249 74.2039 17.11 97.0132 16.9405C119.988 17.1113 137.539 24.4614 149.184 38.788C154.894 45.8136 159.199 54.6488 162.037 64.9503L178.184 60.6422C174.744 47.9622 169.331 37.0357 161.965 27.974C147.036 9.60668 125.202 0.195148 97.0695 0H96.9569C68.8816 0.19447 47.2921 9.6418 32.7883 28.0793C19.8819 44.4864 13.2244 67.3157 13.0007 95.9325L13 96L13.0007 96.0675C13.2244 124.684 19.8819 147.514 32.7883 163.921C47.2921 182.358 68.8816 191.806 96.9569 192H97.0695C122.03 191.827 139.624 185.292 154.118 170.811C173.081 151.866 172.51 128.119 166.26 113.541C161.776 103.087 153.227 94.5962 141.537 88.9883ZM98.4405 129.507C88.0005 130.095 77.1544 125.409 76.6196 115.372C76.2232 107.93 81.9158 99.626 99.0812 98.6368C101.047 98.5234 102.976 98.468 104.871 98.468C111.106 98.468 116.939 99.0737 122.242 100.233C120.264 124.935 108.662 128.946 98.4405 129.507Z"/>
-                           </svg> <span style="text-transform: capitalize; font-weight: 600; margin-left: 0.25rem;">Threads</span>`
-                        : `<span style="font-size: 1.15rem; vertical-align: middle;">📱</span> <span style="text-transform: capitalize; font-weight: 600; margin-left: 0.25rem;">${post.platform}</span>`;
-                    
-                    viewTime.textContent = timezoneService.formatUtcToLocal(post.publish_at);
-                    viewContent.textContent = post.content || '';
-                    modal.style.display = 'flex';
-                });
-            });
-
-            // Bind action buttons
-            tbody.querySelectorAll('.btn-publish-now').forEach(btn => {
-                btn.addEventListener('click', async (e) => {
-                    const id = e.target.dataset.id;
-                    e.target.disabled = true;
-                    e.target.textContent = 'Publishing...';
-                    try {
-                        const success = await publishService.publishImmediately(id);
-                        if (success) {
-                            notificationService.success('Publication dispatched successfully!');
-                            this.loadData();
-                        } else {
-                            throw new Error('Publication failed.');
-                        }
-                    } catch (err) {
-                        notificationService.error(`Publishing failed: ${err.message}`);
-                        e.target.disabled = false;
-                        e.target.textContent = '⚡ Now';
-                    }
-                });
-            });
-
-            tbody.querySelectorAll('.btn-cancel-post').forEach(btn => {
-                btn.addEventListener('click', async (e) => {
-                    if (!confirm('Are you sure you want to cancel this scheduled post?')) return;
-                    const id = e.target.dataset.id;
-                    try {
-                        await schedulerService.updateScheduledPost(id, { status: 'cancelled' });
-                        notificationService.success('Schedule cancelled.');
-                        this.loadData();
-                    } catch (err) {
-                        notificationService.error('Failed to cancel schedule.');
-                    }
-                });
-            });
-
+            this.renderTableBody();
         } catch (err) {
+            console.error('Failed to load scheduled posts:', err);
             tbody.innerHTML = `
                 <tr>
                     <td colspan="5" style="text-align: center; padding: 2rem; color: var(--color-danger);">
-                        Failed to fetch schedules database.
+                        Ralat semasa memuatkan data jadual post.
                     </td>
                 </tr>
             `;
         }
+    }
+
+    renderTableBody() {
+        const tbody = this.querySelector('#scheduledTableBody');
+        const showingText = this.querySelector('#sptShowingText');
+        const btnLoadMore = this.querySelector('#btnSptLoadMore');
+        const btnShowAll = this.querySelector('#btnSptShowAll');
+
+        // Filter based on active filter
+        let filtered = this.allPosts.slice();
+        if (this.activeFilter === 'scheduled') {
+            filtered = filtered.filter(p => p.status === 'scheduled');
+            // Nearest upcoming time first
+            filtered.sort((a, b) => new Date(a.publish_at) - new Date(b.publish_at));
+        } else if (this.activeFilter === 'published') {
+            filtered = filtered.filter(p => p.status === 'published');
+            // Most recently published first
+            filtered.sort((a, b) => new Date(b.publish_at || b.published_at || 0) - new Date(a.publish_at || a.published_at || 0));
+        } else if (this.activeFilter === 'failed') {
+            filtered = filtered.filter(p => p.status === 'failed');
+            filtered.sort((a, b) => new Date(b.publish_at) - new Date(a.publish_at));
+        } else {
+            // 'all': scheduled first (soonest first), then failed, then published (newest published first)
+            filtered.sort((a, b) => {
+                const statusPriority = { scheduled: 1, draft: 2, failed: 3, published: 4 };
+                const pA = statusPriority[a.status] || 99;
+                const pB = statusPriority[b.status] || 99;
+                if (pA !== pB) return pA - pB;
+                if (a.status === 'published') {
+                    return new Date(b.publish_at || b.published_at || 0) - new Date(a.publish_at || a.published_at || 0);
+                }
+                return new Date(a.publish_at) - new Date(b.publish_at);
+            });
+        }
+
+        const totalFiltered = filtered.length;
+        const visiblePosts = filtered.slice(0, this.displayLimit);
+
+        if (showingText) {
+            showingText.textContent = `Menunjukkan ${visiblePosts.length} daripada ${totalFiltered} post`;
+        }
+
+        if (btnLoadMore) {
+            btnLoadMore.style.display = totalFiltered > visiblePosts.length ? 'inline-block' : 'none';
+        }
+        if (btnShowAll) {
+            btnShowAll.style.display = totalFiltered > visiblePosts.length ? 'inline-block' : 'none';
+        }
+
+        tbody.innerHTML = '';
+
+        if (totalFiltered === 0) {
+            const emptyMsgMap = {
+                all: 'Tiada penerbitan atau jadual post lagi.',
+                scheduled: 'Tiada post yang sedang dijadualkan.',
+                published: 'Tiada post lama yang telah diterbitkan setakat ini.',
+                failed: 'Tiada post yang gagal dihantar.'
+            };
+            tbody.innerHTML = `
+                <tr>
+                    <td colspan="5" style="text-align: center; padding: 3rem; color: var(--color-text-tertiary); font-style: italic;">
+                        ${emptyMsgMap[this.activeFilter] || 'Tiada rekod dijumpai.'}
+                    </td>
+                </tr>
+            `;
+            return;
+        }
+
+        visiblePosts.forEach(post => {
+            const tr = document.createElement('tr');
+            tr.style.borderBottom = '1px solid var(--color-border)';
+
+            const timeString = timezoneService.formatUtcToLocal(post.publish_at, { timeZoneName: undefined });
+            const platformHtml = `<span style="text-transform: capitalize; font-weight: 600;">${post.platform}</span>`;
+            
+            const truncatedContent = post.content 
+                ? (post.content.length > 70 ? post.content.substring(0, 70) + '...' : post.content)
+                : '<em style="color:var(--color-text-tertiary);">No content</em>';
+
+            tr.innerHTML = `
+                <td data-label="Platform" style="padding: 0.75rem 1rem; vertical-align: middle; white-space: nowrap;">
+                    ${platformHtml}
+                </td>
+                <td data-label="Content" style="padding: 0.75rem 1rem; vertical-align: middle;">
+                    <span class="cell-truncate-text" style="display: block; max-width: 100%; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; text-align: left; vertical-align: middle;">${truncatedContent}</span>
+                </td>
+                <td data-label="Publish At" style="padding: 0.75rem 1rem; color: var(--color-text-secondary); font-size: 0.8125rem; white-space: nowrap; vertical-align: middle;">
+                    ${timeString}
+                </td>
+                <td data-label="Status" style="padding: 0.75rem 0.75rem; vertical-align: middle; white-space: nowrap; text-align: center;">
+                    <publish-status-badge status="${post.status}"></publish-status-badge>
+                </td>
+                <td data-label="Actions" style="padding: 0.75rem 1rem; text-align: right; vertical-align: middle; white-space: nowrap;">
+                    <div style="display: inline-flex; gap: 0.35rem; justify-content: flex-end; align-items: center; flex-wrap: nowrap; white-space: nowrap;">
+                        <button class="btn btn-secondary btn-sm btn-view-post" data-id="${post.id}" style="padding: 0.25rem 0.5rem; font-size: 0.75rem; font-weight: 500; height: 28px; line-height: 1;">View</button>
+                        ${post.status === 'scheduled' || post.status === 'failed' ? `
+                            <a href="post-editor.html?id=${post.id}&type=scheduled" class="btn btn-secondary btn-sm btn-edit-post" data-id="${post.id}" style="padding: 0.25rem 0.5rem; font-size: 0.75rem; font-weight: 500; height: 28px; line-height: 1; text-decoration: none; display: inline-flex; align-items: center;">Edit</a>
+                            <button class="btn btn-secondary btn-sm btn-publish-now" data-id="${post.id}" style="padding: 0.25rem 0.5rem; font-size: 0.75rem; font-weight: 600; height: 28px; line-height: 1; color: #d97706; border-color: rgba(217, 119, 6, 0.3);">⚡ Now</button>
+                            <button class="btn btn-danger btn-sm btn-cancel-post" data-id="${post.id}" style="padding: 0.25rem 0.5rem; font-size: 0.75rem; font-weight: 500; height: 28px; line-height: 1;">Cancel</button>
+                        ` : ''}
+                    </div>
+                </td>
+            `;
+
+            const editLink = tr.querySelector('.btn-edit-post');
+            if (editLink) {
+                editLink.addEventListener('click', () => {
+                    try { sessionStorage.setItem(`socialhub_edit_post_${post.id}`, JSON.stringify(post)); } catch (_) {}
+                });
+            }
+
+            tbody.appendChild(tr);
+        });
+
+        // Bind Modal View actions
+        const modal = this.querySelector('#viewPostModal');
+        const closeBtn = this.querySelector('#closeViewPostModal');
+        const cancelBtn = this.querySelector('#btnCancelViewPost');
+        const viewPlatform = this.querySelector('#viewPostPlatform');
+        const viewStatusBadge = this.querySelector('#viewPostStatusBadge');
+        const viewTime = this.querySelector('#viewPostTime');
+        const viewContent = this.querySelector('#viewPostContent');
+
+        const hideModal = () => {
+            modal.style.display = 'none';
+        };
+        closeBtn?.addEventListener('click', hideModal);
+        cancelBtn?.addEventListener('click', hideModal);
+
+        tbody.querySelectorAll('.btn-view-post').forEach(btn => {
+            btn.addEventListener('click', (e) => {
+                const id = e.target.dataset.id;
+                const post = this.allPosts.find(p => String(p.id) === String(id));
+                if (!post) return;
+
+                viewPlatform.innerHTML = post.platform === 'threads' 
+                    ? `<svg width="20" height="20" viewBox="0 0 192 192" fill="currentColor" style="color: var(--color-text-primary); vertical-align: middle; display: inline-block;">
+                           <path d="M141.537 88.9883C140.71 88.5919 139.87 88.2104 139.019 87.8451C137.537 60.5382 122.616 44.905 97.5619 44.745C97.4484 44.7443 97.3355 44.7443 97.222 44.7443C82.2364 44.7443 69.7731 51.1409 62.102 62.7807L75.881 72.2328C81.6116 63.5383 90.6052 61.6848 97.2286 61.6848C97.3051 61.6848 97.3819 61.6848 97.4576 61.6855C105.707 61.7381 111.932 64.1366 115.961 68.814C118.893 72.2193 120.854 76.925 121.825 82.8638C114.511 81.6207 106.601 81.2385 98.145 81.7233C74.3247 83.0954 59.0111 96.9879 60.0396 116.292C60.5615 126.084 65.4397 134.508 73.775 140.011C80.8224 144.663 89.899 146.938 99.3323 146.423C111.79 145.74 121.563 140.987 128.381 132.296C133.559 125.696 136.834 117.143 138.28 106.366C144.217 109.949 148.617 114.664 151.047 120.332C155.179 129.967 155.42 145.8 142.501 158.708C131.182 170.016 117.576 174.908 97.0135 175.059C74.2042 174.89 56.9538 167.575 45.7381 153.317C35.2355 139.966 29.8077 120.682 29.6052 96C29.8077 71.3178 35.2355 52.0336 45.7381 38.6827C56.9538 24.4249 74.2039 17.11 97.0132 16.9405C119.988 17.1113 137.539 24.4614 149.184 38.788C154.894 45.8136 159.199 54.6488 162.037 64.9503L178.184 60.6422C174.744 47.9622 169.331 37.0357 161.965 27.974C147.036 9.60668 125.202 0.195148 97.0695 0H96.9569C68.8816 0.19447 47.2921 9.6418 32.7883 28.0793C19.8819 44.4864 13.2244 67.3157 13.0007 95.9325L13 96L13.0007 96.0675C13.2244 124.684 19.8819 147.514 32.7883 163.921C47.2921 182.358 68.8816 191.806 96.9569 192H97.0695C122.03 191.827 139.624 185.292 154.118 170.811C173.081 151.866 172.51 128.119 166.26 113.541C161.776 103.087 153.227 94.5962 141.537 88.9883ZM98.4405 129.507C88.0005 130.095 77.1544 125.409 76.6196 115.372C76.2232 107.93 81.9158 99.626 99.0812 98.6368C101.047 98.5234 102.976 98.468 104.871 98.468C111.106 98.468 116.939 99.0737 122.242 100.233C120.264 124.935 108.662 128.946 98.4405 129.507Z"/>
+                        </svg> <span style="text-transform: capitalize; font-weight: 600; margin-left: 0.25rem;">Threads</span>`
+                    : `<span style="font-size: 1.15rem; vertical-align: middle;">📱</span> <span style="text-transform: capitalize; font-weight: 600; margin-left: 0.25rem;">${post.platform}</span>`;
+                
+                if (viewStatusBadge) {
+                    viewStatusBadge.innerHTML = `<publish-status-badge status="${post.status}"></publish-status-badge>`;
+                }
+                viewTime.textContent = timezoneService.formatUtcToLocal(post.publish_at);
+                viewContent.textContent = post.content || '';
+                modal.style.display = 'flex';
+            });
+        });
+
+        // Bind action buttons
+        tbody.querySelectorAll('.btn-publish-now').forEach(btn => {
+            btn.addEventListener('click', async (e) => {
+                const id = e.target.dataset.id;
+                e.target.disabled = true;
+                e.target.textContent = 'Publishing...';
+                try {
+                    const success = await publishService.publishImmediately(id);
+                    if (success) {
+                        notificationService.success('Publication dispatched successfully!');
+                        this.loadData();
+                    } else {
+                        throw new Error('Publication failed.');
+                    }
+                } catch (err) {
+                    notificationService.error(`Publishing failed: ${err.message}`);
+                    e.target.disabled = false;
+                    e.target.textContent = '⚡ Now';
+                }
+            });
+        });
+
+        tbody.querySelectorAll('.btn-cancel-post').forEach(btn => {
+            btn.addEventListener('click', async (e) => {
+                if (!confirm('Are you sure you want to cancel this scheduled post?')) return;
+                const id = e.target.dataset.id;
+                try {
+                    await schedulerService.updateScheduledPost(id, { status: 'cancelled' });
+                    notificationService.success('Schedule cancelled.');
+                    this.loadData();
+                } catch (err) {
+                    notificationService.error('Failed to cancel schedule.');
+                }
+            });
+        });
     }
 
     initDragToScroll() {

@@ -1,4 +1,4 @@
-﻿import { OpenRouterProvider } from './OpenRouterProvider.js';
+import { OpenRouterProvider } from './OpenRouterProvider.js';
 import { GeminiProvider } from './GeminiProvider.js';
 import { CloudflareAIProvider } from './CloudflareAIProvider.js';
 import { OpenAIProvider } from './OpenAIProvider.js';
@@ -77,7 +77,12 @@ export class AIFactory {
         // 1. Agent Router (Explicit Custom Key from agentrouter.org)
         if (isAgentRouterKey) {
             let cleanModel = activeModel.includes('/') ? activeModel.split('/').pop() : activeModel;
-            if (cleanModel.startsWith('@cf/') || !cleanModel || cleanModel === 'auto') {
+            // Map Cloudflare-only / unsupported models to something Agent Router supports
+            const isCfOnlyModel = activeModel.startsWith('@cf/') || 
+                cleanModel.includes('llama') || cleanModel.includes('mistral') || 
+                cleanModel.includes('gemma') || cleanModel.includes('qwen') ||
+                cleanModel.includes('stable-diffusion') || cleanModel.includes('flux');
+            if (isCfOnlyModel || !cleanModel || cleanModel === 'auto') {
                 cleanModel = 'gpt-4o-mini';
             }
             return new OpenAIProvider(workspaceKey, cleanModel, "https://agentrouter.org/v1");

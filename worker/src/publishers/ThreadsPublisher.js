@@ -247,7 +247,7 @@ export class ThreadsPublisher extends PublisherInterface {
                 }
                 
                 let attempts = 0;
-                while (!isReady && attempts < 10) {
+                while (!isReady && attempts < 25) {
                     attempts++;
                     const statusRes = await fetch(`https://graph.threads.net/v1.0/${containerId}?fields=status,error_message&access_token=${accessToken}`, {
                         signal: AbortSignal.timeout(8000)
@@ -270,7 +270,7 @@ export class ThreadsPublisher extends PublisherInterface {
                         };
                     }
                     
-                    await new Promise(resolve => setTimeout(resolve, 800));
+                    await new Promise(resolve => setTimeout(resolve, 1000));
                 }
 
                 if (!isReady) {

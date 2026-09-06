@@ -1015,19 +1015,18 @@
                 channelsContainer.innerHTML = '';
                 if (connectedAccounts.length === 0) {
                     channelsContainer.innerHTML = `<p style="font-size: 0.75rem; color: var(--color-text-tertiary); font-style: italic; margin: 0;">No connected channels. <a href="accounts.html" style="color:var(--color-primary); font-weight:500;">Link accounts here</a></p>`;
-                    return;
+                } else {
+                    connectedAccounts.forEach(acc => {
+                        const label = document.createElement('label');
+                        label.style = 'display: flex; align-items: center; gap: 0.4rem; font-size: 0.85rem; cursor: pointer; color: var(--color-text-secondary); width: 100%; max-width: 100%; box-sizing: border-box; overflow: hidden;';
+                        label.innerHTML = `
+                            <input type="checkbox" class="ai-channel-checkbox" value="${acc.platform}" data-account-id="${acc.id}" checked style="flex-shrink: 0;" />
+                            <span style="text-transform: capitalize; font-weight: 500; flex-shrink: 0;">${acc.platform}</span>
+                            <span style="font-size: 0.72rem; color: var(--color-text-tertiary); max-width: 160px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; display: inline-block; vertical-align: middle;">(${acc.account_name})</span>
+                        `;
+                        channelsContainer.appendChild(label);
+                    });
                 }
-
-                connectedAccounts.forEach(acc => {
-                    const label = document.createElement('label');
-                    label.style = 'display: flex; align-items: center; gap: 0.4rem; font-size: 0.85rem; cursor: pointer; color: var(--color-text-secondary); width: 100%; max-width: 100%; box-sizing: border-box; overflow: hidden;';
-                    label.innerHTML = `
-                        <input type="checkbox" class="ai-channel-checkbox" value="${acc.platform}" data-account-id="${acc.id}" checked style="flex-shrink: 0;" />
-                        <span style="text-transform: capitalize; font-weight: 500; flex-shrink: 0;">${acc.platform}</span>
-                        <span style="font-size: 0.72rem; color: var(--color-text-tertiary); max-width: 160px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; display: inline-block; vertical-align: middle;">(${acc.account_name})</span>
-                    `;
-                    channelsContainer.appendChild(label);
-                });
 
                 const urlAutoChannelsContainer = document.getElementById('urlAutoChannelsContainer');
                 if (urlAutoChannelsContainer) {
@@ -1052,7 +1051,7 @@
                 if (autoChannelsContainer) {
                     autoChannelsContainer.innerHTML = '';
                     if (connectedAccounts.length === 0) {
-                        autoChannelsContainer.innerHTML = `<p style="font-size: 0.75rem; color: var(--color-text-tertiary); font-style: italic; margin: 0;">Tiada akaun terhubung. <a href="accounts.html" style="color:var(--color-primary); font-weight:500;">Pautkan akaun di sini</a></p>`;
+                        autoChannelsContainer.innerHTML = `<p style="font-size: 0.75rem; color: var(--color-text-tertiary); font-style: italic; margin: 0;">Tiada akaun terhubung dalam workspace ini. <a href="accounts.html" style="color:var(--color-primary); font-weight:600; text-decoration: underline;">Pautkan akaun di sini</a></p>`;
                     } else {
                         connectedAccounts.forEach(acc => {
                             const label = document.createElement('label');
@@ -1068,6 +1067,10 @@
                 }
             } catch (err) {
                 channelsContainer.innerHTML = `<p style="font-size: 0.75rem; color: var(--color-danger); margin: 0;">Failed to load accounts</p>`;
+                const autoChannelsContainer = document.getElementById('autoChannelsContainer');
+                if (autoChannelsContainer) {
+                    autoChannelsContainer.innerHTML = `<p style="font-size: 0.75rem; color: var(--color-danger); margin: 0;">Gagal memuatkan saluran akaun. Sila refresh.</p>`;
+                }
             }
         }
 
@@ -2249,12 +2252,25 @@
             const { targets, targetPlatforms } = getAutopilotChannelSelection();
 
             if (!niche) {
-                notificationService.error("Sila masukkan niche perniagaan anda!");
+                const autoNicheEl = document.getElementById('autoNiche');
+                if (autoNicheEl) {
+                    autoNicheEl.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                    autoNicheEl.style.border = '2px solid var(--color-danger, #ef4444)';
+                    autoNicheEl.focus();
+                    setTimeout(() => autoNicheEl.style.border = '', 3000);
+                }
+                notificationService.error("Sila isi 'Business Niche / Description' perniagaan anda terlebih dahulu!");
                 return;
             }
 
             if (targets.length === 0) {
-                notificationService.error("Sila pilih sekurang-kurangnya satu akaun / platform saluran!");
+                const chContainer = document.getElementById('autoChannelsContainer');
+                if (chContainer) {
+                    chContainer.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                    chContainer.style.border = '2px solid var(--color-danger, #ef4444)';
+                    setTimeout(() => chContainer.style.border = '', 3000);
+                }
+                notificationService.error("Sila tandakan sekurang-kurangnya satu akaun saluran di bahagian 'Sasaran Platform / Channels'!");
                 return;
             }
 
@@ -2314,12 +2330,25 @@
             const targetsInfo = getAutopilotChannelSelection();
 
             if (!niche) {
-                notificationService.error("Sila masukkan niche perniagaan anda!");
+                const autoNicheEl = document.getElementById('autoNiche');
+                if (autoNicheEl) {
+                    autoNicheEl.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                    autoNicheEl.style.border = '2px solid var(--color-danger, #ef4444)';
+                    autoNicheEl.focus();
+                    setTimeout(() => autoNicheEl.style.border = '', 3000);
+                }
+                notificationService.error("Sila isi 'Business Niche / Description' perniagaan anda terlebih dahulu!");
                 return;
             }
 
             if (targetsInfo.targets.length === 0) {
-                notificationService.error("Sila pilih sekurang-kurangnya satu akaun / platform saluran!");
+                const chContainer = document.getElementById('autoChannelsContainer');
+                if (chContainer) {
+                    chContainer.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                    chContainer.style.border = '2px solid var(--color-danger, #ef4444)';
+                    setTimeout(() => chContainer.style.border = '', 3000);
+                }
+                notificationService.error("Sila tandakan sekurang-kurangnya satu akaun saluran di bahagian 'Sasaran Platform / Channels'!");
                 return;
             }
 

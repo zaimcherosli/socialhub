@@ -2873,14 +2873,6 @@ export default {
         const getActiveWorkspace = async (user) => {
             if (!user) return null;
 
-            // Ensure active_workspace_id column exists (idempotent auto-migration)
-            try {
-                await env.DB.prepare("ALTER TABLE users ADD COLUMN active_workspace_id INTEGER REFERENCES workspaces(id) ON DELETE SET NULL").run();
-            } catch (_) { /* column already exists */ }
-            try {
-                await env.DB.prepare("ALTER TABLE workspaces ADD COLUMN whatsapp_number TEXT DEFAULT NULL").run();
-            } catch (_) { /* column already exists */ }
-
             // If user has active workspace selected, verify and return it
             if (user.active_workspace_id) {
                 const ws = await env.DB.prepare(
@@ -3063,17 +3055,6 @@ export default {
 
                     const activeWorkspace = await getActiveWorkspace(user);
                     if (!activeWorkspace) return new Response(JSON.stringify({ message: 'No active workspace found' }), { status: 404, headers: corsHeaders });
-
-                    // Ensure ai_model column exists (idempotent migration)
-                    try {
-                        await env.DB.prepare("ALTER TABLE workspaces ADD COLUMN ai_model TEXT DEFAULT 'meta-llama/llama-3.2-3b-instruct:free'").run();
-                    } catch (_) { /* column already exists */ }
-                    try {
-                        await env.DB.prepare("ALTER TABLE workspaces ADD COLUMN ai_api_key_enc TEXT").run();
-                    } catch (_) { /* column already exists */ }
-                    try {
-                        await env.DB.prepare("ALTER TABLE workspaces ADD COLUMN custom_ai_instructions TEXT").run();
-                    } catch (_) { /* column already exists */ }
 
                     // GET: return current settings + usage
                     if (request.method === 'GET') {

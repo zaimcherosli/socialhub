@@ -1271,7 +1271,18 @@ async function resolvePostMedia(db, post) {
     let mediaList = [];
     if (post && post.media_urls) {
         try {
-            const parsed = typeof post.media_urls === 'string' ? JSON.parse(post.media_urls) : post.media_urls;
+            let parsed = post.media_urls;
+            if (typeof parsed === 'string') {
+                const trimmed = parsed.trim();
+                if (trimmed.startsWith('[') || trimmed.startsWith('{')) {
+                    parsed = JSON.parse(trimmed);
+                } else if (trimmed.startsWith('http') || trimmed.startsWith('data:image/')) {
+                    parsed = [trimmed];
+                }
+            }
+            if (!Array.isArray(parsed) && parsed && typeof parsed === 'object') {
+                parsed = [parsed];
+            }
             if (Array.isArray(parsed) && parsed.length > 0) {
                 for (const item of parsed) {
                     let u = null;
@@ -1279,10 +1290,10 @@ async function resolvePostMedia(db, post) {
                         u = item.trim();
                     } else if (item && typeof item === 'object') {
                         // 1. If item has an explicit media ID, ALWAYS use the official public media endpoint!
-                        if (item.id) {
-                            u = `https://api.socialhub.kwikezee.my/api/media/file?id=${item.id}`;
-                        } else if (item.url && typeof item.url === 'string' && (item.url.startsWith('http://') || item.url.startsWith('https://'))) {
+                        if (item.url && typeof item.url === 'string' && (item.url.startsWith('http://') || item.url.startsWith('https://'))) {
                             u = item.url.trim();
+                        } else if (item.id) {
+                            u = `https://api.socialhub.kwikezee.my/api/media/file/${item.id}.jpg`;
                         } else if (item.public_url && typeof item.public_url === 'string' && (item.public_url.startsWith('http://') || item.public_url.startsWith('https://'))) {
                             u = item.public_url.trim();
                         } else if (item.storage_key && typeof item.storage_key === 'string' && (item.storage_key.startsWith('http://') || item.storage_key.startsWith('https://'))) {
@@ -1302,7 +1313,7 @@ async function resolvePostMedia(db, post) {
                                 "INSERT INTO media (user_id, workspace_id, filename, original_name, mime_type, file_size, width, height, storage_provider, storage_key, thumbnail) VALUES (?, ?, ?, ?, ?, ?, 1024, 1024, 'local', ?, NULL)"
                             ).bind(post.user_id || 1, post.workspace_id || 1, filename, filename, mimeType, checkStr.length, checkStr).run();
                             const newId = insRes.meta.last_row_id;
-                            u = `https://api.socialhub.kwikezee.my/api/media/file?id=${newId}`;
+                            u = `https://api.socialhub.kwikezee.my/api/media/file/${newId}.jpg`;
                         } catch (insErr) {
                             console.error('[resolvePostMedia] Auto-persist base64 error:', insErr);
                         }
@@ -1320,6 +1331,14 @@ async function resolvePostMedia(db, post) {
         } catch (_) {}
     }
     
+    // Direct media_url fallback if media_urls was empty
+    if (mediaList.length === 0 && post && (post.media_url || post.url)) {
+        const directUrl = (post.media_url || post.url || '').trim();
+        if (directUrl.startsWith('http://') || directUrl.startsWith('https://')) {
+            mediaList.push({ url: directUrl.replace(/https?:\/\/socialhub-api\.huzaimrosli\.workers\.dev/g, 'https://api.socialhub.kwikezee.my') });
+        }
+    }
+
     if (mediaList.length === 0 && post && post.id) {
         try {
             const { results } = await db.prepare(
@@ -1327,7 +1346,7 @@ async function resolvePostMedia(db, post) {
             ).bind(post.id).all();
             if (results && results.length > 0) {
                 mediaList = results.map(m => {
-                    let u = `https://api.socialhub.kwikezee.my/api/media/file?id=${m.id}`;
+                    let u = `https://api.socialhub.kwikezee.my/api/media/file/${m.id}.jpg`;
                     if (m.url && typeof m.url === 'string' && (m.url.startsWith('http://') || m.url.startsWith('https://'))) {
                         u = m.url;
                     }
@@ -1520,9 +1539,12 @@ async function executeImmediatePublish(db, spId, userId, encryptionSecret) {
     }
     cleanCaption = cleanCaption.replace(/📷\s*\S+/gi, '').trim();
     const postObj = {
-        title: '',
+        id: scheduledPost.id,
+        title: scheduledPost.title || '',
         caption: cleanCaption,
-        media: mediaList
+        media: mediaList,
+        media_urls: scheduledPost.media_urls,
+        media_url: (mediaList && mediaList[0]?.url) || null
     };
 
     const result = await publisher.publish(postObj, credentials);
@@ -3000,59 +3022,66 @@ export default {
         };
 
         try {
-            switch (url.pathname) {
-                // ── Media Proxy Endpoint: Serves stored media files as binary HTTPS images ──
-                case '/api/media/file': {
-                    const mediaId = url.searchParams.get('id');
-                    if (!mediaId || !env.DB) return new Response('Media ID required', { status: 400 });
+            // ── Media Proxy Endpoint: Serves stored media files as binary HTTPS images ──
+            // Supports /api/media/file?id=50 AND /api/media/file/50.jpg for maximum Meta crawler compatibility
+            if (url.pathname === '/api/media/file' || url.pathname.startsWith('/api/media/file/')) {
+                const mediaIdMatch = url.pathname.match(/\/api\/media\/file\/(\d+)/);
+                const mediaId = url.searchParams.get('id') || (mediaIdMatch ? mediaIdMatch[1] : null);
+                if (!mediaId || !env.DB) return new Response('Media ID required', { status: 400 });
 
-                    const record = await env.DB.prepare("SELECT * FROM media WHERE id = ?").bind(mediaId).first();
-                    if (!record || (!record.storage_key && !record.thumbnail)) {
-                        return new Response('Media not found', { status: 404 });
-                    }
-
-                    const dataUrl = record.storage_key || record.thumbnail;
-                    if (dataUrl.startsWith('data:')) {
-                        const parts = dataUrl.split(',');
-                        const mime = (parts[0].match(/:(.*?);/) || [])[1] || 'image/png';
-                        const binary = atob(parts[1]);
-                        const array = new Uint8Array(binary.length);
-                        for (let i = 0; i < binary.length; i++) {
-                            array[i] = binary.charCodeAt(i);
-                        }
-
-                        const headers = {
-                            'Content-Type': mime,
-                            'Content-Length': array.length.toString(),
-                            'Cache-Control': 'public, max-age=31536000, immutable',
-                            'Access-Control-Allow-Origin': '*'
-                        };
-
-                        if (request.method === 'HEAD') {
-                            return new Response(null, { headers });
-                        }
-
-                        return new Response(array, { headers });
-                    } else if (dataUrl.startsWith('http')) {
-                        const res = await fetch(dataUrl);
-                        const mime = res.headers.get('Content-Type') || 'image/jpeg';
-                        const len = res.headers.get('Content-Length');
-                        const headers = {
-                            'Content-Type': mime,
-                            'Cache-Control': 'public, max-age=31536000, immutable',
-                            'Access-Control-Allow-Origin': '*'
-                        };
-                        if (len) headers['Content-Length'] = len;
-
-                        if (request.method === 'HEAD') {
-                            return new Response(null, { headers });
-                        }
-
-                        return new Response(res.body, { headers });
-                    }
-
-                    return new Response('Invalid media format', { status: 400 });
+                const record = await env.DB.prepare("SELECT * FROM media WHERE id = ?").bind(mediaId).first();
+                if (!record || (!record.storage_key && !record.thumbnail)) {
+                    return new Response('Media not found', { status: 404 });
                 }
+
+                const dataUrl = record.storage_key || record.thumbnail;
+                if (dataUrl.startsWith('data:')) {
+                    const parts = dataUrl.split(',');
+                    const mime = (parts[0].match(/:(.*?);/) || [])[1] || 'image/jpeg';
+                    let array;
+                    if (typeof Buffer !== 'undefined') {
+                        array = Buffer.from(parts[1], 'base64');
+                    } else {
+                        const binary = atob(parts[1]);
+                        array = Uint8Array.from(binary, c => c.charCodeAt(0));
+                    }
+
+                    const headers = {
+                        'Content-Type': mime,
+                        'Content-Length': array.length.toString(),
+                        'Cache-Control': 'public, max-age=31536000, immutable',
+                        'Access-Control-Allow-Origin': '*',
+                        'Accept-Ranges': 'bytes'
+                    };
+
+                    if (request.method === 'HEAD') {
+                        return new Response(null, { headers });
+                    }
+
+                    return new Response(array, { headers });
+                } else if (dataUrl.startsWith('http')) {
+                    const res = await fetch(dataUrl);
+                    const mime = res.headers.get('Content-Type') || 'image/jpeg';
+                    const len = res.headers.get('Content-Length');
+                    const headers = {
+                        'Content-Type': mime,
+                        'Cache-Control': 'public, max-age=31536000, immutable',
+                        'Access-Control-Allow-Origin': '*',
+                        'Accept-Ranges': 'bytes'
+                    };
+                    if (len) headers['Content-Length'] = len;
+
+                    if (request.method === 'HEAD') {
+                        return new Response(null, { headers });
+                    }
+
+                    return new Response(res.body, { headers });
+                }
+
+                return new Response('Invalid media format', { status: 400 });
+            }
+
+            switch (url.pathname) {
 
                 // ── AI Settings: GET/POST model preference & API key per workspace ──
                 case '/api/ai/settings': {
@@ -6764,7 +6793,14 @@ LAYOUT & DESIGN RULES:
                                             .trim();
                                     }
 
-                                    const postObj = { title: '', caption: cleanedCaption, media: mediaList };
+                                    const postObj = {
+                                        id: post.id,
+                                        title: '',
+                                        caption: cleanedCaption,
+                                        media: mediaList,
+                                        media_urls: post.media_urls,
+                                        media_url: (mediaList && mediaList[0]?.url) || null
+                                    };
 
                                     const result = await publisher.publish(postObj, credentials);
 
@@ -8941,9 +8977,12 @@ LAYOUT & DESIGN RULES:
                             }
 
                             const postObj = {
+                                id: scheduledPost.id,
                                 title: '',
                                 caption: cleanedCaption,
-                                media: mediaList
+                                media: mediaList,
+                                media_urls: scheduledPost.media_urls,
+                                media_url: (mediaList && mediaList[0]?.url) || null
                             };
 
                             const result = await publisher.publish(postObj, credentials);
@@ -10015,6 +10054,13 @@ LAYOUT & DESIGN RULES:
                                  SET status = 'published', published_at = ?, external_post_id = ?, error_message = NULL, updated_at = (datetime('now'))
                                  WHERE id = ?`
                             ).bind(successLog.published_at, successLog.external_post_id, post.id).run();
+                        } else if (post.external_post_id) {
+                            console.log(`[Cron] Post ID: ${post.id} already has external_post_id: ${post.external_post_id}. Marking as published.`);
+                            await env.DB.prepare(
+                                `UPDATE scheduled_posts 
+                                 SET status = 'published', published_at = COALESCE(published_at, datetime('now')), error_message = NULL, updated_at = (datetime('now'))
+                                 WHERE id = ?`
+                            ).bind(post.id).run();
                         } else {
                             const currentRetries = (post.retry_count || 0) + 1;
                             if (currentRetries < 3) {
@@ -10078,8 +10124,8 @@ LAYOUT & DESIGN RULES:
                 const cronBatchStartTime = Date.now();
                 
                 for (const post of duePosts.results) {
-                    if (Date.now() - cronBatchStartTime > 20000) {
-                        console.warn(`[Cron] 20s execution threshold reached. Yielding remaining posts to next minute cron cycle.`);
+                    if (Date.now() - cronBatchStartTime > 15000) {
+                        console.warn(`[Cron] 15s execution threshold reached. Yielding remaining posts to next minute cron cycle.`);
                         break;
                     }
                     const startTime = Date.now();
@@ -10155,9 +10201,12 @@ LAYOUT & DESIGN RULES:
                         }
 
                         const postObj = {
+                            id: post.id,
                             title: '',
                             caption: cleanedCaption,
                             media: mediaList,
+                            media_urls: post.media_urls,
+                            media_url: (mediaList && mediaList[0]?.url) || null,
                             reply_to_id: post.reply_to_external_id || null
                         };
 

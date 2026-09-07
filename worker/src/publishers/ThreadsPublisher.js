@@ -138,8 +138,14 @@ export class ThreadsPublisher extends PublisherInterface {
                         const parsed = typeof post.media_urls === 'string' ? JSON.parse(post.media_urls) : post.media_urls;
                         if (Array.isArray(parsed) && parsed.length > 0) {
                             mediaArray = parsed;
+                        } else if (typeof parsed === 'string' && parsed.startsWith('http')) {
+                            mediaArray = [parsed];
                         }
-                    } catch (_) {}
+                    } catch (_) {
+                        if (typeof post.media_urls === 'string' && post.media_urls.startsWith('http')) {
+                            mediaArray = [post.media_urls];
+                        }
+                    }
                 }
                 if (!mediaArray && post.media_url) {
                     mediaArray = [post.media_url];
@@ -151,11 +157,10 @@ export class ThreadsPublisher extends PublisherInterface {
                     if (typeof firstMedia === 'string') {
                         candidateUrl = firstMedia.trim();
                     } else if (firstMedia && typeof firstMedia === 'object') {
-                        // 1. If media has an ID, always prefer the public media endpoint
-                        if (firstMedia.id) {
-                            candidateUrl = `https://api.socialhub.kwikezee.my/api/media/file?id=${firstMedia.id}`;
-                        } else if (firstMedia.url && typeof firstMedia.url === 'string' && firstMedia.url.startsWith('http')) {
+                        if (firstMedia.url && typeof firstMedia.url === 'string' && firstMedia.url.startsWith('http')) {
                             candidateUrl = firstMedia.url.trim();
+                        } else if (firstMedia.id) {
+                            candidateUrl = `https://api.socialhub.kwikezee.my/api/media/file/${firstMedia.id}.jpg`;
                         } else if (firstMedia.public_url && typeof firstMedia.public_url === 'string' && firstMedia.public_url.startsWith('http')) {
                             candidateUrl = firstMedia.public_url.trim();
                         } else if (firstMedia.storage_key && typeof firstMedia.storage_key === 'string' && firstMedia.storage_key.startsWith('http')) {
@@ -165,7 +170,6 @@ export class ThreadsPublisher extends PublisherInterface {
 
                     if (candidateUrl && typeof candidateUrl === 'string') {
                         candidateUrl = candidateUrl.trim();
-                        // Normalize legacy/broken worker domains to the active public API domain
                         if (candidateUrl.includes('socialhub-api.huzaimrosli.workers.dev')) {
                             candidateUrl = candidateUrl.replace(/https?:\/\/socialhub-api\.huzaimrosli\.workers\.dev/g, 'https://api.socialhub.kwikezee.my');
                         }
@@ -182,32 +186,38 @@ export class ThreadsPublisher extends PublisherInterface {
 
                 const cleanedText = hasImage && imgUrlMatch ? chunkText.replace(/📷\s*https?:\/\/\S+/gi, '').trim() : chunkText;
 
-                for (let attempt = 1; attempt <= 2; attempt++) {
-                    const containerUrl = new URL(`https://graph.threads.net/v1.0/${threadsAccountId}/threads`);
-                    if (hasImage && imageUrl) {
-                        containerUrl.searchParams.set('media_type', 'IMAGE');
-                        containerUrl.searchParams.set('image_url', imageUrl);
+                // Function to attempt container creation
+                const createContainer = async (useImage, imgLink) => {
+                    const cUrl = new URL(`https://graph.threads.net/v1.0/${threadsAccountId}/threads`);
+                    if (useImage && imgLink) {
+                        cUrl.searchParams.set('media_type', 'IMAGE');
+                        cUrl.searchParams.set('image_url', imgLink);
                         if (cleanedText) {
-                            containerUrl.searchParams.set('text', cleanedText);
+                            cUrl.searchParams.set('text', cleanedText);
                         }
                     } else {
-                        containerUrl.searchParams.set('media_type', 'TEXT');
-                        containerUrl.searchParams.set('text', chunkText);
+                        cUrl.searchParams.set('media_type', 'TEXT');
+                        cUrl.searchParams.set('text', chunkText);
                     }
-                    containerUrl.searchParams.set('access_token', accessToken);
-                    
+                    cUrl.searchParams.set('access_token', accessToken);
                     if (lastPostId) {
-                        containerUrl.searchParams.set('reply_to_id', lastPostId);
+                        cUrl.searchParams.set('reply_to_id', lastPostId);
                     }
 
+                    const res = await fetch(cUrl.toString(), {
+                        method: 'POST',
+                        signal: AbortSignal.timeout(8000)
+                    });
+                    const data = await res.json().catch(() => ({}));
+                    return { ok: res.ok && !!data.id, data };
+                };
+
+                // Attempt container creation with retry
+                for (let attempt = 1; attempt <= 2; attempt++) {
                     try {
-                        containerRes = await fetch(containerUrl.toString(), { 
-                            method: 'POST',
-                            signal: AbortSignal.timeout(10000)
-                        });
-                        containerData = await containerRes.json().catch(() => ({}));
-                        
-                        if (containerRes.ok && containerData.id) {
+                        const result = await createContainer(hasImage, imageUrl);
+                        containerData = result.data;
+                        if (result.ok) {
                             containerCreated = true;
                             break;
                         }
@@ -215,12 +225,25 @@ export class ThreadsPublisher extends PublisherInterface {
                         containerData = { error: { message: fetchErr.message } };
                     }
 
-                    const errMsg = containerData?.error?.message || 'Unknown error';
-                    console.warn(`[ThreadsPublisher] Container creation attempt ${attempt} failed for part ${i + 1}: ${errMsg}.`);
-                    
                     if (attempt < 2) {
-                        console.log(`[ThreadsPublisher] Waiting 1s before retry...`);
-                        await new Promise(resolve => setTimeout(resolve, 1000));
+                        await new Promise(resolve => setTimeout(resolve, 600));
+                    }
+                }
+
+                // If IMAGE container failed permanently, gracefully fall back to TEXT container for Slide 1
+                // to prevent aborting the entire thread storm midway ("masuk separuh")
+                if (!containerCreated && hasImage) {
+                    console.warn(`[ThreadsPublisher] Image container creation failed for part ${i + 1} (${containerData?.error?.message || 'error'}). Gracefully falling back to TEXT container...`);
+                    hasImage = false;
+                    imageUrl = null;
+                    try {
+                        const fallbackResult = await createContainer(false, null);
+                        containerData = fallbackResult.data;
+                        if (fallbackResult.ok) {
+                            containerCreated = true;
+                        }
+                    } catch (fbErr) {
+                        containerData = { error: { message: fbErr.message } };
                     }
                 }
 
@@ -229,7 +252,7 @@ export class ThreadsPublisher extends PublisherInterface {
                     return {
                         success: false,
                         provider: 'threads',
-                        provider_post_id: null,
+                        provider_post_id: firstPostId,
                         published_at: null,
                         error_code: 'API_ERROR',
                         error_message: containerData?.error?.message || `Failed to create container for part ${i + 1}.`,
@@ -237,50 +260,55 @@ export class ThreadsPublisher extends PublisherInterface {
                     };
                 }
 
-                const containerId = containerData.id;
+                let containerId = containerData.id;
 
                 // Poll container status to verify it's finished processing before publishing
                 // Skip status polling for TEXT-only containers to speed up publication and prevent timeouts
-                let isReady = false;
-                if (!hasImage) {
-                    isReady = true;
-                }
-                
+                let isReady = !hasImage;
                 let attempts = 0;
-                while (!isReady && attempts < 25) {
+                while (!isReady && attempts < 14) {
                     attempts++;
-                    const statusRes = await fetch(`https://graph.threads.net/v1.0/${containerId}?fields=status,error_message&access_token=${accessToken}`, {
-                        signal: AbortSignal.timeout(8000)
-                    });
-                    const statusData = await statusRes.json().catch(() => ({}));
+                    try {
+                        const statusRes = await fetch(`https://graph.threads.net/v1.0/${containerId}?fields=status,error_message&access_token=${accessToken}`, {
+                            signal: AbortSignal.timeout(6000)
+                        });
+                        const statusData = await statusRes.json().catch(() => ({}));
+                        
+                        if (statusData.status === 'FINISHED') {
+                            isReady = true;
+                            break;
+                        } else if (statusData.status === 'ERROR') {
+                            console.warn(`[ThreadsPublisher] Image container processing ERROR for part ${i + 1}: ${statusData.error_message}. Falling back to TEXT container for this slide...`);
+                            break;
+                        }
+                    } catch (_) {}
                     
-                    if (statusData.status === 'FINISHED') {
-                        isReady = true;
-                        break;
-                    } else if (statusData.status === 'ERROR') {
-                        console.error(`[ThreadsPublisher] Container failed processing for part ${i + 1}: ${statusData.error_message} (imageUrl: ${imageUrl})`);
-                        return {
-                            success: false,
-                            provider: 'threads',
-                            provider_post_id: null,
-                            published_at: null,
-                            error_code: 'API_ERROR',
-                            error_message: statusData.error_message || `Container processing error for part ${i + 1}.`,
-                            retryable: false
-                        };
-                    }
-                    
-                    await new Promise(resolve => setTimeout(resolve, 1000));
+                    await new Promise(resolve => setTimeout(resolve, 400));
+                }
+
+                // If image container errored or timed out, gracefully recreate as TEXT container
+                // so the post finishes publishing instead of getting aborted or locked in 'publishing'
+                if (!isReady && hasImage) {
+                    console.warn(`[ThreadsPublisher] Image processing for part ${i + 1} did not finish in time. Publishing part ${i + 1} as TEXT so remaining thread items succeed.`);
+                    hasImage = false;
+                    imageUrl = null;
+                    try {
+                        const textFb = await createContainer(false, null);
+                        if (textFb.ok) {
+                            containerId = textFb.data.id;
+                            isReady = true;
+                        }
+                    } catch (_) {}
                 }
 
                 if (!isReady) {
                     return {
                         success: false,
                         provider: 'threads',
-                        provider_post_id: null,
+                        provider_post_id: firstPostId,
                         published_at: null,
                         error_code: 'TIMEOUT',
-                        error_message: `Container for part ${i + 1} remained unfinished after 10 seconds.`,
+                        error_message: `Container for part ${i + 1} remained unfinished after polling.`,
                         retryable: true
                     };
                 }

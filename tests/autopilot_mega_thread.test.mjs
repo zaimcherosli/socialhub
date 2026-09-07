@@ -52,7 +52,7 @@ test('AutopilotService - mega_thread batches 6 posts into 2 batches of 3 and set
     assert.strictEqual(promptsReceived.length, 2);
     assert.strictEqual(promptsReceived[0].max_tokens, 8192);
     assert(promptsReceived[0].userMsg.includes('strictly 7 to 10 thread posts/slides'));
-    assert(promptsReceived[0].userMsg.includes('---thread-separator---'));
+    assert(promptsReceived[0].userMsg.includes('JSON ARRAY of strings containing multiple slides'));
 
     result.forEach((post, i) => {
         const slides = post.content.split('---thread-separator---');

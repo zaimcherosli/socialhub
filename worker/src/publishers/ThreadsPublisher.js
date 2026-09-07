@@ -183,6 +183,9 @@ export class ThreadsPublisher extends PublisherInterface {
                 if (imageUrl && imageUrl.includes('socialhub-api.huzaimrosli.workers.dev')) {
                     imageUrl = imageUrl.replace(/https?:\/\/socialhub-api\.huzaimrosli\.workers\.dev/g, 'https://api.socialhub.kwikezee.my');
                 }
+                if (imageUrl) {
+                    imageUrl = imageUrl.replace(/\/api\/media\/file\?id=(\d+)/g, '/api/media/file/$1.jpg');
+                }
 
                 const cleanedText = hasImage && imgUrlMatch ? chunkText.replace(/📷\s*https?:\/\/\S+/gi, '').trim() : chunkText;
 
@@ -204,9 +207,12 @@ export class ThreadsPublisher extends PublisherInterface {
                         cUrl.searchParams.set('reply_to_id', lastPostId);
                     }
 
+                    // Meta downloads image synchronously during container creation (takes ~10-15s).
+                    // We must allow at least 28s timeout to prevent prematurely aborting valid image uploads.
+                    const timeoutMs = (useImage && imgLink) ? 28000 : 10000;
                     const res = await fetch(cUrl.toString(), {
                         method: 'POST',
-                        signal: AbortSignal.timeout(8000)
+                        signal: AbortSignal.timeout(timeoutMs)
                     });
                     const data = await res.json().catch(() => ({}));
                     return { ok: res.ok && !!data.id, data };
@@ -226,24 +232,7 @@ export class ThreadsPublisher extends PublisherInterface {
                     }
 
                     if (attempt < 2) {
-                        await new Promise(resolve => setTimeout(resolve, 600));
-                    }
-                }
-
-                // If IMAGE container failed permanently, gracefully fall back to TEXT container for Slide 1
-                // to prevent aborting the entire thread storm midway ("masuk separuh")
-                if (!containerCreated && hasImage) {
-                    console.warn(`[ThreadsPublisher] Image container creation failed for part ${i + 1} (${containerData?.error?.message || 'error'}). Gracefully falling back to TEXT container...`);
-                    hasImage = false;
-                    imageUrl = null;
-                    try {
-                        const fallbackResult = await createContainer(false, null);
-                        containerData = fallbackResult.data;
-                        if (fallbackResult.ok) {
-                            containerCreated = true;
-                        }
-                    } catch (fbErr) {
-                        containerData = { error: { message: fbErr.message } };
+                        await new Promise(resolve => setTimeout(resolve, 1000));
                     }
                 }
 
@@ -255,7 +244,7 @@ export class ThreadsPublisher extends PublisherInterface {
                         provider_post_id: firstPostId,
                         published_at: null,
                         error_code: 'API_ERROR',
-                        error_message: containerData?.error?.message || `Failed to create container for part ${i + 1}.`,
+                        error_message: containerData?.error?.message || `Gagal memuat naik imej ke Threads untuk bahagian ${i + 1}.`,
                         retryable: true
                     };
                 }
@@ -266,11 +255,11 @@ export class ThreadsPublisher extends PublisherInterface {
                 // Skip status polling for TEXT-only containers to speed up publication and prevent timeouts
                 let isReady = !hasImage;
                 let attempts = 0;
-                while (!isReady && attempts < 14) {
+                while (!isReady && attempts < 25) {
                     attempts++;
                     try {
                         const statusRes = await fetch(`https://graph.threads.net/v1.0/${containerId}?fields=status,error_message&access_token=${accessToken}`, {
-                            signal: AbortSignal.timeout(6000)
+                            signal: AbortSignal.timeout(10000)
                         });
                         const statusData = await statusRes.json().catch(() => ({}));
                         
@@ -278,27 +267,20 @@ export class ThreadsPublisher extends PublisherInterface {
                             isReady = true;
                             break;
                         } else if (statusData.status === 'ERROR') {
-                            console.warn(`[ThreadsPublisher] Image container processing ERROR for part ${i + 1}: ${statusData.error_message}. Falling back to TEXT container for this slide...`);
-                            break;
+                            console.error(`[ThreadsPublisher] Image container processing ERROR for part ${i + 1}: ${statusData.error_message}.`);
+                            return {
+                                success: false,
+                                provider: 'threads',
+                                provider_post_id: firstPostId,
+                                published_at: null,
+                                error_code: 'IMAGE_PROCESSING_ERROR',
+                                error_message: `Ralat pemprosesan imej Meta Threads: ${statusData.error_message || 'Format imej ditolak oleh Threads'}`,
+                                retryable: false
+                            };
                         }
                     } catch (_) {}
                     
-                    await new Promise(resolve => setTimeout(resolve, 400));
-                }
-
-                // If image container errored or timed out, gracefully recreate as TEXT container
-                // so the post finishes publishing instead of getting aborted or locked in 'publishing'
-                if (!isReady && hasImage) {
-                    console.warn(`[ThreadsPublisher] Image processing for part ${i + 1} did not finish in time. Publishing part ${i + 1} as TEXT so remaining thread items succeed.`);
-                    hasImage = false;
-                    imageUrl = null;
-                    try {
-                        const textFb = await createContainer(false, null);
-                        if (textFb.ok) {
-                            containerId = textFb.data.id;
-                            isReady = true;
-                        }
-                    } catch (_) {}
+                    await new Promise(resolve => setTimeout(resolve, 800));
                 }
 
                 if (!isReady) {
@@ -308,7 +290,7 @@ export class ThreadsPublisher extends PublisherInterface {
                         provider_post_id: firstPostId,
                         published_at: null,
                         error_code: 'TIMEOUT',
-                        error_message: `Container for part ${i + 1} remained unfinished after polling.`,
+                        error_message: `Imej bahagian ${i + 1} mengambil masa terlalu lama untuk diproses oleh Threads (>20s).`,
                         retryable: true
                     };
                 }

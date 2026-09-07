@@ -461,7 +461,7 @@ CRITICAL HOOK & CONTENT DIVERSITY RULES (VERY IMPORTANT TO AVOID REPETITION):
         let responseText = "";
         const providerName = provider.constructor?.name || '';
 
-        if (providerName === 'CloudflareAIProvider' || typeof provider.ai?.run === 'function') {
+        if (providerName === 'CloudflareAIProvider' || (!provider.apiKey && !provider.primary && typeof provider.ai?.run === 'function')) {
             const res = await provider.ai.run(provider.model || '@cf/meta/llama-3.2-3b-instruct', {
                 messages: [
                     { role: "system", content: "You are a professional social media marketing expert. You must output strictly a JSON array." },

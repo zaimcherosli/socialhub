@@ -1,4 +1,4 @@
-﻿import { AIProvider } from './AIProvider.js';
+import { AIProvider } from './AIProvider.js';
 
 /**
  * ResilientAIProvider wraps a primary AI provider (e.g. Agent Router or OpenAI)
@@ -15,7 +15,7 @@ export class ResilientAIProvider extends AIProvider {
         this.model = primaryProvider?.model || 'auto';
         this.apiKey = primaryProvider?.apiKey || '';
         this.baseUrl = primaryProvider?.baseUrl || '';
-        this.ai = primaryProvider?.ai || this.fallbacks.find(f => f.ai)?.ai;
+        this.ai = primaryProvider?.ai || null;
     }
 
     isReasoningModel() {

@@ -46,20 +46,33 @@ export class GeminiProvider extends AIProvider {
 
         // Scan all parts — thinking models may add thoughtSignature alongside text
         const rawText = (parts.find(p => p.text && !p.thoughtSignature)?.text || parts.find(p => p.text)?.text || "").trim();
-        try {
-            const parsed = JSON.parse(rawText);
-            if (parsed && Array.isArray(parsed.caption)) {
+
+        function extractJsonObj(raw) {
+            if (!raw) return null;
+            let s = raw.replace(/```json\s*/gi, '').replace(/```\s*/g, '').trim();
+            try { return JSON.parse(s); } catch (_) {}
+            const start = s.indexOf('{');
+            const end = s.lastIndexOf('}');
+            if (start !== -1 && end !== -1 && end > start) {
+                try { return JSON.parse(s.slice(start, end + 1)); } catch (_) {}
+            }
+            return null;
+        }
+
+        const parsed = extractJsonObj(rawText);
+        if (parsed) {
+            if (Array.isArray(parsed.caption)) {
                 parsed.caption = parsed.caption.join('---thread-separator---');
             }
             return parsed;
-        } catch (e) {
-            console.error("Failed to parse Gemini output as JSON:", rawText);
-            return {
-                caption: rawText,
-                cta: "",
-                hashtags: []
-            };
         }
+
+        console.warn("Failed to parse Gemini output as JSON, returning raw text:", rawText);
+        return {
+            caption: rawText,
+            cta: "",
+            hashtags: []
+        };
     }
 
     async generateThreadStorm({ title, description, url, tone, language, customInstructions }) {

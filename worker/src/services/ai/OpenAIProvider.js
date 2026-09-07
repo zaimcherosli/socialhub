@@ -104,9 +104,15 @@ export class OpenAIProvider extends AIProvider {
 
                 let requestBody = { ...payload };
                 if (isAnthropicMessages) {
+                    let anthropicModel = payload.model;
+                    if (anthropicModel === 'claude-3.5-sonnet') {
+                        anthropicModel = 'claude-3-5-sonnet-20241022';
+                    } else if (anthropicModel === 'claude-3.5-haiku') {
+                        anthropicModel = 'claude-3-5-haiku-20241022';
+                    }
                     // Translate payload to Anthropic /messages format
                     requestBody = {
-                        model: payload.model,
+                        model: anthropicModel,
                         max_tokens: payload.max_tokens || payload.max_completion_tokens || 4096,
                         messages: payload.messages.filter(m => m.role !== 'system'),
                         ...(payload.messages.find(m => m.role === 'system') ? { system: payload.messages.find(m => m.role === 'system').content } : {})
@@ -166,30 +172,32 @@ export class OpenAIProvider extends AIProvider {
 
         const rawText = data.choices[0].message.content.trim();
         
-        let jsonStr = rawText;
-        if (jsonStr.startsWith("```json")) {
-            jsonStr = jsonStr.substring(7);
-        } else if (jsonStr.startsWith("```")) {
-            jsonStr = jsonStr.substring(3);
+        function extractJsonObj(raw) {
+            if (!raw) return null;
+            let s = raw.replace(/```json\s*/gi, '').replace(/```\s*/g, '').trim();
+            try { return JSON.parse(s); } catch (_) {}
+            const start = s.indexOf('{');
+            const end = s.lastIndexOf('}');
+            if (start !== -1 && end !== -1 && end > start) {
+                try { return JSON.parse(s.slice(start, end + 1)); } catch (_) {}
+            }
+            return null;
         }
-        if (jsonStr.endsWith("```")) {
-            jsonStr = jsonStr.substring(0, jsonStr.length - 3);
-        }
-        
-        try {
-            const parsed = JSON.parse(jsonStr.trim());
-            if (parsed && Array.isArray(parsed.caption)) {
+
+        const parsed = extractJsonObj(rawText);
+        if (parsed) {
+            if (Array.isArray(parsed.caption)) {
                 parsed.caption = parsed.caption.join('---thread-separator---');
             }
             return parsed;
-        } catch (e) {
-            console.error("Failed to parse OpenAI output as JSON:", rawText);
-            return {
-                caption: rawText,
-                cta: "",
-                hashtags: []
-            };
         }
+
+        console.warn("Failed to parse OpenAI output as JSON, returning raw text:", rawText);
+        return {
+            caption: rawText,
+            cta: "",
+            hashtags: []
+        };
     }
 
     async generateThreadStorm({ title, description, url, tone, language, customInstructions }) {

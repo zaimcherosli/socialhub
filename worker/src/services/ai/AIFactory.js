@@ -70,19 +70,20 @@ export class AIFactory {
         let activeModel = model;
         if (hasOpenAI && !hasGemini && !hasOpenRouter && (!model.toLowerCase().includes("gpt-") && !model.toLowerCase().startsWith("openai/") && !model.toLowerCase().includes("claude") && !model.toLowerCase().includes("deepseek") && !model.toLowerCase().includes("glm"))) {
             activeModel = "gpt-4o-mini";
-        } else if (hasGemini && !hasOpenAI && !model.toLowerCase().includes("gemini")) {
+        } else if (!isAgentRouterKey && hasGemini && !hasOpenAI && !model.toLowerCase().includes("gemini")) {
             activeModel = "gemini-3.7-flash";
         }
 
         // 1. Agent Router (Explicit Custom Key from agentrouter.org)
         if (isAgentRouterKey) {
             let cleanModel = activeModel.includes('/') ? activeModel.split('/').pop() : activeModel;
-            // Map Cloudflare-only / unsupported models to something Agent Router supports
-            const isCfOnlyModel = activeModel.startsWith('@cf/') || 
+            // Map Cloudflare-only / Gemini / unsupported models to something Agent Router supports
+            const isUnsupportedByAgentRouter = activeModel.startsWith('@cf/') || 
+                cleanModel.toLowerCase().includes('gemini') ||
                 cleanModel.includes('llama') || cleanModel.includes('mistral') || 
                 cleanModel.includes('gemma') || cleanModel.includes('qwen') ||
                 cleanModel.includes('stable-diffusion') || cleanModel.includes('flux');
-            if (isCfOnlyModel || !cleanModel || cleanModel === 'auto') {
+            if (isUnsupportedByAgentRouter || !cleanModel || cleanModel === 'auto') {
                 cleanModel = 'gpt-4o-mini';
             }
             return new OpenAIProvider(workspaceKey, cleanModel, "https://agentrouter.org/v1");

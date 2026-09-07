@@ -4138,128 +4138,12 @@ CRITICAL TONE RULES:
                             classifiedBusinessType = 'Business & Services Promotion';
                         }
 
-                        const systemPrompt = provider.assembleCaptionPrompt({
-                            businessType: classifiedBusinessType,
-                            product: productContext,
-                            targetAudience: 'Malaysian social media users',
-                            goal: 'Engagement & Lead Generation',
-                            tone: tone || 'Friendly & Casual',
-                            language: language || 'Malay',
-                            postFormat: (postFormat === 'mega_thread' || postFormat === 'deep_thread' || postFormat === 'short_thread') ? postFormat : 'single',
-                            funnelStage: 'none',
-                            customInstructions: customGuidelinesBlock,
-                            nicheRules: nicheData ? nicheData.rules : null,
-                            nicheExampleOutput: nicheData ? nicheData.example_output : null
-                        });
-                        
-                        let responseText = "";
-                        let modelUsed = provider.model || "unknown";
-
-                        try {
-                            if (provider.constructor?.name === 'CloudflareAIProvider' || typeof provider.ai?.run === 'function') {
-                                const res = await provider.ai.run(provider.model || '@cf/meta/llama-3.2-3b-instruct', {
-                                    messages: [
-                                        { role: "system", content: "You must output strictly a JSON object." },
-                                        { role: "user", content: systemPrompt }
-                                    ]
-                                });
-                                responseText = typeof res === 'string' ? res : (res.choices?.[0]?.message?.content || res.response || JSON.stringify(res));
-                            } else if (provider.constructor?.name === 'GeminiProvider') {
-                                const genUrl = `https://generativelanguage.googleapis.com/v1beta/models/${provider.model}:generateContent?key=${provider.apiKey}`;
-                                const isThinkingModel = provider.model && (provider.model.includes('pro') || provider.model.includes('thinking'));
-                                const res = await fetch(genUrl, {
-                                    method: "POST",
-                                    headers: { "Content-Type": "application/json" },
-                                    body: JSON.stringify({
-                                        contents: [{ parts: [{ text: systemPrompt }] }],
-                                        generationConfig: {
-                                            responseMimeType: "application/json",
-                                            ...(isThinkingModel ? { thinkingConfig: { thinkingBudget: 0 } } : {})
-                                        }
-                                    })
-                                 });
-                                if (res.ok) {
-                                    const data = await res.json();
-                                    const parts = data.candidates?.[0]?.content?.parts || [];
-                                    // Scan all parts for the text output (thinking models may split across multiple parts)
-                                    responseText = parts.find(p => p.text && !p.thoughtSignature)?.text
-                                        || parts.find(p => p.text)?.text
-                                        || "";
-                                } else {
-                                    const errText = await res.text();
-                                    console.error(`Gemini Direct API call failed: ${res.status} - ${errText}`);
-                                }
-                            } else {
-                                // OpenAI or OpenRouter
-                                const isAgentRouter = provider.isAgentRouter || (provider.baseUrl && provider.baseUrl.includes('agentrouter.org')) || (!provider.apiKey?.startsWith('sk-proj-') && !provider.apiKey?.startsWith('sk-admin-'));
-                                const endpoint = provider.constructor?.name === 'OpenAIProvider' 
-                                    ? (provider.baseUrl ? `${provider.baseUrl}/chat/completions` : (isAgentRouter ? "https://agentrouter.org/v1/chat/completions" : "https://api.openai.com/v1/chat/completions"))
-                                    : "https://openrouter.ai/api/v1/chat/completions";
-                                const headers = {
-                                    "Authorization": `Bearer ${provider.apiKey}`,
-                                    "Content-Type": "application/json"
-                                };
-                                if (endpoint.includes('agentrouter.org')) {
-                                    headers["User-Agent"] = "claude-cli/2.1.158 (external, sdk-cli)";
-                                    headers["x-app"] = "cli";
-                                }
-                                if (provider.constructor?.name === 'OpenRouterProvider') {
-                                    headers["HTTP-Referer"] = "https://socialhub.kwikezee.my";
-                                    headers["X-Title"] = "SocialHub Autoposter";
-                                }
-                                const isReasoning = provider.model && (
-                                    provider.model.toLowerCase().startsWith('o1') || 
-                                    provider.model.toLowerCase().startsWith('o3') || 
-                                    provider.model.toLowerCase().startsWith('o4') || 
-                                    provider.model.toLowerCase().startsWith('gpt-5') || 
-                                    provider.model.toLowerCase().includes('gpt-5.')
-                                );
-                                const res = await fetch(endpoint, {
-                                    method: "POST",
-                                    headers,
-                                    body: JSON.stringify({
-                                        model: provider.model,
-                                        messages: [{ role: "user", content: systemPrompt }],
-                                        ...(isReasoning ? {} : { temperature: 0.7 })
-                                    })
-                                });
-                                if (res.ok) {
-                                    const data = await res.json();
-                                    responseText = data.choices?.[0]?.message?.content || "";
-                                } else {
-                                    const errText = await res.text();
-                                    console.error(`OpenRouter/OpenAI API call failed: ${res.status} - ${errText}`);
-                                }
-                            }
-                        } catch (e) {
-                            console.error("Primary AI provider call failed:", e);
-                        }
-
-                        // Robust fallback: If selected provider failed or returned empty response, fall back using our helper
-                        if (!responseText) {
-                            console.warn(`Primary AI model ${modelUsed} failed. Retrying with robust fallbacks...`);
-                            const fallback = await runFallbackAI(systemPrompt, env);
-                            if (fallback) {
-                                responseText = fallback.text;
-                                modelUsed = `${modelUsed} (failed, fell back to ${fallback.model})`;
-                            }
-                        }
-
-                        if (!responseText) {
-                            throw new Error("AI provider returned empty response.");
-                        }
-
-                        // Robust JSON extraction — handles:
-                        // 1. Markdown code fences (```json ... ```)
-                        // 2. Reasoning model preamble text before the JSON
-                        // 3. Truncated responses (find the last complete JSON object)
+                        // Robust JSON extraction helper
                         function extractJSON(raw) {
                             if (!raw) return null;
-                            // Strip markdown fences
-                            let s = raw.replace(/```json\s*/gi, '').replace(/```\s*/g, '').trim();
-                            // Try parsing directly first
+                            if (typeof raw === 'object') return raw;
+                            let s = String(raw).replace(/```json\s*/gi, '').replace(/```\s*/g, '').trim();
                             try { return JSON.parse(s); } catch (_) {}
-                            // Find first { and last } and try to parse that slice
                             const start = s.indexOf('{');
                             const end = s.lastIndexOf('}');
                             if (start !== -1 && end !== -1 && end > start) {
@@ -4267,7 +4151,51 @@ CRITICAL TONE RULES:
                             }
                             return null;
                         }
-                        const parsed = extractJSON(responseText);
+
+                        let parsed = null;
+                        let modelUsed = provider.model || "unknown";
+
+                        try {
+                            parsed = await provider.generateCaption({
+                                businessType: classifiedBusinessType,
+                                product: productContext,
+                                targetAudience: 'Malaysian social media users',
+                                goal: 'Engagement & Lead Generation',
+                                tone: resolvedTone,
+                                language: language || 'Malay',
+                                postFormat: (postFormat === 'mega_thread' || postFormat === 'deep_thread' || postFormat === 'short_thread') ? postFormat : 'single',
+                                funnelStage: 'none',
+                                customInstructions: customGuidelinesBlock,
+                                nicheRules: nicheData ? nicheData.rules : null,
+                                nicheExampleOutput: nicheData ? nicheData.example_output : null,
+                                nicheKey: nicheData ? nicheData.niche_key : null,
+                                isPreset: false
+                            });
+                        } catch (primaryErr) {
+                            console.warn(`[BulkSchedule] Primary AI provider ${modelUsed} failed (${primaryErr.message}). Retrying with system fallbacks...`);
+                            const fallbackPrompt = provider.assembleCaptionPrompt({
+                                businessType: classifiedBusinessType,
+                                product: productContext,
+                                targetAudience: 'Malaysian social media users',
+                                goal: 'Engagement & Lead Generation',
+                                tone: resolvedTone,
+                                language: language || 'Malay',
+                                postFormat: (postFormat === 'mega_thread' || postFormat === 'deep_thread' || postFormat === 'short_thread') ? postFormat : 'single',
+                                funnelStage: 'none',
+                                customInstructions: customGuidelinesBlock,
+                                nicheRules: nicheData ? nicheData.rules : null,
+                                nicheExampleOutput: nicheData ? nicheData.example_output : null
+                            });
+                            const fallback = await runFallbackAI(fallbackPrompt, env);
+                            if (fallback && fallback.text) {
+                                modelUsed = `${modelUsed} (failed, fell back to ${fallback.model})`;
+                                parsed = extractJSON(fallback.text);
+                            }
+                            if (!parsed) {
+                                throw new Error(`AI generation failed: ${primaryErr.message}`);
+                            }
+                        }
+
                         if (!parsed) {
                             throw new Error(`AI response could not be parsed as JSON. Model: ${modelUsed}`);
                         }

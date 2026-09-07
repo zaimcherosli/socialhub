@@ -6496,14 +6496,17 @@ LAYOUT & DESIGN RULES:
                         };
 
                         const { results: spResults } = await env.DB.prepare(
-                            `SELECT sp.id, sp.user_id, sp.workspace_id, sp.account_id, sp.platform, sp.title, sp.content, sp.media_urls,
+                            `SELECT sp.id, sp.user_id, sp.workspace_id, sp.account_id, sp.platform, sp.content, sp.media_urls,
                                     sp.status, sp.publish_at, sp.published_at, sp.timezone, sp.retry_count, sp.source_url, sp.error_message,
                                     sp.created_at, sp.updated_at, sa.account_name 
                              FROM scheduled_posts sp
                              LEFT JOIN social_accounts sa ON sp.account_id = sa.id
                              WHERE sp.workspace_id = ? 
                              ORDER BY sp.publish_at ASC`
-                        ).bind(activeWorkspace.workspace_id).all().catch(() => ({ results: [] }));
+                        ).bind(activeWorkspace.workspace_id).all().catch(err => {
+                            console.error("Failed to query scheduled_posts:", err);
+                            return { results: [] };
+                        });
 
                         const spList = (spResults || []).map(item => ({
                             id: item.id,
@@ -6512,7 +6515,7 @@ LAYOUT & DESIGN RULES:
                             account_id: item.account_id,
                             account_name: item.account_name,
                             platform: item.platform,
-                            title: item.title || '',
+                            title: item.content ? item.content.slice(0, 60) : '',
                             content: item.content || '',
                             media_urls: sanitizeMediaUrlsForResponse(item.media_urls),
                             status: item.status,
@@ -6526,21 +6529,25 @@ LAYOUT & DESIGN RULES:
                             updated_at: toIsoUtcString(item.updated_at)
                         }));
 
-                        // Only query legacy publish_queue if scheduled_posts is empty
-                        let queueList = [];
-                        if (spList.length === 0) {
-                            const { results: qResults } = await env.DB.prepare(
-                                `SELECT q.id as queue_id, q.post_id, q.platform, q.scheduled_at, q.status as queue_status, q.attempt_count, q.created_at as queue_created_at, q.updated_at as queue_updated_at,
-                                        p.title, p.caption, p.status as post_status, p.published_at, p.workspace_id,
-                                        sa.id as account_id, sa.account_name
-                                 FROM publish_queue q
-                                 JOIN posts p ON q.post_id = p.id
-                                 LEFT JOIN social_accounts sa ON (sa.workspace_id = p.workspace_id AND LOWER(sa.platform) = LOWER(q.platform) AND sa.status = 'active')
-                                 WHERE p.workspace_id = ?`
-                            ).bind(activeWorkspace.workspace_id).all().catch(() => ({ results: [] }));
+                        // Also fetch items from publish_queue + posts table for this workspace
+                        const { results: qResults } = await env.DB.prepare(
+                            `SELECT q.id as queue_id, q.post_id, q.platform, q.scheduled_at, q.status as queue_status, q.attempt_count, q.created_at as queue_created_at, q.updated_at as queue_updated_at,
+                                    p.title, p.caption, p.status as post_status, p.published_at, p.workspace_id,
+                                    sa.id as account_id, sa.account_name
+                             FROM publish_queue q
+                             JOIN posts p ON q.post_id = p.id
+                             LEFT JOIN social_accounts sa ON (sa.workspace_id = p.workspace_id AND LOWER(sa.platform) = LOWER(q.platform) AND sa.status = 'active')
+                             WHERE p.workspace_id = ?`
+                        ).bind(activeWorkspace.workspace_id).all().catch(() => ({ results: [] }));
 
-                            for (const q of (qResults || [])) {
-                                const content = q.caption || q.title || '';
+                        const existingKeys = new Set(spList.map(s => `${(s.platform||'').toLowerCase()}_${(s.content||'').trim().substring(0, 40)}`));
+
+                        const queueList = [];
+                        for (const q of (qResults || [])) {
+                            const content = q.caption || q.title || '';
+                            const key = `${(q.platform||'').toLowerCase()}_${content.trim().substring(0, 40)}`;
+                            if (!existingKeys.has(key)) {
+                                existingKeys.add(key);
                                 const rawTime = q.published_at || q.scheduled_at || q.queue_created_at;
                                 const status = (q.queue_status === 'published' || q.post_status === 'published') ? 'published' : (q.queue_status || 'scheduled');
                                 queueList.push({
@@ -6550,6 +6557,7 @@ LAYOUT & DESIGN RULES:
                                     account_id: q.account_id || null,
                                     account_name: q.account_name || null,
                                     platform: q.platform,
+                                    title: q.title || (content ? content.slice(0, 60) : ''),
                                     content: content,
                                     media_urls: '[]',
                                     status: status,
@@ -6563,7 +6571,7 @@ LAYOUT & DESIGN RULES:
                             }
                         }
 
-                        const combinedResults = [...spList, ...queueList];
+                        const combinedResults = [...spList, ...queueList].sort((a, b) => new Date(a.publish_at) - new Date(b.publish_at));
                         return new Response(JSON.stringify({ success: true, results: combinedResults }), { status: 200, headers: corsHeaders });
                     }
 

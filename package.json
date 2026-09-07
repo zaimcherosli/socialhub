@@ -1,7 +1,7 @@
 {
   "name": "socialhub",
-  "version": "2.0.2",
-  "description": "SocialHub SaaS Foundation",
+  "version": "2.0.3",
+  "description": "Cross-Platform Social Media Management Platform with Threads Automation",
   "main": "index.js",
   "scripts": {
     "dev": "vite public",

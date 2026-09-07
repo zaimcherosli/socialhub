@@ -1394,11 +1394,61 @@ async function resolvePostMedia(db, post) {
 // ── Helper: Automatically store base64 media strings into DB as public HTTP media URLs ──
 async function sanitizeAndStoreMediaUrls(db, userId, workspaceId, rawMediaUrls) {
     if (!rawMediaUrls) return [];
-    const list = Array.isArray(rawMediaUrls) ? rawMediaUrls : [rawMediaUrls];
-    const sanitized = [];
+    
+    // Iteratively unwrap nested JSON strings/arrays
+    let cur = rawMediaUrls;
+    for (let iter = 0; iter < 10; iter++) {
+        if (typeof cur === 'string') {
+            const t = cur.trim();
+            if ((t.startsWith('[') && t.endsWith(']')) || (t.startsWith('{') && t.endsWith('}')) || (t.startsWith('"') && t.endsWith('"'))) {
+                try {
+                    cur = JSON.parse(t);
+                } catch (_) {
+                    break;
+                }
+            } else {
+                break;
+            }
+        } else if (Array.isArray(cur) && cur.length === 1 && typeof cur[0] === 'string') {
+            const t0 = cur[0].trim();
+            if (t0.startsWith('[') || t0.startsWith('{') || t0.startsWith('"')) {
+                try {
+                    cur = JSON.parse(t0);
+                } catch (_) {
+                    break;
+                }
+            } else {
+                break;
+            }
+        } else {
+            break;
+        }
+    }
 
-    for (const item of list) {
-        let urlStr = typeof item === 'string' ? item : (item.url || '');
+    if (!Array.isArray(cur)) {
+        cur = (cur && typeof cur === 'object') ? [cur] : (cur ? [cur] : []);
+    }
+
+    const sanitized = [];
+    for (const item of cur) {
+        if (!item) continue;
+        
+        let urlStr = null;
+        let mediaId = null;
+
+        if (typeof item === 'string') {
+            urlStr = item.trim();
+        } else if (typeof item === 'object') {
+            mediaId = item.id || null;
+            urlStr = (item.url || item.storage_key || item.public_url || '').trim();
+        }
+
+        if (mediaId && (!urlStr || urlStr.startsWith('data:image/'))) {
+            // Already has an ID in media table! Simply use the public .jpg URL
+            sanitized.push(`https://api.socialhub.kwikezee.my/api/media/file/${mediaId}.jpg`);
+            continue;
+        }
+
         if (urlStr && urlStr.includes('socialhub-api.huzaimrosli.workers.dev')) {
             urlStr = urlStr.replace(/https?:\/\/socialhub-api\.huzaimrosli\.workers\.dev/g, 'https://api.socialhub.kwikezee.my');
         }
@@ -1416,20 +1466,16 @@ async function sanitizeAndStoreMediaUrls(db, userId, workspaceId, rawMediaUrls) 
                 ).bind(userId, workspaceId, filename, filename, mimeType, urlStr.length, urlStr).run();
 
                 const newMediaId = result.meta.last_row_id;
-                sanitized.push(`https://api.socialhub.kwikezee.my/api/media/file?id=${newMediaId}`);
+                sanitized.push(`https://api.socialhub.kwikezee.my/api/media/file/${newMediaId}.jpg`);
             } catch (err) {
-                console.error("[Base64 Auto-Store D1 Error]:", err);
-                // If base64 string is too large for D1 SQL parameter, store a truncated fallback or public placeholder so D1 insert NEVER fails 500!
-                if (urlStr.length > 500000) {
-                    sanitized.push("https://images.unsplash.com/photo-1560518883-ce09059eeffa?w=1080&q=80");
-                } else {
-                    sanitized.push(urlStr);
-                }
+                console.error("Failed to persist raw base64 media:", err);
+                sanitized.push("https://images.unsplash.com/photo-1560518883-ce09059eeffa?w=1080&q=80");
             }
-        } else if (urlStr) {
+        } else if (urlStr && (urlStr.startsWith('http://') || urlStr.startsWith('https://'))) {
             sanitized.push(urlStr);
         }
     }
+
     return sanitized;
 }
 
@@ -2031,7 +2077,9 @@ async function ensureOptimizationIndexes(db) {
             db.prepare("CREATE INDEX IF NOT EXISTS idx_sp_insights_sync ON scheduled_posts(status, platform, last_insights_sync)"),
             db.prepare("CREATE INDEX IF NOT EXISTS idx_sp_publishing_stuck ON scheduled_posts(status, updated_at)"),
             db.prepare("CREATE INDEX IF NOT EXISTS idx_pub_queue_status_sched ON publish_queue(status, scheduled_at)"),
-            db.prepare("CREATE INDEX IF NOT EXISTS idx_workspaces_sub_expire ON workspaces(subscription_plan, subscription_expires_at)")
+            db.prepare("CREATE INDEX IF NOT EXISTS idx_workspaces_sub_expire ON workspaces(subscription_plan, subscription_expires_at)"),
+            db.prepare("CREATE INDEX IF NOT EXISTS idx_sp_ws_publish ON scheduled_posts(workspace_id, publish_at ASC)"),
+            db.prepare("CREATE INDEX IF NOT EXISTS idx_sp_ws_status ON scheduled_posts(workspace_id, status)")
         ]);
         optimizationIndexesEnsured = true;
         console.log('[DB] Optimization indexes verified & active.');
@@ -6400,6 +6448,8 @@ LAYOUT & DESIGN RULES:
                     if (!activeWorkspace) return new Response(JSON.stringify({ message: 'No active workspace found' }), { status: 404, headers: corsHeaders });
 
                     if (request.method === 'GET') {
+                        await ensureOptimizationIndexes(env.DB);
+
                         const toIsoUtcString = (dateVal) => {
                             if (!dateVal) return new Date().toISOString();
                             const str = String(dateVal).trim();
@@ -6413,8 +6463,42 @@ LAYOUT & DESIGN RULES:
                             }
                         };
 
+                        const sanitizeMediaUrlsForResponse = (rawMedia) => {
+                            if (!rawMedia) return '[]';
+                            try {
+                                let list = rawMedia;
+                                if (typeof list === 'string') {
+                                    const trimmed = list.trim();
+                                    if (trimmed.startsWith('[') || trimmed.startsWith('{')) {
+                                        list = JSON.parse(trimmed);
+                                    } else if (trimmed.startsWith('http')) {
+                                        list = [trimmed];
+                                    } else {
+                                        return '[]';
+                                    }
+                                }
+                                if (!Array.isArray(list)) list = [list];
+                                const cleaned = [];
+                                for (const m of list) {
+                                    let u = typeof m === 'string' ? m : (m?.url || m?.storage_key || null);
+                                    if (u && typeof u === 'string') {
+                                        if (u.startsWith('http://') || u.startsWith('https://')) {
+                                            cleaned.push({ url: u.replace(/https?:\/\/socialhub-api\.huzaimrosli\.workers\.dev/g, 'https://api.socialhub.kwikezee.my') });
+                                        } else if (m?.id) {
+                                            cleaned.push({ url: `https://api.socialhub.kwikezee.my/api/media/file/${m.id}.jpg` });
+                                        }
+                                    }
+                                }
+                                return JSON.stringify(cleaned);
+                            } catch (_) {
+                                return '[]';
+                            }
+                        };
+
                         const { results: spResults } = await env.DB.prepare(
-                            `SELECT sp.*, sa.account_name 
+                            `SELECT sp.id, sp.user_id, sp.workspace_id, sp.account_id, sp.platform, sp.title, sp.content, sp.media_urls,
+                                    sp.status, sp.publish_at, sp.published_at, sp.timezone, sp.retry_count, sp.source_url, sp.error_message,
+                                    sp.created_at, sp.updated_at, sa.account_name 
                              FROM scheduled_posts sp
                              LEFT JOIN social_accounts sa ON sp.account_id = sa.id
                              WHERE sp.workspace_id = ? 
@@ -6422,29 +6506,41 @@ LAYOUT & DESIGN RULES:
                         ).bind(activeWorkspace.workspace_id).all().catch(() => ({ results: [] }));
 
                         const spList = (spResults || []).map(item => ({
-                            ...item,
-                            publish_at: toIsoUtcString(item.publish_at)
+                            id: item.id,
+                            user_id: item.user_id,
+                            workspace_id: item.workspace_id,
+                            account_id: item.account_id,
+                            account_name: item.account_name,
+                            platform: item.platform,
+                            title: item.title || '',
+                            content: item.content || '',
+                            media_urls: sanitizeMediaUrlsForResponse(item.media_urls),
+                            status: item.status,
+                            publish_at: toIsoUtcString(item.publish_at),
+                            published_at: item.published_at ? toIsoUtcString(item.published_at) : null,
+                            timezone: item.timezone || 'UTC',
+                            retry_count: item.retry_count || 0,
+                            source_url: item.source_url || null,
+                            error_message: item.error_message || null,
+                            created_at: toIsoUtcString(item.created_at),
+                            updated_at: toIsoUtcString(item.updated_at)
                         }));
 
-                        // Also fetch items from publish_queue + posts table for this workspace
-                        const { results: qResults } = await env.DB.prepare(
-                            `SELECT q.id as queue_id, q.post_id, q.platform, q.scheduled_at, q.status as queue_status, q.attempt_count, q.created_at as queue_created_at, q.updated_at as queue_updated_at,
-                                    p.title, p.caption, p.status as post_status, p.published_at, p.workspace_id,
-                                    sa.id as account_id, sa.account_name
-                             FROM publish_queue q
-                             JOIN posts p ON q.post_id = p.id
-                             LEFT JOIN social_accounts sa ON (sa.workspace_id = p.workspace_id AND LOWER(sa.platform) = LOWER(q.platform) AND sa.status = 'active')
-                             WHERE p.workspace_id = ?`
-                        ).bind(activeWorkspace.workspace_id).all().catch(() => ({ results: [] }));
+                        // Only query legacy publish_queue if scheduled_posts is empty
+                        let queueList = [];
+                        if (spList.length === 0) {
+                            const { results: qResults } = await env.DB.prepare(
+                                `SELECT q.id as queue_id, q.post_id, q.platform, q.scheduled_at, q.status as queue_status, q.attempt_count, q.created_at as queue_created_at, q.updated_at as queue_updated_at,
+                                        p.title, p.caption, p.status as post_status, p.published_at, p.workspace_id,
+                                        sa.id as account_id, sa.account_name
+                                 FROM publish_queue q
+                                 JOIN posts p ON q.post_id = p.id
+                                 LEFT JOIN social_accounts sa ON (sa.workspace_id = p.workspace_id AND LOWER(sa.platform) = LOWER(q.platform) AND sa.status = 'active')
+                                 WHERE p.workspace_id = ?`
+                            ).bind(activeWorkspace.workspace_id).all().catch(() => ({ results: [] }));
 
-                        const existingKeys = new Set(spList.map(s => `${(s.platform||'').toLowerCase()}_${(s.content||'').trim().substring(0, 40)}`));
-
-                        const queueList = [];
-                        for (const q of (qResults || [])) {
-                            const content = q.caption || q.title || '';
-                            const key = `${(q.platform||'').toLowerCase()}_${content.trim().substring(0, 40)}`;
-                            if (!existingKeys.has(key)) {
-                                existingKeys.add(key);
+                            for (const q of (qResults || [])) {
+                                const content = q.caption || q.title || '';
                                 const rawTime = q.published_at || q.scheduled_at || q.queue_created_at;
                                 const status = (q.queue_status === 'published' || q.post_status === 'published') ? 'published' : (q.queue_status || 'scheduled');
                                 queueList.push({
@@ -6467,7 +6563,7 @@ LAYOUT & DESIGN RULES:
                             }
                         }
 
-                        const combinedResults = [...spList, ...queueList].sort((a, b) => new Date(a.publish_at) - new Date(b.publish_at));
+                        const combinedResults = [...spList, ...queueList];
                         return new Response(JSON.stringify({ success: true, results: combinedResults }), { status: 200, headers: corsHeaders });
                     }
 

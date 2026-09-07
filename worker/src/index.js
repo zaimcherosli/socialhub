@@ -4411,12 +4411,30 @@ CRITICAL TONE RULES:
                         // Prepare flattened full content
                         let flatContent = processedCaption.replace(/[\n\r]*(?:---thread-separator---|\[THREAD_DELIMITER\])[\n\r]*/g, '\n\n').trim();
                         
+                        // Prepare media URLs for multi-platform scheduling (matching post-editor and autopilot)
+                        const rawMediaUrls = [];
+                        if (scrapedImages && Array.isArray(scrapedImages) && scrapedImages.length > 0) {
+                            rawMediaUrls.push(...scrapedImages.filter(isValidImageUrl));
+                        } else if (scrapedImage && isValidImageUrl(scrapedImage)) {
+                            rawMediaUrls.push(scrapedImage);
+                        } else if (mediaUrl && isValidImageUrl(mediaUrl)) {
+                            rawMediaUrls.push(mediaUrl);
+                        }
+
+                        const sanitizedMediaUrls = await sanitizeAndStoreMediaUrls(env.DB, user.id, activeWorkspace.workspace_id, rawMediaUrls);
+                        const mediaUrlsJson = (sanitizedMediaUrls && sanitizedMediaUrls.length > 0)
+                            ? JSON.stringify(sanitizedMediaUrls)
+                            : (scrapedImage && isValidImageUrl(scrapedImage) ? JSON.stringify([scrapedImage]) : '[]');
+                        const primaryImageUrl = (sanitizedMediaUrls && sanitizedMediaUrls.length > 0)
+                            ? sanitizedMediaUrls[0]
+                            : (scrapedImage && isValidImageUrl(scrapedImage) ? scrapedImage : null);
+
                         // Attach image to Facebook content if available (posts as photo to FB Page)
-                        const fbImageSuffix = (scrapedImage && isValidImageUrl(scrapedImage)) ? `\n\n📷 ${scrapedImage}` : "";
+                        const fbImageSuffix = primaryImageUrl ? `\n\n📷 ${primaryImageUrl}` : "";
                         const fbContent = `${flatContent}\n\n${ctaText}\n\n${hashtagsText}${fbImageSuffix}`.trim();
                         
                         // Instagram requires an image attachment to publish successfully
-                        const igImageSuffix = (scrapedImage && isValidImageUrl(scrapedImage)) ? `\n\n📷 ${scrapedImage}` : "";
+                        const igImageSuffix = primaryImageUrl ? `\n\n📷 ${primaryImageUrl}` : "";
                         const igContent = `${flatContent}\n\n${ctaText}\n\n${hashtagsText}${igImageSuffix}`.trim();
 
                         for (let accIdx = 0; accIdx < connectedAccounts.length; accIdx++) {
@@ -4439,8 +4457,8 @@ CRITICAL TONE RULES:
                                 const parentContent = cards[0].trim();
 
                                 const result = await env.DB.prepare(
-                                    `INSERT INTO scheduled_posts (user_id, workspace_id, account_id, platform, content, status, publish_at, source_url, created_at, updated_at)
-                                     VALUES (?, ?, ?, ?, ?, 'scheduled', ?, ?, (datetime('now')), (datetime('now')))`
+                                    `INSERT INTO scheduled_posts (user_id, workspace_id, account_id, platform, content, media_urls, status, publish_at, source_url, created_at, updated_at)
+                                     VALUES (?, ?, ?, ?, ?, '[]', 'scheduled', ?, ?, (datetime('now')), (datetime('now')))`
                                 ).bind(
                                     user.id,
                                     activeWorkspace.workspace_id,
@@ -4459,8 +4477,8 @@ CRITICAL TONE RULES:
                                     let slideImage = null;
                                     
                                     // Attach images strictly at the final CTA slide
-                                    if (isProperty && i === cards.length - 1 && scrapedImages && scrapedImages.length > 0) {
-                                        slideImage = scrapedImages[0];
+                                    if (i === cards.length - 1 && (scrapedImages?.length > 0 || primaryImageUrl)) {
+                                        slideImage = (scrapedImages && scrapedImages.length > 0) ? scrapedImages[0] : primaryImageUrl;
                                     }
                                     
                                     const slideImageSuffix = (slideImage && isValidImageUrl(slideImage)) ? `\n\n📷 ${slideImage}` : "";
@@ -4469,15 +4487,18 @@ CRITICAL TONE RULES:
                                         slideText = `${slideText}\n\n${ctaText}\n\n${hashtagsText}${slideImageSuffix}`.trim();
                                     }
                                     
+                                    const slideMediaJson = (slideImage && isValidImageUrl(slideImage)) ? JSON.stringify([slideImage]) : '[]';
+
                                     await env.DB.prepare(
-                                        `INSERT INTO scheduled_posts (user_id, workspace_id, account_id, platform, content, status, publish_at, trigger_type, trigger_threshold, parent_post_id, source_url, created_at, updated_at)
-                                         VALUES (?, ?, ?, ?, ?, 'draft', ?, ?, ?, ?, ?, (datetime('now')), (datetime('now')))`
+                                        `INSERT INTO scheduled_posts (user_id, workspace_id, account_id, platform, content, media_urls, status, publish_at, trigger_type, trigger_threshold, parent_post_id, source_url, created_at, updated_at)
+                                         VALUES (?, ?, ?, ?, ?, ?, 'draft', ?, ?, ?, ?, ?, (datetime('now')), (datetime('now')))`
                                     ).bind(
                                         user.id,
                                         activeWorkspace.workspace_id,
                                         acc.id,
                                         acc.platform,
                                         slideText,
+                                        slideMediaJson,
                                         accountPublishAt,
                                         triggerType,
                                         parseInt(triggerThreshold) || 100,
@@ -4487,20 +4508,22 @@ CRITICAL TONE RULES:
                                 }
 
                                 // 3. If there are extra property photos from Telegram (photo 2, 3...), append them as extra photo reply slides at the end
-                                if (isProperty && scrapedImages && scrapedImages.length > 1) {
+                                if (scrapedImages && scrapedImages.length > 1) {
                                     for (let pIdx = 1; pIdx < Math.min(scrapedImages.length, 10); pIdx++) {
                                         const extraImg = scrapedImages[pIdx];
                                         if (isValidImageUrl(extraImg)) {
                                             const extraSlideContent = `📸 Gambar tambahan listing:\n\n📷 ${extraImg}`;
+                                            const extraMediaJson = JSON.stringify([extraImg]);
                                             await env.DB.prepare(
-                                                `INSERT INTO scheduled_posts (user_id, workspace_id, account_id, platform, content, status, publish_at, trigger_type, trigger_threshold, parent_post_id, source_url, created_at, updated_at)
-                                                 VALUES (?, ?, ?, ?, ?, 'draft', ?, ?, ?, ?, ?, (datetime('now')), (datetime('now')))`
+                                                `INSERT INTO scheduled_posts (user_id, workspace_id, account_id, platform, content, media_urls, status, publish_at, trigger_type, trigger_threshold, parent_post_id, source_url, created_at, updated_at)
+                                                 VALUES (?, ?, ?, ?, ?, ?, 'draft', ?, ?, ?, ?, ?, (datetime('now')), (datetime('now')))`
                                             ).bind(
                                                 user.id,
                                                 activeWorkspace.workspace_id,
                                                 acc.id,
                                                 acc.platform,
                                                 extraSlideContent,
+                                                extraMediaJson,
                                                 accountPublishAt,
                                                 triggerType,
                                                 parseInt(triggerThreshold) || 100,
@@ -4518,8 +4541,8 @@ CRITICAL TONE RULES:
                                     for (let i = 0; i < tempCards.length; i++) {
                                         let cardImage = null;
                                         // Place image strictly on the last slide
-                                        if (isProperty && i === tempCards.length - 1 && scrapedImages && scrapedImages.length > 0) {
-                                            cardImage = scrapedImages[0];
+                                        if (i === tempCards.length - 1 && (scrapedImages?.length > 0 || primaryImageUrl)) {
+                                            cardImage = (scrapedImages && scrapedImages.length > 0) ? scrapedImages[0] : primaryImageUrl;
                                         }
                                         
                                         const cardImageSuffix = (cardImage && isValidImageUrl(cardImage)) ? `\n\n📷 ${cardImage}` : "";
@@ -4529,8 +4552,8 @@ CRITICAL TONE RULES:
                                         }
                                     }
                                     
-                                    // Append extra property photos at the very end of thread
-                                    if (isProperty && scrapedImages && scrapedImages.length > 1) {
+                                    // Append extra photos at the very end of thread
+                                    if (scrapedImages && scrapedImages.length > 1) {
                                         for (let pIdx = 1; pIdx < Math.min(scrapedImages.length, 10); pIdx++) {
                                             const extraImg = scrapedImages[pIdx];
                                             if (isValidImageUrl(extraImg)) {
@@ -4541,47 +4564,50 @@ CRITICAL TONE RULES:
 
                                     fullContent = tempCards.join('\n---thread-separator---\n');
                                 } else {
-                                    const threadImageSuffix = (isProperty && scrapedImage && isValidImageUrl(scrapedImage)) ? `\n\n📷 ${scrapedImage}` : "";
+                                    const threadImageSuffix = primaryImageUrl ? `\n\n📷 ${primaryImageUrl}` : "";
                                     fullContent = `${processedCaption}\n\n${ctaText}\n\n${hashtagsText}${threadImageSuffix}`.trim();
                                 }
 
                                 await env.DB.prepare(
-                                    `INSERT INTO scheduled_posts (user_id, workspace_id, account_id, platform, content, status, publish_at, source_url, created_at, updated_at)
-                                     VALUES (?, ?, ?, ?, ?, 'scheduled', ?, ?, (datetime('now')), (datetime('now')))`
+                                    `INSERT INTO scheduled_posts (user_id, workspace_id, account_id, platform, content, media_urls, status, publish_at, source_url, created_at, updated_at)
+                                     VALUES (?, ?, ?, ?, ?, ?, 'scheduled', ?, ?, (datetime('now')), (datetime('now')))`
                                 ).bind(
                                     user.id,
                                     activeWorkspace.workspace_id,
                                     acc.id,
                                     acc.platform,
                                     fullContent,
+                                    mediaUrlsJson,
                                     accountPublishAt,
                                     url
                                 ).run();
                             } else if (isInstagram) {
                                 // Instagram gets igContent (with media image required by Instagram API)
                                 await env.DB.prepare(
-                                    `INSERT INTO scheduled_posts (user_id, workspace_id, account_id, platform, content, status, publish_at, source_url, created_at, updated_at)
-                                     VALUES (?, ?, ?, ?, ?, 'scheduled', ?, ?, (datetime('now')), (datetime('now')))`
+                                    `INSERT INTO scheduled_posts (user_id, workspace_id, account_id, platform, content, media_urls, status, publish_at, source_url, created_at, updated_at)
+                                     VALUES (?, ?, ?, ?, ?, ?, 'scheduled', ?, ?, (datetime('now')), (datetime('now')))`
                                 ).bind(
                                     user.id,
                                     activeWorkspace.workspace_id,
                                     acc.id,
                                     acc.platform,
                                     igContent,
+                                    mediaUrlsJson,
                                     accountPublishAt,
                                     url
                                 ).run();
                             } else {
                                 // Facebook and other channels get clean text (no raw image URL)
                                 await env.DB.prepare(
-                                    `INSERT INTO scheduled_posts (user_id, workspace_id, account_id, platform, content, status, publish_at, source_url, created_at, updated_at)
-                                     VALUES (?, ?, ?, ?, ?, 'scheduled', ?, ?, (datetime('now')), (datetime('now')))`
+                                    `INSERT INTO scheduled_posts (user_id, workspace_id, account_id, platform, content, media_urls, status, publish_at, source_url, created_at, updated_at)
+                                     VALUES (?, ?, ?, ?, ?, ?, 'scheduled', ?, ?, (datetime('now')), (datetime('now')))`
                                 ).bind(
                                     user.id,
                                     activeWorkspace.workspace_id,
                                     acc.id,
                                     acc.platform,
                                     fbContent,
+                                    mediaUrlsJson,
                                     accountPublishAt,
                                     url
                                 ).run();
